@@ -1,0 +1,196 @@
+mzc01-mjthkikm@MZC01-MJTHKIKM Project % npx create
+-next-app@latest salesforce-automation --typescrip
+t --tailwind --app --no-src-dir --import-alias "@/
+*" --use-npm
+Need to install the following packages:
+create-next-app@16.1.6
+Ok to proceed? (y) y
+✔ Which linter would you like to use? › ESLint
+✔ Would you like to use React Compiler? … No / Yes
+Creating a new Next.js app in /Users/mzc01-mjthkikm/Project/salesforce-automation.
+
+Using npm.
+
+Initializing project with template: app-tw 
+
+
+Installing dependencies:
+- next
+- react
+- react-dom
+
+Installing devDependencies:
+- @tailwindcss/postcss
+- @types/node
+- @types/react
+- @types/react-dom
+- babel-plugin-react-compiler
+- eslint
+- eslint-config-next
+- tailwindcss
+- typescript
+
+
+added 361 packages, and audited 362 packages in 25s
+
+144 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+
+Generating route types...
+✓ Types generated successfully
+
+Initialized a git repository.
+
+Success! Created salesforce-automation at /Users/mzc01-mjthkikm/Project/salesforce-automation
+
+mzc01-mjthkikm@MZC01-MJTHKIKM Project % cd "/Users
+/mzc01-mjthkikm/Project/salesforce-automation" && 
+npm install @google/generative-ai jsforce node-cro
+n
+
+added 86 packages, and audited 448 packages in 5s
+
+163 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+mzc01-mjthkikm@MZC01-MJTHKIKM salesforce-automation % mkdir -p lib/salesforce lib/google lib/stt lib
+/ai lib/workflows lib/priority lib/monitoring comp
+onents
+mzc01-mjthkikm@MZC01-MJTHKIKM salesforce-automation % npm install googleapis
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+added 46 packages, and audited 494 packages in 4s
+
+180 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+mzc01-mjthkikm@MZC01-MJTHKIKM salesforce-automation % npm install @google-cloud/speech
+
+added 50 packages, and audited 544 packages in 5s
+
+183 packages are looking for funding
+  run `npm fund` for details
+
+7 low severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+mzc01-mjthkikm@MZC01-MJTHKIKM salesforce-automation % which vercel
+vercel not found
+mzc01-mjthkikm@MZC01-MJTHKIKM salesforce-automation % git status
+On branch main
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+        modified:   .gitignore
+        modified:   README.md
+        modified:   app/globals.css
+        modified:   app/layout.tsx
+        modified:   app/page.tsx
+        modified:   next.config.ts
+        modified:   package-lock.json
+        modified:   package.json
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+        DEPLOYMENT.md
+        app/api/
+        app/dashboard/
+        app/record/
+        app/test/
+        components/
+        deploy.sh
+        lib/
+        vercel.json
+
+no changes added to commit (use "git add" and/or "git commit -a")
+mzc01-mjthkikm@MZC01-MJTHKIKM salesforce-automation % git add .
+mzc01-mjthkikm@MZC01-MJTHKIKM salesforce-automation % git commit -m "Add AI-based SalesForce au
+tomation with MEDDIC analysis"
+[main bb591db] Add AI-based SalesForce automation with MEDDIC analysis
+ Committer: MZC01-MJTHKIKM <mzc01-mjthkikm@MZC01-MJTHKIKM.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly. Run the
+following command and follow the instructions in your editor to edit
+your configuration file:
+
+    git config --global --edit
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 43 files changed, 7208 insertions(+), 177 deletions(-)
+ create mode 100644 DEPLOYMENT.md
+ create mode 100644 app/api/analyze/audio/route.ts
+ create mode 100644 app/api/call/record/route.ts
+ create mode 100644 app/api/demo/call/route.ts
+ create mode 100644 app/api/demo/meeting/route.ts
+ create mode 100644 app/api/demo/task/route.ts
+ create mode 100644 app/api/meeting/record/route.ts
+ create mode 100644 app/api/task/create/route.ts
+ create mode 100644 app/dashboard/page.tsx
+ create mode 100644 app/record/page.tsx
+ create mode 100644 app/test/page.tsx
+ create mode 100644 components/ActivitySummary.tsx
+ create mode 100644 components/TaskList.tsx
+ create mode 100644 deploy.sh
+ create mode 100644 lib/ai/analyzer.ts
+ create mode 100644 lib/ai/gemini.ts
+ create mode 100644 lib/ai/taskSuggestion.ts
+ create mode 100644 lib/analysis/meddicAnalyzer.ts
+ create mode 100644 lib/demo/demoData.ts
+ create mode 100644 lib/google/calendar.ts
+ create mode 100644 lib/google/meetingDetector.ts
+ create mode 100644 lib/monitoring/errorTracker.ts
+ create mode 100644 lib/monitoring/logger.ts
+ create mode 100644 lib/monitoring/metrics.ts
+ create mode 100644 lib/priority/calculator.ts
+ create mode 100644 lib/salesforce/auth.ts
+ create mode 100644 lib/salesforce/callLog.ts
+ create mode 100644 lib/salesforce/meetingLog.ts
+ create mode 100644 lib/salesforce/task.ts
+ create mode 100644 lib/stt/converter.ts
+ create mode 100644 lib/stt/fileHandler.ts
+ create mode 100644 lib/workflows/callRecording.ts
+ create mode 100644 lib/workflows/meetingRecording.ts
+ create mode 100644 lib/workflows/taskCreation.ts
+ create mode 100644 vercel.json
+mzc01-mjthkikm@MZC01-MJTHKIKM salesforce-automation % git remote -v
+mzc01-mjthkikm@MZC01-MJTHKIKM salesforce-automation % cd "/Users/mzc01-mjthkikm/Project" && npm
+ install -g vercel
+npm error code EACCES
+npm error syscall mkdir
+npm error path /usr/local/lib/node_modules/vercel
+npm error errno -13
+npm error Error: EACCES: permission denied, mkdir '/usr/local/lib/node_modules/vercel'
+npm error     at async mkdir (node:internal/fs/promises:856:10)
+npm error     at async /usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/reify.js:572:20
+npm error     at async Promise.allSettled (index 0)
+npm error     at async #reifyPackages (/usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/reify.js:309:11)
+npm error     at async Arborist.reify (/usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/reify.js:121:5)
+npm error     at async Install.exec (/usr/local/lib/node_modules/npm/lib/commands/install.js:151:5)
+npm error     at async Npm.exec (/usr/local/lib/node_modules/npm/lib/npm.js:208:9)
+npm error     at async module.exports (/usr/local/lib/node_modules/npm/lib/cli/entry.js:67:5) {
+npm error   errno: -13,
+npm error   code: 'EACCES',
+npm error   syscall: 'mkdir',
+npm error   path: '/usr/local/lib/node_modules/vercel'
+npm error }
+npm error
+npm error The operation was rejected by your operating system.
+npm error It is likely you do not have the permissions to access this file as the current user
+npm error
+npm error If you believe this might be a permissions issue, please double-check the
+npm error permissions of the file and its containing directories, or try running
+npm error the command again as root/Administrator.
+npm error A complete log of this run can be found in: /Users/mzc01-mjthkikm/.npm/_logs/2026-03-13T01_53_55_874Z-debug-0.log
+mzc01-mjthkikm@MZC01-MJTHKIKM Project % sudo npm install -g vercel
+Password:
