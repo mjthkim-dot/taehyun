@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI 영어 회화 파트너</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3352;
+      --primary: #6366f1;
+      --primary-light: #818cf8;
+      --green: #10b981;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --text: #e2e8f0;
+      --text-muted: #64748b;
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* ── Header ── */
+    header {
+      padding: 14px 20px; background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0;
+    }
+    .logo { font-size: 1rem; font-weight: 800; color: var(--primary-light); white-space: nowrap; }
+    .logo span { color: var(--text-muted); font-weight: 400; font-size: 0.8rem; margin-left: 6px; }
+    .header-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+    select, .icon-btn {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; cursor: pointer; outline: none;
+      transition: border-color 0.2s;
+    }
+    select:hover, .icon-btn:hover { border-color: var(--primary); }
+    .icon-btn { padding: 6px 12px; font-size: 0.82rem; font-weight: 600; }
+    .icon-btn.danger:hover { border-color: var(--red); color: var(--red); }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--red);
+      transition: background 0.3s; flex-shrink: 0;
+    }
+    .status-dot.ok { background: var(--green); }
+
+    /* ── Topics ── */
+    .topics-bar {
+      padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; gap: 6px; overflow-x: auto; flex-shrink: 0; scrollbar-width: none;
+    }
+    .topics-bar::-webkit-scrollbar { display: none; }
+    .topic-chip {
+      flex-shrink: 0; padding: 5px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+      background: var(--surface2); border: 1.5px solid var(--border); color: var(--text-muted);
+      cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    .topic-chip:hover { border-color: var(--primary); color: var(--primary-light); }
+    .topic-chip.active { background: var(--primary); border-color: var(--primary); color: white; }
+
+    /* ── Chat ── */
+    #chat { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; scroll-behavior: smooth; }
+    #chat::-webkit-scrollbar { width: 4px; }
+    #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .msg { max-width: 82%; display: flex; flex-direction: column; gap: 4px; }
+    .msg.user { align-self: flex-end; align-items: flex-end; }
+    .msg.ai { align-self: flex-start; align-items: flex-start; }
+    .msg.system { align-self: center; max-width: 100%; align-items: center; }
+
+    .bubble {
+      padding: 12px 16px; border-radius: var(--radius); line-height: 1.65; font-size: 0.92rem;
+      word-break: break-word;
+    }
+    .msg.user .bubble { background: var(--primary); color: white; border-bottom-right-radius: 4px; }
+    .msg.ai .bubble { background: var(--surface2); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+    .msg.system .bubble { background: transparent; color: var(--text-muted); font-size: 0.78rem; text-align: center; }
+
+    .correction-box {
+      background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35);
+      border-left: 3px solid var(--yellow); border-radius: 0 10px 10px 0;
+      padding: 10px 14px; font-size: 0.84rem; line-height: 1.6; color: #fcd34d;
+      margin-top: 6px; width: 100%;
+    }
+    .correction-box .label { font-size: 0.72rem; font-weight: 700; opacity: 0.7; text-transform: uppercase; margin-bottom: 4px; }
+    .wrong { text-decoration: line-through; opacity: 0.6; color: var(--red); }
+    .right { color: #86efac; font-weight: 700; }
+
+    .explain-box {
+      background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3);
+      border-left: 3px solid var(--green); border-radius: 0 10px 10px 0;
+      padding: 10px 14px; font-size: 0.84rem; line-height: 1.6; color: #6ee7b7;
+      margin-top: 6px; width: 100%;
+    }
+    .explain-box .label { font-size: 0.72rem; font-weight: 700; opacity: 0.7; text-transform: uppercase; margin-bottom: 4px; }
+
+    .msg-meta { font-size: 0.7rem; color: var(--text-muted); padding: 0 4px; }
+
+    /* typing indicator */
+    .typing .bubble { display: flex; gap: 5px; align-items: center; padding: 14px 18px; }
+    .typing-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); animation: bounce 1.2s infinite; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+
+    /* ── Input area ── */
+    .input-area {
+      padding: 14px 16px 20px; background: var(--surface);
+      border-top: 1px solid var(--border); flex-shrink: 0;
+    }
+    .interim { min-height: 22px; font-size: 0.82rem; color: var(--text-muted); text-align: center; margin-bottom: 10px; font-style: italic; transition: opacity 0.2s; }
+
+    .controls { display: flex; gap: 10px; align-items: center; }
+    .text-input {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      border-radius: 12px; padding: 11px 16px; font-size: 0.9rem; outline: none;
+      transition: border-color 0.2s; font-family: inherit;
+    }
+    .text-input:focus { border-color: var(--primary); }
+    .text-input::placeholder { color: var(--text-muted); }
+
+    .mic-btn {
+      width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer;
+      background: var(--surface2); border: 2px solid var(--border);
+      font-size: 1.3rem; display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s; flex-shrink: 0; position: relative;
+    }
+    .mic-btn:hover { border-color: var(--primary); }
+    .mic-btn.listening {
+      background: var(--primary); border-color: var(--primary);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.6); }
+      50% { box-shadow: 0 0 0 12px rgba(99,102,241,0); }
+    }
+    .mic-btn.processing { background: var(--yellow); border-color: var(--yellow); animation: none; }
+    .mic-btn.speaking { background: var(--green); border-color: var(--green); animation: none; }
+
+    .send-btn {
+      width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer;
+      background: var(--primary); color: white; font-size: 1.1rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s; flex-shrink: 0;
+    }
+    .send-btn:hover { background: var(--primary-light); transform: scale(1.05); }
+    .send-btn:disabled { background: var(--border); cursor: default; transform: none; }
+
+    .mute-btn {
+      width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--surface2); color: var(--text-muted); font-size: 1rem;
+      display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
+      transition: all 0.2s;
+    }
+    .mute-btn:hover { border-color: var(--primary); }
+    .mute-btn.muted { color: var(--red); border-color: var(--red); }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      header { padding: 10px 14px; }
+      .logo span { display: none; }
+      .msg { max-width: 92%; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">🎙️ AI 영어 회화<span>Powered by Gemma</span></div>
+  <div class="header-controls">
+    <div class="status-dot" id="status-dot" title="Ollama 연결 상태"></div>
+    <select id="model-sel" title="Gemma 모델 선택">
+      <option value="gemma4">gemma4</option>
+      <option value="gemma3">gemma3</option>
+      <option value="gemma2">gemma2</option>
+      <option value="gemma">gemma</option>
+    </select>
+    <select id="lang-sel" title="인식 언어">
+      <option value="ko-KR">🇰🇷 한국어로 말하기</option>
+      <option value="en-US">🇺🇸 영어로 말하기</option>
+    </select>
+    <button class="icon-btn danger" onclick="clearChat()">🗑 초기화</button>
+  </div>
+</header>
+
+<!-- Topics -->
+<div class="topics-bar" id="topics-bar"></div>
+
+<!-- Chat -->
+<div id="chat"></div>
+
+<!-- Input -->
+<div class="input-area">
+  <div class="interim" id="interim-text"></div>
+  <div class="controls">
+    <button class="mute-btn" id="mute-btn" onclick="toggleMute()" title="음성 출력 켜기/끄기">🔊</button>
+    <input class="text-input" id="text-input" placeholder="텍스트로 입력하거나 🎙️ 버튼을 눌러 말하세요" maxlength="500"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendText();}"/>
+    <button class="mic-btn" id="mic-btn" onclick="toggleMic()" title="음성 인식">🎙️</button>
+    <button class="send-btn" id="send-btn" onclick="sendText()" title="전송">➤</button>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   CONFIG & STATE
+═══════════════════════════════════════════════════════ */
+const TOPICS = [
+  { id:'daily',   label:'☕ 일상 대화',     en:'daily life and routines' },
+  { id:'work',    label:'💼 직장/업무',      en:'work and professional situations' },
+  { id:'travel',  label:'✈️ 여행',           en:'travel and tourism' },
+  { id:'food',    label:'🍜 음식/카페',      en:'food, restaurants, and cafes' },
+  { id:'tech',    label:'💻 기술/IT',        en:'technology and IT' },
+  { id:'health',  label:'🏃 건강/운동',      en:'health and exercise' },
+  { id:'hobby',   label:'🎮 취미/여가',      en:'hobbies and leisure' },
+  { id:'intro',   label:'👋 자기소개',       en:'self-introduction and personal background' },
+  { id:'news',    label:'📰 시사/뉴스',      en:'current events and news' },
+  { id:'free',    label:'🗣 자유 대화',      en:'any topic chosen freely' },
+];
+
+let currentTopic = TOPICS[0];
+let history = [];          // conversation history for Ollama
+let isMuted = false;
+let isListening = false;
+let isProcessing = false;
+let recognition = null;
+let currentUtterance = null;
+
+/* ═══════════════════════════════════════════════════════
+   SYSTEM PROMPT
+═══════════════════════════════════════════════════════ */
+function buildSystemPrompt(topic) {
+  return `당신은 원어민 수준의 영어-한국어 바이링구얼 AI 회화 파트너입니다.
+
+역할:
+- 선택된 주제 "${topic.label} (${topic.en})"로 자연스러운 영어 회화를 이끌어가세요.
+- 사용자의 문법/어휘 오류를 발견하면 부드럽게 교정하세요.
+- 사용자가 이해하기 어려운 표현이나 "한국어로", "설명해줘"라고 하면 한국어로 설명하세요.
+
+응답 형식 (반드시 이 형식을 사용하세요):
+
+1. 영어 대화를 먼저 2~3 문장으로 자연스럽게 이어가세요.
+2. 교정이 필요하면 이렇게 표시하세요:
+   [CORRECT: "잘못된 표현" → "올바른 표현" | 이유(한국어로 간단히)]
+3. 한국어 설명이 필요하면 이렇게 표시하세요:
+   [EXPLAIN: 한국어로 자세한 설명]
+
+규칙:
+- 교정은 가장 중요한 것 1~2개만
+- 격려적이고 친근한 톤 유지
+- 사용자가 잘 말하면 칭찬도 해주세요
+- 대화를 자연스럽게 이어갈 수 있는 질문 1개를 마지막에 포함하세요`;
+}
+
+/* ═══════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  buildTopics();
+  checkOllama();
+  initSpeechRecognition();
+  addSystemMsg(`"${currentTopic.label}" 주제로 대화를 시작합니다. 🎙️ 버튼을 누르거나 텍스트로 입력하세요.`);
+  setInterval(checkOllama, 30000);
+});
+
+function buildTopics() {
+  const bar = document.getElementById('topics-bar');
+  TOPICS.forEach(t => {
+    const chip = document.createElement('button');
+    chip.className = 'topic-chip' + (t.id === currentTopic.id ? ' active' : '');
+    chip.textContent = t.label;
+    chip.onclick = () => selectTopic(t, chip);
+    bar.appendChild(chip);
+  });
+}
+
+function selectTopic(topic, chip) {
+  document.querySelectorAll('.topic-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  currentTopic = topic;
+  history = [];
+  addSystemMsg(`주제 변경: "${topic.label}" — 새 대화를 시작합니다.`);
+}
+
+async function checkOllama() {
+  const dot = document.getElementById('status-dot');
+  try {
+    const r = await fetch('/health');
+    const data = await r.json();
+    if (data.status === 'ok') {
+      dot.classList.add('ok');
+      dot.title = 'Ollama 연결됨: ' + (data.models.join(', ') || '모델 없음');
+    } else {
+      dot.classList.remove('ok');
+      dot.title = 'Ollama 오류: ' + data.message;
+    }
+  } catch {
+    dot.classList.remove('ok');
+    dot.title = 'Ollama 미연결';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   SPEECH RECOGNITION
+═══════════════════════════════════════════════════════ */
+function initSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    document.getElementById('mic-btn').disabled = true;
+    document.getElementById('mic-btn').title = '이 브라우저는 음성 인식을 지원하지 않습니다. Chrome을 사용하세요.';
+    return;
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+
+  recognition.onresult = (e) => {
+    let interim = '', final = '';
+    for (let r of e.results) {
+      if (r.isFinal) final += r[0].transcript;
+      else interim += r[0].transcript;
+    }
+    document.getElementById('interim-text').textContent = interim || final;
+    if (final) {
+      document.getElementById('text-input').value = final;
+    }
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    updateMicBtn();
+    const text = document.getElementById('text-input').value.trim();
+    if (text) {
+      document.getElementById('interim-text').textContent = '';
+      sendMessage(text);
+      document.getElementById('text-input').value = '';
+    }
+  };
+
+  recognition.onerror = (e) => {
+    isListening = false;
+    updateMicBtn();
+    if (e.error !== 'no-speech') {
+      addSystemMsg(`🎙️ 음성 인식 오류: ${e.error}`);
+    }
+  };
+
+  document.getElementById('lang-sel').onchange = () => {
+    if (isListening) stopListening();
+  };
+}
+
+function toggleMic() {
+  if (isProcessing) return;
+  if (isListening) stopListening();
+  else startListening();
+}
+
+function startListening() {
+  if (!recognition) return;
+  stopSpeaking();
+  recognition.lang = document.getElementById('lang-sel').value;
+  recognition.start();
+  isListening = true;
+  document.getElementById('interim-text').textContent = '🎙️ 듣는 중...';
+  updateMicBtn();
+}
+
+function stopListening() {
+  if (recognition && isListening) recognition.stop();
+}
+
+function updateMicBtn() {
+  const btn = document.getElementById('mic-btn');
+  btn.classList.toggle('listening', isListening);
+  btn.classList.toggle('processing', isProcessing);
+  document.getElementById('send-btn').disabled = isProcessing;
+}
+
+/* ═══════════════════════════════════════════════════════
+   SEND & API
+═══════════════════════════════════════════════════════ */
+function sendText() {
+  const input = document.getElementById('text-input');
+  const text = input.value.trim();
+  if (!text || isProcessing) return;
+  input.value = '';
+  sendMessage(text);
+}
+
+async function sendMessage(text) {
+  if (!text || isProcessing) return;
+
+  stopSpeaking();
+  addUserMsg(text);
+
+  const model = document.getElementById('model-sel').value;
+  history.push({ role: 'user', content: text });
+
+  const typingEl = addTypingIndicator();
+  isProcessing = true;
+  updateMicBtn();
+
+  const messages = [
+    { role: 'system', content: buildSystemPrompt(currentTopic) },
+    ...history
+  ];
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages, stream: true })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+
+    typingEl.remove();
+    let fullText = '';
+    const { el: aiEl, textEl } = addAiMsg();
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      const lines = decoder.decode(value).split('\n').filter(Boolean);
+      for (const line of lines) {
+        try {
+          const obj = JSON.parse(line);
+          if (obj.message?.content) {
+            fullText += obj.message.content;
+            textEl.innerHTML = renderAiText(fullText);
+          }
+          if (obj.done) break;
+        } catch {}
+      }
+    }
+
+    history.push({ role: 'assistant', content: fullText });
+    scrollBottom();
+
+    if (!isMuted && fullText) {
+      speakText(fullText);
+    }
+
+  } catch (err) {
+    typingEl?.remove?.();
+    addSystemMsg(`❌ 오류: ${err.message}\n\nOllama가 실행 중인지 확인하고, 모델(${model})이 설치되어 있는지 확인하세요.\n→ ollama pull ${model}`);
+  } finally {
+    isProcessing = false;
+    updateMicBtn();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESPONSE PARSER — English + [CORRECT:...] + [EXPLAIN:...]
+═══════════════════════════════════════════════════════ */
+function renderAiText(raw) {
+  // Extract blocks
+  const correctionRe = /\[CORRECT:\s*"([^"]+)"\s*→\s*"([^"]+)"\s*\|([^\]]+)\]/g;
+  const explainRe    = /\[EXPLAIN:\s*([^\]]+)\]/g;
+
+  // Build plain text (without markers)
+  let plain = raw
+    .replace(correctionRe, '')
+    .replace(explainRe, '')
+    .trim();
+
+  let html = escHtml(plain).replace(/\n/g, '<br>');
+
+  // Append correction boxes
+  let m;
+  correctionRe.lastIndex = 0;
+  while ((m = correctionRe.exec(raw)) !== null) {
+    html += `<div class="correction-box">
+      <div class="label">📝 문법 교정</div>
+      <span class="wrong">${escHtml(m[1])}</span> → <span class="right">${escHtml(m[2])}</span><br>
+      <span style="opacity:0.8;font-size:0.8rem">${escHtml(m[3].trim())}</span>
+    </div>`;
+  }
+
+  // Append explanation boxes
+  explainRe.lastIndex = 0;
+  while ((m = explainRe.exec(raw)) !== null) {
+    html += `<div class="explain-box">
+      <div class="label">💡 한국어 설명</div>
+      ${escHtml(m[1].trim()).replace(/\n/g, '<br>')}
+    </div>`;
+  }
+
+  return html;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+/* ═══════════════════════════════════════════════════════
+   TTS — English voice for English, Korean voice for Korean
+═══════════════════════════════════════════════════════ */
+function speakText(raw) {
+  if (isMuted || !window.speechSynthesis) return;
+  stopSpeaking();
+
+  // Split into segments: Korean explanation vs English/rest
+  const segments = [];
+  let remaining = raw;
+
+  // Extract [EXPLAIN:...] for Korean TTS
+  const explainRe = /\[EXPLAIN:\s*([^\]]+)\]/g;
+  let explainMatch;
+  let lastIdx = 0;
+  while ((explainMatch = explainRe.exec(raw)) !== null) {
+    if (explainMatch.index > lastIdx) {
+      segments.push({ text: raw.slice(lastIdx, explainMatch.index).replace(/\[CORRECT:[^\]]+\]/g,'').trim(), lang: 'en-US' });
+    }
+    segments.push({ text: explainMatch[1].trim(), lang: 'ko-KR' });
+    lastIdx = explainMatch.index + explainMatch[0].length;
+  }
+  if (lastIdx < raw.length) {
+    segments.push({ text: raw.slice(lastIdx).replace(/\[CORRECT:[^\]]+\]/g,'').replace(/\[EXPLAIN:[^\]]+\]/g,'').trim(), lang: 'en-US' });
+  }
+
+  speakQueue(segments, 0);
+}
+
+function speakQueue(segments, idx) {
+  if (idx >= segments.length) {
+    document.getElementById('mic-btn').classList.remove('speaking');
+    return;
+  }
+  const { text, lang } = segments[idx];
+  if (!text) { speakQueue(segments, idx + 1); return; }
+
+  const voices = window.speechSynthesis.getVoices();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = lang;
+  utterance.rate = 0.92;
+
+  const preferred = voices.find(v => v.lang.startsWith(lang.slice(0,2)) && !v.name.includes('Google'));
+  if (preferred) utterance.voice = preferred;
+
+  utterance.onstart = () => document.getElementById('mic-btn').classList.add('speaking');
+  utterance.onend = () => speakQueue(segments, idx + 1);
+  utterance.onerror = () => speakQueue(segments, idx + 1);
+
+  currentUtterance = utterance;
+  window.speechSynthesis.speak(utterance);
+}
+
+function stopSpeaking() {
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  document.getElementById('mic-btn').classList.remove('speaking');
+}
+
+function toggleMute() {
+  isMuted = !isMuted;
+  const btn = document.getElementById('mute-btn');
+  btn.textContent = isMuted ? '🔇' : '🔊';
+  btn.classList.toggle('muted', isMuted);
+  if (isMuted) stopSpeaking();
+}
+
+/* ═══════════════════════════════════════════════════════
+   CHAT DOM HELPERS
+═══════════════════════════════════════════════════════ */
+function addUserMsg(text) {
+  const chat = document.getElementById('chat');
+  const div = document.createElement('div');
+  div.className = 'msg user';
+  div.innerHTML = `<div class="bubble">${escHtml(text)}</div><div class="msg-meta">${timeStr()}</div>`;
+  chat.appendChild(div);
+  scrollBottom();
+}
+
+function addAiMsg() {
+  const chat = document.getElementById('chat');
+  const div = document.createElement('div');
+  div.className = 'msg ai';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  div.appendChild(bubble);
+  div.innerHTML += `<div class="msg-meta">${timeStr()}</div>`;
+  chat.appendChild(div);
+  scrollBottom();
+  return { el: div, textEl: bubble };
+}
+
+function addSystemMsg(text) {
+  const chat = document.getElementById('chat');
+  const div = document.createElement('div');
+  div.className = 'msg system';
+  div.innerHTML = `<div class="bubble">${escHtml(text).replace(/\n/g,'<br>')}</div>`;
+  chat.appendChild(div);
+  scrollBottom();
+}
+
+function addTypingIndicator() {
+  const chat = document.getElementById('chat');
+  const div = document.createElement('div');
+  div.className = 'msg ai typing';
+  div.innerHTML = `<div class="bubble"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+  chat.appendChild(div);
+  scrollBottom();
+  return div;
+}
+
+function scrollBottom() {
+  const chat = document.getElementById('chat');
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function timeStr() {
+  return new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function clearChat() {
+  history = [];
+  document.getElementById('chat').innerHTML = '';
+  addSystemMsg(`대화가 초기화되었습니다. 주제: "${currentTopic.label}"`);
+}
+
+// Load voices early (some browsers need this)
+if (window.speechSynthesis) {
+  window.speechSynthesis.getVoices();
+  window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+}
+</script>
+</body>
+</html>
