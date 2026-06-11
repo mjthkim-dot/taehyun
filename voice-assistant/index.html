@@ -61,6 +61,8 @@
       cursor: pointer; transition: all 0.2s; white-space: nowrap;
     }
     .lesson-chip.active { background: var(--primary); border-color: var(--primary); color: white; }
+    .lesson-chip.preview { border-style: dashed; color: #c4b5fd; }
+    .lesson-chip.preview.active { background: #7c3aed; border-color: #7c3aed; color: white; }
 
     /* ── Main panels ── */
     .panel { flex: 1; overflow-y: auto; display: none; flex-direction: column; }
@@ -368,6 +370,78 @@ const LESSONS = [
     ],
     homework: "looking forward to 11~20번 + 카페 대화문 연습 + 녹음",
     scenario: { title: "☕ 카페 롤플레이", desc: "AI가 바리스타가 됩니다. 영어로 주문하고, 주문 후엔 친구처럼 수다를 떨어요." },
+    roleplay: "당신은 카페 바리스타 역할로 대화를 시작하세요. 사용자가 주문을 완료하면 친구 역할로 바꿔 주말 계획을 묻는 수다를 이어가세요.",
+  },
+
+  /* ── 🔮 선행학습 (다음 PREPLY 수업 대비 — 표준 A2 커리큘럼 진도순) ── */
+  {
+    id: 101, preview: true, title: "현재 진행형 & 미래 계획", date: "선행",
+    sections: [
+      { title: "현재 진행형 — 지금 하고 있는 일", points: [
+        { en: "am / is / are + 동사ing", kr: "예: I am studying English now." },
+        { en: "진행형 의문문: Are you ...? / What are you doing?", kr: "지금 뭐 해?" },
+        { en: "현재형과 차이", kr: "I study English (평소에) vs I am studying English (지금)" },
+      ]},
+      { title: "미래 계획 — be going to / will", points: [
+        { en: "be going to + 동사원형 = ~할 예정이다 (계획)", kr: "I am going to meet my friend tomorrow." },
+        { en: "will + 동사원형 = ~할 것이다 (즉석 결정/예측)", kr: "I will call you later. / It will rain tomorrow." },
+        { en: "going to는 미리 정한 계획, will은 지금 정한 것", kr: "" },
+      ]},
+    ],
+    examples: [
+      { en: "I am studying English now.", kr: "나는 지금 영어를 공부하고 있다." },
+      { en: "What are you doing?", kr: "지금 뭐 해?" },
+      { en: "I am going to visit my parents this weekend.", kr: "이번 주말에 부모님을 뵐 예정이다." },
+      { en: "I will call you later.", kr: "나중에 전화할게." },
+    ],
+    homework: "be going to로 이번 주 계획 5문장 + 진행형으로 지금 하는 일 5문장 만들기",
+    scenario: { title: "주말 계획 말하기", desc: "지금 하는 일과 앞으로의 계획을 진행형/be going to로 말해보세요." },
+  },
+  {
+    id: 102, preview: true, title: "빈도 부사 & How often", date: "선행",
+    sections: [
+      { title: "빈도 부사 — 얼마나 자주", points: [
+        { en: "always(항상) > usually(보통) > often(자주) > sometimes(가끔) > never(절대)", kr: "" },
+        { en: "위치: be동사 뒤, 일반동사 앞", kr: "I am always busy. / I usually wake up at 7." },
+        { en: "never는 자체가 부정 — don't와 함께 쓰지 않음", kr: "I never drink coffee ✓ / I don't never ❌" },
+      ]},
+      { title: "빈도 묻고 답하기", points: [
+        { en: "How often do you + 동사?", kr: "얼마나 자주 ~하세요?" },
+        { en: "once / twice / three times + a day/week/month", kr: "하루에 한 번 / 일주일에 두 번 / 한 달에 세 번" },
+      ]},
+    ],
+    examples: [
+      { en: "I usually wake up at 7.", kr: "나는 보통 7시에 일어난다." },
+      { en: "I never drink coffee at night.", kr: "나는 밤에 절대 커피를 마시지 않는다." },
+      { en: "How often do you exercise?", kr: "얼마나 자주 운동하세요?" },
+      { en: "I exercise three times a week.", kr: "나는 일주일에 세 번 운동한다." },
+    ],
+    homework: "빈도 부사 5개를 각각 사용한 내 루틴 문장 5개 만들기",
+    scenario: { title: "루틴 인터뷰", desc: "AI가 생활 습관의 빈도를 물어봅니다. 빈도 부사로 답하세요." },
+  },
+  {
+    id: 103, preview: true, title: "식당 회화 — 주문부터 계산까지", date: "선행",
+    sections: [
+      { title: "입장 & 주문", points: [
+        { en: "A table for two, please.", kr: "두 명 자리 부탁합니다" },
+        { en: "I'd like the pasta, please.", kr: "파스타로 할게요 (I'd like = I would like, 정중한 주문)" },
+        { en: "What do you recommend?", kr: "추천 메뉴가 뭐예요?" },
+      ]},
+      { title: "요청 & 계산", points: [
+        { en: "Could I get some water?", kr: "물 좀 주시겠어요? (Could I = Can I보다 정중)" },
+        { en: "Can we get the bill, please?", kr: "계산서 주세요 (미국은 check, 영국은 bill)" },
+        { en: "It was delicious!", kr: "맛있었어요!" },
+      ]},
+    ],
+    examples: [
+      { en: "A table for two, please.", kr: "두 명 자리 부탁합니다." },
+      { en: "I'd like the pasta, please.", kr: "파스타 주세요." },
+      { en: "Could I get some water?", kr: "물 좀 주시겠어요?" },
+      { en: "Can we get the bill, please?", kr: "계산서 주세요." },
+    ],
+    homework: "식당 입장→주문→요청→계산 전체 흐름을 혼자 말해보고 녹음하기",
+    scenario: { title: "🍝 레스토랑 롤플레이", desc: "AI가 웨이터가 됩니다. 입장부터 계산까지 영어로 해결해 보세요." },
+    roleplay: "당신은 레스토랑 웨이터 역할로 대화를 시작하세요. 인사하고 자리를 안내하고, 주문을 받고, 음식 제공 후 추가 요청을 처리하고, 계산까지 자연스럽게 진행하세요. 사용자가 막히면 웨이터로서 자연스럽게 힌트가 되는 질문을 하세요.",
   },
 ];
 
@@ -400,6 +474,26 @@ const DRILL_ITEMS = [
   { kr: "뜨겁게 주세요", en: "Hot, please", lesson: 4, cat: "카페 표현" },
   { kr: "우유만, 설탕 없이 주세요", en: "Just milk, no sugar, please", lesson: 4, cat: "카페 표현" },
   { kr: "토요일 아침에 늦잠 자는 것이 기대된다", en: "I am looking forward to sleeping in on Saturday morning", lesson: 4, cat: "Look forward to" },
+  /* 🔮 선행학습 드릴 */
+  { kr: "나는 지금 영어를 공부하고 있다", en: "I am studying English now", lesson: 101, cat: "현재 진행형" },
+  { kr: "그녀는 커피를 마시고 있다", en: "She is drinking coffee", lesson: 101, cat: "현재 진행형" },
+  { kr: "너 지금 뭐 해?", en: "What are you doing?", lesson: 101, cat: "진행형 의문문" },
+  { kr: "나는 내일 친구를 만날 예정이다", en: "I am going to meet my friend tomorrow", lesson: 101, cat: "be going to" },
+  { kr: "나는 이번 주말에 부모님을 뵐 예정이다", en: "I am going to visit my parents this weekend", lesson: 101, cat: "be going to" },
+  { kr: "나중에 전화할게", en: "I will call you later", lesson: 101, cat: "will" },
+  { kr: "내일 비가 올 것이다", en: "It will rain tomorrow", lesson: 101, cat: "will" },
+  { kr: "나는 보통 7시에 일어난다", en: "I usually wake up at 7", lesson: 102, cat: "빈도 부사" },
+  { kr: "나는 밤에 절대 커피를 마시지 않는다", en: "I never drink coffee at night", lesson: 102, cat: "빈도 부사" },
+  { kr: "나는 항상 바쁘다", en: "I am always busy", lesson: 102, cat: "빈도 부사" },
+  { kr: "그녀는 가끔 늦잠을 잔다", en: "She sometimes sleeps in", lesson: 102, cat: "빈도 부사" },
+  { kr: "얼마나 자주 운동하세요?", en: "How often do you exercise?", lesson: 102, cat: "How often" },
+  { kr: "나는 일주일에 세 번 운동한다", en: "I exercise three times a week", lesson: 102, cat: "횟수 표현" },
+  { kr: "두 명 자리 부탁합니다", en: "A table for two, please", lesson: 103, cat: "식당 입장" },
+  { kr: "파스타 주세요", en: "I'd like the pasta, please", lesson: 103, cat: "주문" },
+  { kr: "추천 메뉴가 뭐예요?", en: "What do you recommend?", lesson: 103, cat: "추천 묻기" },
+  { kr: "물 좀 주시겠어요?", en: "Could I get some water?", lesson: 103, cat: "요청" },
+  { kr: "계산서 주세요", en: "Can we get the bill, please?", lesson: 103, cat: "계산" },
+  { kr: "맛있었어요!", en: "It was delicious!", lesson: 103, cat: "감상" },
 ];
 
 /* 회화 표현 미션 (Speak 스타일 — 대화 중 사용하면 달성) */
@@ -426,12 +520,30 @@ const MISSIONS = {
     { id: 'l4m3', label: "sleep in 사용하기", re: /sleep(ing)?\s+in\b/i },
     { id: 'l4m4', label: "looking forward to 복습", re: /looking\s+forward\s+to/i },
   ],
+  101: [
+    { id: 'p1m1', label: "현재 진행형 (am/is/are + ~ing)", re: /\b(am|is|are)\s+\w+ing\b/i },
+    { id: 'p1m2', label: "be going to로 계획 말하기", re: /\b(am|is|are)\s+going\s+to\s+\w+/i },
+    { id: 'p1m3', label: "will로 말하기", re: /\bwill\s+\w+/i },
+  ],
+  102: [
+    { id: 'p2m1', label: "빈도 부사 사용 (usually, never...)", re: /\b(always|usually|often|sometimes|never)\b/i },
+    { id: 'p2m2', label: "How often 으로 묻기", re: /how\s+often/i },
+    { id: 'p2m3', label: "횟수 표현 (once/twice/times a week)", re: /\b(once|twice|\w+\s+times)\s+a\s+(day|week|month)\b/i },
+  ],
+  103: [
+    { id: 'p3m1', label: "I'd like ...로 주문하기", re: /i'?d\s+like/i },
+    { id: 'p3m2', label: "Could I get ...? 정중한 요청", re: /could\s+i\s+(get|have)/i },
+    { id: 'p3m3', label: "추천 물어보기", re: /what\s+do\s+you\s+recommend/i },
+    { id: 'p3m4', label: "계산서 요청하기", re: /\b(bill|check)\b/i },
+  ],
 };
 
 /* ═══════════════════════════════════════════════════
    STATE & STORAGE
 ═══════════════════════════════════════════════════ */
-let currentLesson = LESSONS[LESSONS.length - 1];
+let currentLesson = LESSONS.filter(l => !l.preview).slice(-1)[0];
+
+function lessonLabel(l) { return l.preview ? `🔮 선행 ${l.id - 100}` : `${l.id}회차`; }
 let currentMode = 'study';
 let history = [];
 let isListening = false, isProcessing = false;
@@ -469,7 +581,7 @@ document.addEventListener('DOMContentLoaded', () => {
   checkOllama();
   setInterval(checkOllama, 30000);
   renderStreak();
-  addSystemMsg(`${currentLesson.id}회차 "${currentLesson.title}" — ${currentLesson.scenario.title}. 영어로 대화를 시작해 보세요!`);
+  addSystemMsg(`${lessonLabel(currentLesson)} "${currentLesson.title}" — ${currentLesson.scenario.title}. 영어로 대화를 시작해 보세요!`);
 });
 
 function buildLessonBar() {
@@ -477,8 +589,8 @@ function buildLessonBar() {
   bar.innerHTML = '';
   LESSONS.forEach(l => {
     const chip = document.createElement('button');
-    chip.className = 'lesson-chip' + (l.id === currentLesson.id ? ' active' : '');
-    chip.textContent = `${l.id}회차 · ${l.title}`;
+    chip.className = 'lesson-chip' + (l.preview ? ' preview' : '') + (l.id === currentLesson.id ? ' active' : '');
+    chip.textContent = `${lessonLabel(l)} · ${l.title}`;
     chip.onclick = () => selectLesson(l, chip);
     bar.appendChild(chip);
   });
@@ -495,7 +607,7 @@ function selectLesson(lesson, chip) {
   if (currentMode === 'drill') renderDrillIntro();
   if (currentMode === 'progress') renderProgress();
   document.getElementById('chat').innerHTML = '';
-  addSystemMsg(`${lesson.id}회차 "${lesson.title}" — ${lesson.scenario.title}. ${lesson.scenario.desc}`);
+  addSystemMsg(`${lessonLabel(lesson)} "${lesson.title}" — ${lesson.scenario.title}. ${lesson.scenario.desc}${lesson.preview ? '\n🔮 선행학습: 회화를 시작하면 AI 코치가 먼저 핵심 패턴을 가르쳐 줍니다. "시작"이라고 보내보세요!' : ''}`);
 }
 
 function setMode(mode, btn) {
@@ -529,6 +641,14 @@ async function checkOllama() {
 function renderStudy() {
   const l = currentLesson;
   let html = '';
+  if (l.preview) {
+    html += `<div class="study-card" style="border-color:#7c3aed;background:rgba(124,58,237,0.08)">
+      <h3 style="color:#c4b5fd">🔮 선행학습 — 다음 수업 미리 준비하기</h3>
+      <div style="font-size:0.82rem;color:var(--text-muted);line-height:1.65">
+        아직 PREPLY에서 배우지 않은 내용입니다. 표준 A2 커리큘럼에서 지금 진도의 바로 다음 단계예요.<br>
+        미리 익혀두면 실제 수업에서 훨씬 빠르게 흡수됩니다. 회화 탭에서는 AI 코치가 먼저 가르쳐준 뒤 연습을 시작합니다.
+      </div></div>`;
+  }
   l.sections.forEach(sec => {
     html += `<div class="study-card"><h3>${sec.title}</h3>`;
     sec.points.forEach(p => {
@@ -540,11 +660,11 @@ function renderStudy() {
   l.examples.forEach(e => {
     html += `<div class="example-row">
       <div class="txt"><div class="en" style="font-weight:600">${esc(e.en)}</div><div class="kr" style="font-size:0.8rem;color:var(--text-muted)">${esc(e.kr)}</div></div>
-      <button class="speak-mini" onclick="tts('${escJs(e.en)}', 'en-US')">🔊</button>
+      <button class="speak-mini" onclick="tts('${jsAttr(e.en)}', 'en-US')">🔊</button>
     </div>`;
   });
   html += `</div>`;
-  html += `<div class="hw-box">📌 <b>숙제</b><br>${esc(l.homework)}</div>`;
+  html += `<div class="hw-box">📌 <b>${l.preview ? '예습 과제' : '숙제'}</b><br>${esc(l.homework)}</div>`;
   html += `<button class="start-drill-btn" onclick="document.querySelector('[data-mode=drill]').click()">이 레슨으로 말하기 드릴 시작 →</button>`;
   document.getElementById('study-content').innerHTML = html;
 }
@@ -556,7 +676,7 @@ function renderDrillIntro() {
   const items = DRILL_ITEMS.filter(d => d.lesson === currentLesson.id);
   document.getElementById('drill-content').innerHTML = `
     <div class="drill-card">
-      <div class="drill-label">${currentLesson.id}회차 말하기 드릴</div>
+      <div class="drill-label">${lessonLabel(currentLesson)} 말하기 드릴</div>
       <div class="drill-kr" style="font-size:1.05rem">한국어 문장을 보고<br>영어로 말하거나 입력하세요</div>
       <div style="font-size:0.82rem;color:var(--text-muted);margin:10px 0 18px">${items.length}문항 · 틀린 문장은 자동으로 복습 목록에 저장됩니다</div>
       <button class="btn primary" onclick="startDrill(false)" style="width:100%">시작하기</button>
@@ -641,14 +761,16 @@ function checkDrill() {
   fb.className = 'drill-feedback ' + (correct ? 'correct' : 'wrong');
   fb.innerHTML = correct
     ? `✅ 정답입니다!${sim < 0.95 ? ' (거의 완벽 — 정답 문장을 확인하세요)' : ''}
-       <div class="target">${esc(item.en)} <button class="speak-mini" onclick="tts('${escJs(item.en)}','en-US')">🔊</button></div>`
+       <div class="target">${esc(item.en)} <button class="speak-mini" onclick="tts('${jsAttr(item.en)}','en-US')">🔊</button></div>`
     : `❌ 아쉬워요. 정답:
-       <div class="target">${esc(item.en)} <button class="speak-mini" onclick="tts('${escJs(item.en)}','en-US')">🔊</button></div>
+       <div class="target">${esc(item.en)} <button class="speak-mini" onclick="tts('${jsAttr(item.en)}','en-US')">🔊</button></div>
        내 답: ${esc(answer)}<br><span style="opacity:0.8;font-size:0.8rem">🔁 이 문장은 복습 목록에 추가되었습니다. 듣고 3번 따라 말해보세요.</span>`;
   tts(item.en, 'en-US');
   input.disabled = true;
-  document.getElementById('drill-check-btn').textContent = '다음 →';
-  document.getElementById('drill-check-btn').onclick = nextDrill;
+  const nextBtn = document.getElementById('drill-check-btn');
+  nextBtn.textContent = '다음 →';
+  nextBtn.onclick = nextDrill;
+  nextBtn.focus();  // Enter로 바로 다음 문제 진행
 }
 
 function revealDrill() {
@@ -659,12 +781,14 @@ function revealDrill() {
   markPracticedToday();
   const fb = document.getElementById('drill-feedback');
   fb.className = 'drill-feedback wrong';
-  fb.innerHTML = `정답: <div class="target">${esc(item.en)} <button class="speak-mini" onclick="tts('${escJs(item.en)}','en-US')">🔊</button></div>
+  fb.innerHTML = `정답: <div class="target">${esc(item.en)} <button class="speak-mini" onclick="tts('${jsAttr(item.en)}','en-US')">🔊</button></div>
     <span style="opacity:0.8;font-size:0.8rem">🔁 복습 목록에 추가됨 — 듣고 3번 따라 말해보세요.</span>`;
   tts(item.en, 'en-US');
   document.getElementById('drill-input').disabled = true;
-  document.getElementById('drill-check-btn').textContent = '다음 →';
-  document.getElementById('drill-check-btn').onclick = nextDrill;
+  const nextBtn = document.getElementById('drill-check-btn');
+  nextBtn.textContent = '다음 →';
+  nextBtn.onclick = nextDrill;
+  nextBtn.focus();
 }
 
 function nextDrill() { drillIdx++; renderDrillCard(); }
@@ -731,13 +855,14 @@ function buildSystemPrompt() {
   const l = currentLesson;
   const points = l.sections.flatMap(s => s.points.map(p => `- ${p.en}${p.kr ? ` (${p.kr})` : ''}`)).join('\n');
   const targets = (MISSIONS[l.id] || []).map(m => `- ${m.label}`).join('\n');
-  const roleplay = l.id === 4
-    ? '\n특별 지시: 당신은 카페 바리스타 역할로 대화를 시작하세요. 사용자가 주문을 완료하면 친구 역할로 바꿔 주말 계획을 묻는 수다를 이어가세요.'
+  const roleplay = l.roleplay ? `\n특별 지시: ${l.roleplay}` : '';
+  const previewNote = l.preview
+    ? `\n선행학습 모드: 이 내용은 사용자가 아직 과외에서 배우지 않았습니다. 첫 응답에서 오늘의 핵심 패턴 1~2개를 아주 쉬운 예문과 함께 [EXPLAIN: 한국어 설명]으로 짧게 가르친 후, 바로 쉬운 질문 하나로 연습을 시작하세요. 사용자가 어려워하면 더 쉬운 예문으로 다시 설명하고, 잘 따라오면 난이도를 조금씩 올리세요.`
     : '';
   return `당신은 PREPLY 영어 과외 수업을 보조하는 원어민 수준의 영어-한국어 바이링구얼 AI 스피킹 코치입니다.
 
-오늘 수업 내용 (${l.id}회차: ${l.title}):
-${points}
+오늘 수업 내용 (${lessonLabel(l)}: ${l.title}):
+${points}${previewNote}
 
 대화 시나리오: ${l.scenario.title} — ${l.scenario.desc}${roleplay}
 
@@ -921,7 +1046,7 @@ function renderProgress() {
     const lessonMissions = MISSIONS[l.id] || [];
     const done = lessonMissions.filter(m => missionsDone[m.id]);
     html += `<div class="lesson-progress-row">
-      <div class="top"><span>${l.id}회차 · ${esc(l.title)}</span><span class="pct">${s.attempts ? pct + '%' : '미시작'}</span></div>
+      <div class="top"><span>${lessonLabel(l)} · ${esc(l.title)}</span><span class="pct">${s.attempts ? pct + '%' : '미시작'}</span></div>
       <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
       <div class="mission-history">🎯 미션 ${done.length}/${lessonMissions.length} · 드릴 ${s.correct}/${s.attempts}</div>
     </div>`;
@@ -1083,6 +1208,8 @@ function esc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 function escJs(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+/* onclick 속성 안의 JS 문자열용: JS 이스케이프 후 HTML 엔티티 처리 (따옴표로 속성이 깨지지 않게) */
+function jsAttr(s) { return esc(escJs(s)); }
 function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {

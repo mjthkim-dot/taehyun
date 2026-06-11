@@ -96,7 +96,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             )
             self.send_response(resp.status_code)
             self.send_header("Content-Type", "application/x-ndjson")
-            self.send_header("Transfer-Encoding", "chunked")
             self._cors()
             self.end_headers()
 
@@ -157,7 +156,8 @@ if __name__ == "__main__":
 
     webbrowser.open(f"http://localhost:{PORT}")
 
-    server = http.server.HTTPServer((HOST, PORT), Handler)
+    # ThreadingHTTPServer: 스트리밍 응답 중에도 다른 요청(모바일 동시 접속, /health) 처리 가능
+    server = http.server.ThreadingHTTPServer((HOST, PORT), Handler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
