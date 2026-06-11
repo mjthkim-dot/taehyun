@@ -260,7 +260,7 @@
       <button class="mini-btn" onclick="requestSummary()" title="AI가 오늘 대화를 평가해줍니다">📋 요약</button>
       <input class="text-input" id="text-input" placeholder="영어로 입력하거나 🎙️로 말하세요" maxlength="500"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendText();}"/>
-      <button class="round-btn" id="mic-btn" onclick="toggleMic()" title="음성 인식">🎙️</button>
+      <button class="round-btn" id="mic-btn" onclick="toggleMic()" title="누르면 듣기 시작 · 다 말하면 다시 눌러 전송">🎙️</button>
       <button class="round-btn send" id="send-btn" onclick="sendText()" title="전송">➤</button>
     </div>
   </div>
@@ -273,7 +273,7 @@
 <div class="panel" id="panel-progress"><div class="panel-inner" id="progress-content"></div></div>
 
 <script>
-const APP_VERSION = 'v2.3';
+const APP_VERSION = 'v2.4';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -911,13 +911,8 @@ function updateWeakList(item, correct) {
 
 function drillMic() {
   if (!recognition) return;
-  const btn = document.getElementById('drill-mic');
-  if (isListening) { recognition.stop(); return; }
-  recognition.lang = 'en-US';
-  recognition._drillMode = true;
-  recognition.start();
-  isListening = true;
-  btn.classList.add('listening');
+  if (sttActive) stopMic();
+  else startMic(true);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1129,6 +1124,10 @@ function renderProgress() {
 /* ═══════════════════════════════════════════════════
    STT / TTS
 ═══════════════════════════════════════════════════ */
+let sttFinal = '';       // 이번 발화에서 확정된 텍스트 누적
+let sttActive = false;   // 사용자가 마이크를 켜두려는 의도
+let sttDrill = false;    // 드릴 모드 여부
+
 function initSpeechRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
@@ -1137,53 +1136,92 @@ function initSpeechRecognition() {
     return;
   }
   recognition = new SR();
-  recognition.continuous = false;
+  recognition.continuous = true;       // 잠깐 멈춰도 끊기지 않게
   recognition.interimResults = true;
+  recognition.maxAlternatives = 3;
+  recognition.lang = 'en-US';
+
   recognition.onresult = (e) => {
-    let interim = '', final = '';
-    for (let r of e.results) {
-      if (r.isFinal) final += r[0].transcript;
-      else interim += r[0].transcript;
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const res = e.results[i];
+      if (res.isFinal) sttFinal += res[0].transcript + ' ';
+      else interim += res[0].transcript;
     }
-    if (recognition._drillMode) {
+    const shown = (sttFinal + interim).replace(/\s+/g, ' ').trim();
+    if (sttDrill) {
       const di = document.getElementById('drill-input');
-      if (di) di.value = final || interim;
+      if (di) di.value = shown;
     } else {
-      document.getElementById('interim-text').textContent = interim || final;
-      if (final) document.getElementById('text-input').value = final;
+      document.getElementById('text-input').value = shown;
+      document.getElementById('interim-text').textContent = shown
+        ? '🎙️ ' + shown + '  ·  (다 말했으면 마이크를 다시 누르세요)'
+        : '🎙️ 듣는 중... 천천히 말해도 괜찮아요';
     }
   };
+
   recognition.onend = () => {
+    // 브라우저가 임의로 멈추면, 사용자가 계속 듣기를 원하는 동안 자동 재시작
+    if (sttActive) {
+      try { recognition.start(); return; } catch (e) { /* 아직 정리 중이면 무시 */ }
+    }
     isListening = false;
     document.getElementById('mic-btn')?.classList.remove('listening');
     document.getElementById('drill-mic')?.classList.remove('listening');
-    if (recognition._drillMode) {
-      recognition._drillMode = false;
+    finishListening();
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error === 'no-speech' || e.error === 'aborted') return; // 치명적 아님 — 계속 듣기
+    sttActive = false;
+    isListening = false;
+    document.getElementById('mic-btn')?.classList.remove('listening');
+    document.getElementById('drill-mic')?.classList.remove('listening');
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      addSystemMsg('🎙️ 마이크 권한이 꺼져 있습니다. 주소창 왼쪽 자물쇠 아이콘 → 마이크 → 허용으로 바꾼 뒤 다시 시도하세요. (모바일은 https 주소에서만 동작합니다)');
     } else {
-      const text = document.getElementById('text-input').value.trim();
-      document.getElementById('interim-text').textContent = '';
-      if (text) { sendMessage(text); document.getElementById('text-input').value = ''; }
+      addSystemMsg(`🎙️ 음성 인식 오류: ${e.error}`);
     }
   };
-  recognition.onerror = (e) => {
-    isListening = false;
-    document.getElementById('mic-btn')?.classList.remove('listening');
-    document.getElementById('drill-mic')?.classList.remove('listening');
-    recognition._drillMode = false;
-    if (e.error !== 'no-speech' && e.error !== 'aborted') addSystemMsg(`🎙️ 음성 인식 오류: ${e.error}`);
-  };
+}
+
+function startMic(drillMode) {
+  if (!recognition) return;
+  stopSpeaking();
+  sttFinal = '';
+  sttActive = true;
+  sttDrill = drillMode;
+  recognition.lang = 'en-US';
+  try { recognition.start(); } catch (e) { /* 이미 시작됨 */ }
+  isListening = true;
+  if (drillMode) {
+    document.getElementById('drill-mic')?.classList.add('listening');
+  } else {
+    document.getElementById('mic-btn').classList.add('listening');
+    document.getElementById('interim-text').textContent = '🎙️ 듣는 중... 천천히 말해도 괜찮아요';
+  }
+}
+
+function stopMic() {
+  sttActive = false;  // 의도 해제 → onend에서 재시작하지 않고 마무리
+  try { recognition.stop(); } catch (e) {}
+}
+
+function finishListening() {
+  if (sttDrill) {
+    sttDrill = false;
+    return;  // 드릴은 입력칸에 채워두고, 사용자가 확인 버튼을 누르게 둠
+  }
+  const text = document.getElementById('text-input').value.trim();
+  document.getElementById('interim-text').textContent = '';
+  if (text) { sendMessage(text); document.getElementById('text-input').value = ''; }
+  sttFinal = '';
 }
 
 function toggleMic() {
   if (isProcessing || !recognition) return;
-  if (isListening) { recognition.stop(); return; }
-  stopSpeaking();
-  recognition.lang = 'en-US';
-  recognition._drillMode = false;
-  recognition.start();
-  isListening = true;
-  document.getElementById('interim-text').textContent = '🎙️ 영어로 말하세요...';
-  document.getElementById('mic-btn').classList.add('listening');
+  if (sttActive) stopMic();
+  else startMic(false);
 }
 
 /* 친근한 여성 음성 우선 선택 (macOS/Chrome/Windows 대표 음성 순) */
