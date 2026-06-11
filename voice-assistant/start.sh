@@ -15,7 +15,7 @@
 set -u
 PORT="${PORT:-3777}"
 DIR="$(cd "$(dirname "$0")" && pwd)"
-TUNNEL_LOG="$(mktemp /tmp/preply-tunnel.XXXXXX.log)"
+TUNNEL_LOG="/tmp/preply-tunnel-$$.log"  # macOS/Linux 양쪽 호환 (mktemp 접미사 문제 회피)
 SERVER_PID=""
 TUNNEL_PID=""
 
