@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AI 영어 회화 파트너</title>
+  <title>PREPLY AI 스피킹 코치</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -17,272 +17,497 @@
       --red: #ef4444;
       --text: #e2e8f0;
       --text-muted: #64748b;
-      --radius: 16px;
+      --radius: 14px;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+    button { font-family: inherit; }
 
     /* ── Header ── */
     header {
-      padding: 14px 20px; background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0;
+      padding: 12px 18px; background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-shrink: 0;
     }
-    .logo { font-size: 1rem; font-weight: 800; color: var(--primary-light); white-space: nowrap; }
-    .logo span { color: var(--text-muted); font-weight: 400; font-size: 0.8rem; margin-left: 6px; }
-    .header-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
-    select, .icon-btn {
+    .logo { font-size: 0.95rem; font-weight: 800; color: var(--primary-light); white-space: nowrap; }
+    .logo span { color: var(--text-muted); font-weight: 400; font-size: 0.75rem; margin-left: 6px; }
+    .header-controls { display: flex; gap: 8px; align-items: center; }
+    select {
       background: var(--surface2); border: 1px solid var(--border); color: var(--text);
-      border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; cursor: pointer; outline: none;
-      transition: border-color 0.2s;
+      border-radius: 8px; padding: 5px 8px; font-size: 0.78rem; cursor: pointer; outline: none;
     }
-    select:hover, .icon-btn:hover { border-color: var(--primary); }
-    .icon-btn { padding: 6px 12px; font-size: 0.82rem; font-weight: 600; }
-    .icon-btn.danger:hover { border-color: var(--red); color: var(--red); }
-    .status-dot {
-      width: 8px; height: 8px; border-radius: 50%; background: var(--red);
-      transition: background 0.3s; flex-shrink: 0;
-    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; transition: background 0.3s; }
     .status-dot.ok { background: var(--green); }
+    .streak { font-size: 0.78rem; color: var(--yellow); font-weight: 700; white-space: nowrap; }
 
-    /* ── Topics ── */
-    .topics-bar {
-      padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border);
+    /* ── Mode tabs ── */
+    .mode-tabs {
+      display: flex; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .mode-tab {
+      flex: 1; padding: 10px 4px; background: none; border: none; border-bottom: 2.5px solid transparent;
+      color: var(--text-muted); font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all 0.2s;
+    }
+    .mode-tab.active { color: var(--primary-light); border-bottom-color: var(--primary); }
+
+    /* ── Lesson chips ── */
+    .lesson-bar {
+      padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--border);
       display: flex; gap: 6px; overflow-x: auto; flex-shrink: 0; scrollbar-width: none;
     }
-    .topics-bar::-webkit-scrollbar { display: none; }
-    .topic-chip {
-      flex-shrink: 0; padding: 5px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+    .lesson-bar::-webkit-scrollbar { display: none; }
+    .lesson-chip {
+      flex-shrink: 0; padding: 6px 12px; border-radius: 18px; font-size: 0.76rem; font-weight: 600;
       background: var(--surface2); border: 1.5px solid var(--border); color: var(--text-muted);
       cursor: pointer; transition: all 0.2s; white-space: nowrap;
     }
-    .topic-chip:hover { border-color: var(--primary); color: var(--primary-light); }
-    .topic-chip.active { background: var(--primary); border-color: var(--primary); color: white; }
+    .lesson-chip.active { background: var(--primary); border-color: var(--primary); color: white; }
 
-    /* ── Chat ── */
-    #chat { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; scroll-behavior: smooth; }
-    #chat::-webkit-scrollbar { width: 4px; }
-    #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    /* ── Main panels ── */
+    .panel { flex: 1; overflow-y: auto; display: none; flex-direction: column; }
+    .panel.active { display: flex; }
+    .panel-inner { padding: 16px; max-width: 760px; width: 100%; margin: 0 auto; }
 
-    .msg { max-width: 82%; display: flex; flex-direction: column; gap: 4px; }
+    /* ── Lesson study ── */
+    .study-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px; margin-bottom: 12px;
+    }
+    .study-card h3 { font-size: 0.9rem; color: var(--primary-light); margin-bottom: 10px; }
+    .point { padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .point:last-child { border-bottom: none; }
+    .point .en { font-size: 0.9rem; font-weight: 600; }
+    .point .kr { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+    .example-row {
+      display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border);
+    }
+    .example-row:last-child { border-bottom: none; }
+    .example-row .txt { flex: 1; }
+    .speak-mini {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+      padding: 4px 9px; cursor: pointer; font-size: 0.85rem; flex-shrink: 0; color: var(--text);
+    }
+    .speak-mini:hover { border-color: var(--primary); }
+    .hw-box {
+      background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: var(--radius);
+      padding: 12px 14px; font-size: 0.82rem; color: #fcd34d; line-height: 1.6;
+    }
+    .start-drill-btn {
+      width: 100%; padding: 13px; margin-top: 12px; background: var(--primary); border: none;
+      border-radius: var(--radius); color: white; font-size: 0.92rem; font-weight: 700; cursor: pointer;
+    }
+    .start-drill-btn:hover { background: var(--primary-light); }
+
+    /* ── Drill ── */
+    .drill-progress { display: flex; gap: 4px; margin-bottom: 14px; }
+    .drill-progress .seg { flex: 1; height: 5px; border-radius: 3px; background: var(--surface2); }
+    .drill-progress .seg.ok { background: var(--green); }
+    .drill-progress .seg.bad { background: var(--red); }
+    .drill-progress .seg.cur { background: var(--primary); }
+    .drill-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 24px 20px; text-align: center;
+    }
+    .drill-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 10px; }
+    .drill-kr { font-size: 1.25rem; font-weight: 700; line-height: 1.5; margin-bottom: 6px; }
+    .drill-cat { display: inline-block; font-size: 0.7rem; color: var(--primary-light); background: rgba(99,102,241,0.15); padding: 3px 10px; border-radius: 10px; margin-bottom: 16px; }
+    .drill-input-row { display: flex; gap: 8px; margin-top: 8px; }
+    .drill-input {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      border-radius: 10px; padding: 11px 14px; font-size: 0.95rem; outline: none;
+    }
+    .drill-input:focus { border-color: var(--primary); }
+    .drill-feedback { margin-top: 14px; padding: 14px; border-radius: 10px; font-size: 0.9rem; line-height: 1.6; text-align: left; display: none; }
+    .drill-feedback.correct { display: block; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); color: #6ee7b7; }
+    .drill-feedback.wrong { display: block; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+    .drill-feedback .target { font-size: 1.05rem; font-weight: 700; color: var(--text); margin: 6px 0; }
+    .drill-actions { display: flex; gap: 8px; margin-top: 14px; }
+    .btn {
+      flex: 1; padding: 11px; border-radius: 10px; font-size: 0.88rem; font-weight: 700; cursor: pointer;
+      background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+    }
+    .btn.primary { background: var(--primary); color: white; border: none; }
+    .btn.primary:hover { background: var(--primary-light); }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+    .drill-done { text-align: center; padding: 30px 16px; }
+    .drill-done .big { font-size: 2.4rem; margin-bottom: 10px; }
+    .drill-done .score { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
+    .drill-done .sub { font-size: 0.84rem; color: var(--text-muted); line-height: 1.6; }
+
+    /* ── Conversation ── */
+    #panel-talk { overflow: hidden; }
+    .missions {
+      padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .missions-title { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; }
+    .mission-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .mission {
+      font-size: 0.74rem; padding: 4px 10px; border-radius: 12px; font-weight: 600;
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted); transition: all 0.3s;
+    }
+    .mission.done { background: rgba(16,185,129,0.15); border-color: var(--green); color: #6ee7b7; }
+    #chat { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 13px; scroll-behavior: smooth; }
+    .msg { max-width: 84%; display: flex; flex-direction: column; gap: 3px; }
     .msg.user { align-self: flex-end; align-items: flex-end; }
     .msg.ai { align-self: flex-start; align-items: flex-start; }
     .msg.system { align-self: center; max-width: 100%; align-items: center; }
-
-    .bubble {
-      padding: 12px 16px; border-radius: var(--radius); line-height: 1.65; font-size: 0.92rem;
-      word-break: break-word;
-    }
+    .bubble { padding: 11px 15px; border-radius: var(--radius); line-height: 1.65; font-size: 0.9rem; word-break: break-word; }
     .msg.user .bubble { background: var(--primary); color: white; border-bottom-right-radius: 4px; }
     .msg.ai .bubble { background: var(--surface2); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
-    .msg.system .bubble { background: transparent; color: var(--text-muted); font-size: 0.78rem; text-align: center; }
-
+    .msg.system .bubble { background: transparent; color: var(--text-muted); font-size: 0.76rem; text-align: center; }
     .correction-box {
-      background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35);
-      border-left: 3px solid var(--yellow); border-radius: 0 10px 10px 0;
-      padding: 10px 14px; font-size: 0.84rem; line-height: 1.6; color: #fcd34d;
-      margin-top: 6px; width: 100%;
+      background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35); border-left: 3px solid var(--yellow);
+      border-radius: 0 10px 10px 0; padding: 9px 13px; font-size: 0.82rem; line-height: 1.6; color: #fcd34d; margin-top: 6px; width: 100%;
     }
-    .correction-box .label { font-size: 0.72rem; font-weight: 700; opacity: 0.7; text-transform: uppercase; margin-bottom: 4px; }
+    .correction-box .label, .explain-box .label { font-size: 0.7rem; font-weight: 700; opacity: 0.7; text-transform: uppercase; margin-bottom: 3px; }
     .wrong { text-decoration: line-through; opacity: 0.6; color: var(--red); }
     .right { color: #86efac; font-weight: 700; }
-
     .explain-box {
-      background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3);
-      border-left: 3px solid var(--green); border-radius: 0 10px 10px 0;
-      padding: 10px 14px; font-size: 0.84rem; line-height: 1.6; color: #6ee7b7;
-      margin-top: 6px; width: 100%;
+      background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); border-left: 3px solid var(--green);
+      border-radius: 0 10px 10px 0; padding: 9px 13px; font-size: 0.82rem; line-height: 1.6; color: #6ee7b7; margin-top: 6px; width: 100%;
     }
-    .explain-box .label { font-size: 0.72rem; font-weight: 700; opacity: 0.7; text-transform: uppercase; margin-bottom: 4px; }
-
-    .msg-meta { font-size: 0.7rem; color: var(--text-muted); padding: 0 4px; }
-
-    /* typing indicator */
-    .typing .bubble { display: flex; gap: 5px; align-items: center; padding: 14px 18px; }
+    .msg-meta { font-size: 0.68rem; color: var(--text-muted); padding: 0 4px; }
+    .typing .bubble { display: flex; gap: 5px; align-items: center; padding: 13px 17px; }
     .typing-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); animation: bounce 1.2s infinite; }
     .typing-dot:nth-child(2) { animation-delay: 0.2s; }
     .typing-dot:nth-child(3) { animation-delay: 0.4s; }
     @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
 
-    /* ── Input area ── */
-    .input-area {
-      padding: 14px 16px 20px; background: var(--surface);
-      border-top: 1px solid var(--border); flex-shrink: 0;
-    }
-    .interim { min-height: 22px; font-size: 0.82rem; color: var(--text-muted); text-align: center; margin-bottom: 10px; font-style: italic; transition: opacity 0.2s; }
-
-    .controls { display: flex; gap: 10px; align-items: center; }
+    .input-area { padding: 12px 14px 16px; background: var(--surface); border-top: 1px solid var(--border); flex-shrink: 0; }
+    .interim { min-height: 20px; font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-bottom: 8px; font-style: italic; }
+    .controls { display: flex; gap: 8px; align-items: center; }
     .text-input {
       flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
-      border-radius: 12px; padding: 11px 16px; font-size: 0.9rem; outline: none;
-      transition: border-color 0.2s; font-family: inherit;
+      border-radius: 12px; padding: 11px 15px; font-size: 0.9rem; outline: none;
     }
     .text-input:focus { border-color: var(--primary); }
-    .text-input::placeholder { color: var(--text-muted); }
+    .round-btn {
+      width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer;
+      background: var(--surface2); font-size: 1.2rem; display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s; flex-shrink: 0; color: var(--text);
+    }
+    .round-btn:hover { border-color: var(--primary); }
+    .round-btn.listening { background: var(--primary); border-color: var(--primary); animation: pulse 1.2s infinite; }
+    .round-btn.speaking { background: var(--green); border-color: var(--green); }
+    .round-btn.send { background: var(--primary); border: none; color: white; }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.6); } 50% { box-shadow: 0 0 0 12px rgba(99,102,241,0); } }
+    .mini-btn {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted);
+      border-radius: 8px; padding: 5px 10px; font-size: 0.74rem; font-weight: 600; cursor: pointer;
+    }
+    .mini-btn:hover { border-color: var(--primary); color: var(--primary-light); }
 
-    .mic-btn {
-      width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer;
-      background: var(--surface2); border: 2px solid var(--border);
-      font-size: 1.3rem; display: flex; align-items: center; justify-content: center;
-      transition: all 0.2s; flex-shrink: 0; position: relative;
+    /* ── Review / Progress ── */
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; text-align: center; }
+    .stat-card .num { font-size: 1.5rem; font-weight: 800; color: var(--primary-light); }
+    .stat-card .lbl { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; }
+    .lesson-progress-row {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 13px 15px; margin-bottom: 8px;
     }
-    .mic-btn:hover { border-color: var(--primary); }
-    .mic-btn.listening {
-      background: var(--primary); border-color: var(--primary);
-      animation: pulse 1.2s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.6); }
-      50% { box-shadow: 0 0 0 12px rgba(99,102,241,0); }
-    }
-    .mic-btn.processing { background: var(--yellow); border-color: var(--yellow); animation: none; }
-    .mic-btn.speaking { background: var(--green); border-color: var(--green); animation: none; }
-
-    .send-btn {
-      width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer;
-      background: var(--primary); color: white; font-size: 1.1rem;
-      display: flex; align-items: center; justify-content: center;
-      transition: all 0.2s; flex-shrink: 0;
-    }
-    .send-btn:hover { background: var(--primary-light); transform: scale(1.05); }
-    .send-btn:disabled { background: var(--border); cursor: default; transform: none; }
-
-    .mute-btn {
-      width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border);
-      background: var(--surface2); color: var(--text-muted); font-size: 1rem;
-      display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
-      transition: all 0.2s;
-    }
-    .mute-btn:hover { border-color: var(--primary); }
-    .mute-btn.muted { color: var(--red); border-color: var(--red); }
-
-    /* ── Responsive ── */
-    @media (max-width: 600px) {
-      header { padding: 10px 14px; }
-      .logo span { display: none; }
-      .msg { max-width: 92%; }
-    }
+    .lesson-progress-row .top { display: flex; justify-content: space-between; font-size: 0.84rem; font-weight: 600; margin-bottom: 7px; }
+    .lesson-progress-row .top .pct { color: var(--primary-light); }
+    .bar { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+    .bar .fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--primary-light)); border-radius: 3px; transition: width 0.4s; }
+    .mission-history { font-size: 0.74rem; color: var(--text-muted); margin-top: 7px; }
+    .empty-note { text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 40px 16px; line-height: 1.7; }
   </style>
 </head>
 <body>
 
-<!-- Header -->
 <header>
-  <div class="logo">🎙️ AI 영어 회화<span>Powered by Gemma</span></div>
+  <div class="logo">🎓 PREPLY AI 코치<span>Gemma 기반</span></div>
   <div class="header-controls">
+    <span class="streak" id="streak">🔥 0일</span>
     <div class="status-dot" id="status-dot" title="Ollama 연결 상태"></div>
-    <select id="model-sel" title="Gemma 모델 선택">
+    <select id="model-sel" title="모델 선택">
       <option value="gemma4:e2b">gemma4:e2b</option>
       <option value="gemma4">gemma4</option>
       <option value="gemma3">gemma3</option>
-      <option value="gemma2">gemma2</option>
-      <option value="gemma">gemma</option>
     </select>
-    <select id="lang-sel" title="인식 언어">
-      <option value="ko-KR">🇰🇷 한국어로 말하기</option>
-      <option value="en-US">🇺🇸 영어로 말하기</option>
-    </select>
-    <button class="icon-btn danger" onclick="clearChat()">🗑 초기화</button>
   </div>
 </header>
 
-<!-- Topics -->
-<div class="topics-bar" id="topics-bar"></div>
+<div class="mode-tabs">
+  <button class="mode-tab active" data-mode="study" onclick="setMode('study', this)">📖 레슨</button>
+  <button class="mode-tab" data-mode="drill" onclick="setMode('drill', this)">🔁 드릴</button>
+  <button class="mode-tab" data-mode="talk" onclick="setMode('talk', this)">🗣 회화</button>
+  <button class="mode-tab" data-mode="review" onclick="setMode('review', this)">📝 복습</button>
+  <button class="mode-tab" data-mode="progress" onclick="setMode('progress', this)">📊 진도</button>
+</div>
 
-<!-- Chat -->
-<div id="chat"></div>
+<div class="lesson-bar" id="lesson-bar"></div>
 
-<!-- Input -->
-<div class="input-area">
-  <div class="interim" id="interim-text"></div>
-  <div class="controls">
-    <button class="mute-btn" id="mute-btn" onclick="toggleMute()" title="음성 출력 켜기/끄기">🔊</button>
-    <input class="text-input" id="text-input" placeholder="텍스트로 입력하거나 🎙️ 버튼을 눌러 말하세요" maxlength="500"
-      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendText();}"/>
-    <button class="mic-btn" id="mic-btn" onclick="toggleMic()" title="음성 인식">🎙️</button>
-    <button class="send-btn" id="send-btn" onclick="sendText()" title="전송">➤</button>
+<!-- 📖 STUDY -->
+<div class="panel active" id="panel-study"><div class="panel-inner" id="study-content"></div></div>
+
+<!-- 🔁 DRILL -->
+<div class="panel" id="panel-drill"><div class="panel-inner" id="drill-content"></div></div>
+
+<!-- 🗣 TALK -->
+<div class="panel" id="panel-talk">
+  <div class="missions" id="missions-box">
+    <div class="missions-title">🎯 오늘의 표현 미션 — 대화에서 직접 사용해 보세요</div>
+    <div class="mission-list" id="mission-list"></div>
+  </div>
+  <div id="chat"></div>
+  <div class="input-area">
+    <div class="interim" id="interim-text"></div>
+    <div class="controls">
+      <button class="mini-btn" onclick="requestSummary()" title="AI가 오늘 대화를 평가해줍니다">📋 요약</button>
+      <input class="text-input" id="text-input" placeholder="영어로 입력하거나 🎙️로 말하세요" maxlength="500"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendText();}"/>
+      <button class="round-btn" id="mic-btn" onclick="toggleMic()" title="음성 인식">🎙️</button>
+      <button class="round-btn send" id="send-btn" onclick="sendText()" title="전송">➤</button>
+    </div>
   </div>
 </div>
 
+<!-- 📝 REVIEW -->
+<div class="panel" id="panel-review"><div class="panel-inner" id="review-content"></div></div>
+
+<!-- 📊 PROGRESS -->
+<div class="panel" id="panel-progress"><div class="panel-inner" id="progress-content"></div></div>
+
 <script>
-/* ═══════════════════════════════════════════════════════
-   CONFIG & STATE
-═══════════════════════════════════════════════════════ */
-const TOPICS = [
-  { id:'daily',   label:'☕ 일상 대화',     en:'daily life and routines' },
-  { id:'work',    label:'💼 직장/업무',      en:'work and professional situations' },
-  { id:'travel',  label:'✈️ 여행',           en:'travel and tourism' },
-  { id:'food',    label:'🍜 음식/카페',      en:'food, restaurants, and cafes' },
-  { id:'tech',    label:'💻 기술/IT',        en:'technology and IT' },
-  { id:'health',  label:'🏃 건강/운동',      en:'health and exercise' },
-  { id:'hobby',   label:'🎮 취미/여가',      en:'hobbies and leisure' },
-  { id:'intro',   label:'👋 자기소개',       en:'self-introduction and personal background' },
-  { id:'news',    label:'📰 시사/뉴스',      en:'current events and news' },
-  { id:'free',    label:'🗣 자유 대화',      en:'any topic chosen freely' },
+/* ═══════════════════════════════════════════════════
+   PREPLY 레슨 데이터 (Notion 레슨노트 기반)
+═══════════════════════════════════════════════════ */
+const LESSONS = [
+  {
+    id: 1, title: "기초 문법 & 발음", date: "2026-05-28",
+    sections: [
+      { title: "문장 구조", points: [
+        { en: "I / You / We / They + 동사원형", kr: "예: I eat, You study, They go" },
+        { en: "She / He / It + 동사 + s/es", kr: "예: She eats, He goes" },
+        { en: "부정문: don't / doesn't + 동사원형", kr: "예: I don't eat, She doesn't eat" },
+        { en: "의문문: Do/Does + 주어 + 동사원형?", kr: "예: Do you study? Does she eat?" },
+        { en: "의문사: What / Why / When + Do/Does + 주어 + 동사?", kr: "예: What do you do?" },
+      ]},
+      { title: "발음 포인트", points: [
+        { en: "A 소리: '아' — apple, at, and", kr: "복식호흡으로 깊게 발음" },
+      ]},
+    ],
+    examples: [
+      { en: "I eat rice every day.", kr: "나는 매일 밥을 먹는다." },
+      { en: "She doesn't drink coffee.", kr: "그녀는 커피를 마시지 않는다." },
+      { en: "What do you do on weekends?", kr: "주말에 무엇을 합니까?" },
+    ],
+    homework: "긍정문/부정문/의문문 포함 30문장 작성 + 녹음",
+    scenario: { title: "일상 루틴 토크", desc: "AI가 하루 일과를 물어봅니다. 현재형으로 답하세요." },
+  },
+  {
+    id: 2, title: "관사 & 과거 시제", date: "2026-06-03",
+    sections: [
+      { title: "관사", points: [
+        { en: "a + 자음 시작: a book, a coffee", kr: "막연한 하나" },
+        { en: "an + 모음 시작: an apple, an electronic shaver", kr: "모음(A E I O U) 앞" },
+        { en: "the: 특정한 것", kr: "예: the book (방금 말한 그 책)" },
+      ]},
+      { title: "To 부정사", points: [
+        { en: "to + 동사원형 = ~하기 위해", kr: "I went to Hi-Mart to buy a shaver." },
+      ]},
+      { title: "과거 시제", points: [
+        { en: "동사 과거형: ate, drank, went, worked", kr: "" },
+        { en: "과거 부정문: didn't + 동사원형", kr: "I didn't eat." },
+        { en: "과거 의문문: Did + 주어 + 동사원형?", kr: "Did you eat?" },
+      ]},
+      { title: "감사 표현", points: [
+        { en: "I'm grateful to + 사람 + because...", kr: "사람에게 감사" },
+        { en: "I'm grateful for + 동명사", kr: "상황에 감사" },
+      ]},
+    ],
+    examples: [
+      { en: "I went to Hi-Mart to buy an electronic shaver.", kr: "전동 면도기를 사러 하이마트에 갔다." },
+      { en: "I didn't eat dinner yesterday.", kr: "어제 저녁을 먹지 않았다." },
+      { en: "I'm grateful for having nice weather.", kr: "좋은 날씨에 감사하다." },
+    ],
+    homework: "의문사 포함 한/영 30문장 + 녹음",
+    scenario: { title: "어제 이야기 & 감사한 일", desc: "어제 한 일을 과거형으로 말하고, 감사한 일을 나눠보세요." },
+  },
+  {
+    id: 3, title: "Look Forward To & 발음", date: "2026-06-05",
+    sections: [
+      { title: "I am looking forward to", points: [
+        { en: "to는 전치사 → 뒤에 명사/동명사(-ing)", kr: "to eat ❌ → to eating ✓" },
+        { en: "looking forward to + 명사", kr: "looking forward to the weekend" },
+        { en: "looking forward to + 동사ing", kr: "looking forward to meeting my friends" },
+        { en: "on the weekend", kr: "on과 weekend는 짝" },
+      ]},
+      { title: "발음 A~I", points: [
+        { en: "F: 앞니 보이게, 바람 내보내기 — food, fat", kr: "" },
+        { en: "I: '에'와 '이'의 중간 — is → '에즈'에 가깝게", kr: "" },
+      ]},
+    ],
+    examples: [
+      { en: "I am looking forward to the weekend.", kr: "주말이 기대된다." },
+      { en: "I am looking forward to meeting my friends.", kr: "친구들을 만나는 것이 기대된다." },
+      { en: "I am looking forward to starting a new job.", kr: "새 직장 시작이 기대된다." },
+    ],
+    homework: "look forward to 문장 10개 + 녹음 2개 제출",
+    scenario: { title: "기대되는 일들", desc: "앞으로 기대되는 일을 'looking forward to'로 말해보세요." },
+  },
+  {
+    id: 4, title: "카페 회화 & 복습", date: "2026-06-10",
+    sections: [
+      { title: "카페 주문 표현", points: [
+        { en: "Can I get one cappuccino?", kr: "카푸치노 한 잔 주세요" },
+        { en: "Medium please / Hot, please / Iced, please", kr: "사이즈와 온도" },
+        { en: "Just milk, no sugar", kr: "우유만, 설탕 없이" },
+      ]},
+      { title: "핵심 어휘", points: [
+        { en: "sleep in = 늦잠 자다", kr: "I'm looking forward to sleeping in." },
+        { en: "cardio = 유산소 운동", kr: "" },
+        { en: "improve = (실력이) 늘다", kr: "My English improves every day." },
+      ]},
+    ],
+    examples: [
+      { en: "Can I get one cappuccino? Hot, please.", kr: "카푸치노 하나, 뜨겁게요." },
+      { en: "Just milk, no sugar, please.", kr: "우유만, 설탕은 빼주세요." },
+      { en: "I am looking forward to sleeping in on Saturday.", kr: "토요일에 늦잠 자는 게 기대된다." },
+    ],
+    homework: "looking forward to 11~20번 + 카페 대화문 연습 + 녹음",
+    scenario: { title: "☕ 카페 롤플레이", desc: "AI가 바리스타가 됩니다. 영어로 주문하고, 주문 후엔 친구처럼 수다를 떨어요." },
+  },
 ];
 
-let currentTopic = TOPICS[0];
-let history = [];          // conversation history for Ollama
-let isMuted = false;
-let isListening = false;
-let isProcessing = false;
+/* 드릴 문장 (KR → EN 스피킹) */
+const DRILL_ITEMS = [
+  { kr: "나는 밥을 먹는다", en: "I eat rice", lesson: 1, cat: "현재형" },
+  { kr: "그녀는 커피를 마신다", en: "She drinks coffee", lesson: 1, cat: "현재형" },
+  { kr: "나는 밥을 먹지 않는다", en: "I don't eat rice", lesson: 1, cat: "부정문" },
+  { kr: "그녀는 고기를 먹지 않는다", en: "She doesn't eat meat", lesson: 1, cat: "부정문" },
+  { kr: "당신은 공부합니까?", en: "Do you study?", lesson: 1, cat: "의문문" },
+  { kr: "그녀는 밥을 먹습니까?", en: "Does she eat?", lesson: 1, cat: "의문문" },
+  { kr: "당신은 무엇을 합니까?", en: "What do you do?", lesson: 1, cat: "의문문" },
+  { kr: "그는 언제 공부합니까?", en: "When does he study?", lesson: 1, cat: "의문문" },
+  { kr: "그들은 언제 공부합니까?", en: "When do they study?", lesson: 1, cat: "의문문" },
+  { kr: "나는 사전 투표를 했다", en: "I voted early", lesson: 2, cat: "과거형" },
+  { kr: "나는 전동 면도기를 사기 위해 하이마트에 갔다", en: "I went to Hi-Mart to buy an electronic shaver", lesson: 2, cat: "to 부정사" },
+  { kr: "나는 저녁을 먹지 않았다", en: "I didn't eat dinner", lesson: 2, cat: "과거 부정" },
+  { kr: "당신은 어제 먹었습니까?", en: "Did you eat yesterday?", lesson: 2, cat: "과거 의문" },
+  { kr: "당신은 무엇을 공부했습니까?", en: "What did you study?", lesson: 2, cat: "과거 의문" },
+  { kr: "좋은 날씨에 감사하다", en: "I'm grateful for having nice weather", lesson: 2, cat: "감사 표현" },
+  { kr: "나는 사과 하나를 샀다", en: "I bought an apple", lesson: 2, cat: "관사" },
+  { kr: "나는 저녁을 먹기 위해 집에 갔다", en: "I went home to eat dinner", lesson: 2, cat: "to 부정사" },
+  { kr: "나는 주말이 기대된다", en: "I am looking forward to the weekend", lesson: 3, cat: "Look forward to" },
+  { kr: "나는 친구들을 만나는 것이 기대된다", en: "I am looking forward to meeting my friends", lesson: 3, cat: "Look forward to" },
+  { kr: "나는 새 직장을 시작하는 것이 기대된다", en: "I am looking forward to starting a new job", lesson: 3, cat: "Look forward to" },
+  { kr: "나는 주말에 쉬는 것이 기대된다", en: "I am looking forward to resting on the weekend", lesson: 3, cat: "Look forward to" },
+  { kr: "나는 여름 방학이 기대된다", en: "I am looking forward to summer vacation", lesson: 3, cat: "Look forward to" },
+  { kr: "나는 그 영화 보는 것이 기대된다", en: "I am looking forward to watching the movie", lesson: 3, cat: "Look forward to" },
+  { kr: "카푸치노 한 잔 주세요", en: "Can I get one cappuccino?", lesson: 4, cat: "카페 표현" },
+  { kr: "뜨겁게 주세요", en: "Hot, please", lesson: 4, cat: "카페 표현" },
+  { kr: "우유만, 설탕 없이 주세요", en: "Just milk, no sugar, please", lesson: 4, cat: "카페 표현" },
+  { kr: "토요일 아침에 늦잠 자는 것이 기대된다", en: "I am looking forward to sleeping in on Saturday morning", lesson: 4, cat: "Look forward to" },
+];
+
+/* 회화 표현 미션 (Speak 스타일 — 대화 중 사용하면 달성) */
+const MISSIONS = {
+  1: [
+    { id: 'l1m1', label: "현재형으로 일상 말하기", re: /\b(i|you|we|they)\s+(eat|work|study|go|drink|exercise|wake|get|like|live|watch|read|play|cook|have|do)\b/i },
+    { id: 'l1m2', label: "don't / doesn't 부정문", re: /\b(don'?t|doesn'?t)\b/i },
+    { id: 'l1m3', label: "Do/Does 의문문 만들기", re: /\b(do|does)\s+(you|she|he|it|they|we)\b/i },
+  ],
+  2: [
+    { id: 'l2m1', label: "과거형 동사 사용", re: /\b(went|ate|bought|drank|studied|worked|watched|met|got|had|made|saw|visited|played|cooked|voted|woke|slept)\b/i },
+    { id: 'l2m2', label: "didn't 과거 부정문", re: /\bdidn'?t\b/i },
+    { id: 'l2m3', label: "to 부정사로 목적 말하기", re: /\bto\s+(buy|eat|see|meet|get|study|learn|watch|visit|drink|exercise|rest|relax|work)\b/i },
+    { id: 'l2m4', label: "I'm grateful to/for", re: /grateful\s+(to|for)/i },
+  ],
+  3: [
+    { id: 'l3m1', label: "looking forward to + 명사", re: /looking\s+forward\s+to\s+(the|my|a|an|summer|next)\b/i },
+    { id: 'l3m2', label: "looking forward to + ~ing", re: /looking\s+forward\s+to\s+\w+ing\b/i },
+    { id: 'l3m3', label: "on the weekend 사용", re: /on\s+the\s+weekend/i },
+  ],
+  4: [
+    { id: 'l4m1', label: "Can I get ...? 으로 주문", re: /can\s+i\s+get/i },
+    { id: 'l4m2', label: "사이즈/온도 말하기", re: /\b(medium|large|small|hot|iced)\b/i },
+    { id: 'l4m3', label: "sleep in 사용하기", re: /sleep(ing)?\s+in\b/i },
+    { id: 'l4m4', label: "looking forward to 복습", re: /looking\s+forward\s+to/i },
+  ],
+};
+
+/* ═══════════════════════════════════════════════════
+   STATE & STORAGE
+═══════════════════════════════════════════════════ */
+let currentLesson = LESSONS[LESSONS.length - 1];
+let currentMode = 'study';
+let history = [];
+let isListening = false, isProcessing = false;
 let recognition = null;
-let currentUtterance = null;
+let drillQueue = [], drillIdx = 0, drillResults = [], drillIsReview = false;
+let missionState = {};
 
-/* ═══════════════════════════════════════════════════════
-   SYSTEM PROMPT
-═══════════════════════════════════════════════════════ */
-function buildSystemPrompt(topic) {
-  return `당신은 원어민 수준의 영어-한국어 바이링구얼 AI 회화 파트너입니다.
+function store(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+function load(key, def) { try { return JSON.parse(localStorage.getItem(key)) ?? def; } catch { return def; } }
 
-역할:
-- 선택된 주제 "${topic.label} (${topic.en})"로 자연스러운 영어 회화를 이끌어가세요.
-- 사용자의 문법/어휘 오류를 발견하면 부드럽게 교정하세요.
-- 사용자가 이해하기 어려운 표현이나 "한국어로", "설명해줘"라고 하면 한국어로 설명하세요.
-
-응답 형식 (반드시 이 형식을 사용하세요):
-
-1. 영어 대화를 먼저 2~3 문장으로 자연스럽게 이어가세요.
-2. 교정이 필요하면 이렇게 표시하세요:
-   [CORRECT: "잘못된 표현" → "올바른 표현" | 이유(한국어로 간단히)]
-3. 한국어 설명이 필요하면 이렇게 표시하세요:
-   [EXPLAIN: 한국어로 자세한 설명]
-
-규칙:
-- 교정은 가장 중요한 것 1~2개만
-- 격려적이고 친근한 톤 유지
-- 사용자가 잘 말하면 칭찬도 해주세요
-- 대화를 자연스럽게 이어갈 수 있는 질문 1개를 마지막에 포함하세요`;
+function markPracticedToday() {
+  const days = load('va_days', []);
+  const today = new Date().toISOString().slice(0, 10);
+  if (!days.includes(today)) { days.push(today); store('va_days', days); }
+  renderStreak();
 }
+function calcStreak() {
+  const days = new Set(load('va_days', []));
+  let streak = 0;
+  const d = new Date();
+  if (!days.has(d.toISOString().slice(0, 10))) d.setDate(d.getDate() - 1);
+  while (days.has(d.toISOString().slice(0, 10))) { streak++; d.setDate(d.getDate() - 1); }
+  return streak;
+}
+function renderStreak() { document.getElementById('streak').textContent = `🔥 ${calcStreak()}일`; }
 
-/* ═══════════════════════════════════════════════════════
-   INIT
-═══════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════
+   INIT & NAVIGATION
+═══════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
-  buildTopics();
-  checkOllama();
+  buildLessonBar();
+  renderStudy();
+  renderMissions();
   initSpeechRecognition();
-  addSystemMsg(`"${currentTopic.label}" 주제로 대화를 시작합니다. 🎙️ 버튼을 누르거나 텍스트로 입력하세요.`);
+  checkOllama();
   setInterval(checkOllama, 30000);
+  renderStreak();
+  addSystemMsg(`${currentLesson.id}회차 "${currentLesson.title}" — ${currentLesson.scenario.title}. 영어로 대화를 시작해 보세요!`);
 });
 
-function buildTopics() {
-  const bar = document.getElementById('topics-bar');
-  TOPICS.forEach(t => {
+function buildLessonBar() {
+  const bar = document.getElementById('lesson-bar');
+  bar.innerHTML = '';
+  LESSONS.forEach(l => {
     const chip = document.createElement('button');
-    chip.className = 'topic-chip' + (t.id === currentTopic.id ? ' active' : '');
-    chip.textContent = t.label;
-    chip.onclick = () => selectTopic(t, chip);
+    chip.className = 'lesson-chip' + (l.id === currentLesson.id ? ' active' : '');
+    chip.textContent = `${l.id}회차 · ${l.title}`;
+    chip.onclick = () => selectLesson(l, chip);
     bar.appendChild(chip);
   });
 }
 
-function selectTopic(topic, chip) {
-  document.querySelectorAll('.topic-chip').forEach(c => c.classList.remove('active'));
+function selectLesson(lesson, chip) {
+  document.querySelectorAll('.lesson-chip').forEach(c => c.classList.remove('active'));
   chip.classList.add('active');
-  currentTopic = topic;
+  currentLesson = lesson;
   history = [];
-  addSystemMsg(`주제 변경: "${topic.label}" — 새 대화를 시작합니다.`);
+  missionState = {};
+  renderStudy();
+  renderMissions();
+  if (currentMode === 'drill') renderDrillIntro();
+  if (currentMode === 'progress') renderProgress();
+  document.getElementById('chat').innerHTML = '';
+  addSystemMsg(`${lesson.id}회차 "${lesson.title}" — ${lesson.scenario.title}. ${lesson.scenario.desc}`);
+}
+
+function setMode(mode, btn) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + mode).classList.add('active');
+  document.getElementById('lesson-bar').style.display = (mode === 'review' || mode === 'progress') ? 'none' : 'flex';
+  if (mode === 'drill' && drillQueue.length === 0) renderDrillIntro();
+  if (mode === 'review') renderReview();
+  if (mode === 'progress') renderProgress();
 }
 
 async function checkOllama() {
@@ -290,100 +515,271 @@ async function checkOllama() {
   try {
     const r = await fetch('/health');
     const data = await r.json();
-    if (data.status === 'ok') {
-      dot.classList.add('ok');
-      dot.title = 'Ollama 연결됨: ' + (data.models.join(', ') || '모델 없음');
-    } else {
-      dot.classList.remove('ok');
-      dot.title = 'Ollama 오류: ' + data.message;
-    }
+    dot.classList.toggle('ok', data.status === 'ok');
+    dot.title = data.status === 'ok' ? 'Ollama 연결됨: ' + (data.models || []).join(', ') : 'Ollama 오류: ' + data.message;
   } catch {
     dot.classList.remove('ok');
     dot.title = 'Ollama 미연결';
   }
 }
 
-/* ═══════════════════════════════════════════════════════
-   SPEECH RECOGNITION
-═══════════════════════════════════════════════════════ */
-function initSpeechRecognition() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    document.getElementById('mic-btn').disabled = true;
-    document.getElementById('mic-btn').title = '이 브라우저는 음성 인식을 지원하지 않습니다. Chrome을 사용하세요.';
-    return;
+/* ═══════════════════════════════════════════════════
+   📖 STUDY (Presentation 단계)
+═══════════════════════════════════════════════════ */
+function renderStudy() {
+  const l = currentLesson;
+  let html = '';
+  l.sections.forEach(sec => {
+    html += `<div class="study-card"><h3>${sec.title}</h3>`;
+    sec.points.forEach(p => {
+      html += `<div class="point"><div class="en">${esc(p.en)}</div>${p.kr ? `<div class="kr">${esc(p.kr)}</div>` : ''}</div>`;
+    });
+    html += `</div>`;
+  });
+  html += `<div class="study-card"><h3>예문 — 🔊 듣고 따라 말하기</h3>`;
+  l.examples.forEach(e => {
+    html += `<div class="example-row">
+      <div class="txt"><div class="en" style="font-weight:600">${esc(e.en)}</div><div class="kr" style="font-size:0.8rem;color:var(--text-muted)">${esc(e.kr)}</div></div>
+      <button class="speak-mini" onclick="tts('${escJs(e.en)}', 'en-US')">🔊</button>
+    </div>`;
+  });
+  html += `</div>`;
+  html += `<div class="hw-box">📌 <b>숙제</b><br>${esc(l.homework)}</div>`;
+  html += `<button class="start-drill-btn" onclick="document.querySelector('[data-mode=drill]').click()">이 레슨으로 말하기 드릴 시작 →</button>`;
+  document.getElementById('study-content').innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════
+   🔁 DRILL (Practice 단계 — KR 보고 EN 말하기)
+═══════════════════════════════════════════════════ */
+function renderDrillIntro() {
+  const items = DRILL_ITEMS.filter(d => d.lesson === currentLesson.id);
+  document.getElementById('drill-content').innerHTML = `
+    <div class="drill-card">
+      <div class="drill-label">${currentLesson.id}회차 말하기 드릴</div>
+      <div class="drill-kr" style="font-size:1.05rem">한국어 문장을 보고<br>영어로 말하거나 입력하세요</div>
+      <div style="font-size:0.82rem;color:var(--text-muted);margin:10px 0 18px">${items.length}문항 · 틀린 문장은 자동으로 복습 목록에 저장됩니다</div>
+      <button class="btn primary" onclick="startDrill(false)" style="width:100%">시작하기</button>
+    </div>`;
+}
+
+function startDrill(isReview) {
+  drillIsReview = isReview;
+  if (isReview) {
+    drillQueue = load('va_weak', []).map(w => ({ kr: w.kr, en: w.en, lesson: w.lesson, cat: w.cat || '복습' }));
+  } else {
+    drillQueue = shuffle(DRILL_ITEMS.filter(d => d.lesson === currentLesson.id));
   }
-
-  recognition = new SpeechRecognition();
-  recognition.continuous = false;
-  recognition.interimResults = true;
-
-  recognition.onresult = (e) => {
-    let interim = '', final = '';
-    for (let r of e.results) {
-      if (r.isFinal) final += r[0].transcript;
-      else interim += r[0].transcript;
-    }
-    document.getElementById('interim-text').textContent = interim || final;
-    if (final) {
-      document.getElementById('text-input').value = final;
-    }
-  };
-
-  recognition.onend = () => {
-    isListening = false;
-    updateMicBtn();
-    const text = document.getElementById('text-input').value.trim();
-    if (text) {
-      document.getElementById('interim-text').textContent = '';
-      sendMessage(text);
-      document.getElementById('text-input').value = '';
-    }
-  };
-
-  recognition.onerror = (e) => {
-    isListening = false;
-    updateMicBtn();
-    if (e.error !== 'no-speech') {
-      addSystemMsg(`🎙️ 음성 인식 오류: ${e.error}`);
-    }
-  };
-
-  document.getElementById('lang-sel').onchange = () => {
-    if (isListening) stopListening();
-  };
+  drillIdx = 0;
+  drillResults = [];
+  renderDrillCard();
 }
 
-function toggleMic() {
-  if (isProcessing) return;
-  if (isListening) stopListening();
-  else startListening();
+function renderDrillCard() {
+  const target = drillIsReview ? 'review-content' : 'drill-content';
+  if (drillIdx >= drillQueue.length) { renderDrillDone(target); return; }
+  const item = drillQueue[drillIdx];
+  const segs = drillQueue.map((_, i) =>
+    `<div class="seg ${i < drillResults.length ? (drillResults[i] ? 'ok' : 'bad') : (i === drillIdx ? 'cur' : '')}"></div>`).join('');
+  document.getElementById(target).innerHTML = `
+    <div class="drill-progress">${segs}</div>
+    <div class="drill-card">
+      <div class="drill-label">${drillIdx + 1} / ${drillQueue.length}</div>
+      <div class="drill-kr">${esc(item.kr)}</div>
+      <div class="drill-cat">${esc(item.cat)}</div>
+      <div class="drill-input-row">
+        <input class="drill-input" id="drill-input" placeholder="영어로 말하거나 입력..." autocomplete="off"
+          onkeydown="if(event.key==='Enter'){checkDrill();}"/>
+        <button class="round-btn" id="drill-mic" onclick="drillMic()" style="width:46px;height:46px">🎙️</button>
+      </div>
+      <div class="drill-feedback" id="drill-feedback"></div>
+      <div class="drill-actions">
+        <button class="btn" onclick="revealDrill()">모르겠어요</button>
+        <button class="btn primary" id="drill-check-btn" onclick="checkDrill()">확인</button>
+      </div>
+    </div>`;
+  document.getElementById('drill-input').focus();
 }
 
-function startListening() {
+function normalize(s) {
+  return s.toLowerCase()
+    .replace(/'m\b/g, ' am').replace(/n't\b/g, ' not').replace(/'re\b/g, ' are')
+    .replace(/'ve\b/g, ' have').replace(/'ll\b/g, ' will')
+    .replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  if (!m) return n; if (!n) return m;
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++)
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[n];
+}
+function similarity(a, b) {
+  a = normalize(a); b = normalize(b);
+  if (!a || !b) return 0;
+  return 1 - levenshtein(a, b) / Math.max(a.length, b.length);
+}
+
+function checkDrill() {
+  const input = document.getElementById('drill-input');
+  const answer = input.value.trim();
+  if (!answer) return;
+  const item = drillQueue[drillIdx];
+  const sim = similarity(answer, item.en);
+  const correct = sim >= 0.82;
+  drillResults.push(correct);
+  recordDrillStat(item.lesson, correct);
+  updateWeakList(item, correct);
+  markPracticedToday();
+
+  const fb = document.getElementById('drill-feedback');
+  fb.className = 'drill-feedback ' + (correct ? 'correct' : 'wrong');
+  fb.innerHTML = correct
+    ? `✅ 정답입니다!${sim < 0.95 ? ' (거의 완벽 — 정답 문장을 확인하세요)' : ''}
+       <div class="target">${esc(item.en)} <button class="speak-mini" onclick="tts('${escJs(item.en)}','en-US')">🔊</button></div>`
+    : `❌ 아쉬워요. 정답:
+       <div class="target">${esc(item.en)} <button class="speak-mini" onclick="tts('${escJs(item.en)}','en-US')">🔊</button></div>
+       내 답: ${esc(answer)}<br><span style="opacity:0.8;font-size:0.8rem">🔁 이 문장은 복습 목록에 추가되었습니다. 듣고 3번 따라 말해보세요.</span>`;
+  tts(item.en, 'en-US');
+  input.disabled = true;
+  document.getElementById('drill-check-btn').textContent = '다음 →';
+  document.getElementById('drill-check-btn').onclick = nextDrill;
+}
+
+function revealDrill() {
+  const item = drillQueue[drillIdx];
+  drillResults.push(false);
+  recordDrillStat(item.lesson, false);
+  updateWeakList(item, false);
+  markPracticedToday();
+  const fb = document.getElementById('drill-feedback');
+  fb.className = 'drill-feedback wrong';
+  fb.innerHTML = `정답: <div class="target">${esc(item.en)} <button class="speak-mini" onclick="tts('${escJs(item.en)}','en-US')">🔊</button></div>
+    <span style="opacity:0.8;font-size:0.8rem">🔁 복습 목록에 추가됨 — 듣고 3번 따라 말해보세요.</span>`;
+  tts(item.en, 'en-US');
+  document.getElementById('drill-input').disabled = true;
+  document.getElementById('drill-check-btn').textContent = '다음 →';
+  document.getElementById('drill-check-btn').onclick = nextDrill;
+}
+
+function nextDrill() { drillIdx++; renderDrillCard(); }
+
+function renderDrillDone(target) {
+  const correct = drillResults.filter(Boolean).length;
+  const pct = Math.round(correct / drillResults.length * 100);
+  const emoji = pct >= 90 ? '🏆' : pct >= 70 ? '🎉' : '💪';
+  const note = pct >= 90 ? '완벽해요! 이제 회화 탭에서 실전으로 사용해 보세요.'
+    : pct >= 70 ? '좋아요! 틀린 문장은 복습 탭에서 다시 연습하세요.'
+    : '복습 탭에서 틀린 문장을 다시 연습한 뒤 재도전하세요.';
+  document.getElementById(target).innerHTML = `
+    <div class="drill-card drill-done">
+      <div class="big">${emoji}</div>
+      <div class="score">${correct} / ${drillResults.length} (${pct}%)</div>
+      <div class="sub">${note}</div>
+      <div class="drill-actions" style="margin-top:20px">
+        <button class="btn" onclick="${drillIsReview ? 'renderReview()' : 'renderDrillIntro()'}">처음으로</button>
+        <button class="btn primary" onclick="startDrill(${drillIsReview})">다시 도전</button>
+      </div>
+    </div>`;
+  drillQueue = [];
+}
+
+function recordDrillStat(lessonId, correct) {
+  const stats = load('va_stats', {});
+  const s = stats[lessonId] || { attempts: 0, correct: 0 };
+  s.attempts++; if (correct) s.correct++;
+  stats[lessonId] = s;
+  store('va_stats', stats);
+}
+
+/* Leitner 간격 반복: 틀리면 box 0, 맞히면 box+1, box 3이면 졸업 */
+function updateWeakList(item, correct) {
+  let weak = load('va_weak', []);
+  const idx = weak.findIndex(w => w.en === item.en);
+  if (correct) {
+    if (idx >= 0) {
+      weak[idx].box = (weak[idx].box || 0) + 1;
+      if (weak[idx].box >= 3) weak.splice(idx, 1);
+    }
+  } else {
+    if (idx >= 0) weak[idx].box = 0;
+    else weak.push({ kr: item.kr, en: item.en, lesson: item.lesson, cat: item.cat, box: 0 });
+  }
+  store('va_weak', weak);
+}
+
+function drillMic() {
   if (!recognition) return;
-  stopSpeaking();
-  recognition.lang = document.getElementById('lang-sel').value;
+  const btn = document.getElementById('drill-mic');
+  if (isListening) { recognition.stop(); return; }
+  recognition.lang = 'en-US';
+  recognition._drillMode = true;
   recognition.start();
   isListening = true;
-  document.getElementById('interim-text').textContent = '🎙️ 듣는 중...';
-  updateMicBtn();
+  btn.classList.add('listening');
 }
 
-function stopListening() {
-  if (recognition && isListening) recognition.stop();
+/* ═══════════════════════════════════════════════════
+   🗣 TALK (Production 단계 — 레슨 표현 적용 회화)
+═══════════════════════════════════════════════════ */
+function buildSystemPrompt() {
+  const l = currentLesson;
+  const points = l.sections.flatMap(s => s.points.map(p => `- ${p.en}${p.kr ? ` (${p.kr})` : ''}`)).join('\n');
+  const targets = (MISSIONS[l.id] || []).map(m => `- ${m.label}`).join('\n');
+  const roleplay = l.id === 4
+    ? '\n특별 지시: 당신은 카페 바리스타 역할로 대화를 시작하세요. 사용자가 주문을 완료하면 친구 역할로 바꿔 주말 계획을 묻는 수다를 이어가세요.'
+    : '';
+  return `당신은 PREPLY 영어 과외 수업을 보조하는 원어민 수준의 영어-한국어 바이링구얼 AI 스피킹 코치입니다.
+
+오늘 수업 내용 (${l.id}회차: ${l.title}):
+${points}
+
+대화 시나리오: ${l.scenario.title} — ${l.scenario.desc}${roleplay}
+
+사용자가 연습해야 할 목표 표현:
+${targets}
+
+진행 규칙:
+1. 영어로 자연스럽게 2~3문장씩 대화하세요. 학습자는 초급(CEFR A2)이므로 짧고 쉬운 문장을 쓰세요.
+2. 위 목표 표현을 사용자가 직접 말하게 되도록 질문을 유도하세요. (예: 과거형 수업이면 "What did you do yesterday?" 처럼)
+3. 문법/어휘 오류가 있으면 반드시 이 형식으로 교정하세요: [CORRECT: "잘못된 표현" → "올바른 표현" | 이유를 한국어로 간단히]
+4. 사용자가 이해 못하거나 "한국어로", "설명해줘"라고 하면: [EXPLAIN: 한국어 설명]
+5. 수업의 발음 포인트(예: F 발음, I 발음)와 관련된 단어가 나오면 가끔 발음 팁을 [EXPLAIN:]으로 알려주세요.
+6. 교정은 가장 중요한 것 1~2개만. 격려하는 톤을 유지하고 잘하면 칭찬하세요.
+7. 매 응답 끝에 대화를 이어갈 질문 1개를 포함하세요.`;
 }
 
-function updateMicBtn() {
-  const btn = document.getElementById('mic-btn');
-  btn.classList.toggle('listening', isListening);
-  btn.classList.toggle('processing', isProcessing);
-  document.getElementById('send-btn').disabled = isProcessing;
+function renderMissions() {
+  const list = document.getElementById('mission-list');
+  const missions = MISSIONS[currentLesson.id] || [];
+  list.innerHTML = missions.map(m =>
+    `<span class="mission ${missionState[m.id] ? 'done' : ''}" id="m-${m.id}">${missionState[m.id] ? '✅' : '⬜'} ${m.label}</span>`
+  ).join('');
 }
 
-/* ═══════════════════════════════════════════════════════
-   SEND & API
-═══════════════════════════════════════════════════════ */
+function checkMissions(text) {
+  const missions = MISSIONS[currentLesson.id] || [];
+  let newly = [];
+  missions.forEach(m => {
+    if (!missionState[m.id] && m.re.test(text)) {
+      missionState[m.id] = true;
+      newly.push(m.label);
+      const hist = load('va_missions', {});
+      hist[m.id] = true;
+      store('va_missions', hist);
+    }
+  });
+  if (newly.length) {
+    renderMissions();
+    addSystemMsg(`🎯 미션 달성: ${newly.join(', ')}`);
+  }
+}
+
 function sendText() {
   const input = document.getElementById('text-input');
   const text = input.value.trim();
@@ -392,47 +788,39 @@ function sendText() {
   sendMessage(text);
 }
 
-async function sendMessage(text) {
+async function sendMessage(text, hidden) {
   if (!text || isProcessing) return;
-
   stopSpeaking();
-  addUserMsg(text);
-
+  if (!hidden) {
+    addUserMsg(text);
+    checkMissions(text);
+    markPracticedToday();
+  }
   const model = document.getElementById('model-sel').value;
   history.push({ role: 'user', content: text });
-
   const typingEl = addTypingIndicator();
   isProcessing = true;
-  updateMicBtn();
+  updateTalkBtns();
 
-  const messages = [
-    { role: 'system', content: buildSystemPrompt(currentTopic) },
-    ...history
-  ];
-
+  const messages = [{ role: 'system', content: buildSystemPrompt() }, ...history];
   try {
     const resp = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model, messages, stream: true })
     });
-
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
       throw new Error(err.error || `HTTP ${resp.status}`);
     }
-
     typingEl.remove();
     let fullText = '';
-    const { el: aiEl, textEl } = addAiMsg();
-
+    const { textEl } = addAiMsg();
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
-
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
-
       const lines = decoder.decode(value).split('\n').filter(Boolean);
       for (const line of lines) {
         try {
@@ -445,110 +833,201 @@ async function sendMessage(text) {
         } catch {}
       }
     }
-
     history.push({ role: 'assistant', content: fullText });
     scrollBottom();
-
-    if (!isMuted && fullText) {
-      speakText(fullText);
-    }
-
+    if (fullText) speakText(fullText);
   } catch (err) {
     typingEl?.remove?.();
-    addSystemMsg(`❌ 오류: ${err.message}\n\nOllama가 실행 중인지 확인하고, 모델(${model})이 설치되어 있는지 확인하세요.\n→ ollama pull ${model}`);
+    addSystemMsg(`❌ 오류: ${err.message}\nOllama 실행 여부와 모델(${model}) 설치를 확인하세요. → ollama pull ${model}`);
   } finally {
     isProcessing = false;
-    updateMicBtn();
+    updateTalkBtns();
   }
 }
 
-/* ═══════════════════════════════════════════════════════
-   RESPONSE PARSER — English + [CORRECT:...] + [EXPLAIN:...]
-═══════════════════════════════════════════════════════ */
+function requestSummary() {
+  if (history.length < 2) { addSystemMsg('아직 대화가 충분하지 않습니다. 먼저 영어로 대화해 보세요!'); return; }
+  sendMessage('지금까지의 대화를 평가해주세요. 한국어로: 1) 잘한 점 2) 자주 틀린 패턴 3) 복습할 표현 3개를 [EXPLAIN: ] 형식으로 정리해주세요.', true);
+  addSystemMsg('📋 AI 코치가 오늘 연습을 평가 중...');
+}
+
+function updateTalkBtns() {
+  document.getElementById('send-btn').disabled = isProcessing;
+  document.getElementById('mic-btn').classList.toggle('processing', isProcessing);
+}
+
+/* ── 응답 파서: [CORRECT:] [EXPLAIN:] ── */
 function renderAiText(raw) {
   const correctionRe = /\[CORRECT:\s*"([^"]+)"\s*→\s*"([^"]+)"\s*\|([^\]]+)\]/g;
-  const explainRe    = /\[EXPLAIN:\s*([^\]]+)\]/g;
-
-  let plain = raw
-    .replace(correctionRe, '')
-    .replace(explainRe, '')
-    .trim();
-
-  let html = escHtml(plain).replace(/\n/g, '<br>');
-
+  const explainRe = /\[EXPLAIN:\s*([^\]]+)\]/g;
+  let plain = raw.replace(correctionRe, '').replace(explainRe, '').trim();
+  let html = esc(plain).replace(/\n/g, '<br>');
   let m;
   correctionRe.lastIndex = 0;
   while ((m = correctionRe.exec(raw)) !== null) {
-    html += `<div class="correction-box">
-      <div class="label">📝 문법 교정</div>
-      <span class="wrong">${escHtml(m[1])}</span> → <span class="right">${escHtml(m[2])}</span><br>
-      <span style="opacity:0.8;font-size:0.8rem">${escHtml(m[3].trim())}</span>
-    </div>`;
+    html += `<div class="correction-box"><div class="label">📝 문법 교정</div>
+      <span class="wrong">${esc(m[1])}</span> → <span class="right">${esc(m[2])}</span><br>
+      <span style="opacity:0.8;font-size:0.78rem">${esc(m[3].trim())}</span></div>`;
   }
-
   explainRe.lastIndex = 0;
   while ((m = explainRe.exec(raw)) !== null) {
-    html += `<div class="explain-box">
-      <div class="label">💡 한국어 설명</div>
-      ${escHtml(m[1].trim()).replace(/\n/g, '<br>')}
-    </div>`;
+    html += `<div class="explain-box"><div class="label">💡 코치 설명</div>${esc(m[1].trim()).replace(/\n/g, '<br>')}</div>`;
   }
-
   return html;
 }
 
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-          .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+/* ═══════════════════════════════════════════════════
+   📝 REVIEW (간격 반복 복습)
+═══════════════════════════════════════════════════ */
+function renderReview() {
+  const weak = load('va_weak', []);
+  const el = document.getElementById('review-content');
+  if (!weak.length) {
+    el.innerHTML = `<div class="empty-note">🎉 복습할 문장이 없습니다!<br>드릴에서 틀린 문장이 자동으로 여기에 쌓입니다.<br>3번 연속 맞히면 졸업합니다.</div>`;
+    return;
+  }
+  let html = `<div class="study-card"><h3>복습 대기 문장 (${weak.length}개) — 3번 맞히면 졸업</h3>`;
+  weak.forEach(w => {
+    const boxes = '●'.repeat(w.box || 0) + '○'.repeat(3 - (w.box || 0));
+    html += `<div class="point"><div class="en">${esc(w.kr)}</div>
+      <div class="kr">${esc(w.en)} <span style="color:var(--green);letter-spacing:2px;margin-left:6px">${boxes}</span></div></div>`;
+  });
+  html += `</div><button class="start-drill-btn" onclick="startDrill(true)">복습 드릴 시작 →</button>`;
+  el.innerHTML = html;
 }
 
-/* ═══════════════════════════════════════════════════════
-   TTS — English voice for English, Korean voice for Korean
-═══════════════════════════════════════════════════════ */
-function speakText(raw) {
-  if (isMuted || !window.speechSynthesis) return;
-  stopSpeaking();
+/* ═══════════════════════════════════════════════════
+   📊 PROGRESS
+═══════════════════════════════════════════════════ */
+function renderProgress() {
+  const stats = load('va_stats', {});
+  const missionsDone = load('va_missions', {});
+  const weak = load('va_weak', []);
+  const totalAttempts = Object.values(stats).reduce((s, v) => s + v.attempts, 0);
+  const totalCorrect = Object.values(stats).reduce((s, v) => s + v.correct, 0);
+  const totalMissions = Object.values(MISSIONS).flat().length;
+  const doneMissions = Object.keys(missionsDone).length;
 
+  let html = `<div class="stat-grid">
+    <div class="stat-card"><div class="num">${calcStreak()}</div><div class="lbl">연속 학습일 🔥</div></div>
+    <div class="stat-card"><div class="num">${totalAttempts ? Math.round(totalCorrect / totalAttempts * 100) : 0}%</div><div class="lbl">드릴 정확도</div></div>
+    <div class="stat-card"><div class="num">${doneMissions}/${totalMissions}</div><div class="lbl">표현 미션 달성</div></div>
+    <div class="stat-card"><div class="num">${weak.length}</div><div class="lbl">복습 대기 문장</div></div>
+  </div>`;
+
+  LESSONS.forEach(l => {
+    const s = stats[l.id] || { attempts: 0, correct: 0 };
+    const pct = s.attempts ? Math.round(s.correct / s.attempts * 100) : 0;
+    const lessonMissions = MISSIONS[l.id] || [];
+    const done = lessonMissions.filter(m => missionsDone[m.id]);
+    html += `<div class="lesson-progress-row">
+      <div class="top"><span>${l.id}회차 · ${esc(l.title)}</span><span class="pct">${s.attempts ? pct + '%' : '미시작'}</span></div>
+      <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
+      <div class="mission-history">🎯 미션 ${done.length}/${lessonMissions.length} · 드릴 ${s.correct}/${s.attempts}</div>
+    </div>`;
+  });
+  document.getElementById('progress-content').innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════
+   STT / TTS
+═══════════════════════════════════════════════════ */
+function initSpeechRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    document.getElementById('mic-btn').disabled = true;
+    document.getElementById('mic-btn').title = '이 브라우저는 음성 인식 미지원. Chrome을 사용하세요.';
+    return;
+  }
+  recognition = new SR();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.onresult = (e) => {
+    let interim = '', final = '';
+    for (let r of e.results) {
+      if (r.isFinal) final += r[0].transcript;
+      else interim += r[0].transcript;
+    }
+    if (recognition._drillMode) {
+      const di = document.getElementById('drill-input');
+      if (di) di.value = final || interim;
+    } else {
+      document.getElementById('interim-text').textContent = interim || final;
+      if (final) document.getElementById('text-input').value = final;
+    }
+  };
+  recognition.onend = () => {
+    isListening = false;
+    document.getElementById('mic-btn')?.classList.remove('listening');
+    document.getElementById('drill-mic')?.classList.remove('listening');
+    if (recognition._drillMode) {
+      recognition._drillMode = false;
+    } else {
+      const text = document.getElementById('text-input').value.trim();
+      document.getElementById('interim-text').textContent = '';
+      if (text) { sendMessage(text); document.getElementById('text-input').value = ''; }
+    }
+  };
+  recognition.onerror = (e) => {
+    isListening = false;
+    document.getElementById('mic-btn')?.classList.remove('listening');
+    document.getElementById('drill-mic')?.classList.remove('listening');
+    recognition._drillMode = false;
+    if (e.error !== 'no-speech' && e.error !== 'aborted') addSystemMsg(`🎙️ 음성 인식 오류: ${e.error}`);
+  };
+}
+
+function toggleMic() {
+  if (isProcessing || !recognition) return;
+  if (isListening) { recognition.stop(); return; }
+  stopSpeaking();
+  recognition.lang = 'en-US';
+  recognition._drillMode = false;
+  recognition.start();
+  isListening = true;
+  document.getElementById('interim-text').textContent = '🎙️ 영어로 말하세요...';
+  document.getElementById('mic-btn').classList.add('listening');
+}
+
+function tts(text, lang) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = lang; u.rate = 0.9;
+  const voices = window.speechSynthesis.getVoices();
+  const v = voices.find(v => v.lang.startsWith(lang.slice(0, 2)));
+  if (v) u.voice = v;
+  window.speechSynthesis.speak(u);
+}
+
+function speakText(raw) {
+  if (!window.speechSynthesis) return;
+  stopSpeaking();
   const segments = [];
   const explainRe = /\[EXPLAIN:\s*([^\]]+)\]/g;
-  let explainMatch;
-  let lastIdx = 0;
-  while ((explainMatch = explainRe.exec(raw)) !== null) {
-    if (explainMatch.index > lastIdx) {
-      segments.push({ text: raw.slice(lastIdx, explainMatch.index).replace(/\[CORRECT:[^\]]+\]/g,'').trim(), lang: 'en-US' });
-    }
-    segments.push({ text: explainMatch[1].trim(), lang: 'ko-KR' });
-    lastIdx = explainMatch.index + explainMatch[0].length;
+  let m, lastIdx = 0;
+  while ((m = explainRe.exec(raw)) !== null) {
+    if (m.index > lastIdx) segments.push({ text: raw.slice(lastIdx, m.index).replace(/\[CORRECT:[^\]]+\]/g, '').trim(), lang: 'en-US' });
+    segments.push({ text: m[1].trim(), lang: 'ko-KR' });
+    lastIdx = m.index + m[0].length;
   }
-  if (lastIdx < raw.length) {
-    segments.push({ text: raw.slice(lastIdx).replace(/\[CORRECT:[^\]]+\]/g,'').replace(/\[EXPLAIN:[^\]]+\]/g,'').trim(), lang: 'en-US' });
-  }
-
+  if (lastIdx < raw.length) segments.push({ text: raw.slice(lastIdx).replace(/\[CORRECT:[^\]]+\]/g, '').replace(/\[EXPLAIN:[^\]]+\]/g, '').trim(), lang: 'en-US' });
   speakQueue(segments, 0);
 }
 
 function speakQueue(segments, idx) {
-  if (idx >= segments.length) {
-    document.getElementById('mic-btn').classList.remove('speaking');
-    return;
-  }
+  if (idx >= segments.length) { document.getElementById('mic-btn').classList.remove('speaking'); return; }
   const { text, lang } = segments[idx];
   if (!text) { speakQueue(segments, idx + 1); return; }
-
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = lang; u.rate = 0.92;
   const voices = window.speechSynthesis.getVoices();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = lang;
-  utterance.rate = 0.92;
-
-  const preferred = voices.find(v => v.lang.startsWith(lang.slice(0,2)) && !v.name.includes('Google'));
-  if (preferred) utterance.voice = preferred;
-
-  utterance.onstart = () => document.getElementById('mic-btn').classList.add('speaking');
-  utterance.onend = () => speakQueue(segments, idx + 1);
-  utterance.onerror = () => speakQueue(segments, idx + 1);
-
-  currentUtterance = utterance;
-  window.speechSynthesis.speak(utterance);
+  const v = voices.find(v => v.lang.startsWith(lang.slice(0, 2)) && !v.name.includes('Google'));
+  if (v) u.voice = v;
+  u.onstart = () => document.getElementById('mic-btn').classList.add('speaking');
+  u.onend = () => speakQueue(segments, idx + 1);
+  u.onerror = () => speakQueue(segments, idx + 1);
+  window.speechSynthesis.speak(u);
 }
 
 function stopSpeaking() {
@@ -556,71 +1035,61 @@ function stopSpeaking() {
   document.getElementById('mic-btn').classList.remove('speaking');
 }
 
-function toggleMute() {
-  isMuted = !isMuted;
-  const btn = document.getElementById('mute-btn');
-  btn.textContent = isMuted ? '🔇' : '🔊';
-  btn.classList.toggle('muted', isMuted);
-  if (isMuted) stopSpeaking();
-}
-
-/* ═══════════════════════════════════════════════════════
-   CHAT DOM HELPERS
-═══════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════
+   DOM HELPERS
+═══════════════════════════════════════════════════ */
 function addUserMsg(text) {
-  const chat = document.getElementById('chat');
   const div = document.createElement('div');
   div.className = 'msg user';
-  div.innerHTML = `<div class="bubble">${escHtml(text)}</div><div class="msg-meta">${timeStr()}</div>`;
-  chat.appendChild(div);
+  div.innerHTML = `<div class="bubble">${esc(text)}</div><div class="msg-meta">${timeStr()}</div>`;
+  document.getElementById('chat').appendChild(div);
   scrollBottom();
 }
-
 function addAiMsg() {
-  const chat = document.getElementById('chat');
   const div = document.createElement('div');
   div.className = 'msg ai';
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
   div.appendChild(bubble);
-  div.innerHTML += `<div class="msg-meta">${timeStr()}</div>`;
-  chat.appendChild(div);
+  const meta = document.createElement('div');
+  meta.className = 'msg-meta';
+  meta.textContent = timeStr();
+  div.appendChild(meta);
+  document.getElementById('chat').appendChild(div);
   scrollBottom();
-  return { el: div, textEl: bubble };
+  return { textEl: bubble };
 }
-
 function addSystemMsg(text) {
-  const chat = document.getElementById('chat');
   const div = document.createElement('div');
   div.className = 'msg system';
-  div.innerHTML = `<div class="bubble">${escHtml(text).replace(/\n/g,'<br>')}</div>`;
-  chat.appendChild(div);
+  div.innerHTML = `<div class="bubble">${esc(text).replace(/\n/g, '<br>')}</div>`;
+  document.getElementById('chat').appendChild(div);
   scrollBottom();
 }
-
 function addTypingIndicator() {
-  const chat = document.getElementById('chat');
   const div = document.createElement('div');
   div.className = 'msg ai typing';
   div.innerHTML = `<div class="bubble"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
-  chat.appendChild(div);
+  document.getElementById('chat').appendChild(div);
   scrollBottom();
   return div;
 }
-
 function scrollBottom() {
   const chat = document.getElementById('chat');
   chat.scrollTop = chat.scrollHeight;
 }
-
-function timeStr() {
-  return new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+function timeStr() { return new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }); }
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
-
-function clearChat() {
-  history = [];
-  document.getElementById('chat').innerHTML = '';
-  addSystemMsg(`대화가 초기화되었습니다. 주제: "${currentTopic.label}"`);
+function escJs(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 if (window.speechSynthesis) {
