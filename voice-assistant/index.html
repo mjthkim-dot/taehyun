@@ -218,10 +218,11 @@
 <body>
 
 <header>
-  <div class="logo">🎓 PREPLY AI 코치<span>Gemma 기반</span></div>
+  <div class="logo">🎓 PREPLY AI 코치<span id="app-version"></span></div>
   <div class="header-controls">
     <span class="streak" id="streak">🔥 0일</span>
     <div class="status-dot" id="status-dot" title="Ollama 연결 상태"></div>
+    <select id="voice-sel" title="영어 음성 선택 — 바꾸면 샘플이 재생됩니다"></select>
     <select id="model-sel" title="모델 선택">
       <option value="gemma4:e2b">gemma4:e2b</option>
       <option value="gemma4">gemma4</option>
@@ -272,6 +273,8 @@
 <div class="panel" id="panel-progress"><div class="panel-inner" id="progress-content"></div></div>
 
 <script>
+const APP_VERSION = 'v2.2';
+
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
 ═══════════════════════════════════════════════════ */
@@ -574,10 +577,13 @@ function renderStreak() { document.getElementById('streak').textContent = `🔥 
    INIT & NAVIGATION
 ═══════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('app-version').textContent = `Gemma 기반 · ${APP_VERSION}`;
+  console.log(`PREPLY AI 코치 ${APP_VERSION}`);
   buildLessonBar();
   renderStudy();
   renderMissions();
   initSpeechRecognition();
+  initVoiceSelector();
   checkOllama();
   setInterval(checkOllama, 30000);
   renderStreak();
@@ -1124,12 +1130,38 @@ function pickVoice(lang) {
   const prefix = lang.slice(0, 2);
   const candidates = voices.filter(v => v.lang.replace('_', '-').startsWith(prefix));
   if (!candidates.length) return null;
+  // 사용자가 직접 고른 영어 음성이 있으면 최우선
+  if (prefix === 'en') {
+    const savedName = load('va_voice_en', null);
+    const saved = savedName && candidates.find(v => v.name === savedName);
+    if (saved) return saved;
+  }
   for (const name of (PREFERRED_VOICES[prefix] || [])) {
     const hit = candidates.find(v => v.name.includes(name));
     if (hit) return hit;
   }
   // 이름에 female 표기가 있으면 그것, 없으면 첫 번째
   return candidates.find(v => /female/i.test(v.name)) || candidates[0];
+}
+
+/* 헤더의 음성 선택 드롭다운 — 기기에 설치된 영어 음성 목록에서 직접 선택 */
+function initVoiceSelector() {
+  const sel = document.getElementById('voice-sel');
+  if (!window.speechSynthesis) { sel.style.display = 'none'; return; }
+  const populate = () => {
+    const voices = window.speechSynthesis.getVoices().filter(v => v.lang.replace('_', '-').startsWith('en'));
+    if (!voices.length) return;
+    const current = pickVoice('en-US');
+    sel.innerHTML = voices.map(v =>
+      `<option value="${esc(v.name)}" ${current && v.name === current.name ? 'selected' : ''}>🔊 ${esc(v.name)}</option>`
+    ).join('');
+  };
+  populate();
+  window.speechSynthesis.onvoiceschanged = populate;
+  sel.onchange = () => {
+    store('va_voice_en', sel.value);
+    tts("Hi! I'm your English coach. Nice to meet you!", 'en-US');
+  };
 }
 
 function tts(text, lang) {

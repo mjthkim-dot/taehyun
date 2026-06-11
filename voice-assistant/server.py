@@ -56,6 +56,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
+            # 코드 업데이트가 즉시 반영되도록 브라우저/터널 캐시 금지
+            self.send_header("Cache-Control", "no-store, must-revalidate")
             self._cors()
             self.end_headers()
             self.wfile.write(data)
