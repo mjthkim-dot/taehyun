@@ -308,7 +308,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v2.8';
+const APP_VERSION = 'v2.9';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -1440,7 +1440,7 @@ let currentMode = 'study';
 let history = [];
 let isListening = false, isProcessing = false;
 let recognition = null;
-let drillQueue = [], drillIdx = 0, drillResults = [], drillIsReview = false;
+let drillQueue = [], drillIdx = 0, drillResults = [], drillIsReview = false, drillShadow = false;
 let missionState = {};
 
 function store(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
@@ -1614,19 +1614,29 @@ function renderStudy() {
 /* ═══════════════════════════════════════════════════
    🔁 DRILL (Practice 단계 — KR 보고 EN 말하기)
 ═══════════════════════════════════════════════════ */
-function renderDrillIntro() {
+function renderDrillIntro(note) {
   const items = DRILL_ITEMS.filter(d => d.lesson === currentLesson.id);
   document.getElementById('drill-content').innerHTML = `
     <div class="drill-card">
       <div class="drill-label">${lessonLabel(currentLesson)} 말하기 드릴</div>
       <div class="drill-kr" style="font-size:1.05rem">한국어 문장을 보고<br>영어로 말하거나 입력하세요</div>
       <div style="font-size:0.82rem;color:var(--text-muted);margin:10px 0 18px">${items.length}문항 · 틀린 문장은 자동으로 복습 목록에 저장됩니다</div>
-      <button class="btn primary" onclick="startDrill(false)" style="width:100%">시작하기</button>
+      <button class="btn primary" onclick="startDrill(false)" style="width:100%">▶ 기본 드릴 시작</button>
+      <div class="drill-actions" style="margin-top:8px">
+        <button class="btn" onclick="startShadowDrill()">🎧 쉐도잉</button>
+        <button class="btn" id="ai-drill-btn" onclick="generateAiDrills()">🤖 AI 새 문제</button>
+      </div>
+      <div style="font-size:0.72rem;color:var(--text-muted);margin-top:12px;line-height:1.7;text-align:left">
+        🎧 <b>쉐도잉</b>: 텍스트 없이 원어민 음성만 듣고 그대로 따라 말하기 — 번역하지 않고 소리로 생각하는 훈련<br>
+        🤖 <b>AI 새 문제</b>: 이 유닛의 문법으로 Gemma가 매번 새로운 문장을 무한 생성 — 교재가 끝나지 않습니다
+      </div>
+      ${note ? `<div style="font-size:0.78rem;color:#fca5a5;margin-top:10px">${esc(note)}</div>` : ''}
     </div>`;
 }
 
 function startDrill(isReview) {
   drillIsReview = isReview;
+  drillShadow = false;
   if (isReview) {
     drillQueue = load('va_weak', []).map(w => ({ kr: w.kr, en: w.en, lesson: w.lesson, cat: w.cat || '복습' }));
   } else {
@@ -1637,20 +1647,103 @@ function startDrill(isReview) {
   renderDrillCard();
 }
 
+/* 🎧 쉐도잉: 영어 문장을 숨기고 음성만 듣고 따라 말하기 */
+function startShadowDrill() {
+  drillIsReview = false;
+  drillShadow = true;
+  drillQueue = shuffle(DRILL_ITEMS.filter(d => d.lesson === currentLesson.id));
+  drillIdx = 0;
+  drillResults = [];
+  renderDrillCard();
+}
+
+/* 🤖 AI 무한 드릴: 현재 유닛의 문법으로 Gemma가 새 문제를 생성 */
+let aiDrillBusy = false;
+async function generateAiDrills() {
+  if (aiDrillBusy) return;
+  aiDrillBusy = true;
+  const btn = document.getElementById('ai-drill-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '🤖 생성 중... (몇 초)'; }
+  const l = currentLesson;
+  const model = document.getElementById('model-sel').value;
+  const points = l.sections.flatMap(s => s.points.map(p => p.en)).slice(0, 6).join(' / ');
+  const prompt = `영어 학습용 번역 드릴 문제를 만들어 주세요.
+주제: ${l.title}
+연습할 문법/표현: ${points}
+난이도: CEFR ${l.master || 'A2'}
+
+한국어 문장과 그에 대응하는 자연스러운 영어 문장 5쌍을 만드세요.
+- 위 문법/표현을 반드시 사용할 것
+- 일상에서 실제로 쓸 법한 새로운 문장일 것
+- 난이도에 맞는 어휘만 쓸 것
+
+반드시 이 JSON 형식으로만 답하세요 (다른 텍스트 금지):
+{"items":[{"kr":"한국어 문장","en":"English sentence"}]}`;
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model, messages: [{ role: 'user', content: prompt }],
+        stream: false, format: 'json', keep_alive: '30m',
+        options: { temperature: 0.9, num_predict: 700 },
+      }),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const parsed = JSON.parse(data.message?.content || '{}');
+    const items = (parsed.items || [])
+      .filter(x => x && typeof x.kr === 'string' && typeof x.en === 'string' && x.kr.trim() && x.en.trim())
+      .map(x => ({ kr: x.kr.trim(), en: x.en.trim(), lesson: l.id, cat: '🤖 AI 생성' }));
+    if (items.length < 3) throw new Error('short');
+    drillIsReview = false;
+    drillShadow = false;
+    drillQueue = items;
+    drillIdx = 0;
+    drillResults = [];
+    renderDrillCard();
+  } catch (err) {
+    renderDrillIntro('🤖 문제 생성에 실패했습니다. Ollama 연결을 확인하고 다시 시도해 주세요.');
+  } finally {
+    aiDrillBusy = false;
+  }
+}
+
+/* ⚡ 오늘의 훈련: 복습 대기 문장 + 현재 레벨 랜덤 문제 믹스 (10문항) */
+function startDailyMix() {
+  const weak = load('va_weak', []).slice(0, 5).map(w => ({ kr: w.kr, en: w.en, lesson: w.lesson, cat: '🔁 복습' }));
+  const curLvl = MASTER_CURRICULUM.find(lv => lv.status === 'current') || MASTER_CURRICULUM[1];
+  const ids = new Set(curLvl.units.map(u => u.lessonId));
+  const pool = shuffle(DRILL_ITEMS.filter(d => ids.has(d.lesson) && !weak.some(w => w.en === d.en)));
+  drillQueue = shuffle(weak.concat(pool.slice(0, 10 - weak.length)));
+  if (!drillQueue.length) return;
+  drillIsReview = false;
+  drillShadow = false;
+  drillIdx = 0;
+  drillResults = [];
+  setMode('drill', document.querySelector('[data-mode="drill"]'));
+  renderDrillCard();
+}
+
 function renderDrillCard() {
   const target = drillIsReview ? 'review-content' : 'drill-content';
   if (drillIdx >= drillQueue.length) { renderDrillDone(target); return; }
   const item = drillQueue[drillIdx];
   const segs = drillQueue.map((_, i) =>
     `<div class="seg ${i < drillResults.length ? (drillResults[i] ? 'ok' : 'bad') : (i === drillIdx ? 'cur' : '')}"></div>`).join('');
+  const question = drillShadow
+    ? `<div class="drill-kr" style="font-size:1.05rem">🎧 듣고 그대로 따라 말하세요</div>
+       <button class="speak-mini" style="font-size:1.1rem;padding:9px 22px;margin:8px 0 4px" onclick="tts('${jsAttr(item.en)}','en-US')">🔊 다시 듣기</button>
+       <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:2px">뜻: ${esc(item.kr)}</div>`
+    : `<div class="drill-kr">${esc(item.kr)}</div>`;
   document.getElementById(target).innerHTML = `
     <div class="drill-progress">${segs}</div>
     <div class="drill-card">
-      <div class="drill-label">${drillIdx + 1} / ${drillQueue.length}</div>
-      <div class="drill-kr">${esc(item.kr)}</div>
+      <div class="drill-label">${drillIdx + 1} / ${drillQueue.length}${drillShadow ? ' · 🎧 쉐도잉' : ''}</div>
+      ${question}
       <div class="drill-cat">${esc(item.cat)}</div>
       <div class="drill-input-row">
-        <input class="drill-input" id="drill-input" placeholder="영어로 말하거나 입력..." autocomplete="off"
+        <input class="drill-input" id="drill-input" placeholder="${drillShadow ? '들은 문장을 말하거나 입력...' : '영어로 말하거나 입력...'}" autocomplete="off"
           onkeydown="if(event.key==='Enter'){checkDrill();}"/>
         <button class="round-btn" id="drill-mic" onclick="drillMic()" style="width:46px;height:46px">🎙️</button>
       </div>
@@ -1661,6 +1754,7 @@ function renderDrillCard() {
       </div>
     </div>`;
   document.getElementById('drill-input').focus();
+  if (drillShadow) tts(item.en, 'en-US');  // 쉐도잉은 카드가 뜨면 자동 재생
 }
 
 function normalize(s) {
@@ -2030,9 +2124,11 @@ function renderProgress() {
 ═══════════════════════════════════════════════════ */
 function renderMaster() {
   const stats = load('va_stats', {});
+  const weakCount = load('va_weak', []).length;
   let html = `<div style="margin-bottom:14px">
     <div style="font-size:1rem;font-weight:800;color:var(--primary-light);margin-bottom:4px">📚 영어 마스터 로드맵</div>
-    <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.6">CEFR A1 → C2 완전 정복 플랜 · 현재 A2 진행 중<br>모든 유닛에 📖 레슨 → 🔁 드릴 → 🗣 회화가 준비되어 있어요. 유닛을 눌러 시작하세요.</div>
+    <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.6">CEFR A1 → C2 완전 정복 플랜 · 현재 A2 진행 중<br>유닛은 출발점일 뿐 — 각 유닛에서 🤖 AI가 새 문제를 무한 생성하고, 🎧 쉐도잉으로 원어민 리듬을 훈련합니다.</div>
+    <button class="start-drill-btn" style="margin-top:12px" onclick="startDailyMix()">⚡ 오늘의 훈련 시작${weakCount ? ` — 복습 ${Math.min(weakCount, 5)}문항 포함` : ' (랜덤 10문항)'}</button>
   </div>`;
 
   MASTER_CURRICULUM.forEach(lvl => {
