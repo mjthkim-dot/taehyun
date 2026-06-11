@@ -7,6 +7,7 @@ Gemma4 (Ollama) ↔ Web Browser
 import http.server
 import json
 import os
+import socket
 import sys
 import webbrowser
 from pathlib import Path
@@ -19,7 +20,20 @@ except ImportError:
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 PORT = int(os.environ.get("PORT", "3000"))
+HOST = os.environ.get("HOST", "0.0.0.0")  # 0.0.0.0 = 같은 Wi-Fi의 모바일에서도 접속 가능
 HTML_FILE = Path(__file__).parent / "index.html"
+
+
+def get_lan_ip():
+    """모바일에서 접속할 수 있는 이 컴퓨터의 로컬 네트워크 IP를 찾는다."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))  # 실제 전송 없음 — 라우팅 인터페이스 확인용
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return None
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -131,15 +145,19 @@ def check_ollama():
 
 if __name__ == "__main__":
     print()
-    print("  🎙️  AI 영어 회화 파트너")
+    print("  🎓  PREPLY AI 스피킹 코치")
     print("  ─────────────────────────────")
     check_ollama()
-    print(f"\n  🌐 브라우저: http://localhost:{PORT}")
+    print(f"\n  🖥  PC 브라우저:    http://localhost:{PORT}")
+    lan_ip = get_lan_ip()
+    if lan_ip:
+        print(f"  📱 모바일 브라우저: http://{lan_ip}:{PORT}")
+        print("     (같은 Wi-Fi에 연결된 기기에서 접속하세요)")
     print("  🛑 종료: Ctrl+C\n")
 
     webbrowser.open(f"http://localhost:{PORT}")
 
-    server = http.server.HTTPServer(("localhost", PORT), Handler)
+    server = http.server.HTTPServer((HOST, PORT), Handler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
