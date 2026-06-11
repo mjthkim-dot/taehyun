@@ -292,7 +292,7 @@
       <button class="mini-btn" onclick="requestSummary()" title="AI가 오늘 대화를 평가해줍니다">📋 요약</button>
       <input class="text-input" id="text-input" placeholder="영어로 입력하거나 🎙️로 말하세요" maxlength="500"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendText();}"/>
-      <button class="round-btn" id="mic-btn" onclick="toggleMic()" title="누르면 듣기 시작 · 다 말하면 다시 눌러 전송">🎙️</button>
+      <button class="round-btn" id="mic-btn" onclick="toggleMic()" title="누르면 듣기 시작 · 말을 멈추면 자동 전송 (다시 누르면 즉시 전송)">🎙️</button>
       <button class="round-btn send" id="send-btn" onclick="sendText()" title="전송">➤</button>
     </div>
   </div>
@@ -308,7 +308,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v2.7';
+const APP_VERSION = 'v2.8';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -1475,6 +1475,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initVoiceSelector();
   checkOllama();
   setInterval(checkOllama, 30000);
+  warmUpModel();
+  document.getElementById('model-sel').addEventListener('change', warmUpModel);
   renderStreak();
   addSystemMsg(`${lessonLabel(currentLesson)} "${currentLesson.title}" — ${currentLesson.scenario.title}. 영어로 대화를 시작해 보세요!`);
 });
@@ -1527,6 +1529,16 @@ function setMode(mode, btn) {
   if (mode === 'talk' && history.length === 0 && !isProcessing) {
     sendMessage('(수업 시작) 영어로 짧게 인사하고, 오늘 주제의 핵심 패턴을 예문 1개와 함께 소개한 뒤, 첫 연습 질문을 해주세요.', true);
   }
+}
+
+/* 모델 워밍업: 앱을 열 때 미리 메모리에 올려 첫 응답 지연(수~수십 초)을 제거 */
+function warmUpModel() {
+  const model = document.getElementById('model-sel').value;
+  fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, messages: [], keep_alive: '30m' }),
+  }).catch(() => {});
 }
 
 async function checkOllama() {
@@ -1871,7 +1883,8 @@ async function sendMessage(text, hidden) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model, messages, stream: true,
-        options: { temperature: 0.7, num_predict: 300, repeat_penalty: 1.1 },
+        keep_alive: '30m',  // 응답 후에도 모델을 메모리에 유지 → 다음 턴 즉시 시작
+        options: { temperature: 0.7, num_predict: 240, repeat_penalty: 1.1 },
       })
     });
     if (!resp.ok) {
@@ -1880,6 +1893,7 @@ async function sendMessage(text, hidden) {
     }
     typingEl.remove();
     let fullText = '';
+    speakCursor = 0;
     const { textEl } = addAiMsg();
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
@@ -1893,6 +1907,7 @@ async function sendMessage(text, hidden) {
           if (obj.message?.content) {
             fullText += obj.message.content;
             textEl.innerHTML = renderAiText(fullText);
+            streamSpeak(fullText, false);  // 완성된 문장부터 바로 읽기
           }
           if (obj.done) break;
         } catch {}
@@ -1900,7 +1915,7 @@ async function sendMessage(text, hidden) {
     }
     history.push({ role: 'assistant', content: fullText });
     scrollBottom();
-    if (fullText) speakText(fullText);
+    streamSpeak(fullText, true);  // 남은 마지막 문장 읽기
   } catch (err) {
     typingEl?.remove?.();
     addSystemMsg(`❌ 오류: ${err.message}\nOllama 실행 여부와 모델(${model}) 설치를 확인하세요. → ollama pull ${model}`);
@@ -2072,6 +2087,8 @@ function goToUnit(lessonId) {
 let sttFinal = '';       // 이번 발화에서 확정된 텍스트 누적
 let sttActive = false;   // 사용자가 마이크를 켜두려는 의도
 let sttDrill = false;    // 드릴 모드 여부
+let sttSilenceTimer = null;     // 침묵 감지 → 자동 전송
+const STT_SILENCE_MS = 1800;    // 말을 멈추고 1.8초 지나면 자동 전송
 
 function initSpeechRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2100,9 +2117,12 @@ function initSpeechRecognition() {
     } else {
       document.getElementById('text-input').value = shown;
       document.getElementById('interim-text').textContent = shown
-        ? '🎙️ ' + shown + '  ·  (다 말했으면 마이크를 다시 누르세요)'
-        : '🎙️ 듣는 중... 천천히 말해도 괜찮아요';
+        ? '🎙️ ' + shown + '  ·  (잠시 멈추면 자동 전송)'
+        : '🎙️ 듣는 중... 말을 멈추면 자동으로 전송됩니다';
     }
+    // 침묵 감지: 말이 멈춘 뒤 일정 시간 지나면 자동으로 마이크 종료 → 전송
+    clearTimeout(sttSilenceTimer);
+    if (shown) sttSilenceTimer = setTimeout(() => { if (sttActive) stopMic(); }, STT_SILENCE_MS);
   };
 
   recognition.onend = () => {
@@ -2120,6 +2140,7 @@ function initSpeechRecognition() {
     if (e.error === 'no-speech' || e.error === 'aborted') return; // 치명적 아님 — 계속 듣기
     sttActive = false;
     isListening = false;
+    clearTimeout(sttSilenceTimer);
     document.getElementById('mic-btn')?.classList.remove('listening');
     document.getElementById('drill-mic')?.classList.remove('listening');
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
@@ -2143,12 +2164,13 @@ function startMic(drillMode) {
     document.getElementById('drill-mic')?.classList.add('listening');
   } else {
     document.getElementById('mic-btn').classList.add('listening');
-    document.getElementById('interim-text').textContent = '🎙️ 듣는 중... 천천히 말해도 괜찮아요';
+    document.getElementById('interim-text').textContent = '🎙️ 듣는 중... 말을 멈추면 자동으로 전송됩니다';
   }
 }
 
 function stopMic() {
   sttActive = false;  // 의도 해제 → onend에서 재시작하지 않고 마무리
+  clearTimeout(sttSilenceTimer);
   try { recognition.stop(); } catch (e) {}
 }
 
@@ -2263,39 +2285,61 @@ function playDialogue() {
   next();
 }
 
-function speakText(raw) {
+/* ── 스트리밍 TTS: 응답 전체를 기다리지 않고, 문장이 완성되는 즉시 읽기 ──
+   speakCursor: 이번 응답에서 이미 읽은 위치 / pendingUtter: 재생 대기·중인 발화 수 */
+let speakCursor = 0;
+let pendingUtter = 0;
+
+function streamSpeak(raw, flush) {
   if (!window.speechSynthesis) return;
-  stopSpeaking();
-  const segments = [];
-  const explainRe = /\[EXPLAIN:\s*([^\]]+)\]/g;
-  let m, lastIdx = 0;
-  while ((m = explainRe.exec(raw)) !== null) {
-    if (m.index > lastIdx) segments.push({ text: raw.slice(lastIdx, m.index).replace(/\[CORRECT:[^\]]+\]/g, '').trim(), lang: 'en-US' });
-    segments.push({ text: m[1].trim(), lang: 'ko-KR' });
-    lastIdx = m.index + m[0].length;
+  let s = raw.slice(speakCursor);
+  // 아직 닫히지 않은 [CORRECT:/[EXPLAIN: 태그는 다음 청크에서 처리
+  const open = s.lastIndexOf('[');
+  if (open !== -1 && s.indexOf(']', open) === -1) s = s.slice(0, open);
+  let end = s.length;
+  if (!flush) {
+    end = 0;
+    for (let i = s.length - 1; i >= 0; i--) {
+      if ('.!?'.includes(s[i])) { end = i + 1; break; }
+    }
   }
-  if (lastIdx < raw.length) segments.push({ text: raw.slice(lastIdx).replace(/\[CORRECT:[^\]]+\]/g, '').replace(/\[EXPLAIN:[^\]]+\]/g, '').trim(), lang: 'en-US' });
-  speakQueue(segments, 0);
+  if (!end) return;
+  const chunk = s.slice(0, end);
+  speakCursor += end;
+  // EXPLAIN은 한국어 음성으로, 나머지는 영어로
+  const explainRe = /\[EXPLAIN:\s*([^\]]+)\]/g;
+  let last = 0, m;
+  while ((m = explainRe.exec(chunk)) !== null) {
+    enqueueSpeech(chunk.slice(last, m.index), 'en-US');
+    enqueueSpeech(m[1], 'ko-KR');
+    last = m.index + m[0].length;
+  }
+  enqueueSpeech(chunk.slice(last), 'en-US');
 }
 
-function speakQueue(segments, idx) {
-  if (idx >= segments.length) { document.getElementById('mic-btn').classList.remove('speaking'); return; }
-  const { text, lang } = segments[idx];
-  if (!text) { speakQueue(segments, idx + 1); return; }
+function enqueueSpeech(text, lang) {
+  text = String(text).replace(/\[CORRECT:[^\]]*\]/g, '').replace(/\[EXPLAIN:[^\]]*\]/g, '').trim();
+  if (!text || !window.speechSynthesis) return;
   const u = new SpeechSynthesisUtterance(text);
   u.lang = lang;
-  u.rate = 0.95;
+  u.rate = 0.97;
   u.pitch = 1.06;
   const v = pickVoice(lang);
   if (v) u.voice = v;
-  u.onstart = () => document.getElementById('mic-btn').classList.add('speaking');
-  u.onend = () => speakQueue(segments, idx + 1);
-  u.onerror = () => speakQueue(segments, idx + 1);
+  pendingUtter++;
+  document.getElementById('mic-btn').classList.add('speaking');
+  u.onend = u.onerror = () => {
+    if (--pendingUtter <= 0) {
+      pendingUtter = 0;
+      document.getElementById('mic-btn').classList.remove('speaking');
+    }
+  };
   window.speechSynthesis.speak(u);
 }
 
 function stopSpeaking() {
   if (window.speechSynthesis) window.speechSynthesis.cancel();
+  pendingUtter = 0;
   document.getElementById('mic-btn').classList.remove('speaking');
 }
 
