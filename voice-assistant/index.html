@@ -263,7 +263,7 @@
 </header>
 
 <div class="mode-tabs">
-  <button class="mode-tab" data-mode="master" onclick="setMode('master', this)">🗺 마스터</button>
+  <button class="mode-tab" data-mode="master" onclick="setMode('master', this)">🏠 홈</button>
   <button class="mode-tab active" data-mode="study" onclick="setMode('study', this)">📖 레슨</button>
   <button class="mode-tab" data-mode="drill" onclick="setMode('drill', this)">🔁 드릴</button>
   <button class="mode-tab" data-mode="talk" onclick="setMode('talk', this)">🗣 회화</button>
@@ -308,7 +308,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v2.9';
+const APP_VERSION = 'v3.0';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -1479,7 +1479,19 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('model-sel').addEventListener('change', warmUpModel);
   renderStreak();
   addSystemMsg(`${lessonLabel(currentLesson)} "${currentLesson.title}" — ${currentLesson.scenario.title}. 영어로 대화를 시작해 보세요!`);
+  // 첫 화면은 🏠 홈 (로드맵 + 학습 가이드)
+  setMode('master', document.querySelector('[data-mode="master"]'));
 });
+
+/* 학습 단계 표시줄: 지금 어디에 있고 다음에 뭘 하면 되는지 */
+function stepBar(cur) {
+  const steps = [['study', '① 학습'], ['drill', '② 드릴'], ['talk', '③ 회화']];
+  return `<div style="display:flex;gap:5px;align-items:center;margin-bottom:12px">` +
+    steps.map(([k, label]) =>
+      `<button onclick="document.querySelector('[data-mode=${k}]').click()" style="flex:1;padding:8px 4px;border-radius:8px;font-size:0.76rem;font-weight:700;cursor:pointer;border:1px solid ${k === cur ? 'var(--primary)' : 'var(--border)'};background:${k === cur ? 'var(--primary)' : 'var(--surface)'};color:${k === cur ? '#fff' : 'var(--text-muted)'}">${label}</button>`
+    ).join(`<span style="color:var(--text-muted);font-size:0.7rem">→</span>`) +
+    `</div>`;
+}
 
 function buildLessonBar() {
   const bar = document.getElementById('lesson-bar');
@@ -1559,7 +1571,7 @@ async function checkOllama() {
 ═══════════════════════════════════════════════════ */
 function renderStudy() {
   const l = currentLesson;
-  let html = '';
+  let html = stepBar('study');
   if (l.preview) {
     html += `<div class="study-card" style="border-color:#7c3aed;background:rgba(124,58,237,0.08)">
       <h3 style="color:#c4b5fd">🔮 선행학습 — 다음 수업 미리 준비하기</h3>
@@ -1616,7 +1628,7 @@ function renderStudy() {
 ═══════════════════════════════════════════════════ */
 function renderDrillIntro(note) {
   const items = DRILL_ITEMS.filter(d => d.lesson === currentLesson.id);
-  document.getElementById('drill-content').innerHTML = `
+  document.getElementById('drill-content').innerHTML = stepBar('drill') + `
     <div class="drill-card">
       <div class="drill-label">${lessonLabel(currentLesson)} 말하기 드릴</div>
       <div class="drill-kr" style="font-size:1.05rem">한국어 문장을 보고<br>영어로 말하거나 입력하세요</div>
@@ -1843,7 +1855,8 @@ function renderDrillDone(target) {
       <div class="sub">${note}</div>
       <div class="drill-actions" style="margin-top:20px">
         <button class="btn" onclick="${drillIsReview ? 'renderReview()' : 'renderDrillIntro()'}">처음으로</button>
-        <button class="btn primary" onclick="startDrill(${drillIsReview})">다시 도전</button>
+        <button class="btn" onclick="startDrill(${drillIsReview})">다시 도전</button>
+        <button class="btn primary" onclick="document.querySelector('[data-mode=talk]').click()">③ 회화로 →</button>
       </div>
     </div>`;
   drillQueue = [];
@@ -2126,9 +2139,20 @@ function renderMaster() {
   const stats = load('va_stats', {});
   const weakCount = load('va_weak', []).length;
   let html = `<div style="margin-bottom:14px">
-    <div style="font-size:1rem;font-weight:800;color:var(--primary-light);margin-bottom:4px">📚 영어 마스터 로드맵</div>
-    <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.6">CEFR A1 → C2 완전 정복 플랜 · 현재 A2 진행 중<br>유닛은 출발점일 뿐 — 각 유닛에서 🤖 AI가 새 문제를 무한 생성하고, 🎧 쉐도잉으로 원어민 리듬을 훈련합니다.</div>
+    <div style="font-size:1rem;font-weight:800;color:var(--primary-light);margin-bottom:4px">🏠 PREPLY AI 스피킹 코치</div>
+    <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.6">CEFR A1 → C2 로드맵 · 현재 A2 진행 중</div>
     <button class="start-drill-btn" style="margin-top:12px" onclick="startDailyMix()">⚡ 오늘의 훈련 시작${weakCount ? ` — 복습 ${Math.min(weakCount, 5)}문항 포함` : ' (랜덤 10문항)'}</button>
+  </div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px">
+    <div style="font-size:0.84rem;font-weight:800;margin-bottom:8px">🚀 학습은 딱 3단계입니다</div>
+    <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.9">
+      1️⃣ 아래 로드맵에서 원하는 유닛의 <b style="color:var(--primary-light)">시작</b> 버튼 누르기<br>
+      2️⃣ <b style="color:var(--text)">① 학습</b>에서 핵심 읽기 → <b style="color:var(--text)">② 드릴</b>에서 입에 붙이기 (🎧 쉐도잉 추천)<br>
+      3️⃣ <b style="color:var(--text)">③ 회화</b>에서 AI 코치와 실전 — 들어가면 AI가 먼저 말을 겁니다<br>
+      <span style="font-size:0.74rem">💡 화면 위 ①→②→③ 버튼으로 언제든 단계 이동 · 틀린 문장 복습은 ⚡ 오늘의 훈련이 자동으로 챙겨요<br>
+      🔊 음성이 기계적으로 들리면 상단 음성 메뉴에서 ⭐ 표시된 음성을 선택하세요</span>
+    </div>
   </div>`;
 
   MASTER_CURRICULUM.forEach(lvl => {
@@ -2292,6 +2316,22 @@ const PREFERRED_VOICES = {
   en: ['Samantha', 'Google US English', 'Ava', 'Allison', 'Susan', 'Joanna', 'Jenny', 'Aria', 'Zira', 'Victoria', 'Karen', 'Moira', 'Tessa'],
   ko: ['Yuna', 'Google 한국의', 'Heami', 'SunHi'],
 };
+/* 고품질(사람에 가까운) 음성 표식 — Enhanced/Premium(macOS), Natural(Edge), Siri 등 */
+const QUALITY_VOICE_RE = /(natural|neural|premium|enhanced|siri|online)/i;
+
+function voiceScore(v) {
+  const prefix = v.lang.replace('_', '-').slice(0, 2);
+  let s = 0;
+  if (QUALITY_VOICE_RE.test(v.name)) s += 100;  // 고품질 음성 최우선 → 기계음 탈출
+  const list = PREFERRED_VOICES[prefix] || [];
+  const i = list.findIndex(name => v.name.includes(name));
+  if (i >= 0) s += 50 - i;
+  if (/google/i.test(v.name)) s += 8;
+  if (/female/i.test(v.name)) s += 5;
+  if (v.lang.replace('_', '-') === (prefix === 'en' ? 'en-US' : 'ko-KR')) s += 3;
+  return s;
+}
+
 function pickVoice(lang) {
   const voices = window.speechSynthesis.getVoices();
   const prefix = lang.slice(0, 2);
@@ -2303,12 +2343,15 @@ function pickVoice(lang) {
     const saved = savedName && candidates.find(v => v.name === savedName);
     if (saved) return saved;
   }
-  for (const name of (PREFERRED_VOICES[prefix] || [])) {
-    const hit = candidates.find(v => v.name.includes(name));
-    if (hit) return hit;
-  }
-  // 이름에 female 표기가 있으면 그것, 없으면 첫 번째
-  return candidates.find(v => /female/i.test(v.name)) || candidates[0];
+  return candidates.sort((a, b) => voiceScore(b) - voiceScore(a))[0];
+}
+
+/* 음성으로 읽기 전 정리: 이모지·마크다운 기호 등 어색하게 읽히는 것 제거 */
+function cleanForSpeech(t) {
+  return String(t)
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{FE0F}\u{200D}]/gu, '')
+    .replace(/[*_#`~•·]/g, '')
+    .replace(/\s+/g, ' ').trim();
 }
 
 /* 헤더의 음성 선택 드롭다운 — 기기에 설치된 영어 음성 목록에서 직접 선택 */
@@ -2316,11 +2359,13 @@ function initVoiceSelector() {
   const sel = document.getElementById('voice-sel');
   if (!window.speechSynthesis) { sel.style.display = 'none'; return; }
   const populate = () => {
-    const voices = window.speechSynthesis.getVoices().filter(v => v.lang.replace('_', '-').startsWith('en'));
+    const voices = window.speechSynthesis.getVoices()
+      .filter(v => v.lang.replace('_', '-').startsWith('en'))
+      .sort((a, b) => voiceScore(b) - voiceScore(a));  // 자연스러운 음성이 위로
     if (!voices.length) return;
     const current = pickVoice('en-US');
     sel.innerHTML = voices.map(v =>
-      `<option value="${esc(v.name)}" ${current && v.name === current.name ? 'selected' : ''}>🔊 ${esc(v.name)}</option>`
+      `<option value="${esc(v.name)}" ${current && v.name === current.name ? 'selected' : ''}>${QUALITY_VOICE_RE.test(v.name) ? '⭐' : '🔊'} ${esc(v.name)}</option>`
     ).join('');
   };
   populate();
@@ -2334,26 +2379,21 @@ function initVoiceSelector() {
 function tts(text, lang) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
+  const u = new SpeechSynthesisUtterance(cleanForSpeech(text));
   u.lang = lang;
-  u.rate = 0.95;   // 살짝 또박또박
-  u.pitch = 1.06;  // 살짝 밝은 톤
+  u.rate = 0.95;   // 드릴·예문은 또박또박 (따라 말하기 좋게 일정한 속도)
+  u.pitch = 1.06;
   const v = pickVoice(lang);
   if (v) u.voice = v;
   window.speechSynthesis.speak(u);
 }
 
-/* A 다음으로 듣기 좋은 영어 여성 음성을 고른다 (A는 제외) */
+/* A 다음으로 듣기 좋은 영어 음성을 고른다 (A는 제외, 품질 점수순) */
 function pickSecondVoice(voiceA) {
   const candidates = window.speechSynthesis.getVoices()
     .filter(v => v.lang.replace('_', '-').startsWith('en') && (!voiceA || v.name !== voiceA.name));
   if (!candidates.length) return voiceA;
-  // 친근한 여성 음성 우선순위에서 A가 아닌 첫 번째
-  for (const name of PREFERRED_VOICES.en) {
-    const hit = candidates.find(v => v.name.includes(name));
-    if (hit) return hit;
-  }
-  return candidates.find(v => /female/i.test(v.name)) || candidates[0];
+  return candidates.sort((a, b) => voiceScore(b) - voiceScore(a))[0];
 }
 
 /* 실전 대화문 전체 자동 재생 — A는 사용자가 고른 음성, B는 또 다른 여성 음성 + 피치로 구분 */
@@ -2414,12 +2454,13 @@ function streamSpeak(raw, flush) {
 }
 
 function enqueueSpeech(text, lang) {
-  text = String(text).replace(/\[CORRECT:[^\]]*\]/g, '').replace(/\[EXPLAIN:[^\]]*\]/g, '').trim();
+  text = cleanForSpeech(String(text).replace(/\[CORRECT:[^\]]*\]/g, '').replace(/\[EXPLAIN:[^\]]*\]/g, ''));
   if (!text || !window.speechSynthesis) return;
   const u = new SpeechSynthesisUtterance(text);
   u.lang = lang;
-  u.rate = 0.97;
-  u.pitch = 1.06;
+  // 사람처럼 문장마다 속도·톤이 미세하게 달라지게 (단조로운 기계음 완화)
+  u.rate = 1.0 + (Math.random() * 0.06 - 0.02);
+  u.pitch = 1.04 + (Math.random() * 0.06 - 0.03);
   const v = pickVoice(lang);
   if (v) u.voice = v;
   pendingUtter++;
