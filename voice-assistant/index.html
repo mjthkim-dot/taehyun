@@ -273,7 +273,7 @@
 <div class="panel" id="panel-progress"><div class="panel-inner" id="progress-content"></div></div>
 
 <script>
-const APP_VERSION = 'v2.4';
+const APP_VERSION = 'v2.5';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -1280,23 +1280,37 @@ function tts(text, lang) {
   window.speechSynthesis.speak(u);
 }
 
-/* 실전 대화문 전체 자동 재생 — A/B를 서로 다른 음성으로 번갈아 읽기 */
+/* A 다음으로 듣기 좋은 영어 여성 음성을 고른다 (A는 제외) */
+function pickSecondVoice(voiceA) {
+  const candidates = window.speechSynthesis.getVoices()
+    .filter(v => v.lang.replace('_', '-').startsWith('en') && (!voiceA || v.name !== voiceA.name));
+  if (!candidates.length) return voiceA;
+  // 친근한 여성 음성 우선순위에서 A가 아닌 첫 번째
+  for (const name of PREFERRED_VOICES.en) {
+    const hit = candidates.find(v => v.name.includes(name));
+    if (hit) return hit;
+  }
+  return candidates.find(v => /female/i.test(v.name)) || candidates[0];
+}
+
+/* 실전 대화문 전체 자동 재생 — A는 사용자가 고른 음성, B는 또 다른 여성 음성 + 피치로 구분 */
 function playDialogue() {
   if (!window.speechSynthesis || !currentLesson.dialogue) return;
   window.speechSynthesis.cancel();
-  const voices = window.speechSynthesis.getVoices().filter(v => v.lang.replace('_', '-').startsWith('en'));
   const voiceA = pickVoice('en-US');
-  const voiceB = voices.find(v => v.name !== (voiceA && voiceA.name)) || voiceA;
+  const voiceB = pickSecondVoice(voiceA);
   const lines = currentLesson.dialogue.lines;
   let i = 0;
   const next = () => {
     if (i >= lines.length) return;
     const ln = lines[i++];
+    const isA = ln.sp === 'A';
     const u = new SpeechSynthesisUtterance(ln.en);
     u.lang = 'en-US';
     u.rate = 0.95;
-    u.pitch = 1.06;
-    u.voice = ln.sp === 'A' ? voiceA : voiceB;
+    u.voice = isA ? voiceA : voiceB;
+    // 같은 음성이 걸려도 두 화자가 구분되도록 피치를 살짝 다르게 (둘 다 밝은 여성 톤)
+    u.pitch = isA ? 1.06 : 1.18;
     u.onend = next;
     u.onerror = next;
     window.speechSynthesis.speak(u);
