@@ -11,7 +11,7 @@
 #   휴대폰:    출력되는 https://xxxx.trycloudflare.com 주소로 접속
 # ─────────────────────────────────────────────────────────────
 
-PORT="${PORT:-3000}"
+PORT="${PORT:-3777}"
 
 if ! command -v cloudflared &> /dev/null; then
   echo "📦 cloudflared가 설치되어 있지 않습니다. 설치를 시작합니다..."

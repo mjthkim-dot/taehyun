@@ -13,7 +13,7 @@
 # ─────────────────────────────────────────────────────────────
 
 set -u
-PORT="${PORT:-3000}"
+PORT="${PORT:-3777}"
 DIR="$(cd "$(dirname "$0")" && pwd)"
 TUNNEL_LOG="$(mktemp /tmp/preply-tunnel.XXXXXX.log)"
 SERVER_PID=""

@@ -19,7 +19,7 @@ except ImportError:
     sys.exit(1)
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-PORT = int(os.environ.get("PORT", "3000"))
+PORT = int(os.environ.get("PORT", "3777"))
 HOST = os.environ.get("HOST", "0.0.0.0")  # 0.0.0.0 = 같은 Wi-Fi의 모바일에서도 접속 가능
 HTML_FILE = Path(__file__).parent / "index.html"
 
