@@ -44,8 +44,9 @@
       display: flex; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
     }
     .mode-tab {
-      flex: 1; padding: 10px 4px; background: none; border: none; border-bottom: 2.5px solid transparent;
-      color: var(--text-muted); font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all 0.2s;
+      flex: 1; padding: 10px 2px; background: none; border: none; border-bottom: 2.5px solid transparent;
+      color: var(--text-muted); font-size: 0.74rem; font-weight: 700; cursor: pointer; transition: all 0.2s;
+      white-space: nowrap;
     }
     .mode-tab.active { color: var(--primary-light); border-bottom-color: var(--primary); }
 
@@ -213,6 +214,36 @@
     .bar .fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--primary-light)); border-radius: 3px; transition: width 0.4s; }
     .mission-history { font-size: 0.74rem; color: var(--text-muted); margin-top: 7px; }
     .empty-note { text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 40px 16px; line-height: 1.7; }
+
+    /* ── Master roadmap ── */
+    .level-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 15px; margin-bottom: 12px; position: relative;
+    }
+    .level-card.current { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+    .level-card.locked { opacity: 0.75; }
+    .level-head { display: flex; align-items: center; gap: 9px; margin-bottom: 4px; }
+    .level-badge {
+      font-size: 0.7rem; font-weight: 800; padding: 3px 10px; border-radius: 10px;
+      background: var(--primary); color: white; flex-shrink: 0;
+    }
+    .level-badge.done { background: var(--green); }
+    .level-badge.future { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
+    .level-name { font-size: 0.92rem; font-weight: 800; }
+    .level-cefr { font-size: 0.72rem; color: var(--text-muted); margin-left: auto; font-weight: 700; }
+    .level-goal { font-size: 0.78rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 10px; }
+    .unit-row {
+      display: flex; align-items: center; gap: 9px; padding: 8px 0; border-top: 1px solid var(--border);
+    }
+    .unit-status { font-size: 0.9rem; width: 22px; text-align: center; flex-shrink: 0; }
+    .unit-info { flex: 1; min-width: 0; }
+    .unit-title { font-size: 0.84rem; font-weight: 600; }
+    .unit-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 1px; }
+    .unit-go {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--primary-light);
+      border-radius: 8px; padding: 5px 12px; font-size: 0.74rem; font-weight: 700; cursor: pointer; flex-shrink: 0;
+    }
+    .unit-go:hover { border-color: var(--primary); }
   </style>
 </head>
 <body>
@@ -232,6 +263,7 @@
 </header>
 
 <div class="mode-tabs">
+  <button class="mode-tab" data-mode="master" onclick="setMode('master', this)">🗺 마스터</button>
   <button class="mode-tab active" data-mode="study" onclick="setMode('study', this)">📖 레슨</button>
   <button class="mode-tab" data-mode="drill" onclick="setMode('drill', this)">🔁 드릴</button>
   <button class="mode-tab" data-mode="talk" onclick="setMode('talk', this)">🗣 회화</button>
@@ -272,8 +304,11 @@
 <!-- 📊 PROGRESS -->
 <div class="panel" id="panel-progress"><div class="panel-inner" id="progress-content"></div></div>
 
+<!-- 🗺 MASTER ROADMAP -->
+<div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
+
 <script>
-const APP_VERSION = 'v2.5';
+const APP_VERSION = 'v2.6';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -592,6 +627,80 @@ const MISSIONS = {
 };
 
 /* ═══════════════════════════════════════════════════
+   🗺 MASTER CURRICULUM (CEFR A1→C2 로드맵)
+═══════════════════════════════════════════════════ */
+const MASTER_CURRICULUM = [
+  {
+    level: 'A1', name: '입문', cefr: 'CEFR A1', status: 'done',
+    goal: '기초 표현으로 자기소개, 인사, 숫자, 날짜를 말할 수 있다.',
+    units: [
+      { id:'a1-1', title:'인사 & 자기소개',  sub:'Hello / Nice to meet you / My name is...', topic:'introductions' },
+      { id:'a1-2', title:'숫자 & 날짜',      sub:'1-100 / Monday-Sunday / What time is it?',  topic:'numbers_dates' },
+      { id:'a1-3', title:'관사 & 명사',      sub:'a book / an apple / the cat / my, your',    topic:'articles_nouns' },
+      { id:'a1-4', title:'be 동사 기초',     sub:'I am / You are / She is — 기초 문장',         topic:'be_verbs' },
+      { id:'a1-5', title:'가족 & 묘사',      sub:'My family / tall, short / He looks like...',  topic:'family_description' },
+    ],
+  },
+  {
+    level: 'A2', name: '초급', cefr: 'CEFR A2', status: 'current',
+    goal: '일상 주제로 짧은 대화를 나누고, 과거·현재·미래 시제를 기본적으로 사용할 수 있다.',
+    units: [
+      { id:'a2-1', title:'현재 시제 & 발음',         sub:'I eat / She eats / Do you...?',             lessonId: 1 },
+      { id:'a2-2', title:'과거 시제 & 관사',         sub:'I went / Did you...? / a · an · the',       lessonId: 2 },
+      { id:'a2-3', title:'Looking Forward To',      sub:'looking forward to + -ing / 기대 표현',     lessonId: 3 },
+      { id:'a2-4', title:'카페 & 일상 회화',          sub:'Can I get...? / How have you been?',        lessonId: 4 },
+      { id:'a2-5', title:'현재 진행형 & 미래',        sub:'am/is/are + -ing / be going to / will',    lessonId: 101 },
+      { id:'a2-6', title:'빈도 부사',                sub:'always · usually · often / How often?',    lessonId: 102 },
+      { id:'a2-7', title:'식당 회화',                sub:"I'd like... / Could I get...? / The bill", lessonId: 103 },
+    ],
+  },
+  {
+    level: 'B1', name: '중급', cefr: 'CEFR B1', status: 'future',
+    goal: '여행, 경험, 의견을 현재 완료 & 조동사로 자신 있게 표현할 수 있다.',
+    units: [
+      { id:'b1-1', title:'현재 완료',         sub:'I have been to / Have you ever...?',          topic:'present_perfect' },
+      { id:'b1-2', title:'비교급 & 최상급',   sub:'bigger / the biggest / as...as',              topic:'comparatives' },
+      { id:'b1-3', title:'조동사',            sub:'can, could, should, must, might',             topic:'modal_verbs' },
+      { id:'b1-4', title:'여행 & 길 찾기',    sub:'Where is...? / Turn left / Take the subway', topic:'travel' },
+      { id:'b1-5', title:'경험 & 의견 말하기', sub:'I think / In my opinion / I agree because...', topic:'opinions' },
+    ],
+  },
+  {
+    level: 'B2', name: '중상급', cefr: 'CEFR B2', status: 'future',
+    goal: '가정법, 수동태, 간접화법을 사용하고 추상적 주제를 논의할 수 있다.',
+    units: [
+      { id:'b2-1', title:'가정법',            sub:'If I were you... / If I had known...',         topic:'conditionals' },
+      { id:'b2-2', title:'수동태',            sub:'It was made by... / This is being done',       topic:'passive_voice' },
+      { id:'b2-3', title:'간접화법',          sub:'She said that / He told me to...',             topic:'reported_speech' },
+      { id:'b2-4', title:'관용어 & 어휘 확장', sub:'piece of cake / Beat around the bush',        topic:'idioms' },
+      { id:'b2-5', title:'토론 & 의견 표현',  sub:'On the other hand / I strongly believe...',   topic:'debate' },
+    ],
+  },
+  {
+    level: 'C1', name: '고급', cefr: 'CEFR C1', status: 'future',
+    goal: '복잡한 문법과 고급 어휘로 유창하게 발표하고 업무·학술 맥락에서 소통할 수 있다.',
+    units: [
+      { id:'c1-1', title:'동명사 & 부정사 뉘앙스', sub:'stop to vs stop -ing / regret saying',   topic:'gerunds_infinitives' },
+      { id:'c1-2', title:'고급 어휘 & 연어',       sub:'collocations / strong adjectives',        topic:'advanced_vocab' },
+      { id:'c1-3', title:'발표 & 프레젠테이션',    sub:"Today I'd like to... / In conclusion",     topic:'presentations' },
+      { id:'c1-4', title:'뉘앙스 & 화용론',        sub:'Hedging / Softening / Sarcasm / Irony',   topic:'pragmatics' },
+      { id:'c1-5', title:'복합 담화 & 응집성',     sub:'Furthermore / Nevertheless / Cohesion',   topic:'discourse' },
+    ],
+  },
+  {
+    level: 'C2', name: '원어민 수준', cefr: 'CEFR C2', status: 'future',
+    goal: '원어민과 동등한 수준으로 모든 상황에서 자연스럽고 정확하게 소통할 수 있다.',
+    units: [
+      { id:'c2-1', title:'원어민 관용 표현',   sub:"I'm on the fence / Give it a shot",          topic:'native_idioms' },
+      { id:'c2-2', title:'미묘한 어조 & 어감', sub:'Register / Formal vs Casual / Understatement', topic:'tone_register' },
+      { id:'c2-3', title:'전문 분야 어휘',     sub:'Business / Technology / Medical terms',       topic:'specialized_vocab' },
+      { id:'c2-4', title:'유머 & 은유',        sub:'Puns / Metaphors / Similes / Wordplay',       topic:'humor_metaphor' },
+      { id:'c2-5', title:'문화 지식 & 자연스러움', sub:'Small talk / Brit vs American / Slang',   topic:'culture' },
+    ],
+  },
+];
+
+/* ═══════════════════════════════════════════════════
    STATE & STORAGE
 ═══════════════════════════════════════════════════ */
 let currentLesson = LESSONS.filter(l => !l.preview).slice(-1)[0];
@@ -603,6 +712,7 @@ let isListening = false, isProcessing = false;
 let recognition = null;
 let drillQueue = [], drillIdx = 0, drillResults = [], drillIsReview = false;
 let missionState = {};
+let masterTopic = null;
 
 function store(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
 function load(key, def) { try { return JSON.parse(localStorage.getItem(key)) ?? def; } catch { return def; } }
@@ -653,6 +763,7 @@ function buildLessonBar() {
 }
 
 function selectLesson(lesson, chip) {
+  masterTopic = null;
   document.querySelectorAll('.lesson-chip').forEach(c => c.classList.remove('active'));
   chip.classList.add('active');
   currentLesson = lesson;
@@ -672,10 +783,11 @@ function setMode(mode, btn) {
   btn.classList.add('active');
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + mode).classList.add('active');
-  document.getElementById('lesson-bar').style.display = (mode === 'review' || mode === 'progress') ? 'none' : 'flex';
+  document.getElementById('lesson-bar').style.display = (mode === 'review' || mode === 'progress' || mode === 'master') ? 'none' : 'flex';
   if (mode === 'drill' && drillQueue.length === 0) renderDrillIntro();
   if (mode === 'review') renderReview();
   if (mode === 'progress') renderProgress();
+  if (mode === 'master') renderMaster();
 }
 
 async function checkOllama() {
@@ -919,6 +1031,7 @@ function drillMic() {
    🗣 TALK (Production 단계 — 레슨 표현 적용 회화)
 ═══════════════════════════════════════════════════ */
 function buildSystemPrompt() {
+  if (masterTopic) return buildMasterTopicPrompt(masterTopic);
   const l = currentLesson;
   const points = l.sections.flatMap(s => s.points.map(p => `- ${p.en}${p.kr ? ` (${p.kr})` : ''}`)).join('\n');
   const targets = (MISSIONS[l.id] || []).map(m => `- ${m.label}`).join('\n');
@@ -1119,6 +1232,144 @@ function renderProgress() {
     </div>`;
   });
   document.getElementById('progress-content').innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════
+   🗺 MASTER ROADMAP
+═══════════════════════════════════════════════════ */
+function renderMaster() {
+  const stats = load('va_stats', {});
+  let html = `<div style="margin-bottom:14px">
+    <div style="font-size:1rem;font-weight:800;color:var(--primary-light);margin-bottom:4px">📚 영어 마스터 로드맵</div>
+    <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.6">CEFR A1 → C2 완전 정복 플랜 · 현재 A2 진행 중 · 유닛을 눌러 시작하세요</div>
+  </div>`;
+
+  MASTER_CURRICULUM.forEach(lvl => {
+    const isDone = lvl.status === 'done';
+    const isCurr = lvl.status === 'current';
+    html += `<div class="level-card${isCurr ? ' current' : !isDone ? ' locked' : ''}">
+      <div class="level-head">
+        <span class="level-badge${isDone ? ' done' : !isCurr ? ' future' : ''}">${isDone ? '✓ 완료' : isCurr ? '▶ 진행중' : '🔒 예정'}</span>
+        <span class="level-name">${esc(lvl.name)}</span>
+        <span class="level-cefr">${esc(lvl.cefr)}</span>
+      </div>
+      <div class="level-goal">${esc(lvl.goal)}</div>`;
+
+    lvl.units.forEach(u => {
+      let icon = '⬜', pct = 0, btn = '';
+      if (isDone) {
+        icon = '✅'; pct = 100;
+      } else if (isCurr) {
+        if (u.lessonId) {
+          const s = stats[u.lessonId];
+          pct = s?.attempts ? Math.round(s.correct / s.attempts * 100) : 0;
+          icon = pct >= 80 ? '✅' : pct > 0 ? '📖' : '⬜';
+          btn = `<button class="unit-go" onclick="goToUnit(${u.lessonId})">시작</button>`;
+        } else {
+          btn = `<button class="unit-go" onclick="goToTopic('${u.id}')">AI 연습</button>`;
+        }
+      } else {
+        icon = '🔒';
+        btn = `<button class="unit-go" style="opacity:0.5" onclick="goToTopic('${u.id}')">미리보기</button>`;
+      }
+      const bar = pct > 0
+        ? `<div style="height:3px;background:var(--surface2);border-radius:2px;margin-top:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${pct>=80?'var(--green)':'var(--primary)'};border-radius:2px;transition:width .4s"></div></div>`
+        : '';
+      html += `<div class="unit-row">
+        <div class="unit-status">${icon}</div>
+        <div class="unit-info"><div class="unit-title">${esc(u.title)}</div><div class="unit-sub">${esc(u.sub)}</div>${bar}</div>
+        ${btn}
+      </div>`;
+    });
+
+    html += `</div>`;
+  });
+
+  document.getElementById('master-content').innerHTML = html;
+}
+
+function goToUnit(lessonId) {
+  masterTopic = null;
+  const lesson = LESSONS.find(l => l.id === lessonId);
+  if (!lesson) return;
+  currentLesson = lesson;
+  history = [];
+  missionState = {};
+  buildLessonBar();
+  renderStudy();
+  renderMissions();
+  const studyTab = document.querySelector('[data-mode="study"]');
+  setMode('study', studyTab);
+}
+
+function goToTopic(unitId) {
+  const lvl = MASTER_CURRICULUM.find(l => l.units.some(u => u.id === unitId));
+  const unit = lvl?.units.find(u => u.id === unitId);
+  if (!unit) return;
+  masterTopic = { unitId, title: unit.title, sub: unit.sub, level: lvl.level, levelName: lvl.name, cefr: lvl.cefr, topic: unit.topic || '' };
+  history = [];
+  missionState = {};
+  const talkTab = document.querySelector('[data-mode="talk"]');
+  setMode('talk', talkTab);
+  document.getElementById('chat').innerHTML = '';
+  const mTitle = document.querySelector('.missions-title');
+  if (mTitle) mTitle.textContent = `🗺 ${lvl.cefr} · ${unit.title}`;
+  document.getElementById('mission-list').innerHTML = '';
+  addSystemMsg(`🗺 마스터 코스 [${lvl.cefr}] ${unit.title}\n${unit.sub}\n\nAI 코치와 영어로 대화해 보세요. "Hi" 또는 "시작"이라고 보내면 AI가 먼저 핵심 패턴을 소개합니다.`);
+}
+
+function buildMasterTopicPrompt(mt) {
+  const TOPIC_GUIDES = {
+    introductions:      'Hello / Nice to meet you / My name is... / I am from... / I work as... / I like/enjoy...',
+    numbers_dates:      '1-100 numbers / Monday-Sunday / January-December / What time is it? It\'s [time].',
+    articles_nouns:     'a/an (indefinite) / the (definite) / my, your, his, her, our, their (possessives)',
+    be_verbs:           'I am, You are, He/She/It is, We/They are + noun/adjective. Questions: Are you...? Is she...?',
+    family_description: 'mother/father/brother/sister / tall, short, funny / He looks like... / She has brown eyes',
+    present_perfect:    'have/has + past participle / Have you ever...? / I\'ve been to / I\'ve never / just/already/yet',
+    comparatives:       'bigger/faster (short) / more interesting (long) / the best/worst / as...as / much better',
+    modal_verbs:        'can (ability/permission) / could (polite request) / should (advice) / must (obligation) / might (possibility)',
+    travel:             'Excuse me, where is...? / Turn left/right, go straight / How far is it? / Take the subway/bus to...',
+    opinions:           'I think/believe... / In my opinion... / I agree/disagree because... / As far as I know...',
+    conditionals:       'If + present → will (1st) / If + past → would (2nd) / If + had pp → would have (3rd)',
+    passive_voice:      'be + past participle / It is made in Korea / The report was written by... / passive vs active voice',
+    reported_speech:    'She said (that)... / He told me to... / They asked if/whether... / Tense back-shifting rules',
+    idioms:             'piece of cake / break a leg / hit the nail on the head / under the weather / bite the bullet',
+    debate:             'On the one/other hand / However / Despite this / I strongly believe / To sum up / counter-argument',
+    gerunds_infinitives:'stop to vs stop -ing / try to vs try -ing / remember/forget + gerund/infinitive nuances',
+    advanced_vocab:     'strong adjectives (brilliant/furious) / collocations (make a decision, do homework, take a risk)',
+    presentations:      "Today I'd like to present... / Firstly/Finally / As you can see / In conclusion / Any questions?",
+    pragmatics:         'Hedging (It seems / I might be wrong) / Understatement (Not ideal) / Sarcasm markers / Irony',
+    discourse:          'Cohesive devices: Furthermore / Nevertheless / As a result / In contrast / To elaborate on this',
+    native_idioms:      "On the fence / Give it a shot / Let it go / Under the weather / Hit the sack / Cold turkey",
+    tone_register:      'Formal: I would like to request... / Informal: Wanna grab a bite? / British understatement',
+    specialized_vocab:  'Business: ROI, stakeholder, deadline / Tech: algorithm, bandwidth / Medical: symptom, diagnosis',
+    humor_metaphor:     'Puns / Metaphor (Life is a journey) / Simile (as busy as a bee) / Wordplay / Irony',
+    culture:            'Small talk norms / Tipping culture / American vs British vocabulary / Slang by generation',
+  };
+  const LEVEL_DESC = {
+    A1: '완전 초보(A1): 아주 짧고 쉬운 단어와 구문만 사용하세요.',
+    A2: '초급(A2): 기본 시제와 짧은 일상 대화 수준입니다.',
+    B1: '중급(B1): 현재 완료, 조동사, 의견 표현이 가능합니다.',
+    B2: '중상급(B2): 가정법, 수동태, 추상 주제를 다룰 수 있습니다.',
+    C1: '고급(C1): 복잡한 문법과 고급 어휘를 구사합니다.',
+    C2: '원어민 수준(C2): 어떤 상황에서도 자연스럽게 소통합니다.',
+  };
+  const guide = TOPIC_GUIDES[mt.topic] || mt.sub;
+  const levelDesc = LEVEL_DESC[mt.level] || mt.level;
+  return `당신은 원어민 수준의 영어-한국어 바이링구얼 AI 스피킹 코치입니다.
+
+오늘 주제: ${mt.title} [${mt.cefr}]
+핵심 포인트: ${guide}
+학습자 수준: ${levelDesc}
+
+진행 규칙:
+1. 학습자 수준에 맞는 영어로 자연스럽게 2~3문장 대화하세요.
+2. 오늘의 핵심 표현을 사용자가 직접 말하도록 유도하는 질문을 하세요.
+3. 문법/어휘 오류: [CORRECT: "잘못된 표현" → "올바른 표현" | 한국어 이유]
+4. 설명 필요 시: [EXPLAIN: 한국어 설명]
+5. 교정은 1~2개만. 격려하는 톤을 유지하세요.
+6. 매 응답 끝에 대화를 이어갈 질문을 포함하세요.
+7. 첫 메시지에서 오늘의 핵심 패턴을 짧은 예문과 함께 소개한 후 바로 연습 질문을 하세요.`;
 }
 
 /* ═══════════════════════════════════════════════════
