@@ -172,6 +172,7 @@
   <div class="header-controls">
     <div class="status-dot" id="status-dot" title="Ollama 연결 상태"></div>
     <select id="model-sel" title="Gemma 모델 선택">
+      <option value="gemma4:e2b">gemma4:e2b</option>
       <option value="gemma4">gemma4</option>
       <option value="gemma3">gemma3</option>
       <option value="gemma2">gemma2</option>
@@ -465,11 +466,9 @@ async function sendMessage(text) {
    RESPONSE PARSER — English + [CORRECT:...] + [EXPLAIN:...]
 ═══════════════════════════════════════════════════════ */
 function renderAiText(raw) {
-  // Extract blocks
   const correctionRe = /\[CORRECT:\s*"([^"]+)"\s*→\s*"([^"]+)"\s*\|([^\]]+)\]/g;
   const explainRe    = /\[EXPLAIN:\s*([^\]]+)\]/g;
 
-  // Build plain text (without markers)
   let plain = raw
     .replace(correctionRe, '')
     .replace(explainRe, '')
@@ -477,7 +476,6 @@ function renderAiText(raw) {
 
   let html = escHtml(plain).replace(/\n/g, '<br>');
 
-  // Append correction boxes
   let m;
   correctionRe.lastIndex = 0;
   while ((m = correctionRe.exec(raw)) !== null) {
@@ -488,7 +486,6 @@ function renderAiText(raw) {
     </div>`;
   }
 
-  // Append explanation boxes
   explainRe.lastIndex = 0;
   while ((m = explainRe.exec(raw)) !== null) {
     html += `<div class="explain-box">
@@ -512,11 +509,7 @@ function speakText(raw) {
   if (isMuted || !window.speechSynthesis) return;
   stopSpeaking();
 
-  // Split into segments: Korean explanation vs English/rest
   const segments = [];
-  let remaining = raw;
-
-  // Extract [EXPLAIN:...] for Korean TTS
   const explainRe = /\[EXPLAIN:\s*([^\]]+)\]/g;
   let explainMatch;
   let lastIdx = 0;
@@ -630,7 +623,6 @@ function clearChat() {
   addSystemMsg(`대화가 초기화되었습니다. 주제: "${currentTopic.label}"`);
 }
 
-// Load voices early (some browsers need this)
 if (window.speechSynthesis) {
   window.speechSynthesis.getVoices();
   window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
