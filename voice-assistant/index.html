@@ -1114,13 +1114,32 @@ function toggleMic() {
   document.getElementById('mic-btn').classList.add('listening');
 }
 
+/* 친근한 여성 음성 우선 선택 (macOS/Chrome/Windows 대표 음성 순) */
+const PREFERRED_VOICES = {
+  en: ['Samantha', 'Google US English', 'Ava', 'Allison', 'Susan', 'Joanna', 'Jenny', 'Aria', 'Zira', 'Victoria', 'Karen', 'Moira', 'Tessa'],
+  ko: ['Yuna', 'Google 한국의', 'Heami', 'SunHi'],
+};
+function pickVoice(lang) {
+  const voices = window.speechSynthesis.getVoices();
+  const prefix = lang.slice(0, 2);
+  const candidates = voices.filter(v => v.lang.replace('_', '-').startsWith(prefix));
+  if (!candidates.length) return null;
+  for (const name of (PREFERRED_VOICES[prefix] || [])) {
+    const hit = candidates.find(v => v.name.includes(name));
+    if (hit) return hit;
+  }
+  // 이름에 female 표기가 있으면 그것, 없으면 첫 번째
+  return candidates.find(v => /female/i.test(v.name)) || candidates[0];
+}
+
 function tts(text, lang) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = lang; u.rate = 0.9;
-  const voices = window.speechSynthesis.getVoices();
-  const v = voices.find(v => v.lang.startsWith(lang.slice(0, 2)));
+  u.lang = lang;
+  u.rate = 0.95;   // 살짝 또박또박
+  u.pitch = 1.06;  // 살짝 밝은 톤
+  const v = pickVoice(lang);
   if (v) u.voice = v;
   window.speechSynthesis.speak(u);
 }
@@ -1145,9 +1164,10 @@ function speakQueue(segments, idx) {
   const { text, lang } = segments[idx];
   if (!text) { speakQueue(segments, idx + 1); return; }
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = lang; u.rate = 0.92;
-  const voices = window.speechSynthesis.getVoices();
-  const v = voices.find(v => v.lang.startsWith(lang.slice(0, 2)) && !v.name.includes('Google'));
+  u.lang = lang;
+  u.rate = 0.95;
+  u.pitch = 1.06;
+  const v = pickVoice(lang);
   if (v) u.voice = v;
   u.onstart = () => document.getElementById('mic-btn').classList.add('speaking');
   u.onend = () => speakQueue(segments, idx + 1);
