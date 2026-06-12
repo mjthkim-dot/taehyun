@@ -66,7 +66,16 @@ fi
 EXISTING=$(lsof -ti tcp:"$PORT" 2>/dev/null || true)
 [ -n "$EXISTING" ] && kill $EXISTING 2>/dev/null && sleep 1
 
-python3 "$DIR/server.py" &
+# 백엔드 선택:
+#   · BACKEND=fastapi 이고 uvicorn/fastapi 설치돼 있으면 풀스택(FastAPI+LangChain) 경로
+#   · 그 외에는 의존성 0 stdlib server.py (CAF 분석 포함, 항상 동작)
+if [ "${BACKEND:-}" = "fastapi" ] && python3 -c "import fastapi, uvicorn" 2>/dev/null; then
+  echo "  🧠 FastAPI 백엔드로 실행 (AI 스피치 파이프라인 + WebSocket)"
+  ( cd "$DIR/backend" && python3 -m uvicorn main:app --host "${HOST:-0.0.0.0}" --port "$PORT" ) &
+else
+  [ "${BACKEND:-}" = "fastapi" ] && echo "  ℹ️  FastAPI 미설치 → stdlib server.py로 폴백 (pip install -r backend/requirements.txt 로 활성화)"
+  python3 "$DIR/server.py" &
+fi
 SERVER_PID=$!
 sleep 2
 

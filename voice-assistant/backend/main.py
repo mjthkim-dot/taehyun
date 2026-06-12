@@ -1,0 +1,153 @@
+"""
+═══════════════════════════════════════════════════════════════
+ TBLT LMS — FastAPI 백엔드 (클라우드-레디 풀스택 경로)
+
+ server.py(stdlib, 의존성 0)의 상위 호환 버전.
+ 동일 포트(3777)에서 동작하며 기존 프론트엔드와 100% 호환:
+
+   기존 유지   POST /api/chat   → Ollama NDJSON 스트리밍 프록시
+   기존 유지   GET  /health     → Ollama 연결 + 모델 목록
+   기존 유지   GET  /           → index.html
+   🆕 추가     POST /api/caf     → STT 텍스트 CAF 분석 + 파라프레이즈
+   🆕 추가     POST /api/session → CAF 결과 영속화 (폴리글랏 스토어)
+   🆕 추가     GET  /api/storage → 활성 스토리지 백엔드 상태
+   🆕 추가     WS   /ws/audio    → 실시간 오디오 스트리밍 (Whisper STT 대비)
+
+ 실행:  uvicorn backend.main:app --host 0.0.0.0 --port 3777
+═══════════════════════════════════════════════════════════════
+"""
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+
+import httpx
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from pydantic import BaseModel
+
+from caf_pipeline import analyze_caf
+from storage import store
+
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+HTML_FILE = Path(__file__).parent.parent / "index.html"
+
+app = FastAPI(title="TBLT LMS — AI Speech Pipeline", version="1.0")
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+)
+
+
+# ── index.html 서빙 (캐시 금지) ────────────────────────────────
+@app.get("/")
+@app.get("/index.html")
+def index():
+    return FileResponse(HTML_FILE, media_type="text/html",
+                        headers={"Cache-Control": "no-store, must-revalidate"})
+
+
+# ── /health (기존 호환) ────────────────────────────────────────
+@app.get("/health")
+async def health():
+    try:
+        async with httpx.AsyncClient(timeout=3) as c:
+            r = await c.get(f"{OLLAMA_URL}/api/tags")
+            models = [m["name"] for m in r.json().get("models", [])]
+        return {"status": "ok", "models": models, "storage": store.enabled}
+    except Exception as e:  # noqa: BLE001
+        return {"status": "error", "message": str(e)}
+
+
+# ── /api/chat (기존 호환 — NDJSON 스트리밍 프록시) ─────────────
+@app.post("/api/chat")
+async def chat(request: Request):
+    body = await request.body()
+
+    async def stream():
+        async with httpx.AsyncClient(timeout=120) as c:
+            async with c.stream("POST", f"{OLLAMA_URL}/api/chat", content=body,
+                                headers={"Content-Type": "application/json"}) as r:
+                async for chunk in r.aiter_bytes():
+                    if chunk:
+                        yield chunk
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+# ── 🆕 /api/caf — CAF 분석 엔진 ────────────────────────────────
+class CafRequest(BaseModel):
+    transcript: str
+    cefr: str = "A2"
+    duration_sec: float | None = None
+    model: str | None = None
+
+
+@app.post("/api/caf")
+def caf(req: CafRequest):
+    try:
+        return analyze_caf(req.transcript, req.cefr, req.duration_sec, req.model)
+    except httpx.ConnectError:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."},
+        )
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# ── 🆕 /api/session — CAF 결과 영속화 ─────────────────────────
+class SessionRequest(BaseModel):
+    user_id: int = 1
+    lesson_id: int
+    caf: dict
+    transcript: str = ""
+
+
+@app.post("/api/session")
+def save_session(req: SessionRequest):
+    refs = store.save_session(req.user_id, req.lesson_id, req.caf, req.transcript)
+    return {"saved": True, "refs": refs, "storage": store.enabled}
+
+
+# ── 🆕 /api/storage — 활성 백엔드 상태 ────────────────────────
+@app.get("/api/storage")
+def storage_status():
+    return store.enabled
+
+
+# ── 🆕 /ws/audio — 실시간 오디오 스트리밍 ─────────────────────
+# 브라우저가 오디오 청크를 보내면 누적 → (Whisper STT 연동 지점) →
+# 일정 길이마다 CAF 부분 분석을 돌려줄 수 있는 골격.
+@app.websocket("/ws/audio")
+async def ws_audio(ws: WebSocket):
+    await ws.accept()
+    cefr = "A2"
+    audio_buffer = bytearray()
+    try:
+        while True:
+            msg = await ws.receive()
+            if "bytes" in msg and msg["bytes"]:
+                audio_buffer.extend(msg["bytes"])
+                await ws.send_json({"type": "ack", "bytes": len(audio_buffer)})
+            elif "text" in msg and msg["text"]:
+                ctrl = json.loads(msg["text"])
+                if ctrl.get("type") == "config":
+                    cefr = ctrl.get("cefr", cefr)
+                    await ws.send_json({"type": "ready", "cefr": cefr})
+                elif ctrl.get("type") == "transcript":
+                    # 브라우저 Web Speech STT 결과를 그대로 받아 CAF 분석
+                    result = analyze_caf(ctrl.get("text", ""), cefr,
+                                         ctrl.get("duration_sec"))
+                    await ws.send_json({"type": "caf", "result": result})
+                elif ctrl.get("type") == "end":
+                    await ws.send_json({"type": "closed", "bytes": len(audio_buffer)})
+                    break
+    except WebSocketDisconnect:
+        pass
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", "3777")))

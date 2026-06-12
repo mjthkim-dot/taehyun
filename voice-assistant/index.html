@@ -244,6 +244,40 @@
       border-radius: 8px; padding: 5px 12px; font-size: 0.74rem; font-weight: 700; cursor: pointer; flex-shrink: 0;
     }
     .unit-go:hover { border-color: var(--primary); }
+
+    /* ── 감쇠식 스캐폴딩: 레벨↑ 시 한글 번역/힌트 자동 페이드 ── */
+    .kr { opacity: var(--scaffold, 1); transition: opacity 0.25s; }
+    .kr:hover, .kr:active { opacity: 1; }
+    .scaffold-note {
+      font-size: 0.72rem; color: var(--text-muted); background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 8px; padding: 7px 11px; margin-bottom: 12px; line-height: 1.5;
+    }
+    .scaffold-note b { color: var(--primary-light); }
+
+    /* ── CAF 대시보드 ── */
+    .caf-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+    .caf-wrap h3 { font-size: 0.9rem; color: var(--primary-light); margin-bottom: 4px; }
+    .caf-sub { font-size: 0.74rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5; }
+    .caf-bars { display: flex; flex-direction: column; gap: 9px; margin: 10px 0; }
+    .caf-bar-row { display: flex; align-items: center; gap: 10px; }
+    .caf-bar-row .name { font-size: 0.76rem; font-weight: 700; width: 64px; flex-shrink: 0; }
+    .caf-bar-row .track { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+    .caf-bar-row .track .fl { height: 100%; border-radius: 4px; transition: width 0.5s; }
+    .caf-bar-row .val { font-size: 0.76rem; font-weight: 800; width: 38px; text-align: right; color: var(--text); }
+    .skill-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+    .skill-card2 { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; position: relative; overflow: hidden; }
+    .skill-card2 .sk-name { font-size: 0.78rem; font-weight: 700; }
+    .skill-card2 .sk-gse { font-size: 1.3rem; font-weight: 800; color: var(--primary-light); margin-top: 2px; }
+    .skill-card2 .sk-cefr { font-size: 0.68rem; color: var(--text-muted); }
+    .skill-card2 .sk-intensity { position: absolute; left: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, var(--primary), var(--green)); transition: width 0.5s; }
+    .para-card { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3); border-radius: 10px; padding: 10px 13px; margin-top: 8px; font-size: 0.82rem; line-height: 1.55; }
+    .para-card .up { color: #86efac; font-weight: 700; }
+    .para-card .or { color: var(--text-muted); text-decoration: line-through; opacity: 0.7; }
+
+    /* ── Word-tap 오디오 싱크 ── */
+    .sync-word { cursor: pointer; border-radius: 4px; padding: 0 1px; transition: background 0.12s, color 0.12s; }
+    .sync-word:hover { background: var(--surface2); }
+    .sync-word.on { background: var(--primary); color: #fff; }
   </style>
 </head>
 <body>
@@ -290,6 +324,7 @@
     <div class="interim" id="interim-text"></div>
     <div class="controls">
       <button class="mini-btn" onclick="requestSummary()" title="AI가 오늘 대화를 평가해줍니다">📋 요약</button>
+      <button class="mini-btn" id="caf-btn" onclick="analyzeCaf()" title="내 발화를 복잡도·정확도·유창성으로 분석하고 한 단계 위 표현을 제안합니다">🎯 CAF</button>
       <input class="text-input" id="text-input" placeholder="영어로 입력하거나 🎙️로 말하세요" maxlength="500"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendText();}"/>
       <button class="round-btn" id="mic-btn" onclick="toggleMic()" title="누르면 듣기 시작 · 말을 멈추면 자동 전송 (다시 누르면 즉시 전송)">🎙️</button>
@@ -308,7 +343,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v3.0';
+const APP_VERSION = 'v4.0';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -1446,6 +1481,72 @@ let missionState = {};
 function store(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
 function load(key, def) { try { return JSON.parse(localStorage.getItem(key)) ?? def; } catch { return def; } }
 
+/* ═══════════════════════════════════════════════════
+   CEFR / GSE 이원화 진도 엔진 + 감쇠식 스캐폴딩
+═══════════════════════════════════════════════════ */
+const CEFR_GSE = {
+  A1: { min: 10, max: 22 }, A2: { min: 22, max: 36 }, B1: { min: 36, max: 52 },
+  B2: { min: 52, max: 64 }, C1: { min: 64, max: 76 }, C2: { min: 76, max: 90 },
+};
+const CEFR_ORDER = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+const CEFR_NEXT = { A1: 'A2', A2: 'B1', B1: 'B2', B2: 'C1', C1: 'C2', C2: 'C2' };
+const SKILLS = [
+  { key: 'speaking', label: '구어 상호작용' }, { key: 'listening', label: '청해' },
+  { key: 'reading', label: '독해' }, { key: 'writing', label: '문어 생산' },
+];
+
+// 레슨의 CEFR 추정: 마스터 유닛은 master 레벨, PREPLY/선행은 A2
+function cefrOf(lesson) { return (lesson && lesson.master) || 'A2'; }
+// CEFR → GSE 중앙값 (세밀 위치)
+function gseMid(cefr) { const g = CEFR_GSE[cefr] || CEFR_GSE.A2; return Math.round((g.min + g.max) / 2); }
+function gseToCefr(gse) {
+  for (const c of CEFR_ORDER) if (gse <= CEFR_GSE[c].max) return c;
+  return 'C2';
+}
+
+// 감쇠식 스캐폴딩: 레벨이 올라갈수록 한글 힌트 노출 비중↓ (1.0 → 0.08)
+const SCAFFOLD_BY_CEFR = { A1: 1.0, A2: 1.0, B1: 0.65, B2: 0.4, C1: 0.2, C2: 0.08 };
+function scaffoldFor(cefr) { return SCAFFOLD_BY_CEFR[cefr] ?? 1.0; }
+function applyScaffold(lesson) {
+  const op = scaffoldFor(cefrOf(lesson));
+  document.body.style.setProperty('--scaffold', op);
+  return op;
+}
+
+function getProfile() {
+  const p = load('va_profile', null);
+  if (p && p.cefr) return p;
+  const init = { cefr: 'A2', gse: gseMid('A2'), scaffolding: 1.0 };
+  store('va_profile', init);
+  return init;
+}
+function saveProfile(p) { store('va_profile', p); }
+
+// 스킬별 GSE 누적 (4대 영역 대시보드 소스)
+function getSkillStats() {
+  const s = load('va_skill_stats', null);
+  if (s) return s;
+  const init = {};
+  SKILLS.forEach(sk => { init[sk.key] = { gse: 10, sessions: 0 }; });
+  store('va_skill_stats', init);
+  return init;
+}
+// CAF 결과를 스킬 GSE에 반영 (EMA 평활 — 급변 방지)
+function bumpSkill(skill, sessionGse) {
+  const stats = getSkillStats();
+  const cur = stats[skill] || { gse: 10, sessions: 0 };
+  const alpha = 0.3;
+  cur.gse = Math.round(cur.gse * (1 - alpha) + sessionGse * alpha);
+  cur.sessions += 1;
+  stats[skill] = cur;
+  store('va_skill_stats', stats);
+  // 전체 프로필 GSE = 4대 스킬 평균, CEFR 자동 재산정
+  const prof = getProfile();
+  const avg = Math.round(SKILLS.reduce((a, sk) => a + (stats[sk.key]?.gse || 10), 0) / SKILLS.length);
+  if (avg > prof.gse) { prof.gse = avg; prof.cefr = gseToCefr(avg); prof.scaffolding = scaffoldFor(prof.cefr); saveProfile(prof); }
+  return cur;
+}
+
 function markPracticedToday() {
   const days = load('va_days', []);
   const today = new Date().toISOString().slice(0, 10);
@@ -1468,6 +1569,9 @@ function renderStreak() { document.getElementById('streak').textContent = `🔥 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('app-version').textContent = `Gemma 기반 · ${APP_VERSION}`;
   console.log(`PREPLY AI 코치 ${APP_VERSION}`);
+  getProfile();
+  getSkillStats();
+  applyScaffold(currentLesson);
   buildLessonBar();
   renderStudy();
   renderMissions();
@@ -1517,6 +1621,7 @@ function selectLesson(lesson) {
   history = [];
   missionState = {};
   drillQueue = [];
+  talkStamps = [];
   buildLessonBar();
   renderStudy();
   renderMissions();
@@ -1571,7 +1676,12 @@ async function checkOllama() {
 ═══════════════════════════════════════════════════ */
 function renderStudy() {
   const l = currentLesson;
+  const op = applyScaffold(l);
   let html = stepBar('study');
+  if (op < 1) {
+    const pct = Math.round(op * 100);
+    html += `<div class="scaffold-note">🪜 <b>스캐폴딩 ${pct}%</b> — CEFR ${cefrOf(l)} 단계라 한글 번역을 흐리게 표시합니다. 모르는 문장은 <b>탭(또는 마우스 오버)</b>하면 또렷해져요. 레벨이 오를수록 자막 의존을 줄여 스스로 의미를 잡는 훈련입니다.</div>`;
+  }
   if (l.preview) {
     html += `<div class="study-card" style="border-color:#7c3aed;background:rgba(124,58,237,0.08)">
       <h3 style="color:#c4b5fd">🔮 선행학습 — 다음 수업 미리 준비하기</h3>
@@ -1594,11 +1704,12 @@ function renderStudy() {
     });
     html += `</div>`;
   });
-  html += `<div class="study-card"><h3>예문 — 🔊 듣고 따라 말하기</h3>`;
+  html += `<div class="study-card"><h3>예문 — 🔊 듣고 따라 말하기 <span style="font-size:0.68rem;color:var(--text-muted);font-weight:400">· 단어를 탭하면 그 지점부터 재생</span></h3>`;
   l.examples.forEach(e => {
     html += `<div class="example-row">
-      <div class="txt"><div class="en" style="font-weight:600">${esc(e.en)}</div><div class="kr" style="font-size:0.8rem;color:var(--text-muted)">${esc(e.kr)}</div></div>
-      <button class="speak-mini" onclick="tts('${jsAttr(e.en)}', 'en-US')">🔊</button>
+      <div class="txt"><div class="en sync-line" data-text="${jsAttr(e.en)}" data-loop="0" style="font-weight:600">${syncWords(e.en)}</div><div class="kr" style="font-size:0.8rem;color:var(--text-muted)">${esc(e.kr)}</div></div>
+      <button class="speak-mini" onclick="playSync(this.closest('.example-row').querySelector('.sync-line'), 0)" title="처음부터 재생">🔊</button>
+      <button class="speak-mini" onclick="toggleSyncLoop(this)" title="루프 재생">🔁</button>
     </div>`;
   });
   html += `</div>`;
@@ -1975,6 +2086,7 @@ async function sendMessage(text, hidden) {
     addUserMsg(text);
     checkMissions(text);
     markPracticedToday();
+    talkStamps.push(Date.now());  // 유창성 WPM 추정용 발화 시각
   }
   const model = document.getElementById('model-sel').value;
   history.push({ role: 'user', content: text });
@@ -2038,6 +2150,102 @@ function requestSummary() {
   addSystemMsg('📋 AI 코치가 오늘 연습을 평가 중...');
 }
 
+/* ═══════════════════════════════════════════════════
+   🎯 CAF 분석 — 내 발화의 복잡도/정확도/유창성 + 파라프레이즈
+═══════════════════════════════════════════════════ */
+let talkStamps = [];   // 사용자 발화 타임스탬프 (유창성 WPM 추정용)
+
+async function analyzeCaf() {
+  const utterances = history.filter(h => h.role === 'user').map(h => h.content);
+  const transcript = utterances.join(' ');
+  if (transcript.split(/\s+/).filter(Boolean).length < 3) {
+    addSystemMsg('CAF 분석은 먼저 영어로 몇 문장 말한 뒤에 가능합니다.');
+    return;
+  }
+  const btn = document.getElementById('caf-btn');
+  btn.disabled = true; btn.textContent = '⏳ 분석중';
+  const cefr = cefrOf(currentLesson);
+  const duration = talkStamps.length >= 2 ? (talkStamps[talkStamps.length - 1] - talkStamps[0]) / 1000 : null;
+  try {
+    const resp = await fetch('/api/caf', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transcript, cefr, duration_sec: duration,
+        model: document.getElementById('model-sel').value }),
+    });
+    const r = await resp.json();
+    if (r.error) throw new Error(r.error);
+    renderCafResult(r, cefr);
+    persistCaf(r, cefr);
+  } catch (err) {
+    addSystemMsg(`❌ CAF 분석 실패: ${err.message}`);
+  } finally {
+    btn.disabled = false; btn.textContent = '🎯 CAF';
+  }
+}
+
+function cafBar(name, val, color) {
+  return `<div class="caf-bar-row"><span class="name">${name}</span>
+    <span class="track"><span class="fl" style="width:${val * 10}%;background:${color}"></span></span>
+    <span class="val">${val.toFixed(1)}</span></div>`;
+}
+
+function renderCafResult(r, cefr) {
+  const next = CEFR_NEXT[cefr];
+  const m = r.metrics || {};
+  let html = `<div class="caf-wrap" style="text-align:left;max-width:100%">
+    <h3>🎯 CAF 분석 · 현재 ${cefr}</h3>
+    <div class="caf-sub">${esc(r.summary_ko || '')}</div>
+    <div class="caf-bars">
+      ${cafBar('복잡도', r.complexity, 'var(--primary)')}
+      ${cafBar('정확도', r.accuracy, 'var(--green)')}
+      ${cafBar('유창성', r.fluency, 'var(--yellow)')}
+    </div>
+    <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:6px">
+      ${m.wpm ? `🗣 ${m.wpm} WPM · ` : ''}🔤 ${m.word_count || 0}단어 · 💬 군말 ${Math.round((m.filler_ratio || 0) * 100)}%</div>`;
+
+  if (r.errors && r.errors.length) {
+    html += `<div style="font-size:0.78rem;font-weight:700;margin:10px 0 4px">📝 핵심 교정</div>`;
+    r.errors.forEach(e => {
+      html += `<div class="para-card" style="background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.3)">
+        <span class="or">${esc(e.wrong || '')}</span> → <span style="color:#fcd34d;font-weight:700">${esc(e.right || '')}</span>
+        <span style="font-size:0.7rem;color:var(--text-muted)"> (${esc(e.type || '')})</span><br>
+        <span style="font-size:0.74rem;color:var(--text-muted)">${esc(e.why_ko || '')}</span></div>`;
+    });
+  }
+  if (r.paraphrases && r.paraphrases.length) {
+    html += `<div style="font-size:0.78rem;font-weight:700;margin:10px 0 4px">✨ ${next} 레벨 세련된 표현</div>`;
+    r.paraphrases.forEach(p => {
+      html += `<div class="para-card">
+        <span class="or">${esc(p.original || '')}</span><br>
+        <span class="up">${esc(p.upgraded || '')}</span>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:3px">${esc(p.note_ko || '')}</div></div>`;
+    });
+  }
+  html += `</div>`;
+  const chat = document.getElementById('chat');
+  const wrap = document.createElement('div');
+  wrap.className = 'msg system';
+  wrap.innerHTML = `<div style="width:100%">${html}</div>`;
+  chat.appendChild(wrap);
+  scrollBottom();
+}
+
+// CAF 결과를 스킬 GSE + 세션 기록에 영속화 (로컬 우선, 서버 있으면 동기화)
+function persistCaf(r, cefr) {
+  const band = CEFR_GSE[cefr] || CEFR_GSE.A2;
+  const avg = (r.complexity + r.accuracy + r.fluency) / 3;
+  const sessionGse = Math.round(band.min + (avg / 10) * (band.max - band.min));
+  bumpSkill('speaking', sessionGse);
+  const sessions = load('va_sessions', []);
+  sessions.push({ date: new Date().toISOString(), lessonId: currentLesson.id, cefr,
+    caf: { complexity: r.complexity, accuracy: r.accuracy, fluency: r.fluency },
+    wpm: r.metrics?.wpm || null, gse: sessionGse });
+  store('va_sessions', sessions.slice(-50));
+  // 서버 영속화는 best-effort (FastAPI 백엔드가 있을 때만 동작)
+  fetch('/api/session', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: 1, lesson_id: currentLesson.id, caf: r, transcript: '' }) }).catch(() => {});
+}
+
 function updateTalkBtns() {
   document.getElementById('send-btn').disabled = isProcessing;
   document.getElementById('mic-btn').classList.toggle('processing', isProcessing);
@@ -2086,6 +2294,53 @@ function renderReview() {
 /* ═══════════════════════════════════════════════════
    📊 PROGRESS
 ═══════════════════════════════════════════════════ */
+// CEFR/GSE 이원 진도 + 4대 스킬 숙련도 + 최근 CAF (Proficiency-Native 대시보드)
+function cafDashboardHtml() {
+  const prof = getProfile();
+  const skills = getSkillStats();
+  const sessions = load('va_sessions', []);
+  const band = CEFR_GSE[prof.cefr] || CEFR_GSE.A2;
+
+  let html = `<div class="caf-wrap">
+    <h3>🌐 CEFR / GSE 이원 진도</h3>
+    <div class="caf-sub">현재 <b style="color:var(--text)">CEFR ${prof.cefr}</b> · GSE <b style="color:var(--text)">${prof.gse}</b> (${band.min}–${band.max}) · 스캐폴딩 ${Math.round(scaffoldFor(prof.cefr) * 100)}%</div>
+    <div class="bar" style="margin:8px 0 4px"><div class="fill" style="width:${Math.round((prof.gse - 10) / 80 * 100)}%"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:0.66rem;color:var(--text-muted)"><span>GSE 10 · A1</span><span>GSE 90 · C2</span></div>
+  </div>`;
+
+  // 4대 영역 숙련도 카드 (시각 기반 마일스톤 게이지 — 스킬 카드 인출 강도)
+  html += `<div class="caf-wrap"><h3>📚 4대 영역 숙련도</h3>
+    <div class="caf-sub">독해·청해·구어·문어를 교차로 본 성취도. 회화에서 🎯 CAF를 누를수록 구어 인출 강도가 올라갑니다.</div>
+    <div class="skill-grid">`;
+  SKILLS.forEach(sk => {
+    const s = skills[sk.key] || { gse: 10, sessions: 0 };
+    const cefr = gseToCefr(s.gse);
+    const intensity = Math.round((s.gse - 10) / 80 * 100);
+    html += `<div class="skill-card2">
+      <div class="sk-name">${sk.label}</div>
+      <div class="sk-gse">${s.gse}<span style="font-size:0.6rem;color:var(--text-muted)"> GSE</span></div>
+      <div class="sk-cefr">CEFR ${cefr} · ${s.sessions}세션</div>
+      <div class="sk-intensity" style="width:${intensity}%"></div>
+    </div>`;
+  });
+  html += `</div></div>`;
+
+  // 최근 CAF 추이
+  if (sessions.length) {
+    const last = sessions[sessions.length - 1];
+    html += `<div class="caf-wrap"><h3>🎯 최근 CAF</h3>
+      <div class="caf-sub">${new Date(last.date).toLocaleDateString('ko-KR')} · ${esc(String(last.cefr))} 세션</div>
+      <div class="caf-bars">
+        ${cafBar('복잡도', last.caf.complexity, 'var(--primary)')}
+        ${cafBar('정확도', last.caf.accuracy, 'var(--green)')}
+        ${cafBar('유창성', last.caf.fluency, 'var(--yellow)')}
+      </div></div>`;
+  } else {
+    html += `<div class="caf-wrap"><div class="caf-sub" style="margin:0">🎯 아직 CAF 기록이 없습니다. 회화 탭에서 영어로 대화한 뒤 <b>🎯 CAF</b> 버튼을 눌러 첫 분석을 받아보세요.</div></div>`;
+  }
+  return html;
+}
+
 function renderProgress() {
   const stats = load('va_stats', {});
   const missionsDone = load('va_missions', {});
@@ -2101,6 +2356,8 @@ function renderProgress() {
     <div class="stat-card"><div class="num">${doneMissions}/${totalMissions}</div><div class="lbl">표현 미션 달성</div></div>
     <div class="stat-card"><div class="num">${weak.length}</div><div class="lbl">복습 대기 문장</div></div>
   </div>`;
+
+  html += cafDashboardHtml();
 
   LESSONS.forEach(l => {
     const s = stats[l.id] || { attempts: 0, correct: 0 };
@@ -2193,6 +2450,7 @@ function goToUnit(lessonId) {
   history = [];
   missionState = {};
   drillQueue = [];
+  talkStamps = [];
   buildLessonBar();
   renderStudy();
   renderMissions();
@@ -2386,6 +2644,59 @@ function tts(text, lang) {
   const v = pickVoice(lang);
   if (v) u.voice = v;
   window.speechSynthesis.speak(u);
+}
+
+/* ═══════════════════════════════════════════════════
+   Word-tap 오디오 싱크 (Zero-latency 단어 하이라이팅 + 루프)
+   · 재생 중 단어가 실시간 하이라이트 (SpeechSynthesis boundary 이벤트)
+   · 단어 탭 시 그 지점부터 즉시 재생 · 🔁로 루프
+═══════════════════════════════════════════════════ */
+function syncWords(text) {
+  // 각 단어를 char 오프셋과 함께 span으로 감싼다 (탭 → 그 지점부터 재생)
+  let idx = 0;
+  return text.split(/(\s+)/).map(tok => {
+    if (/^\s+$/.test(tok) || tok === '') { const t = tok; idx += t.length; return t; }
+    const span = `<span class="sync-word" data-char="${idx}" onclick="playSync(this.closest('.sync-line'), ${idx})">${esc(tok)}</span>`;
+    idx += tok.length;
+    return span;
+  }).join('');
+}
+
+function playSync(lineEl, fromChar) {
+  if (!lineEl || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  fromChar = fromChar || 0;
+  const text = lineEl.dataset.text || '';
+  const spans = [...lineEl.querySelectorAll('.sync-word')];
+  spans.forEach(s => s.classList.remove('on'));
+  const u = new SpeechSynthesisUtterance(text.slice(fromChar));
+  u.lang = 'en-US';
+  u.rate = 0.92;
+  u.pitch = 1.05;
+  const v = pickVoice('en-US');
+  if (v) u.voice = v;
+  u.onboundary = (e) => {
+    if (e.name && e.name !== 'word') return;
+    const abs = fromChar + e.charIndex;
+    let best = null;
+    spans.forEach(s => { if (+s.dataset.char <= abs) best = s; });
+    spans.forEach(s => s.classList.remove('on'));
+    if (best) best.classList.add('on');
+  };
+  u.onend = () => {
+    spans.forEach(s => s.classList.remove('on'));
+    if (lineEl.dataset.loop === '1') playSync(lineEl, fromChar);
+  };
+  window.speechSynthesis.speak(u);
+}
+
+function toggleSyncLoop(btn) {
+  const line = btn.closest('.example-row').querySelector('.sync-line');
+  const on = line.dataset.loop === '1';
+  line.dataset.loop = on ? '0' : '1';
+  btn.textContent = on ? '🔁' : '⏹';
+  btn.title = on ? '루프 재생' : '루프 중지 (다시 누르면 끔)';
+  if (!on) playSync(line, 0); else window.speechSynthesis.cancel();
 }
 
 /* A 다음으로 듣기 좋은 영어 음성을 고른다 (A는 제외, 품질 점수순) */
