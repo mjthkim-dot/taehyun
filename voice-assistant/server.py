@@ -23,7 +23,7 @@ OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 PORT = int(os.environ.get("PORT", "3777"))
 HOST = os.environ.get("HOST", "0.0.0.0")  # 0.0.0.0 = 같은 Wi-Fi의 모바일에서도 접속 가능
 HTML_FILE = Path(__file__).parent / "index.html"
-CAF_MODEL = os.environ.get("CAF_MODEL", "gemma4:e2b")
+CAF_MODEL = os.environ.get("CAF_MODEL", "gemma3:27b")
 
 # CEFR → 한 단계 위 (paraphrase 목표 레벨)
 CEFR_NEXT = {"A1": "A2", "A2": "B1", "B1": "B2", "B2": "C1", "C1": "C2", "C2": "C2"}

@@ -62,6 +62,19 @@ if ! curl -s --max-time 2 "http://localhost:11434/api/tags" >/dev/null; then
   fi
 fi
 
+# ── 3-1. 권장 모델 확인 ──────────────────────────
+RECOMMENDED="gemma3:27b"
+if command -v ollama &>/dev/null; then
+  if ! ollama list 2>/dev/null | grep -q "$RECOMMENDED"; then
+    echo ""
+    echo "  💡 권장 모델($RECOMMENDED)이 없습니다."
+    echo "     최고 품질을 위해 아래 명령으로 다운로드하세요 (약 17GB):"
+    echo "     ollama pull $RECOMMENDED"
+    echo "     저사양: ollama pull gemma3:12b  또는  ollama pull gemma3:4b"
+    echo ""
+  fi
+fi
+
 # ── 4. 기존 서버 정리 후 서버 실행 ─────────────────
 EXISTING=$(lsof -ti tcp:"$PORT" 2>/dev/null || true)
 [ -n "$EXISTING" ] && kill $EXISTING 2>/dev/null && sleep 1

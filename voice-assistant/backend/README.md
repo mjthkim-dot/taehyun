@@ -42,7 +42,13 @@ STT 트랜스크립트 + 학습자 CEFR → 단일 구조화 프롬프트 1콜�
 
 ```bash
 pip install -r backend/requirements.txt
-ollama pull gemma4:e2b           # CAF 분석 모델
+
+# 권장 모델 (Google Gemma 3 — 최고 품질 오픈소스)
+ollama pull gemma3:27b           # ⭐ 27B 풀모델 — VRAM 16GB+ 권장
+# 저사양 대안:
+# ollama pull gemma3:12b         # 8GB VRAM 이상
+# ollama pull gemma3:4b          # 4GB VRAM, 빠른 응답
+
 BACKEND=fastapi bash start.sh    # FastAPI로 기동 (없으면 자동 server.py 폴백)
 # 또는 직접:
 cd backend && uvicorn main:app --host 0.0.0.0 --port 3777
