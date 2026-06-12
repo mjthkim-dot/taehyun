@@ -327,7 +327,7 @@
       <button class="mini-btn" id="caf-btn" onclick="analyzeCaf()" title="내 발화를 복잡도·정확도·유창성으로 분석하고 한 단계 위 표현을 제안합니다">🎯 CAF</button>
       <input class="text-input" id="text-input" placeholder="영어로 입력하거나 🎙️로 말하세요" maxlength="500"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendText();}"/>
-      <button class="round-btn" id="mic-btn" onclick="toggleMic()" title="누르면 듣기 시작 · 말을 멈추면 자동 전송 (다시 누르면 즉시 전송)">🎙️</button>
+      <button class="round-btn" id="mic-btn" onclick="toggleMic()" title="한 번 누르면 실시간 회화 시작 — 말하면 자동 전송, AI 답변이 끝나면 자동으로 다시 듣습니다. AI가 말할 때 누르면 끊고 바로 말할 수 있어요. 끄려면 다시 누르세요.">🎙️</button>
       <button class="round-btn send" id="send-btn" onclick="sendText()" title="전송">➤</button>
     </div>
   </div>
@@ -343,7 +343,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.0';
+const APP_VERSION = 'v4.1';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -1632,6 +1632,12 @@ function selectLesson(lesson) {
 }
 
 function setMode(mode, btn) {
+  // 회화 탭을 벗어나면 핸즈프리 루프와 마이크·음성을 정리
+  if (currentMode === 'talk' && mode !== 'talk') {
+    handsFree = false;
+    if (sttActive) stopMic();
+    stopSpeaking();
+  }
   currentMode = mode;
   document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
@@ -2094,8 +2100,8 @@ async function sendMessage(text, hidden) {
   isProcessing = true;
   updateTalkBtns();
 
-  // 작은 모델이 흐름을 잃지 않도록 최근 대화만 전달
-  const messages = [{ role: 'system', content: buildSystemPrompt() }, ...history.slice(-12)];
+  // 작은 모델이 흐름을 잃지 않도록 최근 대화만 전달 (짧을수록 첫 응답이 빠름)
+  const messages = [{ role: 'system', content: buildSystemPrompt() }, ...history.slice(-8)];
   try {
     const resp = await fetch('/api/chat', {
       method: 'POST',
@@ -2103,7 +2109,8 @@ async function sendMessage(text, hidden) {
       body: JSON.stringify({
         model, messages, stream: true,
         keep_alive: '30m',  // 응답 후에도 모델을 메모리에 유지 → 다음 턴 즉시 시작
-        options: { temperature: 0.7, num_predict: 240, repeat_penalty: 1.1 },
+        // 짧게 답하게 해서 턴이 빨리 끝나고 → 다시 듣기까지의 간격을 줄인다
+        options: { temperature: 0.7, num_predict: 150, repeat_penalty: 1.1 },
       })
     });
     if (!resp.ok) {
@@ -2141,6 +2148,7 @@ async function sendMessage(text, hidden) {
   } finally {
     isProcessing = false;
     updateTalkBtns();
+    maybeResumeHandsFree();   // 읽을 음성이 없으면 여기서 바로 재개
   }
 }
 
@@ -2466,7 +2474,8 @@ let sttFinal = '';       // 이번 발화에서 확정된 텍스트 누적
 let sttActive = false;   // 사용자가 마이크를 켜두려는 의도
 let sttDrill = false;    // 드릴 모드 여부
 let sttSilenceTimer = null;     // 침묵 감지 → 자동 전송
-const STT_SILENCE_MS = 1800;    // 말을 멈추고 1.8초 지나면 자동 전송
+let STT_SILENCE_MS = 800;       // 말을 멈추고 0.8초 지나면 자동 전송 (실시간 느낌)
+let handsFree = false;   // 실시간 핸즈프리 회화 모드 (AI 답변 후 자동으로 다시 듣기)
 
 function initSpeechRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2482,6 +2491,8 @@ function initSpeechRecognition() {
   recognition.lang = 'en-US';
 
   recognition.onresult = (e) => {
+    // AI가 답하거나 말하는 중이면 무시 (자기 음성을 받아 적지 않도록)
+    if (isProcessing || pendingUtter > 0) return;
     let interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const res = e.results[i];
@@ -2496,11 +2507,15 @@ function initSpeechRecognition() {
       document.getElementById('text-input').value = shown;
       document.getElementById('interim-text').textContent = shown
         ? '🎙️ ' + shown + '  ·  (잠시 멈추면 자동 전송)'
-        : '🎙️ 듣는 중... 말을 멈추면 자동으로 전송됩니다';
+        : '🎙️ 듣는 중... 편하게 말하세요';
     }
-    // 침묵 감지: 말이 멈춘 뒤 일정 시간 지나면 자동으로 마이크 종료 → 전송
+    // 침묵 감지: 말이 멈춘 뒤 짧게 기다렸다가 자동 전송
     clearTimeout(sttSilenceTimer);
-    if (shown) sttSilenceTimer = setTimeout(() => { if (sttActive) stopMic(); }, STT_SILENCE_MS);
+    if (shown) sttSilenceTimer = setTimeout(() => {
+      if (!sttActive) return;
+      if (sttDrill) { stopMic(); return; }     // 드릴은 입력칸에 채우고 멈춤
+      voiceEndpoint();                          // 회화는 즉시 전송 + 핸즈프리 유지
+    }, STT_SILENCE_MS);
   };
 
   recognition.onend = () => {
@@ -2535,6 +2550,7 @@ function startMic(drillMode) {
   sttFinal = '';
   sttActive = true;
   sttDrill = drillMode;
+  if (!drillMode) handsFree = true;   // 회화는 핸즈프리 루프로 진입
   recognition.lang = 'en-US';
   try { recognition.start(); } catch (e) { /* 이미 시작됨 */ }
   isListening = true;
@@ -2542,14 +2558,48 @@ function startMic(drillMode) {
     document.getElementById('drill-mic')?.classList.add('listening');
   } else {
     document.getElementById('mic-btn').classList.add('listening');
-    document.getElementById('interim-text').textContent = '🎙️ 듣는 중... 말을 멈추면 자동으로 전송됩니다';
+    document.getElementById('interim-text').textContent = '🎙️ 듣는 중... 편하게 말하세요 (멈추면 자동 전송)';
   }
 }
 
 function stopMic() {
   sttActive = false;  // 의도 해제 → onend에서 재시작하지 않고 마무리
+  handsFree = false;  // 사용자가 직접 끔 → 자동 재개하지 않음
   clearTimeout(sttSilenceTimer);
   try { recognition.stop(); } catch (e) {}
+}
+
+/* 회화 전용: 발화가 끝나면 즉시 전송하되, 마이크는 핸즈프리로 유지.
+   AI 차례 동안만 인식을 잠시 멈춰 자기 음성을 받아 적지 않게 한다. */
+function voiceEndpoint() {
+  const text = document.getElementById('text-input').value.trim();
+  pauseListening();                  // AI 차례 → 인식 일시정지 (에코 방지)
+  document.getElementById('text-input').value = '';
+  if (!text) { maybeResumeHandsFree(); return; }
+  document.getElementById('interim-text').textContent = '🤖 코치가 답하는 중...';
+  sendMessage(text);
+}
+
+/* 핸즈프리 의도(handsFree)는 유지한 채 인식기만 잠시 정지 */
+function pauseListening() {
+  sttActive = false;
+  clearTimeout(sttSilenceTimer);
+  sttFinal = '';
+  try { recognition.stop(); } catch (e) {}
+  isListening = false;
+  document.getElementById('mic-btn')?.classList.remove('listening');
+}
+
+/* AI 답변 + 음성 재생이 모두 끝나면 자동으로 다시 듣기 시작 (실시간 루프) */
+function maybeResumeHandsFree() {
+  if (!handsFree || isProcessing || pendingUtter > 0) return;
+  if (sttActive || isListening || currentMode !== 'talk') return;
+  // 인식기가 완전히 풀리도록 짧게 기다린 뒤 재시작
+  setTimeout(() => {
+    if (handsFree && !isProcessing && pendingUtter <= 0 && !sttActive && currentMode === 'talk') {
+      startMic(false);
+    }
+  }, 250);
 }
 
 function finishListening() {
@@ -2558,15 +2608,18 @@ function finishListening() {
     return;  // 드릴은 입력칸에 채워두고, 사용자가 확인 버튼을 누르게 둠
   }
   const text = document.getElementById('text-input').value.trim();
-  document.getElementById('interim-text').textContent = '';
   if (text) { sendMessage(text); document.getElementById('text-input').value = ''; }
+  // AI 차례거나 핸즈프리 루프 중이면 상태 메시지를 지우지 않는다
+  if (!isProcessing && !handsFree) document.getElementById('interim-text').textContent = '';
   sttFinal = '';
 }
 
 function toggleMic() {
-  if (isProcessing || !recognition) return;
-  if (sttActive) stopMic();
-  else startMic(false);
+  if (!recognition) return;
+  if (sttActive) { stopMic(); return; }      // 듣는 중 → 끄기
+  if (pendingUtter > 0) stopSpeaking();       // AI가 말하는 중이면 끊고(바지인) 바로 듣기
+  if (isProcessing) { handsFree = false; return; }  // 생성 중엔 루프만 멈춤
+  startMic(false);
 }
 
 /* 친근한 여성 음성 우선 선택 (macOS/Chrome/Windows 대표 음성 순) */
@@ -2780,6 +2833,7 @@ function enqueueSpeech(text, lang) {
     if (--pendingUtter <= 0) {
       pendingUtter = 0;
       document.getElementById('mic-btn').classList.remove('speaking');
+      maybeResumeHandsFree();   // AI 음성까지 끝났으니 다시 듣기 시작
     }
   };
   window.speechSynthesis.speak(u);
