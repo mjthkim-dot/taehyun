@@ -302,12 +302,19 @@
     <div class="status-dot" id="status-dot" title="Ollama 연결 상태"></div>
     <select id="voice-sel" title="영어 음성 선택 — 바꾸면 샘플이 재생됩니다"></select>
     <select id="model-sel" title="모델 선택">
-      <option value="gemma3:27b">gemma3:27b ⭐</option>
-      <option value="gemma3:12b">gemma3:12b</option>
-      <option value="gemma3:4b">gemma3:4b</option>
-      <option value="gemma4:27b">gemma4:27b</option>
-      <option value="gemma4:12b">gemma4:12b</option>
-      <option value="gemma4:e2b">gemma4:e2b (경량)</option>
+      <optgroup label="🌐 WebLLM (브라우저·오프라인)">
+        <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">Llama 3.2 3B ⭐</option>
+        <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama 3.2 1B ⚡ (경량)</option>
+        <option value="gemma-2-2b-it-q4f32_1-MLC">Gemma 2 2B (Google)</option>
+        <option value="Phi-3.5-mini-instruct-q4f16_1-MLC">Phi 3.5 Mini (MS)</option>
+      </optgroup>
+      <optgroup label="🖥 Ollama (로컬 서버 필요)">
+        <option value="gemma3:27b">gemma3:27b</option>
+        <option value="gemma3:12b">gemma3:12b</option>
+        <option value="gemma3:4b">gemma3:4b</option>
+        <option value="gemma4:27b">gemma4:27b</option>
+        <option value="gemma4:12b">gemma4:12b</option>
+      </optgroup>
     </select>
   </div>
 </header>
@@ -361,7 +368,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.5';
+const APP_VERSION = 'v4.6';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -1494,6 +1501,7 @@ let history = [];
 let isListening = false, isProcessing = false;
 let recognition = null;
 let drillQueue = [], drillIdx = 0, drillResults = [], drillIsReview = false, drillShadow = false;
+let webllmEngine = null, webllmLoading = false, webllmReady = false, webllmCurrentModel = null;
 let missionState = {};
 
 function store(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
@@ -1600,8 +1608,14 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(checkOllama, 30000);
   warmUpModel();
   document.getElementById('model-sel').addEventListener('change', () => {
-    store('va_model', document.getElementById('model-sel').value);
-    warmUpModel();
+    const m = document.getElementById('model-sel').value;
+    store('va_model', m);
+    if (isWebLLMModel(m)) {
+      // 모델이 바뀌면 기존 엔진 무효화 (다음 사용 시 재로딩)
+      webllmEngine = null; webllmReady = false; webllmCurrentModel = null;
+    } else {
+      warmUpModel();
+    }
   });
   renderStreak();
   addSystemMsg(`${lessonLabel(currentLesson)} "${currentLesson.title}" — ${currentLesson.scenario.title}. 영어로 대화를 시작해 보세요!`);
@@ -1687,18 +1701,110 @@ function restoreModelChoice() {
   if ([...sel.options].some(o => o.value === saved)) sel.value = saved;
 }
 
-/* 모델 워밍업: 앱을 열 때 미리 메모리에 올려 첫 응답 지연(수~수십 초)을 제거.
-   27B 같은 큰 모델은 처음 로딩에 시간이 걸리므로 상태 점으로 진행을 표시한다. */
+/* 모델 워밍업: Ollama 모델만 — WebLLM은 첫 sendMessage 때 lazy 로딩한다. */
 function warmUpModel() {
   const model = document.getElementById('model-sel').value;
-  const big = /(:2[0-9]b|:3[0-9]b|:[4-9][0-9]b)/.test(model);  // 20B+ 대형 모델 감지
+  if (isWebLLMModel(model)) return;
+  const big = /(:2[0-9]b|:3[0-9]b|:[4-9][0-9]b)/.test(model);
   const dot = document.getElementById('status-dot');
-  if (dot && big) dot.title = `🧠 ${model} 모델을 메모리에 올리는 중... (대형 모델은 첫 로딩에 30초~2분 걸릴 수 있어요)`;
+  if (dot && big) dot.title = `🧠 ${model} 모델을 메모리에 올리는 중...`;
   fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, messages: [], keep_alive: '30m' }),
   }).catch(() => {});
+}
+
+/* ═══════════════════════════════════════════════════
+   🌐 WebLLM — 브라우저 내장 오픈소스 모델 (WebGPU)
+   MLC-AI web-llm: OpenAI-호환 API, 첫 사용 시 모델 캐시.
+═══════════════════════════════════════════════════ */
+function isWebLLMModel(m) { return m && m.includes('-MLC'); }
+
+let _webllmLib = null;
+async function _loadWebLLMLib() {
+  if (!_webllmLib) _webllmLib = import('https://esm.sh/@mlc-ai/web-llm');
+  return _webllmLib;
+}
+
+function _showWllmProgress(pct, text) {
+  let el = document.getElementById('wllm-progress');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'wllm-progress';
+    el.style.cssText = [
+      'position:fixed;bottom:88px;left:50%;transform:translateX(-50%)',
+      'z-index:200;background:rgba(26,29,39,0.97)',
+      'border:1px solid rgba(99,102,241,0.45);border-radius:14px',
+      'padding:14px 20px;width:330px;max-width:92vw',
+      'font-size:0.78rem;color:#e2e8f0;text-align:center',
+      'box-shadow:0 8px 32px rgba(0,0,0,0.55)',
+    ].join(';');
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `<div style="font-weight:700;margin-bottom:7px">🧠 브라우저 AI 모델 로딩 중...</div>
+    <div style="background:rgba(255,255,255,0.12);border-radius:6px;height:7px;overflow:hidden;margin-bottom:7px">
+      <div style="background:var(--primary);height:100%;width:${Math.round((pct||0)*100)}%;transition:width 0.3s"></div>
+    </div>
+    <div style="color:var(--text-muted);font-size:0.7rem;line-height:1.4">${text||''}<br>첫 실행 시 모델(~1-2GB) 다운로드 — 이후 캐시됩니다.</div>`;
+}
+function _hideWllmProgress() {
+  const el = document.getElementById('wllm-progress');
+  if (el) el.remove();
+}
+
+async function getWebLLMEngine(model) {
+  if (webllmEngine && webllmReady && webllmCurrentModel === model) return webllmEngine;
+  if (webllmLoading) {
+    await new Promise(res => {
+      const iv = setInterval(() => { if (!webllmLoading) { clearInterval(iv); res(); } }, 300);
+    });
+    if (webllmEngine && webllmReady && webllmCurrentModel === model) return webllmEngine;
+  }
+  webllmLoading = true; webllmReady = false;
+  _showWllmProgress(0, '라이브러리 로드 중...');
+  try {
+    const { CreateMLCEngine } = await _loadWebLLMLib();
+    webllmEngine = await CreateMLCEngine(model, {
+      initProgressCallback: p => _showWllmProgress(p.progress ?? 0, p.text ?? ''),
+    });
+    webllmCurrentModel = model;
+    webllmReady = true;
+  } finally {
+    webllmLoading = false;
+    _hideWllmProgress();
+  }
+  return webllmEngine;
+}
+
+/* 클라이언트-사이드 CAF 프롬프트 (caf_pipeline.py 포팅) */
+function _buildCafPrompt(transcript, cefr, wpm) {
+  const next = CEFR_NEXT[cefr] || 'B1';
+  const wpmLine = wpm ? `- 측정된 발화 속도(WPM): ${Math.round(wpm)}` : '- 발화 속도: 미측정';
+  return `You are an expert CEFR-certified speech examiner running a CAF (Complexity, Accuracy, Fluency) analysis. Analyze the learner's English speech.
+
+Learner CEFR level: ${cefr}
+Paraphrase target level (one step up): ${next}
+${wpmLine}
+
+Learner transcript:
+"""${transcript}"""
+
+Return ONLY valid JSON (no markdown) with this exact shape:
+{
+  "complexity": <0-10 float>,
+  "accuracy": <0-10 float>,
+  "fluency": <0-10 float>,
+  "error_density": <errors per 100 words, float>,
+  "errors": [{"wrong":"...","right":"...","type":"tense|agreement|article|preposition|word-choice|other","why_ko":"한국어 한 줄"}],
+  "paraphrases": [{"original":"learner phrase","upgraded":"${next}-level natural rephrasing","note_ko":"왜 더 세련됐는지 한국어"}],
+  "summary_ko": "한국어로 2문장 총평 (격려 톤)"
+}
+
+Rules:
+- Max 3 errors (most important first), max 3 paraphrases.
+- "upgraded" must be natural ${next}-level English, NOT just longer.
+- If transcript too short/empty, return JSON with low scores and empty arrays.`;
 }
 
 async function checkOllama() {
@@ -1720,8 +1826,20 @@ async function checkOllama() {
   } catch {
     dot.classList.remove('ok');
     dot.title = 'Ollama 미연결';
-    // 백엔드(Ollama)에 닿지 못함 — Vercel 같은 정적 배포의 데모 모드
-    setDemoBanner('🎭 <b>데모 모드</b> — UI·레슨·드릴·발음채점은 동작하지만, <b>AI 회화/CAF는 로컬 실행이 필요</b>합니다. 터미널에서 <code>bash voice-assistant/start.sh</code> 실행 후 PC 주소로 접속하세요.');
+    const hasWebGPU = !!navigator.gpu;
+    if (hasWebGPU) {
+      // WebGPU 사용 가능 → WebLLM 모델 자동 선택 안내
+      const sel = document.getElementById('model-sel');
+      const curModel = sel?.value || '';
+      if (!isWebLLMModel(curModel)) {
+        // Ollama 모델이 선택된 상태 → 첫 번째 WebLLM 모델로 전환
+        const first = [...(sel?.options||[])].find(o => isWebLLMModel(o.value));
+        if (first && sel) { sel.value = first.value; store('va_model', first.value); }
+      }
+      setDemoBanner('🌐 <b>WebLLM 모드</b> — 브라우저에서 직접 AI 실행 (WebGPU). 위 모델 선택 후 <b>첫 메시지를 보내면 자동 다운로드</b>됩니다 (~1-2GB, 이후 캐시).');
+    } else {
+      setDemoBanner('🎭 <b>데모 모드</b> — AI 회화/CAF는 <b>Chrome/Edge 데스크톱</b>(WebGPU 필요) 또는 로컬 Ollama가 필요합니다.');
+    }
   }
 }
 
@@ -1908,18 +2026,30 @@ async function generateAiDrills() {
 반드시 이 JSON 형식으로만 답하세요 (다른 텍스트 금지):
 {"items":[{"kr":"한국어 문장","en":"English sentence"}]}`;
   try {
-    const resp = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model, messages: [{ role: 'user', content: prompt }],
-        stream: false, format: 'json', keep_alive: '30m',
-        options: { temperature: 0.9, num_predict: 700 },
-      }),
-    });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-    const parsed = JSON.parse(data.message?.content || '{}');
+    let content;
+    if (isWebLLMModel(model)) {
+      const engine = await getWebLLMEngine(model);
+      const reply = await engine.chat.completions.create({
+        messages: [{ role: 'user', content: prompt }],
+        stream: false, temperature: 0.9, max_tokens: 700,
+        response_format: { type: 'json_object' },
+      });
+      content = reply.choices[0].message.content;
+    } else {
+      const resp = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model, messages: [{ role: 'user', content: prompt }],
+          stream: false, format: 'json', keep_alive: '30m',
+          options: { temperature: 0.9, num_predict: 700 },
+        }),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      content = data.message?.content || '{}';
+    }
+    const parsed = JSON.parse(content || '{}');
     const items = (parsed.items || [])
       .filter(x => x && typeof x.kr === 'string' && typeof x.en === 'string' && x.kr.trim() && x.en.trim())
       .map(x => ({ kr: x.kr.trim(), en: x.en.trim(), lesson: l.id, cat: '🤖 AI 생성' }));
@@ -1931,7 +2061,7 @@ async function generateAiDrills() {
     drillResults = [];
     renderDrillCard();
   } catch (err) {
-    renderDrillIntro('🤖 문제 생성에 실패했습니다. Ollama 연결을 확인하고 다시 시도해 주세요.');
+    renderDrillIntro('🤖 문제 생성에 실패했습니다. AI 모델 연결을 확인하고 다시 시도해 주세요.');
   } finally {
     aiDrillBusy = false;
   }
@@ -2232,52 +2362,72 @@ async function sendMessage(text, hidden) {
   // 작은 모델이 흐름을 잃지 않도록 최근 대화만 전달 (짧을수록 첫 응답이 빠름)
   const messages = [{ role: 'system', content: buildSystemPrompt() }, ...history.slice(-8)];
   try {
-    const resp = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model, messages, stream: true,
-        keep_alive: '30m',  // 응답 후에도 모델을 메모리에 유지 → 다음 턴 즉시 시작
-        // 짧게 답하게 해서 턴이 빨리 끝나고 → 다시 듣기까지의 간격을 줄인다
-        options: { temperature: 0.7, num_predict: 150, repeat_penalty: 1.1 },
-      })
-    });
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
-      throw new Error(err.error || `HTTP ${resp.status}`);
-    }
-    typingEl.remove();
     let fullText = '';
     speakCursor = 0;
-    const { textEl } = addAiMsg();
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      const lines = decoder.decode(value).split('\n').filter(Boolean);
-      for (const line of lines) {
-        try {
-          const obj = JSON.parse(line);
-          if (obj.message?.content) {
-            fullText += obj.message.content;
-            textEl.innerHTML = renderAiText(fullText);
-            streamSpeak(fullText, false);  // 완성된 문장부터 바로 읽기
-          }
-          if (obj.done) break;
-        } catch {}
+    if (isWebLLMModel(model)) {
+      // ── WebLLM 스트리밍 경로 ──────────────────────────────
+      const engine = await getWebLLMEngine(model);
+      typingEl.remove();
+      const { textEl } = addAiMsg();
+      const stream = await engine.chat.completions.create({
+        messages, stream: true, temperature: 0.7, max_tokens: 180,
+      });
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content || '';
+        if (delta) {
+          fullText += delta;
+          textEl.innerHTML = renderAiText(fullText);
+          streamSpeak(fullText, false);
+        }
+      }
+    } else {
+      // ── Ollama NDJSON 스트리밍 경로 ──────────────────────
+      const resp = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model, messages, stream: true, keep_alive: '30m',
+          options: { temperature: 0.7, num_predict: 150, repeat_penalty: 1.1 },
+        })
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
+        throw new Error(err.error || `HTTP ${resp.status}`);
+      }
+      typingEl.remove();
+      const { textEl } = addAiMsg();
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        for (const line of decoder.decode(value).split('\n').filter(Boolean)) {
+          try {
+            const obj = JSON.parse(line);
+            if (obj.message?.content) {
+              fullText += obj.message.content;
+              textEl.innerHTML = renderAiText(fullText);
+              streamSpeak(fullText, false);
+            }
+            if (obj.done) break;
+          } catch {}
+        }
       }
     }
     history.push({ role: 'assistant', content: fullText });
     scrollBottom();
-    streamSpeak(fullText, true);  // 남은 마지막 문장 읽기
+    streamSpeak(fullText, true);
   } catch (err) {
     typingEl?.remove?.();
-    addSystemMsg(`❌ 오류: ${err.message}\nOllama 실행 여부와 모델(${model}) 설치를 확인하세요. → ollama pull ${model}`);
+    if (isWebLLMModel(model)) {
+      addSystemMsg(`❌ WebLLM 오류: ${err.message}`);
+    } else {
+      addSystemMsg(`❌ 오류: ${err.message}\nOllama 실행 여부와 모델(${model}) 설치를 확인하세요. → ollama pull ${model}`);
+    }
   } finally {
     isProcessing = false;
     updateTalkBtns();
-    maybeResumeHandsFree();   // 읽을 음성이 없으면 여기서 바로 재개
+    maybeResumeHandsFree();
   }
 }
 
@@ -2336,14 +2486,42 @@ async function analyzeCaf() {
   btn.disabled = true; btn.textContent = '⏳ 분석중';
   const cefr = cefrOf(currentLesson);
   const duration = talkStamps.length >= 2 ? (talkStamps[talkStamps.length - 1] - talkStamps[0]) / 1000 : null;
+  const model = document.getElementById('model-sel').value;
   try {
-    const resp = await fetch('/api/caf', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transcript, cefr, duration_sec: duration,
-        model: document.getElementById('model-sel').value }),
-    });
-    const r = await resp.json();
-    if (r.error) throw new Error(r.error);
+    let r;
+    if (isWebLLMModel(model)) {
+      // ── WebLLM 클라이언트-사이드 CAF ─────────────────────
+      const words = transcript.match(/[A-Za-z']+/g) || [];
+      const wpm = (duration && duration > 0) ? words.length / (duration / 60) : null;
+      const engine = await getWebLLMEngine(model);
+      const reply = await engine.chat.completions.create({
+        messages: [{ role: 'user', content: _buildCafPrompt(transcript, cefr, wpm) }],
+        stream: false, temperature: 0.3, max_tokens: 700,
+        response_format: { type: 'json_object' },
+      });
+      const raw = JSON.parse(reply.choices[0].message.content || '{}');
+      const clamp = (v, lo=0, hi=10) => { try { return Math.max(lo, Math.min(hi, parseFloat(v)||0)); } catch { return 0; } };
+      const fillers = (transcript.match(/\b(um+|uh+|er+|like|you know|i mean|kind of|sort of|well)\b/gi)||[]).length;
+      const fillerRatio = words.length ? fillers / words.length : 0;
+      r = {
+        complexity: Math.round(clamp(raw.complexity) * 10) / 10,
+        accuracy:   Math.round(clamp(raw.accuracy)   * 10) / 10,
+        fluency:    Math.round(Math.max(0, clamp(raw.fluency) - (fillerRatio > 0.1 ? fillerRatio * 10 : 0)) * 10) / 10,
+        error_density: clamp(raw.error_density, 0, 100),
+        errors:      (raw.errors     || []).slice(0, 3),
+        paraphrases: (raw.paraphrases|| []).slice(0, 3),
+        summary_ko:  String(raw.summary_ko || '').trim(),
+        metrics: { word_count: words.length, filler_ratio: Math.round(fillerRatio * 1000)/1000, wpm: wpm ? Math.round(wpm * 10)/10 : null },
+      };
+    } else {
+      // ── 서버-사이드 CAF (Ollama) ─────────────────────────
+      const resp = await fetch('/api/caf', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript, cefr, duration_sec: duration, model }),
+      });
+      r = await resp.json();
+      if (r.error) throw new Error(r.error);
+    }
     renderCafResult(r, cefr);
     persistCaf(r, cefr);
   } catch (err) {
