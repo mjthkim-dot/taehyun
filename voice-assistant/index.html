@@ -200,6 +200,13 @@
       border-radius: 0 10px 10px 0; padding: 9px 13px; font-size: 0.82rem; line-height: 1.6; color: #6ee7b7; margin-top: 6px; width: 100%;
     }
     .msg-meta { font-size: 0.68rem; color: var(--text-muted); padding: 0 4px; }
+    .tr-btn { background: none; border: none; color: var(--primary-light); font-size: 0.7rem; font-weight: 700; cursor: pointer; padding: 0; margin-left: 8px; }
+    .tr-btn:hover { text-decoration: underline; }
+    .tr-btn:disabled { opacity: 0.5; cursor: default; }
+    .tr-box {
+      margin-top: 6px; padding: 8px 11px; font-size: 0.83rem; line-height: 1.55; color: var(--text);
+      background: rgba(99,102,241,0.10); border-left: 3px solid var(--primary); border-radius: 0 8px 8px 0;
+    }
     .typing .bubble { display: flex; gap: 5px; align-items: center; padding: 13px 17px; }
     .typing-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); animation: bounce 1.2s infinite; }
     .typing-dot:nth-child(2) { animation-delay: 0.2s; }
@@ -392,7 +399,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.20';
+const APP_VERSION = 'v4.21';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2962,7 +2969,9 @@ async function generateNewTopic() {
 - 너무 길거나 어렵지 않게, 초보자가 3~5턴 안에 소화 가능한 분량
 
 반드시 이 JSON 형식으로만 답하세요 (다른 텍스트 없이):
-{"title":"상황 제목 (이모지 포함, 15자 이내)","desc":"AI 튜터가 어떤 역할을 하는지 + 학생이 무엇을 연습하는지 (한국어, 50자 이내)","opener":"튜터의 첫 영어 대화 문장 (학생이 자연스럽게 답할 수 있도록 열린 질문)"}`;
+{"title":"상황 제목 (이모지 포함, 15자 이내)","desc":"AI 튜터가 어떤 역할을 하는지 + 학생이 무엇을 연습하는지 (한국어, 50자 이내)","opener":"튜터의 첫 영어 대화 문장 (학생이 자연스럽게 답할 수 있도록 열린 질문)","examples":[{"en":"이 상황에서 학생이 말할 법한 영어 문장","kr":"한국어 번역"},{"en":"...","kr":"..."},{"en":"...","kr":"..."}]}
+
+examples는 이 상황에 딱 맞는, 위 문법을 쓴 학생용 예시 문장 3개입니다 (각각 한국어 번역 포함).`;
 
   try {
     let raw;
@@ -2980,8 +2989,12 @@ async function generateNewTopic() {
     const obj = JSON.parse(raw || '{}');
     if (!obj.title || !obj.desc) throw new Error('bad-json');
 
-    // 주제 채택
-    activeScenario = { title: obj.title, desc: obj.desc };
+    // 주제 채택 (예문도 이 상황에 맞게 함께 채택)
+    const exs = Array.isArray(obj.examples)
+      ? obj.examples.filter(e => e && typeof e.en === 'string' && e.en.trim())
+                    .map(e => ({ en: e.en.trim(), kr: (e.kr || '').trim() })).slice(0, 3)
+      : [];
+    activeScenario = { title: obj.title, desc: obj.desc, examples: exs.length ? exs : null };
     _recentTopics.unshift(obj.title);
     if (_recentTopics.length > 3) _recentTopics.pop();
 
@@ -4209,10 +4222,71 @@ function addAiMsg() {
   const meta = document.createElement('div');
   meta.className = 'msg-meta';
   meta.textContent = timeStr();
+  // 🇰🇷 필요할 때 한글 번역 보기
+  const tbtn = document.createElement('button');
+  tbtn.className = 'tr-btn';
+  tbtn.textContent = '🇰🇷 번역';
+  tbtn.onclick = () => toggleTranslate(div, bubble, tbtn);
+  meta.appendChild(tbtn);
   div.appendChild(meta);
   document.getElementById('chat').appendChild(div);
   scrollBottom();
   return { textEl: bubble };
+}
+
+/* AI 영어 메시지를 필요할 때만 한글로 번역해 아래에 보여준다 (토글) */
+async function toggleTranslate(div, bubble, btn) {
+  const existing = div.querySelector('.tr-box');
+  if (existing) { existing.remove(); btn.textContent = '🇰🇷 번역'; return; }
+  const text = (bubble.innerText || '').trim();
+  if (!text) return;
+  btn.disabled = true; btn.textContent = '⏳ 번역중';
+  try {
+    const ko = await aiTranslateToKo(text);
+    const box = document.createElement('div');
+    box.className = 'tr-box';
+    box.textContent = '🇰🇷 ' + ko;
+    div.insertBefore(box, div.querySelector('.msg-meta'));
+    btn.textContent = '🇰🇷 숨기기';
+    scrollBottom();
+  } catch (err) {
+    if (err.message === 'NO_GROQ_KEY') { openGroqKeyModal(); }
+    else toast('번역에 실패했습니다. AI 모델 연결을 확인하세요.');
+    btn.textContent = '🇰🇷 번역';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function aiTranslateToKo(text) {
+  const messages = [{ role: 'user', content: `다음 영어를 자연스러운 한국어로 번역만 해줘. 설명·따옴표·영어 원문 없이 한국어 번역문만 출력:\n\n${text}` }];
+  return (await aiComplete(messages, { temperature: 0.2, maxTokens: 260 })).trim();
+}
+
+/* 선택된 모델(Groq/WebLLM/Ollama)로 단발성 완성 응답을 받는 공용 헬퍼 */
+async function aiComplete(messages, opts = {}) {
+  const model = document.getElementById('model-sel').value;
+  if (isGroqModel(model)) {
+    return groqComplete(messages, { temperature: opts.temperature ?? 0.7, maxTokens: opts.maxTokens ?? 220 });
+  }
+  if (isWebLLMModel(model)) {
+    const engine = await getWebLLMEngine(model);
+    const r = await engine.chat.completions.create({
+      messages, stream: false,
+      temperature: opts.temperature ?? 0.7, max_tokens: opts.maxTokens ?? 220,
+    });
+    return r.choices[0].message.content || '';
+  }
+  const resp = await fetch('/api/chat', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model, messages, stream: false, keep_alive: '30m',
+      options: { temperature: opts.temperature ?? 0.7, num_predict: opts.maxTokens ?? 220 },
+    }),
+  });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const data = await resp.json();
+  return data.message?.content || '';
 }
 function addSystemMsg(text) {
   const div = document.createElement('div');
@@ -4228,8 +4302,8 @@ function addTalkIntro(opts = {}) {
   const sc = activeScenario || l.scenario;
   if (!sc) return;
   const tag = opts.generated ? '🎲 새 주제' : `${lessonLabel(l)} · ${esc(l.title)}`;
-  // 이 회차의 핵심 표현 2~3개 (막혔을 때 바로 써먹을 수 있게)
-  const ex = (l.examples || []).slice(0, 3);
+  // 이 상황의 핵심 표현 2~3개 (생성 주제면 그 주제용 예문, 아니면 회차 기본 예문)
+  const ex = ((activeScenario && activeScenario.examples) || l.examples || []).slice(0, 3);
   const exHtml = ex.length
     ? `<div class="ti-sec">💬 이렇게 말해보세요</div><div class="ti-ex">${ex.map(e => `· ${esc(e.en)} <span class="k">— ${esc(e.kr)}</span>`).join('<br>')}</div>`
     : '';
