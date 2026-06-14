@@ -197,7 +197,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 data=body,
                 headers={"Content-Type": "application/json"},
                 stream=True,
-                timeout=120,
+                # 대형 모델(예: gemma3:27b)은 첫 토큰까지 메모리 로딩에 수십 초가
+                # 걸릴 수 있어 넉넉히 둔다. (connect, read) 튜플로 분리.
+                timeout=(10, 300),
             )
             self.send_response(resp.status_code)
             self.send_header("Content-Type", "application/x-ndjson")

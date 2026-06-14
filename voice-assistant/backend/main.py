@@ -66,7 +66,8 @@ async def chat(request: Request):
     body = await request.body()
 
     async def stream():
-        async with httpx.AsyncClient(timeout=120) as c:
+        # 대형 모델 첫 토큰 로딩 대기를 위해 read 타임아웃을 넉넉히 둔다
+        async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0)) as c:
             async with c.stream("POST", f"{OLLAMA_URL}/api/chat", content=body,
                                 headers={"Content-Type": "application/json"}) as r:
                 async for chunk in r.aiter_bytes():
