@@ -392,7 +392,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.19';
+const APP_VERSION = 'v4.20';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -3553,6 +3553,8 @@ let STT_DRILL_SILENCE_MS = 3500;  // 드릴: 천천히 생각하며 말할 수 �
 let handsFree = false;   // 실시간 핸즈프리 회화 모드 (AI 답변 후 자동으로 다시 듣기)
 let hfWatchdog = null;   // 핸즈프리 루프 감시기 — 인식기가 조용히 죽어도 되살린다
 let restartTries = 0;    // onend 연속 재시작 시도 횟수 (폭주 방지)
+let lastSpeechActivityAt = 0;      // 마지막으로 실제 사용자 음성이 들린 시각
+const HF_IDLE_TIMEOUT_MS = 25000;  // 이 시간 동안 말이 없으면 핸즈프리 듣기를 자동 종료 (소음·환청 자동전송 방지)
 
 function initSpeechRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -3597,6 +3599,7 @@ function initSpeechRecognition() {
       else interim += res[0].transcript;
     }
     const shown = (sttFinal + interim).replace(/\s+/g, ' ').trim();
+    if (shown) lastSpeechActivityAt = Date.now();   // 실제 음성 활동 기록 → 무활동 자동종료 타이머 리셋
     if (sttDrill) {
       const di = document.getElementById('drill-input');
       if (di) di.value = shown;
@@ -3680,6 +3683,7 @@ function startMic(drillMode) {
     sttFinal = '';
     sttDrill = drillMode;
     restartTries = 0;
+    if (!drillMode) lastSpeechActivityAt = Date.now();   // 무활동 자동종료 타이머 기준 갱신
     recognition.lang = 'en-US';
     try {
       recognition.start();
@@ -3741,6 +3745,12 @@ function armHandsFreeWatchdog() {
     // (일부 브라우저의 SpeechSynthesis 행 버그) — 지속 idle일 때만 강제 정리.
     reconcilePendingUtter();
     if (isProcessing || pendingUtter > 0) return;   // AI 차례 — 정상적으로 대기
+    // 오래 말이 없으면 듣기를 자동 종료 — 소음·환청이 사용자 입력으로 잡혀 자동 전송되는 걸 막는다.
+    if (lastSpeechActivityAt && Date.now() - lastSpeechActivityAt > HF_IDLE_TIMEOUT_MS) {
+      stopMic();
+      document.getElementById('interim-text').textContent = '💤 잠시 멈췄어요 — 🎙️를 눌러 대화를 이어가세요';
+      return;
+    }
     if (sttActive || isListening) return;           // 이미 듣는 중
     startMic(false);                                // 멈춰 있으면 다시 듣기
   }, 1600);
