@@ -300,11 +300,16 @@
   <div class="header-controls">
     <span class="streak" id="streak">🔥 0일</span>
     <div class="status-dot" id="status-dot" title="Ollama 연결 상태"></div>
+    <button class="mini-btn" id="settings-btn" onclick="openGroqKeyModal()" title="AI 강사 API 키 설정">⚙️</button>
     <select id="voice-sel" title="영어 음성 선택 — 바꾸면 샘플이 재생됩니다"></select>
     <select id="model-sel" title="모델 선택">
+      <optgroup label="⚡ Groq (무료 고속 API · 추천)">
+        <option value="groq:llama-3.3-70b-versatile">Llama 3.3 70B ⚡ (강력·추천)</option>
+        <option value="groq:llama-3.1-8b-instant">Llama 3.1 8B (초고속)</option>
+      </optgroup>
       <optgroup label="🌐 WebLLM (브라우저·오프라인)">
-        <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">Llama 3.2 3B ⭐</option>
-        <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama 3.2 1B ⚡ (경량)</option>
+        <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">Llama 3.2 3B</option>
+        <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama 3.2 1B (경량)</option>
         <option value="gemma-2-2b-it-q4f32_1-MLC">Gemma 2 2B (Google)</option>
         <option value="Phi-3.5-mini-instruct-q4f16_1-MLC">Phi 3.5 Mini (MS)</option>
       </optgroup>
@@ -368,7 +373,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.8';
+const APP_VERSION = 'v4.9';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -1611,8 +1616,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('model-sel').addEventListener('change', () => {
     const m = document.getElementById('model-sel').value;
     store('va_model', m);
-    if (isWebLLMModel(m)) {
-      // 모델이 바뀌면 기존 엔진 무효화 (다음 사용 시 재로딩)
+    if (isGroqModel(m)) {
+      if (!groqKey()) openGroqKeyModal();   // 키 없으면 바로 등록 유도
+    } else if (isWebLLMModel(m)) {
       webllmEngine = null; webllmReady = false; webllmCurrentModel = null;
     } else {
       warmUpModel();
@@ -1736,7 +1742,7 @@ function _showWllmProgress(pct, text, title, note) {
     el.id = 'wllm-progress';
     el.style.cssText = [
       'position:fixed;bottom:88px;left:50%;transform:translateX(-50%)',
-      'z-index:200;background:rgba(26,29,39,0.97)',
+      'z-index:400;background:rgba(26,29,39,0.97)',
       'border:1px solid rgba(99,102,241,0.45);border-radius:14px',
       'padding:14px 20px;width:330px;max-width:92vw',
       'font-size:0.78rem;color:#e2e8f0;text-align:center',
@@ -1822,19 +1828,30 @@ async function loadWhisper() {
   if (whisperPipe) return whisperPipe;
   if (whisperLoadingP) return whisperLoadingP;
   whisperLoadingP = (async () => {
-    _showWllmProgress(0, '라이브러리 로드 중...', '🎙️ 음성인식 모델 로딩 중...',
-      '첫 1회만 모델(~190MB) 다운로드 — 이후 캐시됩니다.');
+    const noteFor = (sz) => `첫 1회만 모델(~${sz}) 다운로드 — 이후 캐시됩니다.`;
+    _showWllmProgress(0, '라이브러리 로드 중...', '🎙️ 음성인식 모델 로딩 중...', noteFor('480MB'));
     try {
       const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2');
-      // small.en: base보다 정확도가 크게 높아 비원어민 발음 인식에 유리 (WebGPU 가속)
-      whisperPipe = await pipeline('automatic-speech-recognition', 'Xenova/whisper-small.en', {
-        device: navigator.gpu ? 'webgpu' : 'wasm',
-        progress_callback: p => {
-          if (p && p.status === 'progress')
-            _showWllmProgress((p.progress || 0) / 100, `${p.file || ''} 다운로드...`,
-              '🎙️ 음성인식 모델 로딩 중...', '첫 1회만 모델(~190MB) 다운로드 — 이후 캐시됩니다.');
-        },
-      });
+      // 정확도 우선: medium.en → 실패 시 small.en로 자동 폴백 (모델 없거나 메모리 부족 대비)
+      const candidates = [
+        { id: 'Xenova/whisper-medium.en', sz: '480MB' },
+        { id: 'Xenova/whisper-small.en',  sz: '190MB' },
+      ];
+      let lastErr;
+      for (const c of candidates) {
+        try {
+          whisperPipe = await pipeline('automatic-speech-recognition', c.id, {
+            device: navigator.gpu ? 'webgpu' : 'wasm',
+            progress_callback: p => {
+              if (p && p.status === 'progress')
+                _showWllmProgress((p.progress || 0) / 100, `${p.file || ''} 다운로드...`,
+                  '🎙️ 음성인식 모델 로딩 중...', noteFor(c.sz));
+            },
+          });
+          break;
+        } catch (e) { lastErr = e; whisperPipe = null; }
+      }
+      if (!whisperPipe) throw lastErr || new Error('Whisper 로드 실패');
     } finally {
       _hideWllmProgress();
       whisperLoadingP = null;
@@ -1940,6 +1957,127 @@ function switchToWhisper(reason) {
 }
 
 /* ═══════════════════════════════════════════════════
+   ⚡ Groq 고속 API — Llama 3.3 70B (ChatGPT/Gemini급 실시간 대화)
+   브라우저에서 Groq로 직접 호출(키는 이 브라우저에만 저장, 서버 경유 없음).
+═══════════════════════════════════════════════════ */
+function isGroqModel(m) { return m && m.startsWith('groq:'); }
+function groqKey() { return (load('va_groq_key', '') || '').trim(); }
+function groqModelId() { return document.getElementById('model-sel').value.replace(/^groq:/, ''); }
+
+async function _groqFetch(messages, { temperature = 0.7, maxTokens = 400, json = false, stream = false }) {
+  const key = groqKey();
+  if (!key) throw new Error('NO_GROQ_KEY');
+  const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+    body: JSON.stringify({
+      model: groqModelId(), messages, stream, temperature, max_tokens: maxTokens,
+      ...(json ? { response_format: { type: 'json_object' } } : {}),
+    }),
+  }).catch(err => { throw new Error('NETWORK: ' + (err.message || err)); });
+  if (!resp.ok) {
+    let detail = `HTTP ${resp.status}`;
+    try { const e = await resp.json(); detail = e.error?.message || detail; } catch (e) {}
+    if (resp.status === 401) detail = 'API 키가 올바르지 않습니다. ⚙️에서 다시 확인하세요.';
+    throw new Error(detail);
+  }
+  return resp;
+}
+
+/* 스트리밍 (회화·질문) */
+async function* groqStream(messages, opts = {}) {
+  const resp = await _groqFetch(messages, { ...opts, stream: true });
+  const reader = resp.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t.startsWith('data:')) continue;
+      const data = t.slice(5).trim();
+      if (data === '[DONE]') return;
+      try { const o = JSON.parse(data); const d = o.choices?.[0]?.delta?.content; if (d) yield d; } catch (e) {}
+    }
+  }
+}
+
+/* 비스트리밍 (드릴·CAF JSON) */
+async function groqComplete(messages, opts = {}) {
+  const resp = await _groqFetch(messages, { ...opts, stream: false });
+  const data = await resp.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+
+/* Groq 키 입력/변경 모달 */
+function ensureGroqKeyModal() {
+  if (document.getElementById('groq-modal')) return;
+  const m = document.createElement('div');
+  m.id = 'groq-modal';
+  m.style.cssText = 'position:fixed;inset:0;z-index:320;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;padding:16px';
+  m.addEventListener('click', e => { if (e.target === m) closeGroqKeyModal(); });
+  m.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:min(520px,96vw);overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <b>⚡ AI 강사 연결 (Groq · 무료)</b>
+        <button class="btn" onclick="closeGroqKeyModal()" style="padding:4px 11px">✕</button>
+      </div>
+      <div style="padding:16px;font-size:0.86rem;line-height:1.6">
+        <div style="color:var(--text-muted);margin-bottom:10px">
+          무료 키를 발급받아 붙여넣으면 <b>Llama 3.3 70B</b>로 ChatGPT/Gemini처럼 빠른 영어 강사 대화가 됩니다.
+          키는 <b>이 브라우저에만 저장</b>되고 우리 서버를 거치지 않습니다.
+        </div>
+        <ol style="margin:0 0 12px 18px;color:var(--text-muted);font-size:0.8rem;line-height:1.8">
+          <li><a href="https://console.groq.com/keys" target="_blank" style="color:var(--primary-light)">console.groq.com/keys</a> 접속 (구글 로그인)</li>
+          <li>"Create API Key" → 키 복사</li>
+          <li>아래에 붙여넣고 저장</li>
+        </ol>
+        <input id="groq-key-input" type="password" placeholder="gsk_..." autocomplete="off"
+          style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:11px;font-family:monospace;font-size:0.9rem"/>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn" onclick="clearGroqKey()" style="flex:0 0 auto">키 삭제</button>
+          <button class="btn primary" onclick="saveGroqKey()" style="flex:1">저장하고 시작</button>
+        </div>
+        <div id="groq-key-status" style="font-size:0.78rem;color:var(--text-muted);margin-top:10px"></div>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+}
+
+function openGroqKeyModal() {
+  ensureGroqKeyModal();
+  const m = document.getElementById('groq-modal');
+  m.style.display = 'flex';
+  const inp = document.getElementById('groq-key-input');
+  inp.value = groqKey();
+  document.getElementById('groq-key-status').textContent = groqKey() ? '✅ 키가 저장되어 있습니다.' : '';
+  setTimeout(() => inp.focus(), 50);
+}
+function closeGroqKeyModal() { const m = document.getElementById('groq-modal'); if (m) m.style.display = 'none'; }
+function saveGroqKey() {
+  const v = (document.getElementById('groq-key-input').value || '').trim();
+  if (!v) { document.getElementById('groq-key-status').textContent = '⚠️ 키를 입력하세요.'; return; }
+  store('va_groq_key', v);
+  // Groq 모델을 자동 선택
+  const sel = document.getElementById('model-sel');
+  const opt = [...sel.options].find(o => isGroqModel(o.value));
+  if (opt) { sel.value = opt.value; store('va_model', opt.value); }
+  document.getElementById('groq-key-status').textContent = '✅ 저장됐어요! 이제 회화·질문이 빨라집니다.';
+  setDemoBanner('');
+  toast('⚡ Groq AI 강사 연결됨 — 이제 실시간으로 대화하세요!', 4000);
+  setTimeout(closeGroqKeyModal, 900);
+}
+function clearGroqKey() {
+  store('va_groq_key', '');
+  document.getElementById('groq-key-input').value = '';
+  document.getElementById('groq-key-status').textContent = '키를 삭제했습니다.';
+}
+
+/* ═══════════════════════════════════════════════════
    🙋 AI 튜터에게 질문 — 모르는 것을 언제든 물어보기
    (문법·뜻·자연스러운 표현 등을 한국어로 설명, 영어 예문 포함)
 ═══════════════════════════════════════════════════ */
@@ -2013,7 +2151,12 @@ async function submitAsk() {
 
   try {
     let full = '';
-    if (isWebLLMModel(model)) {
+    if (isGroqModel(model)) {
+      ans.innerHTML = '';
+      for await (const d of groqStream(messages, { temperature: 0.5, maxTokens: 500 })) {
+        full += d; ans.innerHTML = renderAiText(full);
+      }
+    } else if (isWebLLMModel(model)) {
       const engine = await getWebLLMEngine(model);
       ans.innerHTML = '';
       const stream = await engine.chat.completions.create({ messages, stream: true, temperature: 0.5, max_tokens: 420 });
@@ -2042,7 +2185,12 @@ async function submitAsk() {
     if (!full.trim()) ans.innerHTML = '<span style="color:#fca5a5">답변을 받지 못했어요. 잠시 후 다시 시도해 주세요.</span>';
     else scrollBottom();
   } catch (e) {
-    ans.innerHTML = `<span style="color:#fca5a5">❌ ${e.message}</span>`;
+    if (e.message === 'NO_GROQ_KEY') {
+      ans.innerHTML = '<span style="color:#fcd34d">⚡ AI 강사 연결이 필요해요. ⚙️ 버튼에서 무료 Groq 키를 등록하세요.</span>';
+      openGroqKeyModal();
+    } else {
+      ans.innerHTML = `<span style="color:#fca5a5">❌ ${e.message}</span>`;
+    }
   } finally {
     askBusy = false; sendBtn.disabled = false; sendBtn.textContent = '질문하기 (Ctrl+Enter)';
   }
@@ -2081,19 +2229,26 @@ async function checkOllama() {
   } catch {
     dot.classList.remove('ok');
     dot.title = 'Ollama 미연결';
-    const hasWebGPU = !!navigator.gpu;
-    if (hasWebGPU) {
-      // WebGPU 사용 가능 → WebLLM 모델 자동 선택 안내
-      const sel = document.getElementById('model-sel');
-      const curModel = sel?.value || '';
-      if (!isWebLLMModel(curModel)) {
-        // Ollama 모델이 선택된 상태 → 첫 번째 WebLLM 모델로 전환
-        const first = [...(sel?.options||[])].find(o => isWebLLMModel(o.value));
-        if (first && sel) { sel.value = first.value; store('va_model', first.value); }
+    const sel = document.getElementById('model-sel');
+    const curModel = sel?.value || '';
+    if (groqKey()) {
+      // Groq 키 보유 → 고속 API 모드 (가장 빠르고 품질 높음)
+      if (!isGroqModel(curModel)) {
+        const g = [...(sel?.options || [])].find(o => isGroqModel(o.value));
+        if (g && sel) { sel.value = g.value; store('va_model', g.value); }
       }
-      setDemoBanner('🌐 <b>WebLLM 모드</b> — 브라우저에서 직접 AI 실행 (WebGPU). 위 모델 선택 후 <b>첫 메시지를 보내면 자동 다운로드</b>됩니다 (~1-2GB, 이후 캐시).');
+      setDemoBanner('');
+    } else if (!isWebLLMModel(curModel) && !isGroqModel(curModel) && navigator.gpu) {
+      // 키 없음 + WebGPU 가능 → 브라우저 내장으로 폴백, 단 Groq 권장 배너 노출
+      const first = [...(sel?.options || [])].find(o => isWebLLMModel(o.value));
+      if (first && sel) { sel.value = first.value; store('va_model', first.value); }
+      setDemoBanner('⚡ <b>더 빠른 AI 강사</b>를 원하면 우측 상단 ⚙️에서 <b>무료 Groq 키</b>를 등록하세요 (ChatGPT/Gemini급). 지금은 브라우저 내장 모델로 동작합니다.');
+    } else if (isGroqModel(curModel) && !groqKey()) {
+      setDemoBanner('⚡ ⚙️ 버튼에서 <b>무료 Groq 키</b>를 등록하면 AI 강사와 실시간 대화가 시작됩니다.');
+    } else if (!navigator.gpu && !groqKey()) {
+      setDemoBanner('🎭 <b>데모 모드</b> — AI 회화는 ⚙️에서 무료 Groq 키를 등록하거나, Chrome/Edge 데스크톱(WebGPU) 또는 로컬 Ollama가 필요합니다.');
     } else {
-      setDemoBanner('🎭 <b>데모 모드</b> — AI 회화/CAF는 <b>Chrome/Edge 데스크톱</b>(WebGPU 필요) 또는 로컬 Ollama가 필요합니다.');
+      setDemoBanner('');
     }
   }
 }
@@ -2282,7 +2437,9 @@ async function generateAiDrills() {
 {"items":[{"kr":"한국어 문장","en":"English sentence"}]}`;
   try {
     let content;
-    if (isWebLLMModel(model)) {
+    if (isGroqModel(model)) {
+      content = await groqComplete([{ role: 'user', content: prompt }], { temperature: 0.9, maxTokens: 800, json: true });
+    } else if (isWebLLMModel(model)) {
       const engine = await getWebLLMEngine(model);
       const reply = await engine.chat.completions.create({
         messages: [{ role: 'user', content: prompt }],
@@ -2316,7 +2473,8 @@ async function generateAiDrills() {
     drillResults = [];
     renderDrillCard();
   } catch (err) {
-    renderDrillIntro('🤖 문제 생성에 실패했습니다. AI 모델 연결을 확인하고 다시 시도해 주세요.');
+    if (err.message === 'NO_GROQ_KEY') { renderDrillIntro('⚡ ⚙️에서 무료 Groq 키를 등록하면 AI가 새 문제를 만들어줍니다.'); openGroqKeyModal(); }
+    else renderDrillIntro('🤖 문제 생성에 실패했습니다. AI 모델 연결을 확인하고 다시 시도해 주세요.');
   } finally {
     aiDrillBusy = false;
   }
@@ -2621,7 +2779,16 @@ async function sendMessage(text, hidden) {
   try {
     let fullText = '';
     speakCursor = 0;
-    if (isWebLLMModel(model)) {
+    if (isGroqModel(model)) {
+      // ── Groq 고속 스트리밍 경로 (ChatGPT/Gemini급) ─────────
+      typingEl.remove();
+      const { textEl } = addAiMsg();
+      for await (const delta of groqStream(messages, { temperature: 0.7, maxTokens: 220 })) {
+        fullText += delta;
+        textEl.innerHTML = renderAiText(fullText);
+        streamSpeak(fullText, false);
+      }
+    } else if (isWebLLMModel(model)) {
       // ── WebLLM 스트리밍 경로 ──────────────────────────────
       const engine = await getWebLLMEngine(model);
       typingEl.remove();
@@ -2676,7 +2843,12 @@ async function sendMessage(text, hidden) {
     streamSpeak(fullText, true);
   } catch (err) {
     typingEl?.remove?.();
-    if (isWebLLMModel(model)) {
+    if (err.message === 'NO_GROQ_KEY') {
+      addSystemMsg('⚡ AI 강사 연결이 필요해요. 우측 상단 ⚙️ 버튼에서 무료 Groq 키를 등록하면 바로 대화가 됩니다.');
+      openGroqKeyModal();
+    } else if (isGroqModel(model)) {
+      addSystemMsg(`❌ Groq 오류: ${err.message}`);
+    } else if (isWebLLMModel(model)) {
       addSystemMsg(`❌ WebLLM 오류: ${err.message}`);
     } else {
       addSystemMsg(`❌ 오류: ${err.message}\nOllama 실행 여부와 모델(${model}) 설치를 확인하세요. → ollama pull ${model}`);
@@ -2746,30 +2918,23 @@ async function analyzeCaf() {
   const model = document.getElementById('model-sel').value;
   try {
     let r;
-    if (isWebLLMModel(model)) {
+    const words = transcript.match(/[A-Za-z']+/g) || [];
+    const wpm = (duration && duration > 0) ? words.length / (duration / 60) : null;
+    if (isGroqModel(model)) {
+      // ── Groq 클라이언트-사이드 CAF ───────────────────────
+      const raw = JSON.parse(await groqComplete(
+        [{ role: 'user', content: _buildCafPrompt(transcript, cefr, wpm) }],
+        { temperature: 0.3, maxTokens: 800, json: true }) || '{}');
+      r = _buildCafResult(raw, transcript, words, wpm);
+    } else if (isWebLLMModel(model)) {
       // ── WebLLM 클라이언트-사이드 CAF ─────────────────────
-      const words = transcript.match(/[A-Za-z']+/g) || [];
-      const wpm = (duration && duration > 0) ? words.length / (duration / 60) : null;
       const engine = await getWebLLMEngine(model);
       const reply = await engine.chat.completions.create({
         messages: [{ role: 'user', content: _buildCafPrompt(transcript, cefr, wpm) }],
         stream: false, temperature: 0.3, max_tokens: 700,
         response_format: { type: 'json_object' },
       });
-      const raw = JSON.parse(reply.choices[0].message.content || '{}');
-      const clamp = (v, lo=0, hi=10) => { try { return Math.max(lo, Math.min(hi, parseFloat(v)||0)); } catch { return 0; } };
-      const fillers = (transcript.match(/\b(um+|uh+|er+|like|you know|i mean|kind of|sort of|well)\b/gi)||[]).length;
-      const fillerRatio = words.length ? fillers / words.length : 0;
-      r = {
-        complexity: Math.round(clamp(raw.complexity) * 10) / 10,
-        accuracy:   Math.round(clamp(raw.accuracy)   * 10) / 10,
-        fluency:    Math.round(Math.max(0, clamp(raw.fluency) - (fillerRatio > 0.1 ? fillerRatio * 10 : 0)) * 10) / 10,
-        error_density: clamp(raw.error_density, 0, 100),
-        errors:      (raw.errors     || []).slice(0, 3),
-        paraphrases: (raw.paraphrases|| []).slice(0, 3),
-        summary_ko:  String(raw.summary_ko || '').trim(),
-        metrics: { word_count: words.length, filler_ratio: Math.round(fillerRatio * 1000)/1000, wpm: wpm ? Math.round(wpm * 10)/10 : null },
-      };
+      r = _buildCafResult(JSON.parse(reply.choices[0].message.content || '{}'), transcript, words, wpm);
     } else {
       // ── 서버-사이드 CAF (Ollama) ─────────────────────────
       const resp = await fetch('/api/caf', {
@@ -2782,10 +2947,28 @@ async function analyzeCaf() {
     renderCafResult(r, cefr);
     persistCaf(r, cefr);
   } catch (err) {
-    addSystemMsg(`❌ CAF 분석 실패: ${err.message}`);
+    if (err.message === 'NO_GROQ_KEY') { addSystemMsg('⚡ CAF 분석을 위해 ⚙️에서 무료 Groq 키를 등록하세요.'); openGroqKeyModal(); }
+    else addSystemMsg(`❌ CAF 분석 실패: ${err.message}`);
   } finally {
     btn.disabled = false; btn.textContent = '🎯 CAF';
   }
+}
+
+/* 모델 raw JSON → 정규화된 CAF 결과 (WebLLM·Groq 공용) */
+function _buildCafResult(raw, transcript, words, wpm) {
+  const clamp = (v, lo = 0, hi = 10) => { try { return Math.max(lo, Math.min(hi, parseFloat(v) || 0)); } catch (e) { return 0; } };
+  const fillers = (transcript.match(/\b(um+|uh+|er+|like|you know|i mean|kind of|sort of|well)\b/gi) || []).length;
+  const fillerRatio = words.length ? fillers / words.length : 0;
+  return {
+    complexity: Math.round(clamp(raw.complexity) * 10) / 10,
+    accuracy:   Math.round(clamp(raw.accuracy)   * 10) / 10,
+    fluency:    Math.round(Math.max(0, clamp(raw.fluency) - (fillerRatio > 0.1 ? fillerRatio * 10 : 0)) * 10) / 10,
+    error_density: clamp(raw.error_density, 0, 100),
+    errors:      (raw.errors      || []).slice(0, 3),
+    paraphrases: (raw.paraphrases || []).slice(0, 3),
+    summary_ko:  String(raw.summary_ko || '').trim(),
+    metrics: { word_count: words.length, filler_ratio: Math.round(fillerRatio * 1000) / 1000, wpm: wpm ? Math.round(wpm * 10) / 10 : null },
+  };
 }
 
 function cafBar(name, val, color) {
