@@ -244,7 +244,7 @@ def check_ollama():
         if gemma:
             print(f"   Gemma 모델: {', '.join(gemma)}")
         else:
-            print(f"   ⚠️  Gemma 모델 없음. ollama pull gemma4 실행 필요")
+            print(f"   ⚠️  Gemma 모델 없음. ollama pull gemma3:27b 실행 필요")
         return True
     except Exception:
         print(f"⚠️  Ollama 미연결 ({OLLAMA_URL})")

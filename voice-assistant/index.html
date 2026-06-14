@@ -360,7 +360,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.2';
+const APP_VERSION = 'v4.3';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -1705,12 +1705,37 @@ async function checkOllama() {
   try {
     const r = await fetch('/health');
     const data = await r.json();
-    dot.classList.toggle('ok', data.status === 'ok');
-    dot.title = data.status === 'ok' ? 'Ollama 연결됨: ' + (data.models || []).join(', ') : 'Ollama 오류: ' + data.message;
+    const ok = data.status === 'ok';
+    dot.classList.toggle('ok', ok);
+    dot.title = ok ? 'Ollama 연결됨: ' + (data.models || []).join(', ') : 'Ollama 오류: ' + data.message;
+    // gemma3:27b가 실제로 떠 있는지 확인 — 없으면 안내
+    if (ok) {
+      const wanted = document.getElementById('model-sel').value;
+      const has = (data.models || []).some(m => m === wanted || m.startsWith(wanted.split(':')[0]));
+      setDemoBanner(has ? '' : `⚠️ 선택한 모델(${wanted})이 Ollama에 없습니다 → 터미널에서 <code>ollama pull ${wanted}</code> 실행하세요.`);
+    } else {
+      setDemoBanner('');
+    }
   } catch {
     dot.classList.remove('ok');
     dot.title = 'Ollama 미연결';
+    // 백엔드(Ollama)에 닿지 못함 — Vercel 같은 정적 배포의 데모 모드
+    setDemoBanner('🎭 <b>데모 모드</b> — UI·레슨·드릴·발음채점은 동작하지만, <b>AI 회화/CAF는 로컬 실행이 필요</b>합니다. 터미널에서 <code>bash voice-assistant/start.sh</code> 실행 후 PC 주소로 접속하세요.');
   }
+}
+
+/* 백엔드 미연결/모델 누락 시 상단 안내 배너 (정적 배포 데모 모드 대응) */
+function setDemoBanner(html) {
+  let el = document.getElementById('demo-banner');
+  if (!html) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'demo-banner';
+    el.style.cssText = 'position:sticky;top:0;z-index:50;padding:9px 14px;font-size:0.8rem;line-height:1.5;'
+      + 'background:rgba(245,158,11,0.14);border-bottom:1px solid rgba(245,158,11,0.4);color:#fcd34d;text-align:center';
+    document.body.insertBefore(el, document.body.firstChild);
+  }
+  el.innerHTML = html;
 }
 
 /* ═══════════════════════════════════════════════════

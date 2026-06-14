@@ -1,0 +1,13 @@
+{
+  "rewrites": [
+    { "source": "/((?!voice-assistant/|api/).*)", "destination": "/voice-assistant/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, must-revalidate" }
+      ]
+    }
+  ]
+}
