@@ -368,7 +368,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.6';
+const APP_VERSION = 'v4.7';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -1727,7 +1727,7 @@ async function _loadWebLLMLib() {
   return _webllmLib;
 }
 
-function _showWllmProgress(pct, text) {
+function _showWllmProgress(pct, text, title, note) {
   let el = document.getElementById('wllm-progress');
   if (!el) {
     el = document.createElement('div');
@@ -1742,11 +1742,11 @@ function _showWllmProgress(pct, text) {
     ].join(';');
     document.body.appendChild(el);
   }
-  el.innerHTML = `<div style="font-weight:700;margin-bottom:7px">🧠 브라우저 AI 모델 로딩 중...</div>
+  el.innerHTML = `<div style="font-weight:700;margin-bottom:7px">${title || '🧠 브라우저 AI 모델 로딩 중...'}</div>
     <div style="background:rgba(255,255,255,0.12);border-radius:6px;height:7px;overflow:hidden;margin-bottom:7px">
       <div style="background:var(--primary);height:100%;width:${Math.round((pct||0)*100)}%;transition:width 0.3s"></div>
     </div>
-    <div style="color:var(--text-muted);font-size:0.7rem;line-height:1.4">${text||''}<br>첫 실행 시 모델(~1-2GB) 다운로드 — 이후 캐시됩니다.</div>`;
+    <div style="color:var(--text-muted);font-size:0.7rem;line-height:1.4">${text||''}<br>${note || '첫 실행 시 모델(~1-2GB) 다운로드 — 이후 캐시됩니다.'}</div>`;
 }
 function _hideWllmProgress() {
   const el = document.getElementById('wllm-progress');
@@ -1805,6 +1805,132 @@ Rules:
 - Max 3 errors (most important first), max 3 paraphrases.
 - "upgraded" must be natural ${next}-level English, NOT just longer.
 - If transcript too short/empty, return JSON with low scores and empty arrays.`;
+}
+
+/* ═══════════════════════════════════════════════════
+   🎙️ Whisper 로컬 STT (오픈소스 · 구글 음성서버 의존 없음)
+   transformers.js로 브라우저에서 직접 음성→텍스트. Web Speech가
+   network 오류로 먹통일 때 자동 전환되는 푸시-투-토크 폴백.
+═══════════════════════════════════════════════════ */
+let sttFallbackWhisper = false;   // Web Speech 실패 → Whisper로 전환됨
+let whisperPipe = null, whisperLoadingP = null;
+let whisperRecording = false, whisperRecorder = null, whisperChunks = [], whisperStream = null, whisperDrill = false;
+
+async function loadWhisper() {
+  if (whisperPipe) return whisperPipe;
+  if (whisperLoadingP) return whisperLoadingP;
+  whisperLoadingP = (async () => {
+    _showWllmProgress(0, '라이브러리 로드 중...', '🎙️ 음성인식 모델 로딩 중...',
+      '첫 1회만 모델(~50MB) 다운로드 — 이후 캐시됩니다.');
+    try {
+      const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2');
+      whisperPipe = await pipeline('automatic-speech-recognition', 'Xenova/whisper-base.en', {
+        device: navigator.gpu ? 'webgpu' : 'wasm',
+        progress_callback: p => {
+          if (p && p.status === 'progress')
+            _showWllmProgress((p.progress || 0) / 100, `${p.file || ''} 다운로드...`,
+              '🎙️ 음성인식 모델 로딩 중...', '첫 1회만 모델(~50MB) 다운로드 — 이후 캐시됩니다.');
+        },
+      });
+    } finally {
+      _hideWllmProgress();
+      whisperLoadingP = null;
+    }
+    return whisperPipe;
+  })();
+  return whisperLoadingP;
+}
+
+/* Whisper 푸시-투-토크: 한 번 누르면 녹음 시작, 다시 누르면 인식. */
+async function startWhisperRecording(drillMode) {
+  if (whisperRecording) { stopWhisperRecording(); return; }
+  if (!window.isSecureContext) { toast('🔒 https(또는 localhost)에서만 마이크가 동작합니다.'); return; }
+  whisperDrill = drillMode;
+  try {
+    whisperStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+    toast(denied ? '🎙️ 마이크 권한이 거부되었습니다. 자물쇠 아이콘 → 마이크 → 허용 후 새로고침하세요.'
+                 : '🎙️ 마이크를 열 수 없습니다: ' + (e.message || e.name), 6000);
+    return;
+  }
+  micGranted = true;
+  whisperChunks = [];
+  try {
+    whisperRecorder = new MediaRecorder(whisperStream);
+  } catch (e) {
+    toast('🎙️ 이 브라우저는 녹음을 지원하지 않습니다.');
+    whisperStream.getTracks().forEach(t => t.stop());
+    return;
+  }
+  whisperRecorder.ondataavailable = ev => { if (ev.data && ev.data.size) whisperChunks.push(ev.data); };
+  whisperRecorder.onstop = onWhisperStop;
+  whisperRecorder.start();
+  whisperRecording = true;
+  const btnId = drillMode ? 'drill-mic' : 'mic-btn';
+  document.getElementById(btnId)?.classList.add('listening');
+  if (!drillMode) {
+    const it = document.getElementById('interim-text');
+    if (it) it.textContent = '● 녹음 중 — 다 말하면 🎙️ 버튼을 다시 누르세요';
+  } else {
+    toast('● 녹음 중 — 다 말하면 🎙️ 버튼을 다시 누르세요', 4000);
+  }
+}
+
+function stopWhisperRecording() {
+  if (!whisperRecording || !whisperRecorder) return;
+  whisperRecording = false;
+  try { whisperRecorder.stop(); } catch (e) {}
+  whisperStream?.getTracks().forEach(t => t.stop());
+}
+
+async function onWhisperStop() {
+  const btnId = whisperDrill ? 'drill-mic' : 'mic-btn';
+  document.getElementById(btnId)?.classList.remove('listening');
+  if (!whisperChunks.length) return;
+  const blob = new Blob(whisperChunks, { type: whisperRecorder?.mimeType || 'audio/webm' });
+  whisperChunks = [];
+  if (!whisperDrill) {
+    const it = document.getElementById('interim-text');
+    if (it) it.textContent = '🧠 음성 인식 중...';
+  } else {
+    toast('🧠 음성 인식 중...', 2000);
+  }
+  try {
+    const pipe = await loadWhisper();
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx({ sampleRate: 16000 });   // 16kHz로 리샘플 (Whisper 입력 규격)
+    const decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
+    const audio = decoded.getChannelData(0);
+    await ctx.close();
+    const out = await pipe(audio);
+    const text = (out && out.text || '').trim();
+    if (!text) { toast('🎙️ 음성을 인식하지 못했어요. 조금 더 또렷하게 다시 말해 주세요.', 4000); return; }
+    if (whisperDrill) {
+      const di = document.getElementById('drill-input');
+      if (di) { di.value = text; di.focus(); }
+    } else {
+      document.getElementById('text-input').value = text;
+      sendMessage(text);
+    }
+  } catch (e) {
+    toast('🎙️ 음성 인식 실패: ' + (e.message || e), 5000);
+  }
+}
+
+/* Web Speech가 막힌 환경에서 Whisper로 영구 전환 */
+function switchToWhisper(reason) {
+  if (sttFallbackWhisper) return;
+  sttFallbackWhisper = true;
+  sttActive = false; handsFree = false; isListening = false;
+  clearTimeout(sttSilenceTimer); stopHandsFreeWatchdog();
+  try { recognition && recognition.stop(); } catch (e) {}
+  document.getElementById('mic-btn')?.classList.remove('listening');
+  document.getElementById('drill-mic')?.classList.remove('listening');
+  const msg = (reason || '⚠️ 브라우저 음성인식 연결에 실패했어요') +
+    ' → 구글 서버가 필요 없는 <b>오프라인 Whisper</b>로 전환했습니다. 🎙️ 버튼을 눌러 말하고, 끝나면 다시 누르세요.';
+  toast(msg, 7000);
+  addSystemMsg('⚠️ 브라우저 음성인식이 응답하지 않아 오프라인 Whisper 음성인식으로 전환했습니다. 🎙️ 버튼을 눌러 녹음하고, 끝나면 다시 누르세요. (처음 한 번 모델 다운로드)');
 }
 
 async function checkOllama() {
@@ -2264,6 +2390,7 @@ function updateWeakList(item, correct) {
 }
 
 function drillMic() {
+  if (sttFallbackWhisper || !recognition) { startWhisperRecording(true); return; }
   if (sttActive) stopMic();
   else startMic(true);   // startMic이 미지원·비보안 시 toast로 원인 안내
 }
@@ -2822,7 +2949,13 @@ let restartTries = 0;    // onend 연속 재시작 시도 횟수 (폭주 방지)
 function initSpeechRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
-    micUnavailable('이 브라우저는 음성 인식을 지원하지 않습니다. <b>Chrome 또는 Edge</b>로 접속하세요.');
+    // Web Speech 미지원(Safari/Firefox 등) → 버튼을 끄지 말고 오프라인 Whisper로 동작.
+    if (window.isSecureContext && navigator.mediaDevices?.getUserMedia) {
+      sttFallbackWhisper = true;
+      console.log('Web Speech 미지원 → Whisper 폴백 사용');
+    } else {
+      micUnavailable('이 브라우저는 음성 인식을 지원하지 않습니다. <b>Chrome 또는 Edge</b>로 접속하세요.');
+    }
     return;
   }
   // 마이크는 보안 컨텍스트(https 또는 localhost)에서만 동작한다.
@@ -2916,7 +3049,13 @@ function initSpeechRecognition() {
       addSystemMsg(msg);
       return;
     }
-    // network 등 일시적 오류: 듣기 의도는 유지하고 워치독이 되살리게 둔다
+    // network 오류 = 구글 음성서버 도달 실패. 워치독으로 무한 재시작해봐야
+    // 계속 실패하며 "음성을 못 알아듣는" 먹통이 된다 → 즉시 오프라인 Whisper로 전환.
+    if (e.error === 'network') {
+      switchToWhisper('⚠️ 브라우저 음성인식(구글) 연결 실패');
+      return;
+    }
+    // 그 외 일시적 오류: 듣기 의도는 유지하고 워치독이 되살리게 둔다
     isListening = false;
     document.getElementById('mic-btn')?.classList.remove('listening');
     document.getElementById('drill-mic')?.classList.remove('listening');
@@ -3058,7 +3197,11 @@ function finishListening() {
 }
 
 function toggleMic() {
-  if (!recognition) { startMic(false); return; }   // startMic이 원인 안내(toast) 처리
+  if (sttFallbackWhisper || !recognition) {        // Web Speech 막힘 → Whisper 푸시-투-토크
+    if (pendingUtter > 0) stopSpeaking();
+    startWhisperRecording(false);
+    return;
+  }
   if (sttActive) { stopMic(); return; }      // 듣는 중 → 끄기
   if (pendingUtter > 0) stopSpeaking();       // AI가 말하는 중이면 끊고(바지인) 바로 듣기
   if (isProcessing) {                          // 아직 AI가 답을 만드는 중
@@ -3197,7 +3340,9 @@ async function voiceDiagnostics() {
   const nVoices = synth ? synth.getVoices().length : 0;
   lines.push(`${ok(!!synth)} 음성 재생(TTS) 지원: ${synth ? `정상 · 설치된 음성 ${nVoices}개` : '미지원'}`);
   if (synth && nVoices === 0) lines.push('⚠️ 설치된 음성이 0개 — 잠시 후 다시 시도하거나 OS 음성을 설치하세요');
-  // 6) 테스트 음성 재생
+  // 6) Whisper 폴백 상태
+  lines.push(`${sttFallbackWhisper ? '🎙️' : 'ℹ️'} 오프라인 Whisper STT: ${sttFallbackWhisper ? '활성 (구글 서버 의존 없음)' : '대기 (Web Speech 실패 시 자동 전환)'}`);
+  // 7) 테스트 음성 재생
   if (synth) { tts('Hello! This is a sound test. Can you hear me?', 'en-US'); lines.push('🔊 테스트 음성을 재생했어요 — 안 들리면 기기 볼륨/무음 모드를 확인하세요'); }
 
   const html = lines.map(l => `<div style="text-align:left">${l}</div>`).join('');
@@ -3205,9 +3350,19 @@ async function voiceDiagnostics() {
   const chat = document.getElementById('chat');
   const wrap = document.createElement('div');
   wrap.className = 'msg system';
-  wrap.innerHTML = `<div style="width:100%;font-size:0.82rem;line-height:1.7">${html}</div>`;
+  wrap.innerHTML = `<div style="width:100%;font-size:0.82rem;line-height:1.7">${html}</div>
+    <div style="width:100%;margin-top:10px">
+      <button class="btn" onclick="forceWhisperMode()" style="font-size:0.78rem">🎙️ 음성 인식이 안 되면 — 오프라인 Whisper로 전환</button>
+    </div>`;
   chat.appendChild(wrap); scrollBottom();
   toast('🔧 진단 완료 — 회화 화면의 결과를 확인하세요', 4000);
+}
+
+/* 사용자가 직접 Whisper로 전환 (Web Speech가 조용히 먹통일 때) */
+function forceWhisperMode() {
+  if (sttFallbackWhisper) { toast('이미 오프라인 Whisper 모드입니다. 🎙️ 버튼을 눌러 말해보세요.', 4000); return; }
+  switchToWhisper('🎙️ 오프라인 음성인식으로 전환했습니다');
+  loadWhisper();   // 미리 모델 다운로드 시작
 }
 
 /* ═══════════════════════════════════════════════════
