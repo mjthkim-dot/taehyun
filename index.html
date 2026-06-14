@@ -392,7 +392,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.17';
+const APP_VERSION = 'v4.18';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -3584,13 +3584,10 @@ function initSpeechRecognition() {
     // 에코 방지는 회화(talk)에만 적용한다. 드릴은 AI 대화와 무관하므로
     // talk 쪽 isProcessing/pendingUtter 때문에 드릴 STT가 막히면 안 된다.
     if (!sttDrill) {
-      // TTS가 실제로는 끝났는데 onend 콜백이 안 와서 pendingUtter가 안 풀린 경우 즉시 보정
-      if (pendingUtter > 0 && window.speechSynthesis &&
-          !window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
-        pendingUtter = 0;
-        document.getElementById('mic-btn')?.classList.remove('speaking');
-      }
+      reconcilePendingUtter();   // 콜백 누락 시에만(지속 idle) 보정 — 세그먼트 공백엔 반응 안 함
       if (isProcessing || pendingUtter > 0) return;  // AI가 생성/발화 중 → 자기 음성 무시
+      // AI 발화 직후 잔향(에코)을 사용자 입력으로 받지 않도록 짧은 쿨다운
+      if (Date.now() - lastTtsEndAt < 500) { sttFinal = ''; return; }
     }
     restartTries = 0;   // 정상 인식 중 → 재시작 카운터 리셋
     let interim = '';
@@ -3741,12 +3738,8 @@ function armHandsFreeWatchdog() {
   hfWatchdog = setInterval(() => {
     if (currentMode !== 'talk' || !handsFree) { stopHandsFreeWatchdog(); return; }
     // TTS가 실제로는 끝났는데 onend 콜백이 오지 않아 pendingUtter가 안 풀린 경우
-    // (일부 브라우저의 SpeechSynthesis 행 버그) 강제로 정리해 루프가 멈추지 않게 한다.
-    if (pendingUtter > 0 && window.speechSynthesis &&
-        !window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
-      pendingUtter = 0;
-      document.getElementById('mic-btn')?.classList.remove('speaking');
-    }
+    // (일부 브라우저의 SpeechSynthesis 행 버그) — 지속 idle일 때만 강제 정리.
+    reconcilePendingUtter();
     if (isProcessing || pendingUtter > 0) return;   // AI 차례 — 정상적으로 대기
     if (sttActive || isListening) return;           // 이미 듣는 중
     startMic(false);                                // 멈춰 있으면 다시 듣기
@@ -3781,12 +3774,12 @@ function pauseListening() {
 function maybeResumeHandsFree() {
   if (!handsFree || isProcessing || pendingUtter > 0) return;
   if (sttActive || isListening || currentMode !== 'talk') return;
-  // 인식기가 완전히 풀리도록 짧게 기다린 뒤 재시작
+  // 인식기가 완전히 풀리고 AI 음성 잔향이 사라지도록 잠시 기다린 뒤 재시작 (에코 방지)
   setTimeout(() => {
     if (handsFree && !isProcessing && pendingUtter <= 0 && !sttActive && currentMode === 'talk') {
       startMic(false);
     }
-  }, 250);
+  }, 450);
 }
 
 function finishListening() {
@@ -4063,6 +4056,24 @@ function playDialogue() {
    speakCursor: 이번 응답에서 이미 읽은 위치 / pendingUtter: 재생 대기·중인 발화 수 */
 let speakCursor = 0;
 let pendingUtter = 0;
+let ttsIdleSince = 0;   // 합성기가 idle로 관측되기 시작한 시각 (멀티 세그먼트 공백 vs 진짜 멈춤 구분)
+let lastTtsEndAt = 0;   // 마지막 TTS 발화가 끝난 시각 (에코 쿨다운용)
+
+/* 멀티 세그먼트 발화 사이의 짧은 공백을 '끝남'으로 오인하지 않도록,
+   합성기가 '지속적으로' idle일 때만 pendingUtter를 보정한다 (콜백 누락 복구). */
+function reconcilePendingUtter() {
+  if (pendingUtter <= 0) { ttsIdleSince = 0; return; }
+  const synth = window.speechSynthesis;
+  if (!synth) return;
+  if (synth.speaking || synth.pending) { ttsIdleSince = 0; return; }  // 발화 중/대기 중 → 정상
+  if (!ttsIdleSince) { ttsIdleSince = Date.now(); return; }           // idle 관측 시작
+  if (Date.now() - ttsIdleSince > 1200) {                            // 1.2초 이상 지속 idle = 진짜 멈춤
+    pendingUtter = 0;
+    ttsIdleSince = 0;
+    lastTtsEndAt = Date.now();
+    document.getElementById('mic-btn')?.classList.remove('speaking');
+  }
+}
 
 function streamSpeak(raw, flush) {
   if (!window.speechSynthesis) return;
@@ -4144,8 +4155,10 @@ function _speakSegment(text, lang) {
     // stopSpeaking()이 이미 pendingUtter를 0으로 정리한 뒤(바지인 등) 취소된
     // 발화의 onend가 늦게 도착하면 음수로 내려가며 가짜 재개를 부른다 — 방지.
     if (pendingUtter <= 0) return;
+    ttsIdleSince = 0;
     if (--pendingUtter <= 0) {
       pendingUtter = 0;
+      lastTtsEndAt = Date.now();   // 에코 쿨다운 기준 시각
       document.getElementById('mic-btn').classList.remove('speaking');
       maybeResumeHandsFree();   // AI 음성까지 끝났으니 다시 듣기 시작
     }
@@ -4163,6 +4176,7 @@ function enqueueSpeech(text, lang) {
 function stopSpeaking() {
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   pendingUtter = 0;
+  ttsIdleSince = 0;
   document.getElementById('mic-btn').classList.remove('speaking');
 }
 
