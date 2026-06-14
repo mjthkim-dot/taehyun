@@ -1688,9 +1688,7 @@ function restoreModelChoice() {
 
 /* 모델 워밍업: 앱을 열 때 미리 메모리에 올려 첫 응답 지연(수~수십 초)을 제거.
    27B 같은 큰 모델은 처음 로딩에 시간이 걸리므로 상태 점으로 진행을 표시한다. */
-let modelReady = false;
 function warmUpModel() {
-  modelReady = false;
   const model = document.getElementById('model-sel').value;
   const big = /(:2[0-9]b|:3[0-9]b|:[4-9][0-9]b)/.test(model);  // 20B+ 대형 모델 감지
   const dot = document.getElementById('status-dot');
@@ -1699,7 +1697,7 @@ function warmUpModel() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, messages: [], keep_alive: '30m' }),
-  }).then(() => { modelReady = true; }).catch(() => {});
+  }).catch(() => {});
 }
 
 async function checkOllama() {
@@ -2640,6 +2638,10 @@ function initSpeechRecognition() {
       }, 150);
       return;
     }
+    // 빠른 재시작이 6회 연속 실패 → 세션 의도를 해제해 워치독이 새 세션으로
+    // 되살릴 수 있게 한다 (sttActive를 켠 채 두면 워치독·startMic 가드에 막혀 좀비 상태가 됨).
+    sttActive = false;
+    restartTries = 0;
     finishListening();
   };
 
@@ -2701,6 +2703,13 @@ function armHandsFreeWatchdog() {
   stopHandsFreeWatchdog();
   hfWatchdog = setInterval(() => {
     if (currentMode !== 'talk' || !handsFree) { stopHandsFreeWatchdog(); return; }
+    // TTS가 실제로는 끝났는데 onend 콜백이 오지 않아 pendingUtter가 안 풀린 경우
+    // (일부 브라우저의 SpeechSynthesis 행 버그) 강제로 정리해 루프가 멈추지 않게 한다.
+    if (pendingUtter > 0 && window.speechSynthesis &&
+        !window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+      pendingUtter = 0;
+      document.getElementById('mic-btn')?.classList.remove('speaking');
+    }
     if (isProcessing || pendingUtter > 0) return;   // AI 차례 — 정상적으로 대기
     if (sttActive || isListening) return;           // 이미 듣는 중
     startMic(false);                                // 멈춰 있으면 다시 듣기
@@ -2974,6 +2983,9 @@ function enqueueSpeech(text, lang) {
   pendingUtter++;
   document.getElementById('mic-btn').classList.add('speaking');
   u.onend = u.onerror = () => {
+    // stopSpeaking()이 이미 pendingUtter를 0으로 정리한 뒤(바지인 등) 취소된
+    // 발화의 onend가 늦게 도착하면 음수로 내려가며 가짜 재개를 부른다 — 방지.
+    if (pendingUtter <= 0) return;
     if (--pendingUtter <= 0) {
       pendingUtter = 0;
       document.getElementById('mic-btn').classList.remove('speaking');

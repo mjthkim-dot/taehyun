@@ -137,7 +137,8 @@ def _run_httpx(prompt: str, model: str) -> dict[str, Any]:
             "stream": False, "format": "json", "keep_alive": "30m",
             "options": {"temperature": 0.3, "num_predict": 700},
         },
-        timeout=120,
+        # 대형 모델 콜드 로딩 대비 read 타임아웃을 넉넉히 둔다
+        timeout=httpx.Timeout(300.0, connect=10.0),
     )
     r.raise_for_status()
     content = r.json()["message"]["content"]

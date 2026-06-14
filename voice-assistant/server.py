@@ -85,7 +85,8 @@ def analyze_caf(transcript, cefr="A2", duration_sec=None, model=None):
               "messages": [{"role": "user", "content": _caf_prompt(transcript, cefr, wpm)}],
               "stream": False, "format": "json", "keep_alive": "30m",
               "options": {"temperature": 0.3, "num_predict": 700}},
-        timeout=120,
+        # 대형 모델(gemma3:27b 등) 콜드 로딩이 수십 초~수 분 걸릴 수 있어 넉넉히.
+        timeout=(10, 300),
     )
     r.raise_for_status()
     data = json.loads(r.json()["message"]["content"])
@@ -183,6 +184,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._send_json(200, result)
             except requests.exceptions.ConnectionError:
                 self._send_json(503, {"error": "Ollama에 연결할 수 없습니다."})
+            except requests.exceptions.Timeout:
+                self._send_json(503, {"error": "모델 응답이 지연되고 있습니다. 대형 모델은 처음 로딩에 시간이 걸려요. 잠시 후 다시 시도하세요."})
             except Exception as e:  # noqa: BLE001
                 self._send_json(500, {"error": str(e)})
             return

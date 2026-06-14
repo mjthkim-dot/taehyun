@@ -94,6 +94,11 @@ def caf(req: CafRequest):
             status_code=503,
             content={"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."},
         )
+    except httpx.TimeoutException:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "모델 응답이 지연되고 있습니다. 대형 모델은 처음 로딩에 시간이 걸려요. 잠시 후 다시 시도하세요."},
+        )
     except Exception as e:  # noqa: BLE001
         return JSONResponse(status_code=500, content={"error": str(e)})
 
