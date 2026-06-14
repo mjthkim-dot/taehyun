@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/((?!voice-assistant/|api/).*)", "destination": "/voice-assistant/index.html" }
+    { "source": "/((?!voice-assistant/|api/|sw\\.js|manifest\\.webmanifest).*)", "destination": "/voice-assistant/index.html" }
   ],
   "headers": [
     {

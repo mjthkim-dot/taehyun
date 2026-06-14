@@ -4,6 +4,12 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>PREPLY AI 스피킹 코치</title>
+  <link rel="manifest" href="/manifest.webmanifest"/>
+  <meta name="theme-color" content="#6366f1"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="PREPLY"/>
   <style>
     :root {
       --bg: #0f1117;
@@ -373,7 +379,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.13';
+const APP_VERSION = 'v4.14';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -1512,6 +1518,64 @@ let missionState = {};
 function store(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
 function load(key, def) { try { return JSON.parse(localStorage.getItem(key)) ?? def; } catch { return def; } }
 
+/* ── 오프라인 복습: IndexedDB 로 AI 드릴 세트 저장/조회 (vanilla, 무의존성) ── */
+const IDB_NAME = 'preply-coach';
+const IDB_STORE = 'drillsets';
+let _idbPromise = null;
+function idbOpen() {
+  if (_idbPromise) return _idbPromise;
+  _idbPromise = new Promise((resolve, reject) => {
+    if (!('indexedDB' in window)) { reject(new Error('no-idb')); return; }
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE, { keyPath: 'lessonId' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return _idbPromise;
+}
+async function idbSaveDrillSet(lessonId, items) {
+  try {
+    const db = await idbOpen();
+    await new Promise((res, rej) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put({ lessonId, items, savedAt: Date.now() });
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+    });
+  } catch {}
+}
+async function idbGetDrillSet(lessonId) {
+  try {
+    const db = await idbOpen();
+    return await new Promise((res, rej) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const r = tx.objectStore(IDB_STORE).get(lessonId);
+      r.onsuccess = () => res(r.result ? r.result.items : null);
+      r.onerror = () => rej(r.error);
+    });
+  } catch { return null; }
+}
+
+/* ── PWA: 서비스워커 등록 + 온/오프라인 표시 ── */
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW 등록 실패', err));
+  });
+  const showNet = () => {
+    const el = document.getElementById('app-version');
+    if (el && !navigator.onLine) el.textContent = `📡 오프라인 · ${APP_VERSION}`;
+    else if (el) el.textContent = `Gemma 기반 · ${APP_VERSION}`;
+  };
+  window.addEventListener('online', showNet);
+  window.addEventListener('offline', showNet);
+  showNet();
+}
+
 /* ═══════════════════════════════════════════════════
    CEFR / GSE 이원화 진도 엔진 + 감쇠식 스캐폴딩
 ═══════════════════════════════════════════════════ */
@@ -1600,6 +1664,7 @@ function renderStreak() { document.getElementById('streak').textContent = `🔥 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('app-version').textContent = `Gemma 기반 · ${APP_VERSION}`;
   console.log(`PREPLY AI 코치 ${APP_VERSION}`);
+  registerServiceWorker();
   getProfile();
   getSkillStats();
   applyScaffold(currentLesson);
@@ -2555,6 +2620,7 @@ async function generateAiDrills() {
       .filter(x => x && typeof x.kr === 'string' && typeof x.en === 'string' && x.kr.trim() && x.en.trim())
       .map(x => ({ kr: x.kr.trim(), en: x.en.trim(), lesson: l.id, cat: '🤖 AI 생성' }));
     if (items.length < 3) throw new Error('short');
+    idbSaveDrillSet(l.id, items);   // 오프라인 복습용으로 캐싱
     drillIsReview = false;
     drillShadow = false;
     drillQueue = items;
@@ -2562,8 +2628,18 @@ async function generateAiDrills() {
     drillResults = [];
     renderDrillCard();
   } catch (err) {
-    if (err.message === 'NO_GROQ_KEY') { renderDrillIntro('⚡ ⚙️에서 무료 Groq 키를 등록하면 AI가 새 문제를 만들어줍니다.'); openGroqKeyModal(); }
-    else renderDrillIntro('🤖 문제 생성에 실패했습니다. AI 모델 연결을 확인하고 다시 시도해 주세요.');
+    // 오프라인이거나 생성 실패 → 이전에 캐싱한 AI 드릴 세트로 복습
+    const cached = await idbGetDrillSet(l.id);
+    if (cached && cached.length >= 3) {
+      drillIsReview = true; drillShadow = false;
+      drillQueue = cached; drillIdx = 0; drillResults = [];
+      renderDrillCard();
+      addSystemMsg('📡 오프라인 상태라 이전에 생성한 AI 문제로 복습합니다.');
+    } else if (err.message === 'NO_GROQ_KEY') {
+      renderDrillIntro('⚡ ⚙️에서 무료 Groq 키를 등록하면 AI가 새 문제를 만들어줍니다.'); openGroqKeyModal();
+    } else {
+      renderDrillIntro('🤖 문제 생성에 실패했습니다. AI 모델 연결을 확인하고 다시 시도해 주세요.');
+    }
   } finally {
     aiDrillBusy = false;
   }
