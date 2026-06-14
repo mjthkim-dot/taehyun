@@ -368,7 +368,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.7';
+const APP_VERSION = 'v4.8';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -1602,6 +1602,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderStudy();
   renderMissions();
   initSpeechRecognition();
+  ensureAskFab();
   initVoiceSelector();
   restoreModelChoice();
   checkOllama();
@@ -1822,15 +1823,16 @@ async function loadWhisper() {
   if (whisperLoadingP) return whisperLoadingP;
   whisperLoadingP = (async () => {
     _showWllmProgress(0, '라이브러리 로드 중...', '🎙️ 음성인식 모델 로딩 중...',
-      '첫 1회만 모델(~50MB) 다운로드 — 이후 캐시됩니다.');
+      '첫 1회만 모델(~190MB) 다운로드 — 이후 캐시됩니다.');
     try {
       const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2');
-      whisperPipe = await pipeline('automatic-speech-recognition', 'Xenova/whisper-base.en', {
+      // small.en: base보다 정확도가 크게 높아 비원어민 발음 인식에 유리 (WebGPU 가속)
+      whisperPipe = await pipeline('automatic-speech-recognition', 'Xenova/whisper-small.en', {
         device: navigator.gpu ? 'webgpu' : 'wasm',
         progress_callback: p => {
           if (p && p.status === 'progress')
             _showWllmProgress((p.progress || 0) / 100, `${p.file || ''} 다운로드...`,
-              '🎙️ 음성인식 모델 로딩 중...', '첫 1회만 모델(~50MB) 다운로드 — 이후 캐시됩니다.');
+              '🎙️ 음성인식 모델 로딩 중...', '첫 1회만 모델(~190MB) 다운로드 — 이후 캐시됩니다.');
         },
       });
     } finally {
@@ -1848,7 +1850,10 @@ async function startWhisperRecording(drillMode) {
   if (!window.isSecureContext) { toast('🔒 https(또는 localhost)에서만 마이크가 동작합니다.'); return; }
   whisperDrill = drillMode;
   try {
-    whisperStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // 정교한 인식을 위해 노이즈 억제·에코 제거·자동 게인을 켠 깨끗한 모노 오디오 요청
+    whisperStream = await navigator.mediaDevices.getUserMedia({ audio: {
+      channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true,
+    } });
   } catch (e) {
     const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
     toast(denied ? '🎙️ 마이크 권한이 거부되었습니다. 자물쇠 아이콘 → 마이크 → 허용 후 새로고침하세요.'
@@ -1904,7 +1909,7 @@ async function onWhisperStop() {
     const decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
     const audio = decoded.getChannelData(0);
     await ctx.close();
-    const out = await pipe(audio);
+    const out = await pipe(audio, { chunk_length_s: 30, stride_length_s: 5, temperature: 0 });
     const text = (out && out.text || '').trim();
     if (!text) { toast('🎙️ 음성을 인식하지 못했어요. 조금 더 또렷하게 다시 말해 주세요.', 4000); return; }
     if (whisperDrill) {
@@ -1932,6 +1937,129 @@ function switchToWhisper(reason) {
     ' → 구글 서버가 필요 없는 <b>오프라인 Whisper</b>로 전환했습니다. 🎙️ 버튼을 눌러 말하고, 끝나면 다시 누르세요.';
   toast(msg, 7000);
   addSystemMsg('⚠️ 브라우저 음성인식이 응답하지 않아 오프라인 Whisper 음성인식으로 전환했습니다. 🎙️ 버튼을 눌러 녹음하고, 끝나면 다시 누르세요. (처음 한 번 모델 다운로드)');
+}
+
+/* ═══════════════════════════════════════════════════
+   🙋 AI 튜터에게 질문 — 모르는 것을 언제든 물어보기
+   (문법·뜻·자연스러운 표현 등을 한국어로 설명, 영어 예문 포함)
+═══════════════════════════════════════════════════ */
+let askBusy = false;
+
+function ensureAskModal() {
+  if (document.getElementById('ask-modal')) return;
+  const m = document.createElement('div');
+  m.id = 'ask-modal';
+  m.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;padding:16px';
+  m.addEventListener('click', e => { if (e.target === m) closeAsk(); });
+  m.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:min(560px,96vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <b>🙋 AI 튜터에게 질문</b>
+        <button class="btn" onclick="closeAsk()" style="padding:4px 11px">✕</button>
+      </div>
+      <div style="padding:16px;overflow-y:auto">
+        <div id="ask-context-wrap" style="display:none;margin-bottom:10px">
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">📌 지금 연습 중인 문장</div>
+          <div id="ask-context" style="font-size:0.85rem;background:var(--surface2);border-radius:8px;padding:8px 10px"></div>
+        </div>
+        <textarea id="ask-input" rows="3" placeholder="모르는 것을 편하게 물어보세요.&#10;예) 'have been'이 무슨 뜻이야? / 왜 여기서 the를 써? / 이거 더 자연스럽게 말하려면?"
+          style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font-family:inherit;font-size:0.9rem;resize:vertical"
+          onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){submitAsk();}"></textarea>
+        <button class="btn primary" id="ask-send" onclick="submitAsk()" style="width:100%;margin-top:10px">질문하기 (Ctrl+Enter)</button>
+        <div id="ask-answer" style="margin-top:14px;font-size:0.9rem;line-height:1.7"></div>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+}
+
+function openAsk(prefill) {
+  ensureAskModal();
+  const m = document.getElementById('ask-modal');
+  m.style.display = 'flex';
+  const wrap = document.getElementById('ask-context-wrap');
+  if (prefill) { document.getElementById('ask-context').textContent = prefill; wrap.style.display = 'block'; }
+  else wrap.style.display = 'none';
+  document.getElementById('ask-input').value = '';
+  document.getElementById('ask-answer').innerHTML = '';
+  setTimeout(() => document.getElementById('ask-input').focus(), 50);
+}
+
+function closeAsk() {
+  const m = document.getElementById('ask-modal');
+  if (m) m.style.display = 'none';
+}
+
+async function submitAsk() {
+  if (askBusy) return;
+  const q = (document.getElementById('ask-input').value || '').trim();
+  if (!q) { document.getElementById('ask-input').focus(); return; }
+  const ctxWrap = document.getElementById('ask-context-wrap');
+  const ctx = (ctxWrap && ctxWrap.style.display !== 'none')
+    ? (document.getElementById('ask-context').textContent || '') : '';
+  askBusy = true;
+  const sendBtn = document.getElementById('ask-send');
+  sendBtn.disabled = true; sendBtn.textContent = '🤔 생각 중...';
+  const ans = document.getElementById('ask-answer');
+  ans.innerHTML = '<span style="color:var(--text-muted)">🤔 답변 생성 중...</span>';
+
+  const model = document.getElementById('model-sel').value;
+  const cefr = cefrOf(currentLesson);
+  const sys = `You are a warm, encouraging Korean-speaking English tutor for a CEFR ${cefr} learner. `
+    + `Answer the learner's question in KOREAN (반드시 한국어로 설명). Be clear and simple. `
+    + `Always give 1-2 concrete English example sentences. Keep it concise (about 120 words). `
+    + `If they ask about a specific sentence, explain the grammar or nuance plainly and kindly.`;
+  const userMsg = ctx ? `[지금 연습 중인 문장] ${ctx}\n\n[질문] ${q}` : q;
+  const messages = [{ role: 'system', content: sys }, { role: 'user', content: userMsg }];
+
+  try {
+    let full = '';
+    if (isWebLLMModel(model)) {
+      const engine = await getWebLLMEngine(model);
+      ans.innerHTML = '';
+      const stream = await engine.chat.completions.create({ messages, stream: true, temperature: 0.5, max_tokens: 420 });
+      for await (const chunk of stream) {
+        const d = chunk.choices[0]?.delta?.content || '';
+        if (d) { full += d; ans.innerHTML = renderAiText(full); }
+      }
+    } else {
+      const resp = await fetch('/api/chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, messages, stream: true, keep_alive: '30m',
+          options: { temperature: 0.5, num_predict: 420 } }),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      ans.innerHTML = '';
+      const reader = resp.body.getReader();
+      const dec = new TextDecoder();
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        for (const line of dec.decode(value).split('\n').filter(Boolean)) {
+          try { const o = JSON.parse(line); if (o.message?.content) { full += o.message.content; ans.innerHTML = renderAiText(full); } } catch {}
+        }
+      }
+    }
+    if (!full.trim()) ans.innerHTML = '<span style="color:#fca5a5">답변을 받지 못했어요. 잠시 후 다시 시도해 주세요.</span>';
+    else scrollBottom();
+  } catch (e) {
+    ans.innerHTML = `<span style="color:#fca5a5">❌ ${e.message}</span>`;
+  } finally {
+    askBusy = false; sendBtn.disabled = false; sendBtn.textContent = '질문하기 (Ctrl+Enter)';
+  }
+}
+
+/* 화면 어디서나 보이는 질문 버튼 */
+function ensureAskFab() {
+  if (document.getElementById('ask-fab')) return;
+  const b = document.createElement('button');
+  b.id = 'ask-fab';
+  b.textContent = '🙋 질문';
+  b.title = '모르는 것을 AI 튜터에게 물어보세요';
+  b.onclick = () => openAsk('');
+  b.style.cssText = 'position:fixed;right:14px;bottom:84px;z-index:120;background:var(--primary);color:#fff;'
+    + 'border:none;border-radius:999px;padding:11px 17px;font-size:0.85rem;font-weight:700;'
+    + 'box-shadow:0 6px 20px rgba(99,102,241,0.5);cursor:pointer';
+  document.body.appendChild(b);
 }
 
 async function checkOllama() {
@@ -2235,6 +2363,7 @@ function renderDrillCard() {
       <div class="drill-feedback" id="drill-feedback"></div>
       <div class="drill-actions">
         <button class="btn" onclick="revealDrill()">모르겠어요</button>
+        <button class="btn" onclick="openAsk('${jsAttr(item.kr)}${item.en ? ' → ' + jsAttr(item.en) : ''}')" title="이 문장에 대해 AI 튜터에게 질문">🙋 질문</button>
         <button class="btn primary" id="drill-check-btn" onclick="checkDrill()">확인</button>
       </div>
     </div>`;
