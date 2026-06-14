@@ -360,6 +360,7 @@
     <div class="controls">
       <button class="mini-btn" onclick="requestSummary()" title="AI가 오늘 대화를 평가해줍니다">📋 요약</button>
       <button class="mini-btn" id="caf-btn" onclick="analyzeCaf()" title="내 발화를 복잡도·정확도·유창성으로 분석하고 한 단계 위 표현을 제안합니다">🎯 CAF</button>
+      <button class="mini-btn" id="topic-btn" onclick="generateNewTopic()" title="같은 문법, 새로운 상황! AI가 즉흥 주제를 만들어 대화를 새로 시작합니다">🎲 새 주제</button>
       <button class="mini-btn" onclick="voiceDiagnostics()" title="마이크·음성이 안 될 때 원인을 점검합니다">🔧 음성진단</button>
       <input class="text-input" id="text-input" placeholder="영어로 입력하거나 🎙️로 말하세요" maxlength="500"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendText();}"/>
@@ -379,7 +380,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.15';
+const APP_VERSION = 'v4.16';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -1505,6 +1506,7 @@ Object.assign(MISSIONS, {
    STATE & STORAGE
 ═══════════════════════════════════════════════════ */
 let currentLesson = LESSONS.filter(l => !l.preview).slice(-1)[0];
+let activeScenario = null;   // null = 레슨 기본 시나리오, 채워지면 AI 즉흥 주제 사용
 
 function lessonLabel(l) { return l.master ? `🗺 ${l.master}` : l.preview ? `🔮 선행 ${l.id - 100}` : `${l.id}회차`; }
 let currentMode = 'study';
@@ -1726,6 +1728,7 @@ function buildLessonBar() {
 
 function selectLesson(lesson) {
   currentLesson = lesson;
+  activeScenario = null;
   history = [];
   missionState = {};
   drillQueue = [];
@@ -2869,6 +2872,20 @@ function buildSystemPrompt() {
   const teachNote = (l.preview || l.master)
     ? `\n티칭 모드: 첫 응답에서 오늘의 핵심 패턴 1~2개를 쉬운 예문과 함께 [EXPLAIN: 한국어 설명]으로 짧게 가르친 후, 바로 쉬운 질문 하나로 연습을 시작하세요. 사용자가 어려워하면 더 쉬운 예문으로 다시 설명하고, 잘 따라오면 난이도를 조금씩 올리세요.`
     : '';
+
+  // 🌀 나선형 복습: 이전 레슨의 핵심 문법 포인트를 1~2개 가져와 대화에 자연스럽게 섞도록 지시
+  const allLessons = LESSONS.filter(lx => !lx.preview);
+  const curIdx = allLessons.findIndex(lx => lx.id === l.id);
+  const prevLessons = curIdx > 0 ? allLessons.slice(Math.max(0, curIdx - 2), curIdx) : [];
+  const spiralNote = prevLessons.length
+    ? `\n\n🌀 나선형 복습 (Spiral Review — 강제하지 않고 자연스러울 때만):
+이전에 배운 아래 표현들을 대화 흐름에서 학생이 써볼 기회가 생기면 자연스럽게 유도하세요. 무리하게 끼워넣지 말고, 대화 맥락이 맞을 때만 슬쩍 활용하세요.
+${prevLessons.map(pl => `- ${pl.title}: ${pl.sections.flatMap(s => s.points).slice(0, 2).map(p => p.en).join(' / ')}`).join('\n')}`
+    : '';
+
+  // 시나리오: activeScenario(즉흥 주제)가 있으면 그걸, 없으면 레슨 기본값 사용
+  const scenario = activeScenario || l.scenario;
+
   return `당신은 PREPLY의 친절하고 인내심 많은 초보자용 영어 튜터입니다. (Act as a friendly and patient English tutor for a beginner.) 원어민 수준의 영어-한국어 바이링구얼 AI 스피킹 코치로서, 학생이 긴장하지 않도록 따뜻하고 격려하는 선생님 톤을 유지하세요.
 
 🟢 가장 중요 — 회화는 '대화'가 우선, 교정은 나중:
@@ -2882,9 +2899,9 @@ function buildSystemPrompt() {
 - 단, 무슨 말인지 도저히 이해할 수 없어 대화를 이어갈 수 없을 때만(거의 드물게) 이 형식으로 한 번 확인하세요: [HEARD: "들은 그대로" → "추측한 의도" | 올바른 단어/발음 힌트 한국어 한 줄]. 의미가 통하면 절대 쓰지 마세요.
 
 오늘 수업 내용 (${lessonLabel(l)}: ${l.title}):
-${points}${teachNote}
+${points}${teachNote}${spiralNote}
 
-대화 시나리오: ${l.scenario.title} — ${l.scenario.desc}${roleplay}
+대화 시나리오: ${scenario.title} — ${scenario.desc}${roleplay}
 
 사용자가 연습해야 할 목표 표현:
 ${targets}
@@ -2898,6 +2915,84 @@ ${targets}
 6. 초보자가 위축되지 않게 따뜻하게 반응하고, 잘하면 가볍게 칭찬한 뒤 대화를 이어가세요.
 7. 같은 인사를 반복하지 말고, 학생의 마지막 말에 먼저 반응한 뒤 대화를 이어가세요.
 8. 매 응답 끝에 대화를 이어갈 쉬운 질문을 정확히 1개 포함하세요.`;
+}
+
+/* ─────────────────────────────────────────────────
+   🎲 AI 즉흥 주제 생성기
+   같은 회차 문법을 유지하면서, 매번 전혀 다른 상황/맥락의
+   대화 주제를 Groq로 즉석 생성한다. 중복 방지를 위해 최근 3개 주제를 넘긴다.
+───────────────────────────────────────────────── */
+const _recentTopics = [];   // 중복 방지용 최근 주제 버퍼
+
+async function generateNewTopic() {
+  const btn = document.getElementById('topic-btn');
+  if (!btn || btn.disabled) return;
+  const model = document.getElementById('model-sel').value;
+  if (!isGroqModel(model) && !isWebLLMModel(model)) {
+    addSystemMsg('🎲 새 주제 생성은 Groq 또는 WebLLM 모델이 필요합니다. ⚙️ 설정에서 모델을 바꿔주세요.');
+    return;
+  }
+  if (isGroqModel(model) && !groqKey()) { openGroqKeyModal(); return; }
+
+  btn.disabled = true; btn.textContent = '⏳ 생성중';
+  const l = currentLesson;
+  const grammar = l.sections.flatMap(s => s.points.slice(0, 3).map(p => p.en)).join(' / ');
+  const cefr = cefrOf(l);
+  const avoidList = _recentTopics.length ? `\n이미 쓴 주제(반복 금지): ${_recentTopics.join(', ')}` : '';
+
+  const prompt = `영어 초보자(${cefr})를 위한 영어 회화 연습 시나리오를 새로 만들어 주세요.
+지금 배우는 문법: ${grammar}${avoidList}
+
+조건:
+- 위 문법을 자연스럽게 쓸 수 있는 일상 상황이어야 함
+- 카페·일상대화 이외의 신선한 상황 (예: 공항, 동네 마트, 친구집, 직장동료, 온라인쇼핑, 의사 방문 등 다양하게)
+- 학생이 실제로 경험할 법하고 감정적으로 의미 있는 상황
+- 너무 길거나 어렵지 않게, 초보자가 3~5턴 안에 소화 가능한 분량
+
+반드시 이 JSON 형식으로만 답하세요 (다른 텍스트 없이):
+{"title":"상황 제목 (이모지 포함, 15자 이내)","desc":"AI 튜터가 어떤 역할을 하는지 + 학생이 무엇을 연습하는지 (한국어, 50자 이내)","opener":"튜터의 첫 영어 대화 문장 (학생이 자연스럽게 답할 수 있도록 열린 질문)"}`;
+
+  try {
+    let raw;
+    if (isGroqModel(model)) {
+      raw = await groqComplete([{ role: 'user', content: prompt }], { temperature: 1.1, maxTokens: 300, json: true });
+    } else {
+      const engine = await getWebLLMEngine(model);
+      const r = await engine.chat.completions.create({
+        messages: [{ role: 'user', content: prompt }],
+        stream: false, temperature: 1.1, max_tokens: 300,
+        response_format: { type: 'json_object' },
+      });
+      raw = r.choices[0].message.content;
+    }
+    const obj = JSON.parse(raw || '{}');
+    if (!obj.title || !obj.desc) throw new Error('bad-json');
+
+    // 주제 채택
+    activeScenario = { title: obj.title, desc: obj.desc };
+    _recentTopics.unshift(obj.title);
+    if (_recentTopics.length > 3) _recentTopics.pop();
+
+    // 대화 초기화 후 생성된 오프너로 시작
+    history = [];
+    document.getElementById('chat').innerHTML = '';
+    addSystemMsg(`🎲 새 주제: ${obj.title} — ${obj.desc}`);
+
+    // 생성된 오프너를 AI 첫 발화로 바로 출력
+    if (obj.opener) {
+      const openerMsg = { role: 'assistant', content: obj.opener };
+      history.push(openerMsg);
+      appendMsg('ai', obj.opener);
+      enqueueSpeech(obj.opener, 'en-US');
+    } else {
+      // 오프너가 없으면 AI가 시작하도록 빈 메시지로 킥
+      await sendMessage('(대화를 시작해줘)', true);
+    }
+  } catch (err) {
+    addSystemMsg('🎲 주제 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+  } finally {
+    btn.disabled = false; btn.textContent = '🎲 새 주제';
+  }
 }
 
 function renderMissions() {
