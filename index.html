@@ -379,7 +379,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.14';
+const APP_VERSION = 'v4.15';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -3712,8 +3712,8 @@ function toggleMic() {
 
 /* 친근한 여성 음성 우선 선택 (macOS/Chrome/Windows 대표 음성 순) */
 const PREFERRED_VOICES = {
-  en: ['Samantha', 'Google US English', 'Ava', 'Allison', 'Susan', 'Joanna', 'Jenny', 'Aria', 'Zira', 'Victoria', 'Karen', 'Moira', 'Tessa'],
-  ko: ['Google 한국의', 'Yuna', 'SunHi', 'Heami', 'InJoon', 'Nara', 'Microsoft', 'Korean'],
+  en: ['Samantha', 'Ava (Premium)', 'Ava (Enhanced)', 'Ava', 'Google US English', 'Aria', 'Jenny', 'Allison', 'Susan', 'Joanna', 'Zira', 'Victoria', 'Karen', 'Moira', 'Tessa'],
+  ko: ['Microsoft SunHi Online', 'Microsoft SunHi', 'Google 한국의', 'Yuna (Premium)', 'Yuna (Enhanced)', 'Yuna', 'Microsoft Heami', 'SunHi', 'Heami', 'Jiyoon', 'Hyunsu', 'InJoon', 'Nara', 'Microsoft', 'Korean'],
 };
 /* 고품질(사람에 가까운) 음성 표식 — Enhanced/Premium(macOS), Natural(Edge), Siri 등 */
 const QUALITY_VOICE_RE = /(natural|neural|premium|enhanced|siri|online)/i;
@@ -3981,20 +3981,50 @@ function streamSpeak(raw, flush) {
   enqueueSpeech(chunk.slice(last), 'en-US');
 }
 
-function enqueueSpeech(text, lang) {
-  text = cleanForSpeech(String(text).replace(/\[CORRECT:[^\]]*\]/g, '').replace(/\[EXPLAIN:[^\]]*\]/g, '').replace(/\[HEARD:[^\]]*\]/g, ''));
-  if (!text || !window.speechSynthesis) return;
+/* 한·영 혼합 문장을 스크립트 단위로 분리.
+   "자, 따라 해봐: I went to the store." →
+   [{ko:'자, 따라 해봐:'}, {en:'I went to the store.'}]
+   각 구간을 알맞은 모국어 음성으로 읽어, 한국어는 자연스럽고 영어는 원어민처럼 들리게 한다. */
+function segmentByScript(text, baseLang) {
+  const isKo = c => /[가-힣ᄀ-ᇿ㄰-㆏]/.test(c);
+  const isEn = c => /[A-Za-z]/.test(c);
+  const enLang = (baseLang && baseLang.slice(0, 2) === 'en') ? baseLang : 'en-US';
+  const segs = [];
+  let cur = null, buf = '';
+  const flush = () => {
+    if (buf.trim()) segs.push({ text: buf.trim(), lang: cur === 'ko' ? 'ko-KR' : enLang });
+    buf = '';
+  };
+  for (const ch of text) {
+    const l = isKo(ch) ? 'ko' : (isEn(ch) ? 'en' : null);   // 숫자·기호·공백은 중립 → 직전 구간에 붙임
+    if (l && cur && l !== cur) { flush(); cur = l; }
+    else if (l && !cur) cur = l;
+    buf += ch;
+  }
+  flush();
+  // 한 글자짜리 파편(예: 's')은 앞 구간에 합쳐 끊김을 줄인다
+  const merged = [];
+  for (const s of segs) {
+    const prev = merged[merged.length - 1];
+    if (prev && s.text.replace(/[^A-Za-z가-힣]/g, '').length <= 1) prev.text += ' ' + s.text;
+    else merged.push(s);
+  }
+  return merged.length ? merged : [{ text: text.trim(), lang: baseLang || 'en-US' }];
+}
+
+/* 단일 구간을 모국어 음성/톤으로 발화 (pendingUtter 큐 관리 포함) */
+function _speakSegment(text, lang) {
   const u = new SpeechSynthesisUtterance(text);
   const isKo = lang.slice(0, 2) === 'ko';
   u.lang = isKo ? 'ko-KR' : lang;
   if (isKo) {
-    // 한국어는 흔들림(랜덤 피치/속도)이 오히려 부자연스러움 → 차분하고 중립적인 톤 고정
-    u.rate = 1.0;
+    // 한국어 원어민 톤: 살짝 느긋하고 따뜻하게 (또박또박, 기계적 흔들림 없음)
+    u.rate = 0.97;
     u.pitch = 1.0;
   } else {
-    // 영어는 사람처럼 문장마다 속도·톤이 미세하게 달라지게 (단조로운 기계음 완화)
-    u.rate = 1.0 + (Math.random() * 0.06 - 0.02);
-    u.pitch = 1.04 + (Math.random() * 0.06 - 0.03);
+    // 영어 원어민 톤: 자연스러운 속도, 문장마다 미세한 변화로 단조로움 완화
+    u.rate = 1.0 + (Math.random() * 0.05 - 0.02);
+    u.pitch = 1.02 + (Math.random() * 0.05 - 0.025);
   }
   const v = pickVoice(u.lang);
   if (v) u.voice = v;
@@ -4011,6 +4041,13 @@ function enqueueSpeech(text, lang) {
     }
   };
   window.speechSynthesis.speak(u);
+}
+
+function enqueueSpeech(text, lang) {
+  text = cleanForSpeech(String(text).replace(/\[CORRECT:[^\]]*\]/g, '').replace(/\[EXPLAIN:[^\]]*\]/g, '').replace(/\[HEARD:[^\]]*\]/g, ''));
+  if (!text || !window.speechSynthesis) return;
+  // 한·영 혼합이면 구간별로 모국어 음성으로 나눠 읽어 발음을 자연스럽게
+  for (const seg of segmentByScript(text, lang)) _speakSegment(seg.text, seg.lang);
 }
 
 function stopSpeaking() {
