@@ -342,6 +342,7 @@
     <div class="controls">
       <button class="mini-btn" onclick="requestSummary()" title="AI가 오늘 대화를 평가해줍니다">📋 요약</button>
       <button class="mini-btn" id="caf-btn" onclick="analyzeCaf()" title="내 발화를 복잡도·정확도·유창성으로 분석하고 한 단계 위 표현을 제안합니다">🎯 CAF</button>
+      <button class="mini-btn" onclick="voiceDiagnostics()" title="마이크·음성이 안 될 때 원인을 점검합니다">🔧 음성진단</button>
       <input class="text-input" id="text-input" placeholder="영어로 입력하거나 🎙️로 말하세요" maxlength="500"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendText();}"/>
       <button class="round-btn" id="mic-btn" onclick="toggleMic()" title="한 번 누르면 실시간 회화 시작 — 말하면 자동 전송, AI 답변이 끝나면 자동으로 다시 듣습니다. AI가 말할 때 누르면 끊고 바로 말할 수 있어요. 끄려면 다시 누르세요.">🎙️</button>
@@ -360,7 +361,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.4';
+const APP_VERSION = 'v4.5';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2744,34 +2745,59 @@ function initSpeechRecognition() {
   };
 }
 
+let micGranted = false;   // getUserMedia로 마이크 권한을 한 번이라도 받았는지
+
 function startMic(drillMode) {
   if (!recognition) { toast('이 브라우저는 음성 인식을 지원하지 않습니다. Chrome/Edge를 사용하세요.'); return; }
   if (!window.isSecureContext) { toast('🔒 https(또는 localhost) 연결에서만 마이크가 동작합니다.'); return; }
   if (isListening || sttActive) return;   // 이미 듣는 중이면 중복 start() 방지
-  stopSpeaking();
-  sttFinal = '';
-  sttDrill = drillMode;
-  restartTries = 0;
-  recognition.lang = 'en-US';
-  try {
-    recognition.start();
-  } catch (e) {
-    // InvalidStateError = 직전 세션이 아직 정리 중(곧 onend) → 이미 켜진 셈이라 진행.
-    // 그 외(권한·보안 등)는 가짜 "듣는 중" 표시 대신 원인을 알린다.
-    if (e.name !== 'InvalidStateError') {
-      toast('🎙️ 마이크를 시작할 수 없습니다: ' + (e.message || e.name));
-      return;
+
+  const begin = () => {
+    if (isListening || sttActive) return;   // 권한 대기 중 상태가 바뀌었을 수 있음
+    stopSpeaking();
+    sttFinal = '';
+    sttDrill = drillMode;
+    restartTries = 0;
+    recognition.lang = 'en-US';
+    try {
+      recognition.start();
+    } catch (e) {
+      // InvalidStateError = 직전 세션이 아직 정리 중(곧 onend) → 이미 켜진 셈이라 진행.
+      if (e.name !== 'InvalidStateError') {
+        toast('🎙️ 마이크를 시작할 수 없습니다: ' + (e.message || e.name));
+        return;
+      }
     }
-  }
-  sttActive = true;
-  isListening = true;
-  if (!drillMode) { handsFree = true; armHandsFreeWatchdog(); }   // 회화는 핸즈프리 루프
-  if (drillMode) {
-    document.getElementById('drill-mic')?.classList.add('listening');
-  } else {
-    document.getElementById('mic-btn').classList.add('listening');
-    document.getElementById('interim-text').textContent = '🎙️ 듣는 중... 편하게 말하세요 (멈추면 자동 전송)';
-  }
+    sttActive = true;
+    isListening = true;
+    if (!drillMode) { handsFree = true; armHandsFreeWatchdog(); }   // 회화는 핸즈프리 루프
+    if (drillMode) {
+      document.getElementById('drill-mic')?.classList.add('listening');
+    } else {
+      document.getElementById('mic-btn').classList.add('listening');
+      document.getElementById('interim-text').textContent = '🎙️ 듣는 중... 편하게 말하세요 (멈추면 자동 전송)';
+    }
+  };
+
+  // 권한을 이미 받았거나 getUserMedia가 없으면 바로 시작.
+  if (micGranted || !navigator.mediaDevices?.getUserMedia) { begin(); return; }
+  // 최초 1회: 명시적으로 마이크 권한을 요청한다. SpeechRecognition만으로는 일부 환경에서
+  // 권한 프롬프트가 안 떠 "음성을 인식 못 하는" 것처럼 보이던 문제를 근본적으로 막는다.
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(stream => {
+      stream.getTracks().forEach(t => t.stop());   // 권한만 확인하고 즉시 해제 (SpeechRecognition이 마이크 사용)
+      micGranted = true;
+      begin();
+    })
+    .catch(err => {
+      const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+      const m = denied
+        ? '🎙️ 마이크 권한이 거부되었습니다. 주소창 왼쪽 자물쇠 아이콘 → 마이크 → "허용" 으로 바꾼 뒤 페이지를 새로고침하세요.'
+        : (err && err.name === 'NotFoundError'
+            ? '🎙️ 마이크 장치를 찾을 수 없습니다. 마이크 연결을 확인하세요.'
+            : '🎙️ 마이크를 열 수 없습니다: ' + (err && (err.message || err.name)));
+      toast(m, 6000); addSystemMsg(m);
+    });
 }
 
 function stopMic() {
@@ -2930,16 +2956,80 @@ function initVoiceSelector() {
   };
 }
 
+/* 음성 목록이 준비될 때까지 기다렸다가 콜백 (한 번만, 안전망 타임아웃 포함) */
+function whenVoicesReady(cb) {
+  const synth = window.speechSynthesis;
+  if (synth.getVoices().length) { cb(); return; }
+  let done = false;
+  const run = () => { if (done) return; done = true; cb(); };
+  synth.addEventListener('voiceschanged', run, { once: true });
+  synth.getVoices();             // 로딩 트리거
+  setTimeout(run, 350);          // 이벤트가 안 와도 재생 시도
+}
+
 function tts(text, lang) {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(cleanForSpeech(text));
-  u.lang = lang;
-  u.rate = 0.95;   // 드릴·예문은 또박또박 (따라 말하기 좋게 일정한 속도)
-  u.pitch = 1.06;
-  const v = pickVoice(lang);
-  if (v) u.voice = v;
-  window.speechSynthesis.speak(u);
+  const synth = window.speechSynthesis;
+  if (!synth) { toast('🔊 이 브라우저는 음성 합성을 지원하지 않습니다.'); return; }
+  const clean = cleanForSpeech(text);
+  if (!clean) return;
+  const speakNow = () => {
+    synth.cancel();
+    // Chrome 버그: cancel 직후 즉시 speak하면 씹힌다 → 한 틱 뒤에 말한다.
+    setTimeout(() => {
+      const u = new SpeechSynthesisUtterance(clean);
+      u.lang = lang;
+      u.rate = 0.95;   // 또박또박 (따라 말하기 좋게)
+      u.pitch = 1.06;
+      const v = pickVoice(lang);
+      if (v) u.voice = v;
+      try { synth.resume(); } catch (e) {}   // Chrome이 일시정지로 빠지는 것 방지
+      synth.speak(u);
+    }, 60);
+  };
+  whenVoicesReady(speakNow);
+}
+
+/* 🔧 음성 진단 — 마이크/음성이 안 될 때 원인을 한눈에 보여준다 */
+async function voiceDiagnostics() {
+  const lines = [];
+  const ok = (b) => b ? '✅' : '❌';
+  // 1) 보안 컨텍스트
+  lines.push(`${ok(window.isSecureContext)} 보안 연결(https/localhost): ${window.isSecureContext ? '정상' : '아님 → 마이크 차단됨. localhost나 https 주소로 접속하세요'}`);
+  // 2) 음성 인식 지원
+  const srOK = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  lines.push(`${ok(srOK)} 음성 인식(STT) 지원: ${srOK ? '지원됨' : '미지원 → Chrome/Edge 사용'}`);
+  // 3) 마이크 권한 상태
+  try {
+    if (navigator.permissions?.query) {
+      const p = await navigator.permissions.query({ name: 'microphone' });
+      lines.push(`${p.state === 'granted' ? '✅' : p.state === 'denied' ? '❌' : '⚠️'} 마이크 권한: ${p.state}${p.state === 'denied' ? ' → 자물쇠 아이콘에서 허용으로 변경 후 새로고침' : ''}`);
+    }
+  } catch (e) { /* permissions API 미지원 — 무시 */ }
+  // 4) 실제 마이크 접근 테스트
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+    s.getTracks().forEach(t => t.stop());
+    micGranted = true;
+    lines.push('✅ 마이크 접근: 성공 (장치 정상)');
+  } catch (e) {
+    lines.push(`❌ 마이크 접근 실패: ${e.name} — ${e.name === 'NotAllowedError' ? '권한 거부됨' : e.name === 'NotFoundError' ? '마이크 장치 없음' : e.message}`);
+  }
+  // 5) 음성 합성(TTS) + 음성 목록
+  const synth = window.speechSynthesis;
+  const nVoices = synth ? synth.getVoices().length : 0;
+  lines.push(`${ok(!!synth)} 음성 재생(TTS) 지원: ${synth ? `정상 · 설치된 음성 ${nVoices}개` : '미지원'}`);
+  if (synth && nVoices === 0) lines.push('⚠️ 설치된 음성이 0개 — 잠시 후 다시 시도하거나 OS 음성을 설치하세요');
+  // 6) 테스트 음성 재생
+  if (synth) { tts('Hello! This is a sound test. Can you hear me?', 'en-US'); lines.push('🔊 테스트 음성을 재생했어요 — 안 들리면 기기 볼륨/무음 모드를 확인하세요'); }
+
+  const html = lines.map(l => `<div style="text-align:left">${l}</div>`).join('');
+  addSystemMsg('🔧 <b>음성 진단 결과</b>');
+  const chat = document.getElementById('chat');
+  const wrap = document.createElement('div');
+  wrap.className = 'msg system';
+  wrap.innerHTML = `<div style="width:100%;font-size:0.82rem;line-height:1.7">${html}</div>`;
+  chat.appendChild(wrap); scrollBottom();
+  toast('🔧 진단 완료 — 회화 화면의 결과를 확인하세요', 4000);
 }
 
 /* ═══════════════════════════════════════════════════
