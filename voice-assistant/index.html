@@ -1723,7 +1723,8 @@ function isWebLLMModel(m) { return m && m.includes('-MLC'); }
 
 let _webllmLib = null;
 async function _loadWebLLMLib() {
-  if (!_webllmLib) _webllmLib = import('https://esm.sh/@mlc-ai/web-llm');
+  // esm.sh 번들은 Node 전용 createRequire를 끌어와 브라우저에서 깨짐 → jsDelivr esm.run 사용(공식 권장)
+  if (!_webllmLib) _webllmLib = import('https://esm.run/@mlc-ai/web-llm@0.2.79');
   return _webllmLib;
 }
 
