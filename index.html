@@ -373,7 +373,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.9';
+const APP_VERSION = 'v4.10';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2100,9 +2100,13 @@ function ensureAskModal() {
           <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">📌 지금 연습 중인 문장</div>
           <div id="ask-context" style="font-size:0.85rem;background:var(--surface2);border-radius:8px;padding:8px 10px"></div>
         </div>
-        <textarea id="ask-input" rows="3" placeholder="모르는 것을 편하게 물어보세요.&#10;예) 'have been'이 무슨 뜻이야? / 왜 여기서 the를 써? / 이거 더 자연스럽게 말하려면?"
+        <textarea id="ask-input" rows="3" placeholder="모르는 것을 편하게 물어보세요. (🎙️로 말해도 돼요)&#10;예) 'have been'이 무슨 뜻이야? / 왜 여기서 the를 써? / 이거 더 자연스럽게 말하려면?"
           style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font-family:inherit;font-size:0.9rem;resize:vertical"
           onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){submitAsk();}"></textarea>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+          <button class="round-btn" id="ask-mic" onclick="toggleAskMic()" title="음성으로 질문 (한국어/영어)" style="width:44px;height:44px;flex:0 0 auto">🎙️</button>
+          <span id="ask-mic-status" style="font-size:0.74rem;color:var(--text-muted)">🎙️ 눌러서 음성으로 질문할 수 있어요</span>
+        </div>
         <button class="btn primary" id="ask-send" onclick="submitAsk()" style="width:100%;margin-top:10px">질문하기 (Ctrl+Enter)</button>
         <div id="ask-answer" style="margin-top:14px;font-size:0.9rem;line-height:1.7"></div>
       </div>
@@ -2208,6 +2212,91 @@ function ensureAskFab() {
     + 'border:none;border-radius:999px;padding:11px 17px;font-size:0.85rem;font-weight:700;'
     + 'box-shadow:0 6px 20px rgba(99,102,241,0.5);cursor:pointer';
   document.body.appendChild(b);
+}
+
+/* ── 질문 음성 입력: 한국어·영어 모두 인식하는 다국어 Whisper(base) ── */
+let _whisperML = null, _whisperMLP = null;
+async function loadWhisperML() {
+  if (_whisperML) return _whisperML;
+  if (_whisperMLP) return _whisperMLP;
+  _whisperMLP = (async () => {
+    const note = '첫 1회만 모델(~80MB) 다운로드 — 이후 캐시됩니다.';
+    _showWllmProgress(0, '라이브러리 로드 중...', '🎙️ 음성인식(한/영) 모델 로딩 중...', note);
+    try {
+      const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2');
+      _whisperML = await pipeline('automatic-speech-recognition', 'Xenova/whisper-base', {
+        device: navigator.gpu ? 'webgpu' : 'wasm',
+        progress_callback: p => {
+          if (p && p.status === 'progress')
+            _showWllmProgress((p.progress || 0) / 100, `${p.file || ''} 다운로드...`, '🎙️ 음성인식(한/영) 모델 로딩 중...', note);
+        },
+      });
+    } finally { _hideWllmProgress(); _whisperMLP = null; }
+    return _whisperML;
+  })();
+  return _whisperMLP;
+}
+
+let askRec = null, askRecording = false, askChunks = [], askStream = null;
+async function toggleAskMic() {
+  if (askRecording) { stopAskMic(); return; }
+  if (!window.isSecureContext) { toast('🔒 https(또는 localhost)에서만 마이크가 동작합니다.'); return; }
+  try {
+    askStream = await navigator.mediaDevices.getUserMedia({ audio: {
+      channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true,
+    } });
+  } catch (e) {
+    const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+    toast(denied ? '🎙️ 마이크 권한이 거부되었습니다. 자물쇠 → 마이크 → 허용 후 새로고침하세요.'
+                 : '🎙️ 마이크를 열 수 없습니다: ' + (e.message || e.name), 6000);
+    return;
+  }
+  micGranted = true;
+  askChunks = [];
+  try { askRec = new MediaRecorder(askStream); }
+  catch (e) { toast('🎙️ 이 브라우저는 녹음을 지원하지 않습니다.'); askStream.getTracks().forEach(t => t.stop()); return; }
+  askRec.ondataavailable = ev => { if (ev.data && ev.data.size) askChunks.push(ev.data); };
+  askRec.onstop = onAskMicStop;
+  askRec.start();
+  askRecording = true;
+  const b = document.getElementById('ask-mic');
+  if (b) b.classList.add('listening');
+  const st = document.getElementById('ask-mic-status');
+  if (st) st.textContent = '● 녹음 중 — 다 말하면 🎙️를 다시 누르세요';
+}
+
+function stopAskMic() {
+  if (!askRecording || !askRec) return;
+  askRecording = false;
+  try { askRec.stop(); } catch (e) {}
+  askStream?.getTracks().forEach(t => t.stop());
+}
+
+async function onAskMicStop() {
+  const b = document.getElementById('ask-mic');
+  if (b) b.classList.remove('listening');
+  if (!askChunks.length) return;
+  const blob = new Blob(askChunks, { type: askRec?.mimeType || 'audio/webm' });
+  askChunks = [];
+  const st = document.getElementById('ask-mic-status');
+  if (st) st.textContent = '🧠 음성 인식 중...';
+  try {
+    const pipe = await loadWhisperML();
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx({ sampleRate: 16000 });
+    const decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
+    const audio = decoded.getChannelData(0);
+    await ctx.close();
+    const out = await pipe(audio, { chunk_length_s: 30, stride_length_s: 5 });
+    const text = (out && out.text || '').trim();
+    if (st) st.textContent = '🎙️ 눌러서 음성으로 질문할 수 있어요';
+    if (!text) { toast('🎙️ 음성을 인식하지 못했어요. 다시 시도해 주세요.', 4000); return; }
+    const inp = document.getElementById('ask-input');
+    if (inp) { inp.value = (inp.value ? inp.value.trim() + ' ' : '') + text; inp.focus(); }
+  } catch (e) {
+    if (st) st.textContent = '';
+    toast('🎙️ 음성 인식 실패: ' + (e.message || e), 5000);
+  }
 }
 
 async function checkOllama() {
