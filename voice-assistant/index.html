@@ -86,6 +86,11 @@
     .point:last-child { border-bottom: none; }
     .point .en { font-size: 0.9rem; font-weight: 600; }
     .point .kr { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+    .point .note { font-size: 0.82rem; color: var(--text); line-height: 1.6; margin-top: 6px; padding: 8px 11px;
+      background: rgba(99,102,241,0.07); border-left: 3px solid var(--primary); border-radius: 0 8px 8px 0; }
+    .point .note b { color: var(--primary-light); }
+    .sec-intro { font-size: 0.83rem; color: var(--text-muted); line-height: 1.6; margin: -2px 0 10px;
+      padding-bottom: 8px; border-bottom: 1px dashed var(--border); }
     .example-row {
       display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border);
     }
@@ -399,7 +404,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.21';
+const APP_VERSION = 'v4.22';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -408,15 +413,21 @@ const LESSONS = [
   {
     id: 1, title: "기초 문법 & 발음", date: "2026-05-28",
     sections: [
-      { title: "문장 구조", points: [
-        { en: "I / You / We / They + 동사원형", kr: "예: I eat, You study, They go" },
-        { en: "She / He / It + 동사 + s/es", kr: "예: She eats, He goes" },
-        { en: "부정문: don't / doesn't + 동사원형", kr: "예: I don't eat, She doesn't eat" },
-        { en: "의문문: Do/Does + 주어 + 동사원형?", kr: "예: Do you study? Does she eat?" },
-        { en: "의문사: What / Why / When + Do/Does + 주어 + 동사?", kr: "예: What do you do?" },
+      { title: "① 현재형 문장 만들기 (주어 + 동사)", intro: "영어 문장의 기본 뼈대는 '주어(누가) + 동사(무엇을 한다)'입니다. 평소·반복되는 일은 모두 현재형으로 말해요. 한국어 '나는 밥을 먹는다'처럼요.", points: [
+        { en: "I / You / We / They + 동사원형", kr: "예: I eat, You study, They go",
+          note: "주어가 **나·너·우리·그들**(여러 명 느낌)일 때는 동사를 **그대로** 씁니다.\n• I **eat** rice. (나는 밥을 먹는다)\n• They **go** to school. (그들은 학교에 간다)" },
+        { en: "She / He / It + 동사 + s/es", kr: "예: She eats, He goes",
+          note: "주어가 **한 사람/한 개**(she·he·it)일 때는 동사 끝에 **-s**를 붙입니다. 이걸 '3인칭 단수'라고 해요.\n• She **eats** rice. (O)  /  She eat rice. (X)\n• 끝이 o, s, ch, sh면 **-es**: go→go**es**, watch→watch**es**" },
+        { en: "부정문: don't / doesn't + 동사원형", kr: "예: I don't eat, She doesn't eat",
+          note: "'~하지 않는다'는 동사 앞에 **don't**를 넣습니다. 단, **she/he/it**은 **doesn't**.\n• I **don't** drink coffee. (나는 커피를 안 마신다)\n• She **doesn't** drink coffee.  ← doesn't를 쓰면 동사는 다시 **원형**(drinks ❌ → drink ✓)" },
+        { en: "의문문: Do/Does + 주어 + 동사원형?", kr: "예: Do you study? Does she eat?",
+          note: "질문은 맨 앞에 **Do**(또는 she/he/it이면 **Does**)를 붙입니다.\n• **Do** you study English? (영어 공부해?)\n• **Does** she like coffee?  ← Does 뒤 동사는 **원형**" },
+        { en: "의문사: What / Why / When + Do/Does + 주어 + 동사원형?", kr: "예: What do you do?",
+          note: "'무엇·왜·언제'를 물을 땐 **의문사 + do/does + 주어 + 동사** 순서.\n• **What do** you do on weekends? (주말에 뭐 해?)\n• **Where does** he live? (그는 어디 살아?)" },
       ]},
-      { title: "발음 포인트", points: [
-        { en: "A 소리: '아' — apple, at, and", kr: "복식호흡으로 깊게 발음" },
+      { title: "② 발음 포인트 — 모음 A", intro: "한국어에 없는 소리는 입 모양을 따라 하면 금방 좋아집니다. 오늘은 가장 자주 나오는 모음 'A'부터.", points: [
+        { en: "A 소리: 입을 크게 벌린 '애' — apple, at, and, cat", kr: "턱을 아래로 떨어뜨리듯 크게",
+          note: "한국어 '에'보다 입을 **더 크게** 벌려 '애~'에 가깝게 냅니다. 손가락 두 개가 세로로 들어갈 만큼 입을 벌려보세요.\n• apple(애플), cat(캣), bad(배드)" },
       ]},
     ],
     examples: [
@@ -430,22 +441,33 @@ const LESSONS = [
   {
     id: 2, title: "관사 & 과거 시제", date: "2026-06-03",
     sections: [
-      { title: "관사", points: [
-        { en: "a + 자음 시작: a book, a coffee", kr: "막연한 하나" },
-        { en: "an + 모음 시작: an apple, an electronic shaver", kr: "모음(A E I O U) 앞" },
-        { en: "the: 특정한 것", kr: "예: the book (방금 말한 그 책)" },
+      { title: "① 관사 a / an / the", intro: "관사는 명사(사물 이름) 앞에 붙는 작은 단어예요. 한국어엔 없어서 가장 헷갈리지만, 규칙은 단순합니다: '아무거나 하나'면 a/an, '바로 그것'이면 the.", points: [
+        { en: "a + 자음 소리로 시작: a book, a car, a coffee", kr: "여럿 중 막연한 '하나'",
+          note: "처음 언급하거나 '아무거나 하나'일 때 **a**를 씁니다.\n• I have **a** book. (책 한 권이 있다 — 어떤 책인지는 중요하지 않음)" },
+        { en: "an + 모음 소리로 시작: an apple, an hour, an electronic shaver", kr: "모음(a·e·i·o·u) 소리 앞",
+          note: "발음이 모음으로 시작하면 발음하기 편하게 **an**으로 바꿉니다. **철자가 아니라 '소리'** 기준!\n• **an** apple, **an** umbrella\n• **an** hour (h는 묵음, 소리는 '아워'라서 an)" },
+        { en: "the: 서로 아는 '바로 그것'", kr: "예: the book (방금 말한 그 책)",
+          note: "말하는 사람과 듣는 사람이 **둘 다 아는** 특정한 것엔 **the**.\n• I bought a book. **The** book is interesting. (산 책 → 이제 그 책)\n• 세상에 하나뿐인 것도 the: **the** sun, **the** moon" },
       ]},
-      { title: "To 부정사", points: [
-        { en: "to + 동사원형 = ~하기 위해", kr: "I went to Hi-Mart to buy a shaver." },
+      { title: "② to 부정사 — '~하기 위해'", intro: "'to + 동사'는 행동의 목적(왜 했는지)을 덧붙일 때 씁니다.", points: [
+        { en: "to + 동사원형 = ~하기 위해서 (목적)", kr: "I went to Hi-Mart to buy a shaver.",
+          note: "문장 뒤에 '왜?'에 대한 답을 붙입니다.\n• I went to the store **to buy** milk. (우유를 **사려고** 가게에 갔다)\n• I study English **to get** a job. (취직하려고 영어를 공부한다)" },
       ]},
-      { title: "과거 시제", points: [
-        { en: "동사 과거형: ate, drank, went, worked", kr: "" },
-        { en: "과거 부정문: didn't + 동사원형", kr: "I didn't eat." },
-        { en: "과거 의문문: Did + 주어 + 동사원형?", kr: "Did you eat?" },
+      { title: "③ 과거 시제 — 어제 한 일", intro: "이미 끝난 일은 동사를 '과거형'으로 바꿔 말합니다. 한국어 '먹었다, 갔다'처럼요.", points: [
+        { en: "규칙 동사: 동사 + -ed (worked, played, studied)", kr: "대부분 -ed를 붙임",
+          note: "보통은 끝에 **-ed**를 붙입니다.\n• work→work**ed**, play→play**ed**, watch→watch**ed**\n• 끝이 e면 -d만: like→like**d**" },
+        { en: "불규칙 동사: 통째로 바뀜 (ate, drank, went, saw)", kr: "암기 필요",
+          note: "자주 쓰는 동사는 모양이 확 바뀝니다. 외워두세요.\n• eat→**ate**, go→**went**, drink→**drank**, see→**saw**, have→**had**" },
+        { en: "과거 부정문: didn't + 동사원형", kr: "I didn't eat.",
+          note: "'안 했다'는 **didn't**. 이때 동사는 다시 **원형**으로!\n• I **didn't eat** dinner. (ate ❌ → eat ✓)" },
+        { en: "과거 의문문: Did + 주어 + 동사원형?", kr: "Did you eat?",
+          note: "'~했어?'는 맨 앞에 **Did**. 역시 동사는 **원형**.\n• **Did** you **go** there? (거기 갔어?)" },
       ]},
-      { title: "감사 표현", points: [
-        { en: "I'm grateful to + 사람 + because...", kr: "사람에게 감사" },
-        { en: "I'm grateful for + 동명사", kr: "상황에 감사" },
+      { title: "④ 감사 표현 — grateful", intro: "감사한 마음을 구체적으로 말하는 두 가지 틀입니다.", points: [
+        { en: "I'm grateful to + 사람 (+ for ~)", kr: "사람에게 감사",
+          note: "**사람**에게 고마울 땐 **to**.\n• I'm grateful **to my parents** for their support. (부모님께 감사하다)" },
+        { en: "I'm grateful for + 명사/동명사(-ing)", kr: "상황·일에 감사",
+          note: "**일·상황**에 고마울 땐 **for**.\n• I'm grateful **for** your help. (도와줘서 고마워)\n• I'm grateful **for having** nice weather. (좋은 날씨에 감사)" },
       ]},
     ],
     examples: [
@@ -459,15 +481,21 @@ const LESSONS = [
   {
     id: 3, title: "Look Forward To & 발음", date: "2026-06-05",
     sections: [
-      { title: "I am looking forward to", points: [
-        { en: "to는 전치사 → 뒤에 명사/동명사(-ing)", kr: "to eat ❌ → to eating ✓" },
-        { en: "looking forward to + 명사", kr: "looking forward to the weekend" },
-        { en: "looking forward to + 동사ing", kr: "looking forward to meeting my friends" },
-        { en: "on the weekend", kr: "on과 weekend는 짝" },
+      { title: "① I am looking forward to ~ (기대돼요)", intro: "'~가 기대된다, 손꼽아 기다린다'는 원어민이 정말 자주 쓰는 표현입니다. 핵심은 뒤에 오는 to의 정체예요.", points: [
+        { en: "여기서 to는 '전치사' → 뒤에 명사 또는 동사+ing", kr: "to eat ❌ → to eating ✓",
+          note: "보통 'to + 동사원형'(to eat)에 익숙하지만, 이 표현의 **to는 전치사**라서 뒤에 **명사**나 **동명사(-ing)**가 와야 합니다.\n• looking forward to **eat** ❌\n• looking forward to **eating** ✓ (이 부분이 가장 많이 틀려요!)" },
+        { en: "looking forward to + 명사", kr: "the weekend, your reply, the trip",
+          note: "기대하는 '대상'이 사물·일이면 그대로 명사를 씁니다.\n• I'm looking forward to **the weekend**. (주말이 기대돼)\n• I'm looking forward to **your reply**. (답장 기다릴게)" },
+        { en: "looking forward to + 동사ing", kr: "meeting, starting, seeing",
+          note: "기대하는 게 '행동'이면 동사에 **-ing**를 붙입니다.\n• I'm looking forward to **meeting** you. (만나길 기대해)\n• I'm looking forward to **starting** a new job." },
+        { en: "시간 표현: on the weekend / on Saturday", kr: "요일·주말 앞엔 on",
+          note: "요일과 '주말'에는 전치사 **on**을 씁니다.\n• **on** Saturday, **on** the weekend, **on** Monday morning" },
       ]},
-      { title: "발음 A~I", points: [
-        { en: "F: 앞니 보이게, 바람 내보내기 — food, fat", kr: "" },
-        { en: "I: '에'와 '이'의 중간 — is → '에즈'에 가깝게", kr: "" },
+      { title: "② 발음 — F와 I", intro: "한국인이 가장 어려워하는 두 소리. 입과 혀 위치만 잡으면 됩니다.", points: [
+        { en: "F: 윗니로 아랫입술을 살짝 물고 바람 — food, fat, coffee", kr: "'ㅍ'가 아니라 바람 새는 소리",
+          note: "F는 **윗니가 아랫입술에 닿은 채** 바람을 '흐~' 내보내는 소리예요. 한국어 'ㅍ'(입술만 붙였다 떼기)와 완전히 다릅니다.\n• **f**ood(푸드 ❌, f~우드), cof**f**ee" },
+        { en: "I(짧은 이): '이'와 '에'의 중간 — is, sit, this", kr: "입에 힘 빼고 짧게",
+          note: "긴 '이~'(ee)가 아니라 **짧고 힘 뺀** 소리입니다. 입을 살짝만 벌려요.\n• s**i**t(앉다)와 s**ea**t(좌석)을 구분: sit은 짧게 '싯', seat은 길게 '시~ㅌ'" },
       ]},
     ],
     examples: [
@@ -481,15 +509,23 @@ const LESSONS = [
   {
     id: 4, title: "카페 회화 & 복습", date: "2026-06-10",
     sections: [
-      { title: "카페 주문 표현", points: [
-        { en: "Can I get one cappuccino?", kr: "카푸치노 한 잔 주세요" },
-        { en: "Medium please / Hot, please / Iced, please", kr: "사이즈와 온도" },
-        { en: "Just milk, no sugar", kr: "우유만, 설탕 없이" },
+      { title: "① 카페 주문 표현", intro: "카페에서 바로 쓰는 실전 문장입니다. '주문 → 사이즈/온도 → 옵션' 순서만 기억하세요.", points: [
+        { en: "Can I get a cappuccino? / I'll have an Americano.", kr: "~ 주세요 / ~로 할게요",
+          note: "주문할 땐 **Can I get ~?** 또는 **I'll have ~** 가 가장 자연스럽습니다.\n• **Can I get** a latte? (라떼 주세요)\n• **I'll have** an iced Americano. (아이스 아메리카노로 할게요)" },
+        { en: "사이즈·온도: Medium / Hot / Iced, please", kr: "size와 temperature",
+          note: "원하는 사이즈와 온도를 한 단어 + please로 간단히.\n• **Hot**, please. (뜨겁게요)  /  **Iced**, please. (차갑게요)\n• 사이즈: small / **medium** / large" },
+        { en: "옵션: Just milk, no sugar / Extra shot, please", kr: "우유만·설탕 빼고 / 샷 추가",
+          note: "추가·제외 옵션은 이렇게 말해요.\n• **No** sugar. (설탕 빼고)  /  **Extra** shot. (샷 추가)\n• **For here** or **to go**? (매장? 포장?) ← 점원이 묻는 말" },
       ]},
-      { title: "핵심 어휘", points: [
-        { en: "sleep in = 늦잠 자다", kr: "I'm looking forward to sleeping in." },
-        { en: "cardio = 유산소 운동", kr: "" },
-        { en: "improve = (실력이) 늘다", kr: "My English improves every day." },
+      { title: "② 핵심 어휘 (오늘의 대화문에 나와요)", intro: "아래 대화문 'Catching Up with a Friend'에 나오는 표현입니다. 뜻을 알고 들으면 훨씬 잘 들려요.", points: [
+        { en: "How have you been? — 그동안 어떻게 지냈어?", kr: "오랜만에 만났을 때 인사",
+          note: "오랜만에 만난 사람에게 쓰는 인사. 답은 **I've been good/busy.** (잘/바쁘게 지냈어)" },
+        { en: "sleep in — (일부러) 늦잠 자다", kr: "I'm looking forward to sleeping in.",
+          note: "알람 없이 푹 자는 것. (oversleep=실수로 늦잠과 다름)\n• I love **sleeping in** on Sundays." },
+        { en: "binge-watch — 정주행하다", kr: "드라마를 몰아 보다",
+          note: "한 작품을 몰아서 보는 것.\n• I **binge-watched** the whole season. (한 시즌을 정주행했어)" },
+        { en: "improve — (실력이) 늘다, 나아지다", kr: "My English improves every day.",
+          note: "조금씩 좋아지는 것.\n• My cooking is **improving**. (요리 실력이 늘고 있어)" },
       ]},
     ],
     examples: [
@@ -525,15 +561,21 @@ const LESSONS = [
   {
     id: 101, preview: true, title: "현재 진행형 & 미래 계획", date: "선행",
     sections: [
-      { title: "현재 진행형 — 지금 하고 있는 일", points: [
-        { en: "am / is / are + 동사ing", kr: "예: I am studying English now." },
-        { en: "진행형 의문문: Are you ...? / What are you doing?", kr: "지금 뭐 해?" },
-        { en: "현재형과 차이", kr: "I study English (평소에) vs I am studying English (지금)" },
+      { title: "① 현재 진행형 — 지금 하고 있는 일", intro: "'지금 이 순간' 하고 있는 일은 'be동사 + 동사ing'로 말합니다. 한국어 '~하는 중이다'예요.", points: [
+        { en: "am / is / are + 동사ing", kr: "예: I am studying English now.",
+          note: "주어에 맞는 be동사 + 동사-ing.\n• I **am** study**ing**. / He **is** work**ing**. / They **are** play**ing**.\n• -ing 만들기: make→mak**ing**(e 탈락), run→run**ning**(자음 두 번)" },
+        { en: "진행형 의문문: What are you doing?", kr: "지금 뭐 해?",
+          note: "be동사를 앞으로 보냅니다.\n• **Are you** working now? (지금 일해?)\n• **What are you** doing? (뭐 하는 중이야?)" },
+        { en: "현재형 vs 진행형 — 평소 vs 지금", kr: "I study English (평소) ↔ I am studying English (지금)",
+          note: "이 둘의 차이가 핵심입니다.\n• I **study** English. (평소에 영어를 공부한다 — 습관)\n• I **am studying** English. (지금 공부하는 중이다 — 현재 순간)" },
       ]},
-      { title: "미래 계획 — be going to / will", points: [
-        { en: "be going to + 동사원형 = ~할 예정이다 (계획)", kr: "I am going to meet my friend tomorrow." },
-        { en: "will + 동사원형 = ~할 것이다 (즉석 결정/예측)", kr: "I will call you later. / It will rain tomorrow." },
-        { en: "going to는 미리 정한 계획, will은 지금 정한 것", kr: "" },
+      { title: "② 미래 — be going to / will", intro: "앞으로의 일은 두 가지로 말합니다. '미리 정한 계획'이냐 '지금 막 정한 것'이냐로 구분해요.", points: [
+        { en: "be going to + 동사원형 = ~할 예정 (이미 정한 계획)", kr: "I am going to meet my friend tomorrow.",
+          note: "전부터 **계획해 둔** 일.\n• I'm **going to** visit my parents this weekend. (이미 그러기로 함)" },
+        { en: "will + 동사원형 = ~할게/~할 거야 (즉석 결정·예측)", kr: "I will call you later.",
+          note: "말하는 **순간 정한** 일이나 예측.\n• (전화벨) I'**ll** get it! (내가 받을게! — 방금 결정)\n• It **will** rain tomorrow. (내일 비 올 거야 — 예측)" },
+        { en: "정리: 계획=going to, 즉흥=will", kr: "둘 다 미래지만 뉘앙스가 다름",
+          note: "헷갈리면: 달력에 **이미 적어둔** 일이면 going to, **방금 떠올린** 일이면 will." },
       ]},
     ],
     examples: [
@@ -548,14 +590,19 @@ const LESSONS = [
   {
     id: 102, preview: true, title: "빈도 부사 & How often", date: "선행",
     sections: [
-      { title: "빈도 부사 — 얼마나 자주", points: [
-        { en: "always(항상) > usually(보통) > often(자주) > sometimes(가끔) > never(절대)", kr: "" },
-        { en: "위치: be동사 뒤, 일반동사 앞", kr: "I am always busy. / I usually wake up at 7." },
-        { en: "never는 자체가 부정 — don't와 함께 쓰지 않음", kr: "I never drink coffee ✓ / I don't never ❌" },
+      { title: "① 빈도 부사 — 얼마나 자주", intro: "어떤 일을 얼마나 자주 하는지를 한 단어로 표현합니다. 비율 순서대로 익혀두세요.", points: [
+        { en: "always(100%) > usually > often > sometimes > rarely > never(0%)", kr: "자주 → 드물게 순서",
+          note: "빈도를 나타내는 단어들. 대략적인 비율 감각으로 외우면 편해요.\n• **always** 항상 / **usually** 보통 / **often** 자주 / **sometimes** 가끔 / **rarely** 드물게 / **never** 절대 안" },
+        { en: "위치: be동사 뒤 / 일반동사 앞", kr: "I am always busy. / I usually wake up at 7.",
+          note: "이 위치 규칙이 핵심입니다.\n• be동사면 **뒤**: I **am always** busy.\n• 일반동사면 **앞**: I **usually wake** up at 7. (wake usually ❌)" },
+        { en: "never는 그 자체가 부정 — don't와 같이 쓰지 않음", kr: "I never drink ✓ / I don't never ❌",
+          note: "never에 이미 '안 한다'는 뜻이 들어 있어요. don't를 또 붙이면 안 됩니다.\n• I **never** drink coffee at night. (O)\n• I don't never drink (X)" },
       ]},
-      { title: "빈도 묻고 답하기", points: [
-        { en: "How often do you + 동사?", kr: "얼마나 자주 ~하세요?" },
-        { en: "once / twice / three times + a day/week/month", kr: "하루에 한 번 / 일주일에 두 번 / 한 달에 세 번" },
+      { title: "② 빈도 묻고 답하기", intro: "상대의 습관을 묻고, 구체적인 횟수로 답하는 법.", points: [
+        { en: "How often do you + 동사원형?", kr: "얼마나 자주 ~하세요?",
+          note: "빈도를 묻는 정해진 질문 틀.\n• **How often do you** exercise? (얼마나 자주 운동해?)" },
+        { en: "횟수 답: once / twice / three times + a day(week, month)", kr: "하루에 한 번 / 일주일에 두 번",
+          note: "한 번=once, 두 번=twice, 세 번부터는 **숫자+times**.\n• **once a day** (하루 한 번)\n• **twice a week** (일주일 두 번)\n• **three times a month** (한 달 세 번)" },
       ]},
     ],
     examples: [
@@ -570,15 +617,21 @@ const LESSONS = [
   {
     id: 103, preview: true, title: "식당 회화 — 주문부터 계산까지", date: "선행",
     sections: [
-      { title: "입장 & 주문", points: [
-        { en: "A table for two, please.", kr: "두 명 자리 부탁합니다" },
-        { en: "I'd like the pasta, please.", kr: "파스타로 할게요 (I'd like = I would like, 정중한 주문)" },
-        { en: "What do you recommend?", kr: "추천 메뉴가 뭐예요?" },
+      { title: "① 입장 & 주문", intro: "식당 흐름은 '자리 → 추천/주문'으로 이어집니다. 정중한 주문 표현 I'd like를 익혀두세요.", points: [
+        { en: "A table for two, please. — 두 명 자리 부탁해요", kr: "인원수만 바꾸면 됨",
+          note: "들어가서 인원수를 말합니다. 숫자만 바꾸면 끝.\n• A table **for two**, please. / **for three**, please." },
+        { en: "I'd like the pasta, please. — 파스타로 할게요", kr: "I'd like = I would like (정중한 '~주세요')",
+          note: "**I'd like**는 'I want'보다 훨씬 공손한 주문 표현입니다.\n• **I'd like** the steak, please.\n• 메뉴를 가리키며: **I'll have** this one. (이걸로 할게요)" },
+        { en: "What do you recommend? — 추천 메뉴가 뭐예요?", kr: "고민될 때 점원에게",
+          note: "메뉴가 고민될 때 점원에게 물어보세요. 대화를 자연스럽게 이어주는 한마디." },
       ]},
-      { title: "요청 & 계산", points: [
-        { en: "Could I get some water?", kr: "물 좀 주시겠어요? (Could I = Can I보다 정중)" },
-        { en: "Can we get the bill, please?", kr: "계산서 주세요 (미국은 check, 영국은 bill)" },
-        { en: "It was delicious!", kr: "맛있었어요!" },
+      { title: "② 요청 & 계산", intro: "식사 중 요청과 마무리 계산 표현. Could I ~?로 더 정중하게.", points: [
+        { en: "Could I get some water? — 물 좀 주시겠어요?", kr: "Could I = Can I보다 정중",
+          note: "추가 요청은 **Could I get ~?** 가 부드럽습니다.\n• **Could I get** some napkins? (냅킨 좀 주시겠어요?)" },
+        { en: "Can we get the bill, please? — 계산서 주세요", kr: "미국=check, 영국=bill",
+          note: "식사 후 계산서를 청합니다. 미국에선 보통 **check**.\n• Can we get the **check**, please? (미국식)" },
+        { en: "It was delicious! — 정말 맛있었어요!", kr: "나갈 때 한마디",
+          note: "만족했을 때 점원에게 건네는 인사. 분위기가 좋아져요." },
       ]},
     ],
     examples: [
@@ -2483,6 +2536,11 @@ function toast(msg, ms = 3200) {
 /* ═══════════════════════════════════════════════════
    📖 STUDY (Presentation 단계)
 ═══════════════════════════════════════════════════ */
+/* 레슨 설명(note) 렌더: HTML 이스케이프 후 **강조**→<b>, 줄바꿈→<br> */
+function noteHtml(s) {
+  return esc(String(s)).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+}
+
 function renderStudy() {
   const l = currentLesson;
   const op = applyScaffold(l);
@@ -2508,8 +2566,9 @@ function renderStudy() {
   }
   l.sections.forEach(sec => {
     html += `<div class="study-card"><h3>${sec.title}</h3>`;
+    if (sec.intro) html += `<div class="sec-intro">${esc(sec.intro)}</div>`;
     sec.points.forEach(p => {
-      html += `<div class="point"><div class="en">${esc(p.en)}</div>${p.kr ? `<div class="kr">${esc(p.kr)}</div>` : ''}</div>`;
+      html += `<div class="point"><div class="en">${esc(p.en)}</div>${p.kr ? `<div class="kr">${esc(p.kr)}</div>` : ''}${p.note ? `<div class="note">${noteHtml(p.note)}</div>` : ''}</div>`;
     });
     html += `</div>`;
   });
