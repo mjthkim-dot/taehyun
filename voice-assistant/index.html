@@ -48,9 +48,11 @@
     /* ── Mode tabs ── */
     .mode-tabs {
       display: flex; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
+      overflow-x: auto; scrollbar-width: none;
     }
+    .mode-tabs::-webkit-scrollbar { display: none; }
     .mode-tab {
-      flex: 1; padding: 10px 2px; background: none; border: none; border-bottom: 2.5px solid transparent;
+      flex: 1 0 auto; min-width: 56px; padding: 10px 6px; background: none; border: none; border-bottom: 2.5px solid transparent;
       color: var(--text-muted); font-size: 0.74rem; font-weight: 700; cursor: pointer; transition: all 0.2s;
       white-space: nowrap;
     }
@@ -377,6 +379,7 @@
   <button class="mode-tab" data-mode="video" onclick="setMode('video', this)">🎬 영상</button>
   <button class="mode-tab" data-mode="review" onclick="setMode('review', this)">📝 복습</button>
   <button class="mode-tab" data-mode="progress" onclick="setMode('progress', this)">📊 진도</button>
+  <button class="mode-tab" data-mode="features" onclick="setMode('features', this)">🧰 기능</button>
 </div>
 
 <div class="lesson-bar" id="lesson-bar"></div>
@@ -419,11 +422,14 @@
 <!-- 📊 PROGRESS -->
 <div class="panel" id="panel-progress"><div class="panel-inner" id="progress-content"></div></div>
 
+<!-- 🧰 FEATURES HUB -->
+<div class="panel" id="panel-features"><div class="panel-inner" id="features-content"></div></div>
+
 <!-- 🗺 MASTER ROADMAP -->
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.25';
+const APP_VERSION = 'v4.26';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2007,12 +2013,13 @@ function setMode(mode, btn) {
   btn.classList.add('active');
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + mode).classList.add('active');
-  document.getElementById('lesson-bar').style.display = (mode === 'review' || mode === 'progress' || mode === 'master' || mode === 'video') ? 'none' : 'flex';
+  document.getElementById('lesson-bar').style.display = (mode === 'review' || mode === 'progress' || mode === 'master' || mode === 'video' || mode === 'features') ? 'none' : 'flex';
   if (mode === 'drill' && drillQueue.length === 0) renderDrillIntro();
   if (mode === 'review') renderReview();
   if (mode === 'progress') renderProgress();
   if (mode === 'master') renderMaster();
   if (mode === 'video') renderVideo();
+  if (mode === 'features') renderFeatures();
   if (mode === 'talk') renderHelperChips();
   // 회화 탭: 대화가 비어있으면 AI 코치가 먼저 인사하며 수업을 시작
   if (mode === 'talk' && history.length === 0 && !isProcessing) {
@@ -2579,15 +2586,16 @@ function renderVideoInput(el, note) {
     <div class="study-card">
       <h3>🎬 영상으로 배우기</h3>
       <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.7;margin-bottom:12px">
-        좋아하는 유튜브 영상을 넣고, 그 영상의 <b>스크립트(자막)</b>를 붙여넣으면<br>
+        좋아하는 유튜브 영상 주소만 넣고 <b>🤖 자막 자동 가져오기</b>를 누르면<br>
         AI가 <b>문장별 + 단어별로 영어/한국어 번역 + 해석</b>을 카드로 만들어 줍니다.<br>
-        <span style="font-size:0.72rem">💡 자막 복사법: 유튜브 영상 → 더보기(…) → <b>스크립트 표시</b> → 전체 선택·복사</span>
+        <span style="font-size:0.72rem">💡 자동수집이 안 되는 영상은 더보기(…) → <b>스크립트 표시</b>에서 복사해 붙여넣어도 돼요.</span>
       </div>
       <div style="font-size:0.74rem;font-weight:700;margin-bottom:4px">유튜브 주소 또는 영상 ID</div>
       <input id="vid-url" placeholder="https://youtu.be/... 또는 https://www.youtube.com/watch?v=..."
-        style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font-family:inherit;font-size:0.86rem;margin-bottom:10px"/>
-      <div style="font-size:0.74rem;font-weight:700;margin-bottom:4px">영어 스크립트 (자막) 붙여넣기</div>
-      <textarea id="vid-script" rows="6" placeholder="Paste the English transcript here...&#10;예) Hello everyone. Today I want to talk about how to learn English faster..."
+        style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font-family:inherit;font-size:0.86rem;margin-bottom:8px"/>
+      <button class="btn" id="vid-fetch" onclick="autoFetchCaption()" style="width:100%;margin-bottom:12px">🤖 자막 자동 가져오기 (주소만 넣고 누르세요)</button>
+      <div style="font-size:0.74rem;font-weight:700;margin-bottom:4px">영어 스크립트 (자막)</div>
+      <textarea id="vid-script" rows="6" placeholder="위 버튼으로 자동으로 채워지거나, 직접 붙여넣어도 됩니다.&#10;예) Hello everyone. Today I want to talk about how to learn English faster..."
         style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font-family:inherit;font-size:0.86rem;resize:vertical"></textarea>
       <button class="btn primary" id="vid-go" onclick="analyzeVideo()" style="width:100%;margin-top:10px">✨ 문장·단어별로 분석하기</button>
       <button class="btn" onclick="loadSampleVideo()" style="width:100%;margin-top:8px">🎁 샘플 영상으로 체험해보기</button>
@@ -2603,13 +2611,62 @@ function loadSampleVideo() {
   toast('🎁 샘플을 채웠어요. ✨ 분석하기를 눌러보세요!');
 }
 
+/* 🤖 서버리스 프록시(/api/transcript)로 유튜브 자막을 자동 수집해 스크립트 칸을 채운다 */
+async function fetchYouTubeCaption(vid) {
+  const resp = await fetch(`/api/transcript?v=${encodeURIComponent(vid)}`);
+  const ct = resp.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) throw new Error('NO_PROXY');   // 함수 미배포(정적) → HTML이 옴
+  const data = await resp.json();
+  if (!resp.ok || !data.text) throw new Error(data.error || 'no_captions');
+  return data;
+}
+
+async function autoFetchCaption() {
+  const url = (document.getElementById('vid-url')?.value || '').trim();
+  const vid = parseYouTubeId(url);
+  const btn = document.getElementById('vid-fetch');
+  if (!vid) { toast('⚠️ 유튜브 주소를 먼저 넣어주세요.'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = '🤖 자막 가져오는 중...'; }
+  try {
+    const data = await fetchYouTubeCaption(vid);
+    const ta = document.getElementById('vid-script');
+    if (ta) ta.value = data.text;
+    toast(`✅ 자막을 가져왔어요${data.lang ? ` (${data.lang})` : ''} · ✨ 분석하기를 눌러주세요`);
+  } catch (err) {
+    if (err.message === 'NO_PROXY') toast('ℹ️ 자동수집은 배포 환경에서만 동작해요. 스크립트를 직접 붙여넣어 주세요.', 4500);
+    else if (err.message === 'no_captions') toast('😢 이 영상엔 가져올 자막이 없어요. 직접 붙여넣어 주세요.', 4500);
+    else toast('🤖 자막 자동수집에 실패했어요. 스크립트를 직접 붙여넣어 주세요.', 4500);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🤖 자막 자동 가져오기 (주소만 넣고 누르세요)'; }
+  }
+}
+
 async function analyzeVideo() {
   if (videoBusy) return;
   const url = (document.getElementById('vid-url')?.value || '').trim();
-  const script = (document.getElementById('vid-script')?.value || '').trim();
+  let script = (document.getElementById('vid-script')?.value || '').trim();
   const vid = parseYouTubeId(url);
   if (!vid) { renderVideoInput(document.getElementById('video-content'), '⚠️ 유튜브 주소를 인식하지 못했어요. watch?v=… 또는 youtu.be/… 형식으로 넣어주세요.'); return; }
-  if (script.length < 15) { renderVideoInput(document.getElementById('video-content'), '⚠️ 영어 스크립트(자막)를 붙여넣어 주세요. (영상의 더보기 → 스크립트 표시에서 복사)'); return; }
+
+  // 스크립트가 비어 있으면 서버리스 프록시로 자막 자동수집을 먼저 시도
+  if (script.length < 15) {
+    const btn = document.getElementById('vid-go');
+    if (btn) { btn.disabled = true; btn.textContent = '🤖 자막 자동수집 중...'; }
+    try {
+      const data = await fetchYouTubeCaption(vid);
+      script = data.text;
+      const ta = document.getElementById('vid-script');
+      if (ta) ta.value = script;
+    } catch (err) {
+      if (btn) { btn.disabled = false; btn.textContent = '✨ 문장·단어별로 분석하기'; }
+      const msg = err.message === 'NO_PROXY'
+        ? 'ℹ️ 자동수집은 배포 환경에서만 동작해요. 영상의 더보기 → 스크립트 표시에서 자막을 복사해 붙여넣어 주세요.'
+        : '😢 자막을 자동으로 가져오지 못했어요. 스크립트를 직접 붙여넣어 주세요.';
+      renderVideoInput(document.getElementById('video-content'), msg);
+      if (url) { const u = document.getElementById('vid-url'); if (u) u.value = url; }
+      return;
+    }
+  }
 
   videoBusy = true;
   const btn = document.getElementById('vid-go');
@@ -4156,6 +4213,66 @@ function renderProgress() {
 /* ═══════════════════════════════════════════════════
    🗺 MASTER ROADMAP
 ═══════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════
+   🧰 기능 허브 — 흩어진 학습 도구를 한곳에서 실행하는 런처
+═══════════════════════════════════════════════════ */
+function featCard(emoji, title, desc, onclick, accent) {
+  return `<button onclick="${onclick}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 14px;margin-bottom:8px;cursor:pointer;transition:border-color 0.15s" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
+    <span style="font-size:1.5rem;flex:0 0 auto">${emoji}</span>
+    <span style="flex:1;min-width:0">
+      <span style="display:block;font-size:0.9rem;font-weight:800;color:${accent || 'var(--text)'}">${esc(title)}</span>
+      <span style="display:block;font-size:0.74rem;color:var(--text-muted);margin-top:2px;line-height:1.45">${esc(desc)}</span>
+    </span>
+    <span style="color:var(--text-muted);flex:0 0 auto">›</span>
+  </button>`;
+}
+
+function renderFeatures() {
+  const dueCount = dueWeak().length;
+  const phraseCount = load('va_phrases', []).length;
+  const lessonName = currentLesson ? `${lessonLabel(currentLesson)} · ${currentLesson.title}` : '레슨 미선택';
+  let html = `<div style="margin-bottom:14px">
+    <div style="font-size:1rem;font-weight:800;color:var(--primary-light);margin-bottom:4px">🧰 기능 모음</div>
+    <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.6">모든 학습 도구를 한곳에서 — 탭하면 바로 실행됩니다</div>
+  </div>`;
+
+  html += dailyGoalRing();
+
+  html += `<div style="font-size:0.8rem;font-weight:800;color:var(--primary-light);margin:6px 0 8px">🎬 콘텐츠로 배우기</div>`;
+  html += featCard('🎬', '영상 학습', '유튜브 영상 + AI 문장·단어별 영/한 번역·해석', "document.querySelector('[data-mode=video]').click()");
+  html += featCard('📌', '내 표현장', `저장한 표현 ${phraseCount}개 — 모아보기·발음·KR→EN 드릴`, 'openPhrasebook()');
+
+  html += `<div style="font-size:0.8rem;font-weight:800;color:var(--primary-light);margin:14px 0 8px">🗣 말하기 훈련 <span style="font-size:0.7rem;font-weight:400;color:var(--text-muted)">· ${esc(lessonName)}</span></div>`;
+  html += featCard('⚡', '오늘의 훈련', '복습 대기 + 현재 레벨 문장 믹스 (10문항)', 'startDailyMix()', 'var(--yellow)');
+  html += featCard('🎧', '쉐도잉', '원어민 음성만 듣고 그대로 따라 말하기', 'featLaunch("shadow")');
+  html += featCard('🔤', '발음 변별', 'R/L·B/V·P/F 등 헷갈리는 소리쌍 듣고 구별 (IPA·입모양)', 'featLaunch("minpairs")');
+  html += featCard('🤖', 'AI 새 문제', '현재 유닛 문법으로 AI가 새 드릴 무한 생성', 'featLaunch("aidrill")');
+
+  html += `<div style="font-size:0.8rem;font-weight:800;color:var(--primary-light);margin:14px 0 8px">📈 학습 관리</div>`;
+  html += featCard('📝', '간격 반복 복습', `오늘 복습할 문장 ${dueCount}개 — 맞힐수록 복습일이 멀어짐`, "document.querySelector('[data-mode=review]').click()");
+  html += featCard('📊', '진도 & 주간 리포트', 'CEFR/GSE 진도·4대 영역 숙련도·최근 7일 연습량', "document.querySelector('[data-mode=progress]').click()");
+
+  html += `<div style="font-size:0.8rem;font-weight:800;color:var(--primary-light);margin:14px 0 8px">⚙️ 도구</div>`;
+  html += featCard('🎯', 'AI 강사 연결 (Groq)', '무료 키를 등록하면 빠른 AI 대화·분석이 켜집니다', 'openGroqKeyModal()');
+  html += featCard('🔧', '음성 진단', '마이크·음성 합성이 안 될 때 원인을 점검', 'runVoiceDiagnostics()');
+
+  document.getElementById('features-content').innerHTML = html;
+}
+
+/* 기능 허브에서 레슨 컨텍스트가 필요한 드릴류를 드릴 탭으로 전환 후 실행 */
+function featLaunch(kind) {
+  setMode('drill', document.querySelector('[data-mode="drill"]'));
+  if (kind === 'shadow') startShadowDrill();
+  else if (kind === 'minpairs') startMinimalPairs();
+  else if (kind === 'aidrill') generateAiDrills();
+}
+
+/* 음성 진단을 회화 탭의 채팅창에 출력 (기능 허브에서 호출) */
+function runVoiceDiagnostics() {
+  document.querySelector('[data-mode="talk"]').click();
+  setTimeout(() => voiceDiagnostics(), 100);
+}
+
 function renderMaster() {
   const stats = load('va_stats', {});
   const weakCount = load('va_weak', []).length;
