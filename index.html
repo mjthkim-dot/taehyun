@@ -404,7 +404,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.23';
+const APP_VERSION = 'v4.24';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -1834,11 +1834,53 @@ function bumpSkill(skill, sessionGse) {
   return cur;
 }
 
+const DAILY_GOAL = 20;   // 하루 목표 연습 문장 수
 function markPracticedToday() {
   const days = load('va_days', []);
   const today = new Date().toISOString().slice(0, 10);
   if (!days.includes(today)) { days.push(today); store('va_days', days); }
+  // 일일 연습 문장 카운트 (목표 링·주간 리포트용)
+  const counts = load('va_daycount', {});
+  counts[today] = (counts[today] || 0) + 1;
+  store('va_daycount', counts);
   renderStreak();
+}
+function todayCount() {
+  const counts = load('va_daycount', {});
+  return counts[new Date().toISOString().slice(0, 10)] || 0;
+}
+/* 최근 7일 연습량 [{label, count}] (오늘이 마지막) */
+function weeklyCounts() {
+  const counts = load('va_daycount', {});
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  const out = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    out.push({ label: days[d.getDay()], count: counts[key] || 0, today: i === 0 });
+  }
+  return out;
+}
+/* 일일 목표 진행 링 (SVG) */
+function dailyGoalRing() {
+  const done = todayCount();
+  const pct = Math.min(done / DAILY_GOAL, 1);
+  const R = 26, C = 2 * Math.PI * R;
+  const off = C * (1 - pct);
+  const reached = done >= DAILY_GOAL;
+  return `<div style="display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px">
+    <svg width="64" height="64" viewBox="0 0 64 64" style="flex:0 0 auto">
+      <circle cx="32" cy="32" r="${R}" fill="none" stroke="var(--surface2)" stroke-width="7"/>
+      <circle cx="32" cy="32" r="${R}" fill="none" stroke="${reached ? 'var(--green)' : 'var(--primary)'}" stroke-width="7"
+        stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"
+        transform="rotate(-90 32 32)" style="transition:stroke-dashoffset 0.5s"/>
+      <text x="32" y="37" text-anchor="middle" font-size="15" font-weight="800" fill="var(--text)">${reached ? '✓' : done}</text>
+    </svg>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:0.86rem;font-weight:800">${reached ? '🎉 오늘 목표 달성!' : '🎯 오늘의 목표'}</div>
+      <div style="font-size:0.76rem;color:var(--text-muted);margin-top:2px">오늘 <b style="color:var(--text)">${done}</b> / ${DAILY_GOAL}문장 연습 · 🔥 ${calcStreak()}일 연속</div>
+    </div>
+  </div>`;
 }
 function calcStreak() {
   const days = new Set(load('va_days', []));
@@ -2389,6 +2431,96 @@ function closeAsk() {
   if (m) m.style.display = 'none';
 }
 
+/* ═══════════════════════════════════════════════════
+   📌 나만의 표현장 — 회화·드릴·CAF에서 마음에 든 표현을 저장하고 모아서 복습
+═══════════════════════════════════════════════════ */
+function savePhrase(en, kr, note) {
+  en = (en || '').trim(); if (!en) return;
+  const list = load('va_phrases', []);
+  if (list.some(p => p.en.toLowerCase() === en.toLowerCase())) { toast('📌 이미 표현장에 있어요.'); return; }
+  list.push({ en, kr: (kr || '').trim(), note: (note || '').trim(), ts: Date.now() });
+  store('va_phrases', list);
+  toast(`📌 표현장에 저장했어요 (총 ${list.length}개)`);
+  const pb = document.getElementById('phrasebook-list');
+  if (pb) renderPhrasebookList();
+}
+
+function removePhrase(en) {
+  const list = load('va_phrases', []).filter(p => p.en !== en);
+  store('va_phrases', list);
+  renderPhrasebookList();
+}
+
+function ensurePhrasebookModal() {
+  if (document.getElementById('pb-modal')) return;
+  const m = document.createElement('div');
+  m.id = 'pb-modal';
+  m.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;padding:16px';
+  m.addEventListener('click', e => { if (e.target === m) closePhrasebook(); });
+  m.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:min(560px,96vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <b>📌 내 표현장</b>
+        <button class="btn" onclick="closePhrasebook()" style="padding:4px 11px">✕</button>
+      </div>
+      <div style="padding:16px;overflow-y:auto" id="phrasebook-list"></div>
+      <div style="padding:12px 16px;border-top:1px solid var(--border)">
+        <button class="btn primary" id="pb-drill-btn" onclick="drillPhrasebook()" style="width:100%">🔁 표현장 드릴 시작 (KR→EN)</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+}
+
+function openPhrasebook() {
+  ensurePhrasebookModal();
+  document.getElementById('pb-modal').style.display = 'flex';
+  renderPhrasebookList();
+}
+function closePhrasebook() {
+  const m = document.getElementById('pb-modal');
+  if (m) m.style.display = 'none';
+}
+
+function renderPhrasebookList() {
+  const el = document.getElementById('phrasebook-list');
+  if (!el) return;
+  const list = load('va_phrases', []).slice().reverse();
+  const drillBtn = document.getElementById('pb-drill-btn');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-note" style="margin:0">아직 저장한 표현이 없어요.<br>회화·드릴에서 📌 버튼을 눌러 마음에 든 표현을 모아보세요.</div>`;
+    if (drillBtn) drillBtn.style.display = 'none';
+    return;
+  }
+  if (drillBtn) drillBtn.style.display = '';
+  el.innerHTML = list.map(p => `
+    <div class="point" style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+      <div style="flex:1;min-width:0">
+        <div class="en">${esc(p.en)}</div>
+        ${p.kr ? `<div class="kr">${esc(p.kr)}</div>` : ''}
+        ${p.note ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">${esc(p.note)}</div>` : ''}
+      </div>
+      <div style="flex:0 0 auto;display:flex;gap:4px">
+        <button class="speak-mini" onclick="tts('${jsAttr(p.en)}','en-US')">🔊</button>
+        <button class="speak-mini" onclick="ttsSlow('${jsAttr(p.en)}','en-US')" title="0.6배속">🐢</button>
+        <button class="speak-mini" onclick="removePhrase('${jsAttr(p.en)}')" title="삭제">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+/* 표현장에 저장한 문장으로 KR→EN 드릴 (뜻이 없으면 영어 따라 말하기 쉐도잉) */
+function drillPhrasebook() {
+  const list = load('va_phrases', []);
+  if (!list.length) return;
+  closePhrasebook();
+  drillIsReview = false;
+  drillShadow = list.every(p => !p.kr);   // 뜻이 하나도 없으면 쉐도잉으로
+  drillQueue = shuffle(list.map(p => ({ kr: p.kr || '🎧 듣고 따라 말하기', en: p.en, lesson: currentLesson?.id || 0, cat: '📌 내 표현장' })));
+  drillIdx = 0;
+  drillResults = [];
+  setMode('drill', document.querySelector('[data-mode="drill"]'));
+  renderDrillCard();
+}
+
 async function submitAsk() {
   if (askBusy) return;
   const q = (document.getElementById('ask-input').value || '').trim();
@@ -2695,7 +2827,9 @@ function renderStudy() {
     html += `<div class="example-row">
       <div class="txt"><div class="en sync-line" data-text="${jsAttr(e.en)}" data-loop="0" style="font-weight:600">${syncWords(e.en)}</div><div class="kr" style="font-size:0.8rem;color:var(--text-muted)">${esc(e.kr)}</div></div>
       <button class="speak-mini" onclick="playSync(this.closest('.example-row').querySelector('.sync-line'), 0)" title="처음부터 재생">🔊</button>
+      <button class="speak-mini" onclick="ttsSlow('${jsAttr(e.en)}','en-US')" title="0.6배속 느리게">🐢</button>
       <button class="speak-mini" onclick="toggleSyncLoop(this)" title="루프 재생">🔁</button>
+      <button class="speak-mini" onclick="savePhrase('${jsAttr(e.en)}','${jsAttr(e.kr)}','예문')" title="내 표현장에 저장">📌</button>
     </div>`;
   });
   html += `</div>`;
@@ -2735,9 +2869,14 @@ function renderDrillIntro(note) {
         <button class="btn" onclick="startShadowDrill()">🎧 쉐도잉</button>
         <button class="btn" id="ai-drill-btn" onclick="generateAiDrills()">🤖 AI 새 문제</button>
       </div>
+      <div class="drill-actions" style="margin-top:8px">
+        <button class="btn" onclick="startMinimalPairs()">🔤 발음 변별</button>
+        <button class="btn" onclick="openPhrasebook()">📌 내 표현장</button>
+      </div>
       <div style="font-size:0.72rem;color:var(--text-muted);margin-top:12px;line-height:1.7;text-align:left">
         🎧 <b>쉐도잉</b>: 텍스트 없이 원어민 음성만 듣고 그대로 따라 말하기 — 번역하지 않고 소리로 생각하는 훈련<br>
-        🤖 <b>AI 새 문제</b>: 이 유닛의 문법으로 Gemma가 매번 새로운 문장을 무한 생성 — 교재가 끝나지 않습니다
+        🤖 <b>AI 새 문제</b>: 이 유닛의 문법으로 Gemma가 매번 새로운 문장을 무한 생성 — 교재가 끝나지 않습니다<br>
+        🔤 <b>발음 변별</b>: rice/lice 처럼 한국인이 헷갈리는 소리쌍을 귀로 구별하는 훈련 (IPA·입모양 팁 포함)
       </div>
       ${note ? `<div style="font-size:0.78rem;color:#fca5a5;margin-top:10px">${esc(note)}</div>` : ''}
     </div>`;
@@ -2747,7 +2886,7 @@ function startDrill(isReview) {
   drillIsReview = isReview;
   drillShadow = false;
   if (isReview) {
-    drillQueue = load('va_weak', []).map(w => ({ kr: w.kr, en: w.en, lesson: w.lesson, cat: w.cat || '복습' }));
+    drillQueue = dueWeak().map(w => ({ kr: w.kr, en: w.en, lesson: w.lesson, cat: w.cat || '복습' }));
   } else {
     drillQueue = shuffle(DRILL_ITEMS.filter(d => d.lesson === currentLesson.id));
   }
@@ -2765,6 +2904,96 @@ function startShadowDrill() {
   drillResults = [];
   renderDrillCard();
 }
+
+/* ═══════════════════════════════════════════════════
+   🔤 미니멀 페어 발음 변별 드릴 — 한국인이 가장 헷갈리는 소리쌍을
+   귀로 구별하는 훈련. 음성을 듣고 어느 단어였는지 고른다. (ELSA 식)
+═══════════════════════════════════════════════════ */
+const MINIMAL_PAIRS = [
+  { contrast: 'R vs L', tip: '**R**: 혀끝을 어디에도 닿지 않게 안쪽으로 말아요. **L**: 혀끝을 윗니 뒤에 붙여요.',
+    a: { w: 'rice', ipa: '/raɪs/' }, b: { w: 'lice', ipa: '/laɪs/' } },
+  { contrast: 'R vs L', tip: '**R**: 입술을 살짝 둥글게. **L**: 혀끝이 윗잇몸에 닿아요.',
+    a: { w: 'right', ipa: '/raɪt/' }, b: { w: 'light', ipa: '/laɪt/' } },
+  { contrast: 'B vs V', tip: '**B**: 두 입술을 붙였다 떼요. **V**: 윗니로 아랫입술을 살짝 물고 떨어요.',
+    a: { w: 'berry', ipa: '/ˈbɛri/' }, b: { w: 'very', ipa: '/ˈvɛri/' } },
+  { contrast: 'P vs F', tip: '**P**: 두 입술로 터뜨려요. **F**: 윗니로 아랫입술을 대고 바람을 내보내요.',
+    a: { w: 'pull', ipa: '/pʊl/' }, b: { w: 'full', ipa: '/fʊl/' } },
+  { contrast: 'iː vs ɪ', tip: '**ea(iː)**: 길고 또렷한 "이~". **i(ɪ)**: 짧고 힘 빼고 "이".',
+    a: { w: 'sheet', ipa: '/ʃiːt/' }, b: { w: 'shit', ipa: '/ʃɪt/' } },
+  { contrast: 'iː vs ɪ', tip: '**ea(iː)**: 입을 옆으로 길게. **i(ɪ)**: 살짝 편하게.',
+    a: { w: 'seat', ipa: '/siːt/' }, b: { w: 'sit', ipa: '/sɪt/' } },
+  { contrast: 'TH vs S', tip: '**TH(θ)**: 혀끝을 윗니 사이에 살짝 내밀어요. **S**: 혀를 안에 두고 바람만.',
+    a: { w: 'think', ipa: '/θɪŋk/' }, b: { w: 'sink', ipa: '/sɪŋk/' } },
+  { contrast: 'Z vs J(dʒ)', tip: '**Z**: 혀를 떼지 않고 계속 "즈~". **J(dʒ)**: 혀를 붙였다 터뜨려 "쥐".',
+    a: { w: 'zoo', ipa: '/zuː/' }, b: { w: 'Jew', ipa: '/dʒuː/' } },
+];
+let mpQueue = [], mpIdx = 0, mpResults = [], mpTarget = null;
+
+function startMinimalPairs() {
+  drillIsReview = false; drillShadow = false;
+  mpQueue = shuffle(MINIMAL_PAIRS.slice()).slice(0, 6).map(p => ({ pair: p, target: Math.random() < 0.5 ? 'a' : 'b' }));
+  mpIdx = 0; mpResults = [];
+  renderMinPairCard();
+}
+
+function renderMinPairCard() {
+  const el = document.getElementById('drill-content');
+  if (mpIdx >= mpQueue.length) {
+    const ok = mpResults.filter(Boolean).length;
+    const pct = Math.round(ok / mpResults.length * 100);
+    el.innerHTML = `<div class="drill-card drill-done">
+      <div class="big">${pct >= 80 ? '🏆' : pct >= 50 ? '👂' : '💪'}</div>
+      <div class="score">${ok} / ${mpResults.length} (${pct}%)</div>
+      <div class="sub">${pct >= 80 ? '귀가 트였어요! 이 소리들을 회화에서도 또렷이 발음해 보세요.' : '소리쌍을 반복해 들으면 점점 또렷이 구별됩니다.'}</div>
+      <div class="drill-actions" style="margin-top:20px">
+        <button class="btn" onclick="renderDrillIntro()">처음으로</button>
+        <button class="btn primary" onclick="startMinimalPairs()">다시 도전</button>
+      </div></div>`;
+    return;
+  }
+  const { pair, target } = mpQueue[mpIdx];
+  mpTarget = target;
+  const segs = mpQueue.map((_, i) =>
+    `<div class="seg ${i < mpResults.length ? (mpResults[i] ? 'ok' : 'bad') : (i === mpIdx ? 'cur' : '')}"></div>`).join('');
+  el.innerHTML = `
+    <div class="drill-progress">${segs}</div>
+    <div class="drill-card">
+      <div class="drill-label">${mpIdx + 1} / ${mpQueue.length} · 🔤 ${esc(pair.contrast)}</div>
+      <div class="drill-kr" style="font-size:1rem">🎧 어느 단어로 들렸나요?</div>
+      <button class="speak-mini" style="font-size:1.05rem;padding:9px 20px;margin:10px 4px" onclick="ttsMinPairTarget()">🔊 다시 듣기</button>
+      <button class="speak-mini" style="font-size:1.05rem;padding:9px 16px;margin:10px 0" onclick="ttsMinPairTarget(true)" title="0.6배속">🐢 천천히</button>
+      <div style="display:flex;gap:10px;margin-top:6px">
+        <button class="btn" style="flex:1;font-size:1.05rem;padding:14px" onclick="checkMinPair('a')">${esc(pair.a.w)}</button>
+        <button class="btn" style="flex:1;font-size:1.05rem;padding:14px" onclick="checkMinPair('b')">${esc(pair.b.w)}</button>
+      </div>
+      <div class="drill-feedback" id="mp-feedback"></div>
+    </div>`;
+  setTimeout(ttsMinPairTarget, 250);
+}
+
+function ttsMinPairTarget(slow) {
+  const { pair } = mpQueue[mpIdx];
+  const w = pair[mpTarget].w;
+  slow ? ttsSlow(w, 'en-US') : tts(w, 'en-US');
+}
+
+function checkMinPair(chosen) {
+  const { pair } = mpQueue[mpIdx];
+  const correct = chosen === mpTarget;
+  mpResults.push(correct);
+  markPracticedToday();
+  const t = pair[mpTarget], other = pair[mpTarget === 'a' ? 'b' : 'a'];
+  const fb = document.getElementById('mp-feedback');
+  fb.className = 'drill-feedback ' + (correct ? 'correct' : 'wrong');
+  fb.innerHTML = `${correct ? '✅ 정확해요!' : '❌ 아쉬워요.'} 정답: <b>${esc(t.w)}</b> <span style="color:var(--text-muted)">${esc(t.ipa)}</span>
+    <button class="speak-mini" onclick="tts('${jsAttr(t.w)}','en-US')">🔊</button>
+    <div style="font-size:0.8rem;margin-top:6px">↔ <b>${esc(other.w)}</b> <span style="color:var(--text-muted)">${esc(other.ipa)}</span>
+      <button class="speak-mini" onclick="tts('${jsAttr(other.w)}','en-US')">🔊</button></div>
+    <div style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;line-height:1.6">👄 ${noteHtml(pair.tip)}</div>
+    <button class="btn primary" style="width:100%;margin-top:10px" onclick="nextMinPair()">다음 →</button>`;
+}
+
+function nextMinPair() { mpIdx++; renderMinPairCard(); }
 
 /* 🤖 AI 무한 드릴: 현재 유닛의 문법으로 Gemma가 새 문제를 생성 */
 let aiDrillBusy = false;
@@ -2846,7 +3075,7 @@ async function generateAiDrills() {
 
 /* ⚡ 오늘의 훈련: 복습 대기 문장 + 현재 레벨 랜덤 문제 믹스 (10문항) */
 function startDailyMix() {
-  const weak = load('va_weak', []).slice(0, 5).map(w => ({ kr: w.kr, en: w.en, lesson: w.lesson, cat: '🔁 복습' }));
+  const weak = dueWeak().slice(0, 5).map(w => ({ kr: w.kr, en: w.en, lesson: w.lesson, cat: '🔁 복습' }));
   const curLvl = MASTER_CURRICULUM.find(lv => lv.status === 'current') || MASTER_CURRICULUM[1];
   const ids = new Set(curLvl.units.map(u => u.lessonId));
   const pool = shuffle(DRILL_ITEMS.filter(d => ids.has(d.lesson) && !weak.some(w => w.en === d.en)));
@@ -2868,7 +3097,8 @@ function renderDrillCard() {
     `<div class="seg ${i < drillResults.length ? (drillResults[i] ? 'ok' : 'bad') : (i === drillIdx ? 'cur' : '')}"></div>`).join('');
   const question = drillShadow
     ? `<div class="drill-kr" style="font-size:1.05rem">🎧 듣고 그대로 따라 말하세요</div>
-       <button class="speak-mini" style="font-size:1.1rem;padding:9px 22px;margin:8px 0 4px" onclick="tts('${jsAttr(item.en)}','en-US')">🔊 다시 듣기</button>
+       <button class="speak-mini" style="font-size:1.1rem;padding:9px 22px;margin:8px 4px 4px" onclick="tts('${jsAttr(item.en)}','en-US')">🔊 다시 듣기</button>
+       <button class="speak-mini" style="font-size:1.1rem;padding:9px 18px;margin:8px 0 4px" onclick="ttsSlow('${jsAttr(item.en)}','en-US')" title="0.6배속 느리게">🐢 천천히</button>
        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:2px">뜻: ${esc(item.kr)}</div>`
     : `<div class="drill-kr">${esc(item.kr)}</div>`;
   document.getElementById(target).innerHTML = `
@@ -2962,10 +3192,10 @@ function checkDrill() {
   fb.className = 'drill-feedback ' + (correct ? 'correct' : 'wrong');
   fb.innerHTML = correct
     ? `✅ 정답입니다! · 발음 정확도 <b>${ws.score}%</b>${sim < 0.95 ? ' (거의 완벽)' : ''}
-       <div class="target">${esc(item.en)} <button class="speak-mini" onclick="tts('${jsAttr(item.en)}','en-US')">🔊</button></div>
+       <div class="target">${esc(item.en)} <button class="speak-mini" onclick="tts('${jsAttr(item.en)}','en-US')">🔊</button> <button class="speak-mini" onclick="ttsSlow('${jsAttr(item.en)}','en-US')" title="0.6배속">🐢</button> <button class="speak-mini" onclick="savePhrase('${jsAttr(item.en)}','${jsAttr(item.kr)}','드릴')" title="내 표현장에 저장">📌</button></div>
        ${wordScoreHtml(ws.marks)}`
     : `❌ 아쉬워요 · 발음 정확도 <b>${ws.score}%</b>. 정답:
-       <div class="target">${esc(item.en)} <button class="speak-mini" onclick="tts('${jsAttr(item.en)}','en-US')">🔊</button></div>
+       <div class="target">${esc(item.en)} <button class="speak-mini" onclick="tts('${jsAttr(item.en)}','en-US')">🔊</button> <button class="speak-mini" onclick="ttsSlow('${jsAttr(item.en)}','en-US')" title="0.6배속">🐢</button> <button class="speak-mini" onclick="savePhrase('${jsAttr(item.en)}','${jsAttr(item.kr)}','드릴')" title="내 표현장에 저장">📌</button></div>
        ${wordScoreHtml(ws.marks)}
        <span style="opacity:0.8;font-size:0.8rem">내 답: ${esc(answer)} · 🔁 복습 목록에 추가됨 — 빨간 단어를 또렷이 발음하며 3번 따라 말해보세요.</span>`;
   tts(item.en, 'en-US');
@@ -2997,6 +3227,11 @@ function revealDrill() {
 function nextDrill() { drillIdx++; renderDrillCard(); }
 
 function renderDrillDone(target) {
+  if (!drillResults.length) {   // 빈 큐(복습할 문장 없음) → 안내만
+    document.getElementById(target).innerHTML = `<div class="empty-note">🎉 지금 복습할 문장이 없습니다!<br>드릴에서 더 연습하면 틀린 문장이 여기에 쌓입니다.</div>`;
+    drillQueue = [];
+    return;
+  }
   const correct = drillResults.filter(Boolean).length;
   const pct = Math.round(correct / drillResults.length * 100);
   const emoji = pct >= 90 ? '🏆' : pct >= 70 ? '🎉' : '💪';
@@ -3026,19 +3261,35 @@ function recordDrillStat(lessonId, correct) {
 }
 
 /* Leitner 간격 반복: 틀리면 box 0, 맞히면 box+1, box 3이면 졸업 */
+/* 간격 반복(Leitner): 박스가 오를수록 다음 복습일이 멀어진다.
+   box0=오늘, box1=내일(+1일), box2=+3일, box3=졸업(목록에서 제거). */
+const SRS_INTERVAL_DAYS = { 0: 0, 1: 1, 2: 3 };
+function srsDue(box) { return Date.now() + (SRS_INTERVAL_DAYS[box] || 0) * 86400000; }
 function updateWeakList(item, correct) {
   let weak = load('va_weak', []);
   const idx = weak.findIndex(w => w.en === item.en);
   if (correct) {
     if (idx >= 0) {
       weak[idx].box = (weak[idx].box || 0) + 1;
-      if (weak[idx].box >= 3) weak.splice(idx, 1);
+      if (weak[idx].box >= 3) weak.splice(idx, 1);   // 3번 연속 정답 → 졸업
+      else weak[idx].due = srsDue(weak[idx].box);     // 다음 복습일을 뒤로 미룸
     }
   } else {
-    if (idx >= 0) weak[idx].box = 0;
-    else weak.push({ kr: item.kr, en: item.en, lesson: item.lesson, cat: item.cat, box: 0 });
+    if (idx >= 0) { weak[idx].box = 0; weak[idx].due = srsDue(0); }
+    else weak.push({ kr: item.kr, en: item.en, lesson: item.lesson, cat: item.cat, box: 0, due: srsDue(0) });
   }
   store('va_weak', weak);
+}
+
+/* 오늘 복습할 때가 된 문장만(due ≤ now). due 필드가 없는 옛 데이터는 항상 대상. */
+function dueWeak() {
+  const now = Date.now();
+  return load('va_weak', []).filter(w => (w.due == null) || w.due <= now);
+}
+/* 아직 복습일이 안 된(대기 중) 문장 수 */
+function pendingWeakCount() {
+  const now = Date.now();
+  return load('va_weak', []).filter(w => w.due != null && w.due > now).length;
 }
 
 function drillMic() {
@@ -3480,6 +3731,8 @@ function renderCafResult(r, cefr) {
       html += `<div class="para-card">
         <span class="or">${esc(p.original || '')}</span><br>
         <span class="up">${esc(p.upgraded || '')}</span>
+        <button class="speak-mini" onclick="tts('${jsAttr(p.upgraded || '')}','en-US')">🔊</button>
+        <button class="speak-mini" onclick="savePhrase('${jsAttr(p.upgraded || '')}','','${jsAttr(p.note_ko || '')}')" title="내 표현장에 저장">📌</button>
         <div style="font-size:0.72rem;color:var(--text-muted);margin-top:3px">${esc(p.note_ko || '')}</div></div>`;
     });
   }
@@ -3548,17 +3801,34 @@ function renderAiText(raw) {
 function renderReview() {
   const weak = load('va_weak', []);
   const el = document.getElementById('review-content');
+  const due = dueWeak();
+  const pending = pendingWeakCount();
+  let phraseBtn = `<button class="btn" onclick="openPhrasebook()" style="margin-top:10px">📌 내 표현장 (${load('va_phrases', []).length})</button>`;
   if (!weak.length) {
-    el.innerHTML = `<div class="empty-note">🎉 복습할 문장이 없습니다!<br>드릴에서 틀린 문장이 자동으로 여기에 쌓입니다.<br>3번 연속 맞히면 졸업합니다.</div>`;
+    el.innerHTML = `<div class="empty-note">🎉 복습할 문장이 없습니다!<br>드릴에서 틀린 문장이 자동으로 여기에 쌓입니다.<br>3번 연속 맞히면 졸업합니다.</div>
+      <div style="text-align:center">${phraseBtn}</div>`;
     return;
   }
-  let html = `<div class="study-card"><h3>복습 대기 문장 (${weak.length}개) — 3번 맞히면 졸업</h3>`;
+  const now = Date.now();
+  let html = `<div class="study-card"><h3>📝 간격 반복 복습 — 3번 맞히면 졸업</h3>
+    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px;line-height:1.6">
+      오늘 복습할 문장 <b style="color:var(--primary-light)">${due.length}개</b>${pending ? ` · ⏳ 대기 중 ${pending}개 (복습일이 미래)` : ''}<br>
+      <span style="font-size:0.72rem">맞힐수록 다음 복습일이 멀어집니다 (오늘 → +1일 → +3일 → 졸업)</span>
+    </div>`;
   weak.forEach(w => {
     const boxes = '●'.repeat(w.box || 0) + '○'.repeat(3 - (w.box || 0));
-    html += `<div class="point"><div class="en">${esc(w.kr)}</div>
-      <div class="kr">${esc(w.en)} <span style="color:var(--green);letter-spacing:2px;margin-left:6px">${boxes}</span></div></div>`;
+    const isDue = (w.due == null) || w.due <= now;
+    const dueTag = isDue
+      ? `<span style="color:var(--yellow);font-size:0.7rem;margin-left:6px">● 오늘</span>`
+      : `<span style="color:var(--text-muted);font-size:0.7rem;margin-left:6px">⏳ ${new Date(w.due).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}</span>`;
+    html += `<div class="point" style="${isDue ? '' : 'opacity:0.5'}"><div class="en">${esc(w.kr)}${dueTag}</div>
+      <div class="kr">${esc(w.en)} <button class="speak-mini" onclick="tts('${jsAttr(w.en)}','en-US')">🔊</button> <span style="color:var(--green);letter-spacing:2px;margin-left:4px">${boxes}</span></div></div>`;
   });
-  html += `</div><button class="start-drill-btn" onclick="startDrill(true)">복습 드릴 시작 →</button>`;
+  html += `</div>`;
+  html += due.length
+    ? `<button class="start-drill-btn" onclick="startDrill(true)">오늘 복습 드릴 시작 (${due.length}) →</button>`
+    : `<div class="empty-note" style="margin-top:12px">✅ 오늘 복습할 문장을 모두 끝냈어요!<br>대기 중인 ${pending}개는 복습일이 되면 다시 나타납니다.</div>`;
+  html += `<div style="text-align:center">${phraseBtn}</div>`;
   el.innerHTML = html;
 }
 
@@ -3612,6 +3882,29 @@ function cafDashboardHtml() {
   return html;
 }
 
+/* 📅 주간 리포트 — 최근 7일 연습량 막대그래프 + 합계 */
+function weeklyReportHtml() {
+  const week = weeklyCounts();
+  const total = week.reduce((s, d) => s + d.count, 0);
+  const max = Math.max(DAILY_GOAL, ...week.map(d => d.count));
+  const activeDays = week.filter(d => d.count > 0).length;
+  const bars = week.map(d => {
+    const h = Math.round((d.count / max) * 70) + 2;
+    const reached = d.count >= DAILY_GOAL;
+    const color = reached ? 'var(--green)' : d.today ? 'var(--primary-light)' : 'var(--primary)';
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="font-size:0.62rem;color:var(--text-muted);height:12px">${d.count || ''}</div>
+      <div style="width:60%;height:${h}px;background:${color};border-radius:4px 4px 0 0;opacity:${d.count ? 1 : 0.25}"></div>
+      <div style="font-size:0.66rem;color:${d.today ? 'var(--primary-light)' : 'var(--text-muted)'};font-weight:${d.today ? 700 : 400}">${d.label}</div>
+    </div>`;
+  }).join('');
+  return `<div class="caf-wrap">
+    <h3>📅 주간 리포트</h3>
+    <div class="caf-sub">최근 7일 동안 <b style="color:var(--text)">${total}문장</b> 연습 · ${activeDays}일 활동 · 목표선 ${DAILY_GOAL}/일</div>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:100px;margin-top:8px;border-bottom:1px solid var(--border);padding-bottom:2px">${bars}</div>
+  </div>`;
+}
+
 function renderProgress() {
   const stats = load('va_stats', {});
   const missionsDone = load('va_missions', {});
@@ -3629,6 +3922,7 @@ function renderProgress() {
   </div>`;
 
   html += cafDashboardHtml();
+  html += weeklyReportHtml();
 
   LESSONS.forEach(l => {
     const s = stats[l.id] || { attempts: 0, correct: 0 };
@@ -3666,10 +3960,15 @@ function renderProgress() {
 function renderMaster() {
   const stats = load('va_stats', {});
   const weakCount = load('va_weak', []).length;
+  const dueCount = dueWeak().length;
   let html = `<div style="margin-bottom:14px">
     <div style="font-size:1rem;font-weight:800;color:var(--primary-light);margin-bottom:4px">🏠 PREPLY AI 스피킹 코치</div>
     <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.6">CEFR A1 → C2 로드맵 · 현재 A2 진행 중</div>
-    <button class="start-drill-btn" style="margin-top:12px" onclick="startDailyMix()">⚡ 오늘의 훈련 시작${weakCount ? ` — 복습 ${Math.min(weakCount, 5)}문항 포함` : ' (랜덤 10문항)'}</button>
+  </div>
+  ${dailyGoalRing()}
+  <div style="margin-bottom:14px">
+    <button class="start-drill-btn" onclick="startDailyMix()">⚡ 오늘의 훈련 시작${dueCount ? ` — 복습 ${Math.min(dueCount, 5)}문항 포함` : ' (랜덤 10문항)'}</button>
+    <button class="btn" style="width:100%;margin-top:8px" onclick="openPhrasebook()">📌 내 표현장 (${load('va_phrases', []).length})</button>
   </div>
 
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px">
@@ -4089,7 +4388,7 @@ function whenVoicesReady(cb) {
   setTimeout(run, 350);          // 이벤트가 안 와도 재생 시도
 }
 
-function tts(text, lang) {
+function tts(text, lang, opts = {}) {
   const synth = window.speechSynthesis;
   if (!synth) { toast('🔊 이 브라우저는 음성 합성을 지원하지 않습니다.'); return; }
   const clean = cleanForSpeech(text);
@@ -4100,7 +4399,7 @@ function tts(text, lang) {
     setTimeout(() => {
       const u = new SpeechSynthesisUtterance(clean);
       u.lang = lang;
-      u.rate = 0.95;   // 또박또박 (따라 말하기 좋게)
+      u.rate = opts.rate ?? 0.95;   // 또박또박 (따라 말하기 좋게) · 0.6 = 슬로우 재생
       u.pitch = 1.06;
       const v = pickVoice(lang);
       if (v) u.voice = v;
@@ -4110,6 +4409,9 @@ function tts(text, lang) {
   };
   whenVoicesReady(speakNow);
 }
+
+/* 🐢 슬로우 재생 (0.6배속) — 빠른 원어민 발음을 또박또박 분해해 듣는다 */
+function ttsSlow(text, lang) { tts(text, lang || 'en-US', { rate: 0.6 }); }
 
 /* 🔧 음성 진단 — 마이크/음성이 안 될 때 원인을 한눈에 보여준다 */
 async function voiceDiagnostics() {
@@ -4405,6 +4707,12 @@ function addAiMsg() {
   tbtn.textContent = '🇰🇷 번역';
   tbtn.onclick = () => toggleTranslate(div, bubble, tbtn);
   meta.appendChild(tbtn);
+  // 📌 이 표현을 내 표현장에 저장
+  const sbtn = document.createElement('button');
+  sbtn.className = 'tr-btn';
+  sbtn.textContent = '📌 저장';
+  sbtn.onclick = () => savePhrase((bubble.innerText || '').trim(), '', '회화');
+  meta.appendChild(sbtn);
   div.appendChild(meta);
   document.getElementById('chat').appendChild(div);
   scrollBottom();
