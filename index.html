@@ -404,7 +404,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.22';
+const APP_VERSION = 'v4.23';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -851,15 +851,21 @@ const MASTER_LESSONS = [
   /* ── A1 입문 ── */
   { id: 201, master: 'A1', title: '인사 & 자기소개',
     sections: [
-      { title: '기본 인사', points: [
-        { en: 'Hello! / Hi! / Good morning!', kr: '기본 인사 — 아침엔 Good morning' },
-        { en: 'Nice to meet you.', kr: '만나서 반가워요 (처음 만났을 때)' },
-        { en: "How are you? — I'm good, thanks. And you?", kr: '안부 묻고 답하기' },
+      { title: '① 기본 인사', intro: '처음 만나거나 안부를 물을 때 쓰는 가장 기본적인 표현입니다. 시간대와 상황에 맞춰 골라 쓰면 됩니다.', points: [
+        { en: 'Hello! / Hi! / Good morning!', kr: '기본 인사 — 아침엔 Good morning',
+          note: '**Hi**는 친근하게 아무 때나, **Hello**는 조금 더 정중하게. 시간대 인사도 있어요.\n• Good **morning**(오전) / Good **afternoon**(오후) / Good **evening**(저녁)' },
+        { en: 'Nice to meet you.', kr: '만나서 반가워요 (처음 만났을 때)',
+          note: '**처음** 만난 사람에게만 씁니다. 헤어질 땐 과거형으로 **Nice to meet you.**가 아니라 **It was nice meeting you.**\n• 상대가 먼저 말하면: Nice to meet you, **too**.' },
+        { en: "How are you? — I'm good, thanks. And you?", kr: '안부 묻고 답하기',
+          note: '안부를 물으면 답하고 **되물어 주는** 게 자연스러워요.\n• I\'m **good** / **great** / **not bad**, thanks. **And you?**' },
       ]},
-      { title: '자기소개', points: [
-        { en: "My name is... / I'm...", kr: '이름 말하기' },
-        { en: "I'm from Seoul, Korea.", kr: '출신 말하기' },
-        { en: 'I like / enjoy + 동사ing', kr: 'I like watching movies (좋아하는 것)' },
+      { title: '② 자기소개', intro: '이름 → 출신 → 좋아하는 것 순서로 말하면 짧고 깔끔한 자기소개가 됩니다.', points: [
+        { en: "My name is... / I'm...", kr: '이름 말하기',
+          note: '둘 다 같은 뜻. **I\'m + 이름**이 더 캐주얼합니다.\n• **My name is** Taehyun. = **I\'m** Taehyun.' },
+        { en: "I'm from Seoul, Korea.", kr: '출신 말하기',
+          note: '출신지는 **I\'m from + 장소**.\n• I\'m **from** Busan. / Where are you **from**? (어디서 왔어요?)' },
+        { en: 'I like / enjoy + 동사ing', kr: 'I like watching movies (좋아하는 것)',
+          note: '좋아하는 활동은 동사에 **-ing**.\n• I like **watching** movies. / I enjoy **cooking**. (like 뒤엔 to부정사도 가능: like to watch)' },
       ]},
     ],
     examples: [
@@ -871,14 +877,19 @@ const MASTER_LESSONS = [
     scenario: { title: '첫 만남 자기소개', desc: 'AI가 처음 만난 외국인 친구가 됩니다. 인사하고 서로 소개해 보세요.' } },
   { id: 202, master: 'A1', title: '숫자 & 날짜',
     sections: [
-      { title: '숫자 & 나이', points: [
-        { en: 'thirteen(13) vs thirty(30)', kr: '-teen은 뒤를 강하게, -ty는 앞을 강하게 발음' },
-        { en: 'I am thirty years old.', kr: '나이 말하기' },
+      { title: '① 숫자 & 나이', intro: '숫자는 회화의 기본 재료입니다. 특히 13과 30처럼 헷갈리는 발음을 정확히 구분해 보세요.', points: [
+        { en: 'thirteen(13) vs thirty(30) — 강세가 핵심', kr: '-teen은 뒤를, -ty는 앞을 강하게',
+          note: '둘을 가르는 건 **강세 위치**입니다.\n• thir**TEEN**(13) — 뒤를 세게, 끝을 길게\n• **THIR**ty(30) — 앞을 세게, 끝은 약하게\n같은 패턴: fourteen↔forty, fifteen↔fifty' },
+        { en: 'I am thirty years old.', kr: '나이 말하기',
+          note: '나이는 **be동사 + 숫자 + years old**.\n• How old are you? — I\'m **thirty (years old)**. (years old는 생략 가능)' },
       ]},
-      { title: '시간 & 날짜', points: [
-        { en: "What time is it? — It's three thirty.", kr: '시간 묻고 답하기 (3:30)' },
-        { en: 'What day is it today? — It\'s Friday.', kr: '요일 묻기 / Monday~Sunday' },
-        { en: 'My birthday is on May 5th.', kr: '날짜 앞엔 on / 서수(5th) 사용' },
+      { title: '② 시간 & 날짜', intro: '약속을 잡으려면 시간·요일·날짜를 말할 수 있어야 해요. 전치사 짝꿍을 함께 외우세요.', points: [
+        { en: "What time is it? — It's three thirty.", kr: '시간 묻고 답하기 (3:30)',
+          note: '시간은 **시 + 분** 순서로 그냥 읽으면 됩니다.\n• 3:30 → **three thirty** / 7:15 → **seven fifteen**\n• 정각은 o\'clock: 5:00 → **five o\'clock**' },
+        { en: "What day is it today? — It's Friday.", kr: '요일 묻기 / Monday~Sunday',
+          note: '요일은 항상 **대문자**로 시작.\n• Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday\n• 요일 앞 전치사는 **on**: **on** Friday' },
+        { en: 'My birthday is on May 5th.', kr: '날짜 앞엔 on / 서수(5th) 사용',
+          note: '날짜는 **서수**(다섯 번째)로 읽습니다.\n• May **5th**(fifth), June **1st**(first), March **3rd**(third)\n• 특정 날짜 앞엔 **on**: **on** May 5th' },
       ]},
     ],
     examples: [
@@ -890,13 +901,17 @@ const MASTER_LESSONS = [
     scenario: { title: '약속 잡기', desc: 'AI와 만날 요일·시간을 정해 보세요. 숫자와 날짜를 영어로!' } },
   { id: 203, master: 'A1', title: '관사 & 명사',
     sections: [
-      { title: '관사', points: [
-        { en: 'a + 자음: a book / an + 모음: an apple', kr: '막연한 하나' },
-        { en: 'the: 서로 아는 특정한 것', kr: 'Please close the door (그 문)' },
+      { title: '① 관사 a / an / the', intro: '한국어엔 없는 개념이라 어렵게 느껴지지만, "아무거나 하나"면 a/an, "바로 그것"이면 the로 기억하세요.', points: [
+        { en: 'a + 자음 소리: a book / an + 모음 소리: an apple', kr: '막연한 하나',
+          note: '여럿 중 **아무거나 하나**일 때. 뒤 단어가 모음 소리면 **an**.\n• **a** book, **a** car / **an** apple, **an** hour(h 묵음 → an)' },
+        { en: 'the: 서로 아는 특정한 것', kr: 'Please close the door (그 문)',
+          note: '말하는 사람과 듣는 사람이 **둘 다 아는** 그것.\n• Please close **the** door. (지금 여기 있는 그 문)\n• 세상에 하나뿐인 것: **the** sun, **the** sky' },
       ]},
-      { title: '복수형 & 소유격', points: [
-        { en: '복수형: books, apples / -es: boxes, watches', kr: '둘 이상이면 -s/-es' },
-        { en: 'my / your / his / her / our / their + 명사', kr: 'This is my bag (소유격)' },
+      { title: '② 복수형 & 소유격', intro: '둘 이상이면 명사에 -s를 붙이고, "누구의 것"인지는 소유격으로 표현합니다.', points: [
+        { en: '복수형: books, apples / -es: boxes, watches', kr: '둘 이상이면 -s/-es',
+          note: '보통 **-s**, 끝이 s·x·ch·sh면 **-es**.\n• book→book**s**, box→box**es**, watch→watch**es**\n• 불규칙: child→**children**, man→**men**, foot→**feet**' },
+        { en: 'my / your / his / her / our / their + 명사', kr: 'This is my bag (소유격)',
+          note: '명사 앞에 붙여 **누구의 것**인지 표시.\n• **my** bag(내), **your** car(네), **his/her** name(그의/그녀의), **our/their** house(우리/그들의)' },
       ]},
     ],
     examples: [
@@ -908,13 +923,17 @@ const MASTER_LESSONS = [
     scenario: { title: '내 물건 소개', desc: '가지고 있는 물건들을 관사·소유격을 써서 소개해 보세요.' } },
   { id: 204, master: 'A1', title: 'be 동사 기초',
     sections: [
-      { title: 'be 동사 짝', points: [
-        { en: 'I am / You are / He, She, It is / We, They are', kr: '주어마다 짝이 정해져 있어요' },
-        { en: '뒤에 명사나 형용사: I am a student / I am tired', kr: '직업·상태·기분 표현' },
+      { title: '① be동사 — am / is / are', intro: 'be동사는 "~이다 / ~에 있다 / ~한 상태다"를 나타내는 가장 기본 동사입니다. 주어마다 짝이 정해져 있어요.', points: [
+        { en: 'I am / You are / He·She·It is / We·They are', kr: '주어마다 짝이 정해져 있어요',
+          note: '주어에 맞는 be동사를 외워두세요.\n• **I am**(I\'m) / **You are**(You\'re) / **He/She/It is**(He\'s) / **We/They are**(We\'re)' },
+        { en: '뒤에 명사·형용사: I am a student / I am tired', kr: '직업·상태·기분 표현',
+          note: 'be동사 뒤에 **직업**(명사)이나 **상태·기분**(형용사)을 붙입니다.\n• I am **a teacher**. (직업) / I am **happy**. (기분) / She is **kind**. (성격)' },
       ]},
-      { title: '부정 & 의문', points: [
-        { en: "부정: I'm not / isn't / aren't", kr: 'They are not busy' },
-        { en: '의문: Are you...? Is she...? — Yes, I am / No, she isn\'t', kr: 'be동사를 앞으로' },
+      { title: '② 부정 & 의문', intro: '"아니다"는 not을 넣고, "~이니?"는 be동사를 맨 앞으로 보냅니다.', points: [
+        { en: "부정: I'm not / isn't / aren't", kr: 'They are not busy',
+          note: 'be동사 뒤에 **not**.\n• I\'m **not** tired. / She **isn\'t**(is not) here. / They **aren\'t**(are not) busy.' },
+        { en: "의문: Are you...? Is she...? — Yes, I am / No, she isn't", kr: 'be동사를 앞으로',
+          note: 'be동사를 **문장 맨 앞**으로 옮기면 질문이 됩니다.\n• **Are you** tired? — Yes, I **am**. / No, I\'m **not**.\n• **Is she** a doctor? — Yes, she **is**.' },
       ]},
     ],
     examples: [
@@ -926,14 +945,19 @@ const MASTER_LESSONS = [
     scenario: { title: '기분과 상태 말하기', desc: 'AI가 기분·직업·상태를 물어봅니다. be동사로 답하세요.' } },
   { id: 205, master: 'A1', title: '가족 & 묘사',
     sections: [
-      { title: '가족 어휘', points: [
-        { en: 'mother / father / sister / brother / parents', kr: '가족 구성원' },
-        { en: 'There are four people in my family.', kr: '가족 수 말하기' },
+      { title: '① 가족 어휘', intro: '가족을 소개하려면 구성원 단어와 "몇 명인지" 말하는 법이 필요해요.', points: [
+        { en: 'mother / father / sister / brother / parents', kr: '가족 구성원',
+          note: '캐주얼하게는 **mom/dad**.\n• 손위/손아래 구분이 필요하면: **older** sister(누나·언니), **younger** brother(남동생)\n• parents(부모), grandparents(조부모)' },
+        { en: 'There are four people in my family.', kr: '가족 수 말하기',
+          note: '인원수는 **There are + 숫자 + people in my family**.\n• There **are** four people... / 한 명이면 There **is** one person...' },
       ]},
-      { title: '사람 묘사', points: [
-        { en: 'He is tall / short / funny / kind', kr: 'be + 형용사로 묘사' },
-        { en: 'She has brown eyes / long hair', kr: 'has로 특징 말하기' },
-        { en: 'He looks like his father.', kr: '~를 닮았다' },
+      { title: '② 사람 묘사 — be / has / look like', intro: '외모와 성격을 말하는 세 가지 틀: 성격·상태는 be, 가진 특징은 has, 닮음은 look like.', points: [
+        { en: 'He is tall / short / funny / kind', kr: 'be + 형용사로 묘사',
+          note: '키·성격·인상은 **be + 형용사**.\n• He **is** tall. / She **is** funny. / They **are** friendly.' },
+        { en: 'She has brown eyes / long hair', kr: 'has로 특징 말하기',
+          note: '눈·머리 등 **가진 특징**은 **have/has**.\n• She **has** long hair. / He **has** brown eyes. (3인칭 단수는 has)' },
+        { en: 'He looks like his father.', kr: '~를 닮았다',
+          note: '닮았다는 **look like + 사람**.\n• You **look like** your mom. (엄마 닮았네)\n• 참고: He **looks** tired.(피곤해 보여)는 like 없이 형용사' },
       ]},
     ],
     examples: [
@@ -947,15 +971,21 @@ const MASTER_LESSONS = [
   /* ── B1 중급 ── */
   { id: 301, master: 'B1', title: '현재 완료',
     sections: [
-      { title: 'have/has + 과거분사', points: [
-        { en: 'I have been to Japan.', kr: '~에 가 본 적 있다 (경험)' },
-        { en: 'Have you ever eaten kimchi?', kr: '~해 본 적 있어? (ever = 한 번이라도)' },
-        { en: 'I have just eaten. / She has already finished.', kr: 'just(방금) / already(이미)' },
-        { en: "I haven't watched it yet.", kr: 'yet(아직) — 부정문·의문문 끝에' },
+      { title: '① have/has + 과거분사 (현재완료)', intro: '"지금까지 ~해 봤다 / 막 ~했다"처럼 과거의 일이 지금과 연결될 때 씁니다. 형태는 have/has + 과거분사(p.p.).', points: [
+        { en: 'I have been to Japan. — 가 본 적 있다 (경험)', kr: 'have/has + p.p.',
+          note: '**경험**을 말할 때. been to = 가 본 적 있다.\n• I **have been** to Japan. / She **has been** to Paris. (3인칭은 has)' },
+        { en: 'Have you ever eaten kimchi?', kr: '~해 본 적 있어? (ever = 한 번이라도)',
+          note: '경험을 **물을** 땐 **Have you ever + p.p.?**\n• **Have you ever** tried Korean food? — Yes, I **have**. / No, I **haven\'t**.' },
+        { en: 'I have just eaten. / She has already finished.', kr: 'just(방금) / already(이미)',
+          note: '**방금/이미** 끝난 일. just·already는 have와 p.p. 사이에.\n• I have **just** arrived. (방금 도착) / She has **already** left. (이미 떠남)' },
+        { en: "I haven't watched it yet.", kr: 'yet(아직) — 부정문·의문문 끝에',
+          note: '**아직** 안 했다. yet은 문장 **끝**에.\n• I haven\'t finished **yet**. / Have you eaten **yet**?' },
       ]},
-      { title: '과거형과 차이', points: [
-        { en: 'I went to Japan in 2020. (과거 — 시점 명시)', kr: '언제인지 말하면 과거형' },
-        { en: 'I have been to Japan. (완료 — 경험 자체)', kr: '경험·결과가 지금까지 이어짐' },
+      { title: '② 과거형 vs 현재완료', intro: '둘 다 지난 일이지만, "언제"가 중요하면 과거형, "경험·결과"가 중요하면 현재완료입니다.', points: [
+        { en: 'I went to Japan in 2020. (과거 — 시점 명시)', kr: '언제인지 말하면 과거형',
+          note: '**구체적 시점**(yesterday, in 2020, last week)이 있으면 반드시 **과거형**.\n• I **went** there **last year**. (현재완료와 함께 쓸 수 없음)' },
+        { en: 'I have been to Japan. (완료 — 경험 자체)', kr: '경험·결과가 지금까지 이어짐',
+          note: '**언제인지 말 안 하고** 경험 자체를 말하면 **현재완료**.\n• I **have been** to Japan (twice). (몇 번인지는 OK, 정확한 날짜는 ❌)' },
       ]},
     ],
     examples: [
@@ -967,14 +997,19 @@ const MASTER_LESSONS = [
     scenario: { title: '여행 & 경험 수다', desc: 'AI가 가 본 곳, 해 본 것을 물어봅니다. 현재 완료로 답하세요.' } },
   { id: 302, master: 'B1', title: '비교급 & 최상급',
     sections: [
-      { title: '비교급', points: [
-        { en: '짧은 단어 + er: bigger, faster + than', kr: 'Seoul is bigger than Busan' },
-        { en: '긴 단어: more + 형용사', kr: 'more interesting than' },
-        { en: 'as + 형용사 + as: 만큼 ~하다', kr: 'He is as tall as me' },
+      { title: '비교급', intro: '두 가지를 서로 비교할 때 사용합니다. 형용사의 **길이(음절 수)**에 따라 형태가 달라집니다.', points: [
+        { en: '짧은 단어 + er: bigger, faster + than', kr: 'Seoul is bigger than Busan',
+          note: '음절이 **1~2개**인 짧은 형용사는 끝에 **-er**을 붙이고 than으로 비교합니다.\n**big→bigger, fast→faster, old→older**\ne로 끝나면 r만(nice→nicer), 단모음+자음이면 자음을 하나 더(big→bigger, hot→hotter).' },
+        { en: '긴 단어: more + 형용사', kr: 'more interesting than',
+          note: '음절이 **3개 이상**인 형용사 앞에 **more**를 붙입니다.\n**more interesting, more expensive, more comfortable**\n2음절 형용사는 두 방법 모두 가능: cleverer / more clever.' },
+        { en: 'as + 형용사 + as: 만큼 ~하다', kr: 'He is as tall as me',
+          note: '두 대상이 **같은 정도**임을 표현합니다.\n**as tall as me = 나만큼 키가 크다**\n부정형: **not as tall as = 나만큼 크지 않다**' },
       ]},
-      { title: '최상급', points: [
-        { en: 'the + est / the most + 형용사', kr: 'the best, the most famous' },
-        { en: '불규칙: good-better-best / bad-worse-worst', kr: '' },
+      { title: '최상급', intro: '셋 이상 중에서 가장 높은(낮은) 정도를 표현할 때 씁니다. 반드시 **the**를 붙입니다.', points: [
+        { en: 'the + est / the most + 형용사', kr: 'the best, the most famous',
+          note: '짧은 단어: **the + -est** → the tallest, the fastest\n긴 단어: **the most** → the most beautiful\n최상급 앞에는 **반드시 the**를 쓰세요!' },
+        { en: '불규칙: good-better-best / bad-worse-worst', kr: '',
+          note: '자주 쓰이는 **불규칙 비교급·최상급**:\ngood → better → **best**\nbad → worse → **worst**\nlittle → less → **least**\nfar → farther → farthest (거리) / further → furthest (정도)\n꼭 외워 두세요.' },
       ]},
     ],
     examples: [
@@ -986,14 +1021,19 @@ const MASTER_LESSONS = [
     scenario: { title: '베스트 추천 토크', desc: '최고의 음식·영화·장소를 비교급·최상급으로 추천해 보세요.' } },
   { id: 303, master: 'B1', title: '조동사',
     sections: [
-      { title: '능력 & 요청', points: [
-        { en: 'can: 능력/허락 — I can swim.', kr: '~할 수 있다' },
-        { en: 'Could you...?: 정중한 요청', kr: 'Could you open the window?' },
+      { title: '능력 & 요청', intro: '조동사는 동사 앞에 붙어 **가능성·허락·요청·조언·의무·추측** 등의 의미를 더합니다. 조동사 다음에는 반드시 **동사 원형**을 씁니다.', points: [
+        { en: 'can: 능력/허락 — I can swim.', kr: '~할 수 있다',
+          note: '**can + 동사 원형**으로 능력(~할 수 있다) 또는 허락(~해도 돼)을 표현합니다.\n과거형: **could** — I could swim when I was young (어렸을 때 수영할 수 있었다).' },
+        { en: 'Could you...?: 정중한 요청', kr: 'Could you open the window?',
+          note: '**Could you + 동사 원형?** 은 Can you보다 **훨씬 정중한 요청** 표현입니다.\n업무·공식 상황에서 자연스럽습니다.\n**Could you please...?** 로 쓰면 더욱 격식 있습니다.' },
       ]},
-      { title: '조언 & 의무 & 추측', points: [
-        { en: 'should: 조언 — You should get some rest.', kr: '~하는 게 좋겠다' },
-        { en: 'must: 의무 — I must go now.', kr: '반드시 ~해야 한다' },
-        { en: 'might: 추측 — It might rain tomorrow.', kr: '~일지도 모른다' },
+      { title: '조언 & 의무 & 추측', intro: '상대에게 조언할 때, 의무를 강조할 때, 가능성을 추측할 때 각각 다른 조동사를 씁니다.', points: [
+        { en: 'should: 조언 — You should get some rest.', kr: '~하는 게 좋겠다',
+          note: '**should + 동사 원형**으로 조언 또는 권고를 표현합니다.\nmust보다 **부드러운 표현**입니다.\n부정형: **shouldn\'t** = ~하지 않는 게 좋겠어.' },
+        { en: 'must: 의무 — I must go now.', kr: '반드시 ~해야 한다',
+          note: '**must + 동사 원형**은 강한 의무(꼭 해야 한다)를 나타냅니다.\n구어에서는 **have to**로 대체되는 경우가 많습니다.\n**mustn\'t** = 절대 ~해서는 안 된다 (금지).' },
+        { en: 'might: 추측 — It might rain tomorrow.', kr: '~일지도 모른다',
+          note: '**might + 동사 원형**은 **50% 미만의 낮은 가능성**을 추측할 때 씁니다.\n비슷한 표현: **may**(약 50%), **could**(가능성 있음)\nIt might rain. / It may rain. / It could rain.' },
       ]},
     ],
     examples: [
@@ -1005,15 +1045,21 @@ const MASTER_LESSONS = [
     scenario: { title: '고민 상담', desc: 'AI가 고민을 말합니다. should/might를 써서 조언해 보세요.' } },
   { id: 304, master: 'B1', title: '여행 & 길 찾기',
     sections: [
-      { title: '길 묻기', points: [
-        { en: 'Excuse me, where is the station?', kr: '실례합니다, 역이 어디인가요?' },
-        { en: 'How far is it from here?', kr: '여기서 얼마나 멀어요?' },
-        { en: 'How long does it take?', kr: '시간이 얼마나 걸려요?' },
+      { title: '길 묻기', intro: '낯선 곳에서 길을 물을 때는 먼저 **Excuse me**로 정중하게 말을 걸어야 합니다. 길을 모를 때는 "I\'m sorry, I don\'t know."라고 솔직히 말해도 됩니다.', points: [
+        { en: 'Excuse me, where is the station?', kr: '실례합니다, 역이 어디인가요?',
+          note: '가장 기본적인 길 묻기 표현. **Where is + 장소?** 구조.\n길을 찾을 때는 the + 장소명을 씁니다: **the station, the hospital, the hotel**.' },
+        { en: 'How far is it from here?', kr: '여기서 얼마나 멀어요?',
+          note: '거리를 물을 때 씁니다.\n답변 예시: "It\'s about 500 meters." / "It\'s a 10-minute walk."' },
+        { en: 'How long does it take?', kr: '시간이 얼마나 걸려요?',
+          note: '이동 시간을 물을 때 씁니다.\n이동 수단을 명시하려면: **by bus/subway/foot**을 붙입니다.\n"How long does it take **by subway**?"' },
       ]},
-      { title: '길 안내', points: [
-        { en: 'Turn left / right at the corner.', kr: '모퉁이에서 좌/우회전' },
-        { en: 'Go straight for two blocks.', kr: '두 블록 직진' },
-        { en: 'Take subway line two to City Hall.', kr: '2호선을 타세요' },
+      { title: '길 안내', intro: '길을 안내할 때는 방향(turn left/right) → 직진(go straight) → 목적지(You\'ll see it on your left) 순서로 말합니다.', points: [
+        { en: 'Turn left / right at the corner.', kr: '모퉁이에서 좌/우회전',
+          note: '**Turn left** (좌회전) / **Turn right** (우회전).\n신호등 앞이라면: "at the traffic lights" 로 표현합니다.\n예: "Turn right **at the traffic lights**."' },
+        { en: 'Go straight for two blocks.', kr: '두 블록 직진',
+          note: '**Go straight** = 직진. **block** = 도로 한 칸(미국식 거리 단위).\n예: "**Go straight for two blocks**, then turn left."' },
+        { en: 'Take subway line two to City Hall.', kr: '2호선을 타세요',
+          note: '**Take + 교통수단**으로 이동 방법을 안내합니다.\nTake the bus / Take a taxi / Take subway line 2\n내릴 역: **to + 역명** — to City Hall, to Gangnam.' },
       ]},
     ],
     examples: [
@@ -1026,15 +1072,21 @@ const MASTER_LESSONS = [
     roleplay: '당신은 서울에서 길을 잃은 외국인 여행자 역할로 시작하세요. 사용자에게 길을 물어보고, 사용자가 안내하면 추가 질문(거리, 시간, 교통수단)을 이어가세요.' },
   { id: 305, master: 'B1', title: '경험 & 의견 말하기',
     sections: [
-      { title: '의견 표현', points: [
-        { en: "I think it's a good idea.", kr: '내 생각엔 ~인 것 같아' },
-        { en: 'In my opinion, English is important.', kr: '제 의견으로는' },
-        { en: 'As far as I know, ...', kr: '제가 알기로는' },
+      { title: '의견 표현', intro: '영어 대화에서 의견을 말할 때는 **"I think...", "In my opinion..."** 같은 표현으로 시작하면 자연스럽게 주장을 펼칠 수 있습니다. 이런 표현을 **opinion marker**라 합니다.', points: [
+        { en: "I think it's a good idea.", kr: '내 생각엔 ~인 것 같아',
+          note: '가장 많이 쓰이는 의견 표현. **I think + 주어 + 동사** 구조.\n비슷한 표현:\n**I feel that...** (감정적 의견)\n**I believe that...** (강한 확신)' },
+        { en: 'In my opinion, English is important.', kr: '제 의견으로는',
+          note: '의견 표현을 문장 앞에 붙이는 방식.\n**In my opinion,** / **From my perspective,** = 제 관점에서.\n논설이나 발표에서도 자주 씁니다.' },
+        { en: 'As far as I know, ...', kr: '제가 알기로는',
+          note: '자신이 아는 한도 내에서 말할 때 씁니다.\n확신이 100%가 아닐 때 **As far as I know** 로 시작하면 자연스럽게 책임 범위를 줄일 수 있습니다.' },
       ]},
-      { title: '동의 & 반대', points: [
-        { en: 'I agree with you. / I totally agree.', kr: '동의해요' },
-        { en: "I'm sorry, but I disagree.", kr: '미안하지만 생각이 달라요 (부드러운 반대)' },
-        { en: 'That makes sense, but...', kr: '일리 있지만... (반론 연결)' },
+      { title: '동의 & 반대', intro: '상대방 의견에 동의하거나 반대할 때 다양한 표현을 쓰면 대화가 풍성해집니다. **"That makes sense, but..."** 처럼 일부 인정 후 반론을 이어가는 방식이 자연스럽습니다.', points: [
+        { en: 'I agree with you. / I totally agree.', kr: '동의해요',
+          note: '동의를 표현하는 표현들.\n강조하려면 **totally / completely / absolutely** 를 추가합니다.\n영국식으로는 "**Absolutely!**" 만 쓰기도 합니다.' },
+        { en: "I'm sorry, but I disagree.", kr: '미안하지만 생각이 달라요 (부드러운 반대)',
+          note: '반대 의견을 부드럽게 말하는 방법.\n"I disagree" 앞에 **I\'m sorry, but** / **With all due respect,** 을 붙이면 훨씬 정중합니다.' },
+        { en: 'That makes sense, but...', kr: '일리 있지만... (반론 연결)',
+          note: '상대방 의견의 일부를 인정한 뒤 반론을 이어가는 표현.\n비슷한 패턴:\n"**That\'s a good point, however...**"\n"**I see what you mean, but...**"' },
       ]},
     ],
     examples: [
@@ -1048,15 +1100,19 @@ const MASTER_LESSONS = [
   /* ── B2 중상급 ── */
   { id: 401, master: 'B2', title: '가정법',
     sections: [
-      { title: '1차 가정 (현실 가능)', points: [
-        { en: 'If + 현재, will: If it rains, I will stay home.', kr: '비가 오면 집에 있을 거야' },
+      { title: '1차 가정 (현실 가능)', intro: '가정법은 "만약 ~라면 ~할 텐데"처럼 **가상의 상황**을 표현합니다.\n**가능성이 높은 미래** → 1차 가정법\n**현재 사실과 반대** → 2차 가정법\n**과거 사실과 반대** → 3차 가정법', points: [
+        { en: 'If + 현재, will: If it rains, I will stay home.', kr: '비가 오면 집에 있을 거야',
+          note: '**조건절(if)에 현재 시제** + **주절에 will**.\n실제로 일어날 수 있는 가능한 상황입니다.\n패턴: **If + 현재, will + 동사 원형**\n⚠️ **if절에는 will을 쓰지 않습니다!**' },
       ]},
-      { title: '2차 가정 (현재 반대)', points: [
-        { en: 'If + 과거, would: If I had more money, I would travel.', kr: '돈이 더 있다면 여행 갈 텐데' },
-        { en: "If I were you, I wouldn't buy it.", kr: '내가 너라면 (were 사용!)' },
+      { title: '2차 가정 (현재 반대)', intro: '현재 사실과 **반대**되는 상황을 상상할 때 씁니다. 실제로는 돈이 없지만 "만약 있다면"처럼 가상의 현재 상황을 표현합니다.', points: [
+        { en: 'If + 과거, would: If I had more money, I would travel.', kr: '돈이 더 있다면 여행 갈 텐데',
+          note: '**if절에 과거 시제, 주절에 would**.\n실제로는 돈이 없지만 가상으로 상상하는 것.\n패턴: **If + 과거, would + 동사 원형**\n줄여서 **I\'d** 라고도 합니다.' },
+        { en: "If I were you, I wouldn't buy it.", kr: '내가 너라면 (were 사용!)',
+          note: '**if절에서 be동사는 주어에 상관없이 were**를 씁니다(문법 규칙).\n✓ **If I were** (×If I was)\n조언할 때 자주 쓰이는 패턴:\n"**If I were you, I would...**"' },
       ]},
-      { title: '3차 가정 (과거 반대)', points: [
-        { en: 'If + had p.p., would have p.p.: If I had known, I would have gone.', kr: '알았더라면 갔을 텐데' },
+      { title: '3차 가정 (과거 반대)', intro: '이미 일어난 **과거 사실과 반대**되는 상황을 상상할 때 씁니다. 후회나 아쉬움을 표현할 때 가장 자주 씁니다.', points: [
+        { en: 'If + had p.p., would have p.p.: If I had known, I would have gone.', kr: '알았더라면 갔을 텐데',
+          note: '패턴: **If + had + 과거분사, would have + 과거분사**\n"알았더라면 갔을 텐데" → 실제로는 몰랐고 가지 않았음.\n예: **If I had studied harder, I would have passed.**\n(열심히 했더라면 합격했을 텐데)' },
       ]},
     ],
     examples: [
@@ -1068,14 +1124,19 @@ const MASTER_LESSONS = [
     scenario: { title: '만약에 토크', desc: 'AI가 "만약에..." 질문을 던집니다. would로 상상해서 답하세요.' } },
   { id: 402, master: 'B2', title: '수동태',
     sections: [
-      { title: 'be + 과거분사', points: [
-        { en: 'This car was made in Korea.', kr: '이 차는 한국에서 만들어졌다' },
-        { en: 'The book is read by many people.', kr: '행위자는 by로' },
-        { en: 'The problem will be solved soon.', kr: '미래 수동태: will be + p.p.' },
+      { title: 'be + 과거분사', intro: '수동태는 **"~해진다 / ~되었다"** 처럼 행동을 받는 쪽을 주어로 표현합니다.\n**be + 과거분사(p.p.)** 구조이며, 시제는 **be 동사**가 결정합니다.', points: [
+        { en: 'This car was made in Korea.', kr: '이 차는 한국에서 만들어졌다',
+          note: '**과거 수동태: was/were + p.p.**\n제조·생성을 표현할 때 자주 씁니다.\n예: The cake was eaten. / The window was broken.' },
+        { en: 'The book is read by many people.', kr: '행위자는 by로',
+          note: '**행위자**는 **by + 행위자**로 추가합니다.\n행위자가 불명확하거나 중요하지 않을 때는 by 이하를 생략합니다.\n예: "The cake was eaten." (누가 먹었는지 불명)' },
+        { en: 'The problem will be solved soon.', kr: '미래 수동태: will be + p.p.',
+          note: '시제별 수동태 정리:\n현재: **is/are + p.p.**\n과거: **was/were + p.p.**\n미래: **will be + p.p.**\n현재완료: **has/have been + p.p.**' },
       ]},
-      { title: '언제 수동태를 쓰나', points: [
-        { en: '행위자가 불명확하거나 중요하지 않을 때', kr: 'My wallet was stolen (누가 훔쳤는지 모름)' },
-        { en: '대상을 강조하고 싶을 때', kr: 'Hangul was invented by King Sejong' },
+      { title: '언제 수동태를 쓰나', intro: '수동태는 **무엇을 강조할지**에 따라 선택합니다. 행위자보다 결과·대상이 더 중요할 때 수동태가 어울립니다.', points: [
+        { en: '행위자가 불명확하거나 중요하지 않을 때', kr: 'My wallet was stolen (누가 훔쳤는지 모름)',
+          note: '**My wallet was stolen.** (지갑을 도난당했다)\n→ 누가 훔쳤는지 모르거나 중요하지 않음.\n뉴스 기사·공식 문서에서 수동태가 많이 쓰입니다.' },
+        { en: '대상을 강조하고 싶을 때', kr: 'Hangul was invented by King Sejong',
+          note: '**Hangul** was invented by King Sejong.\n→ 한글(Hangul)을 주어로 두어 한글에 초점.\n과학 논문에서도 "**The experiment was conducted...**"처럼 실험 자체를 강조합니다.' },
       ]},
     ],
     examples: [
@@ -1087,10 +1148,13 @@ const MASTER_LESSONS = [
     scenario: { title: '한국 소개하기', desc: 'AI 외국인에게 한국의 음식·발명품·문화를 수동태로 소개하세요.' } },
   { id: 403, master: 'B2', title: '간접화법',
     sections: [
-      { title: '말 전달하기', points: [
-        { en: 'She said (that) she was busy.', kr: '시제를 한 단계 과거로 (is→was)' },
-        { en: 'He told me to wait.', kr: '명령은 to부정사로' },
-        { en: 'They asked if I could come.', kr: '의문은 if/whether로' },
+      { title: '말 전달하기', intro: '간접화법(reported speech)은 다른 사람이 한 말을 그대로 옮기지 않고 **자신의 말로 전달**하는 방법입니다. 핵심은 **시제를 한 단계 과거로** 바꾸는 것입니다.', points: [
+        { en: 'She said (that) she was busy.', kr: '시제를 한 단계 과거로 (is→was)',
+          note: '직접화법: "I **am** busy."\n간접화법: She said (that) she **was** busy.\n현재 is → 과거 was 로 시제 이동.\n**told 뒤에는 반드시 사람 목적어**: She told **me** (that)...' },
+        { en: 'He told me to wait.', kr: '명령은 to부정사로',
+          note: '명령문은 간접화법에서 **to + 동사 원형**으로 바꿉니다.\n"Wait." → He told me **to wait.**\n"Don\'t run." → She told him **not to run.**' },
+        { en: 'They asked if I could come.', kr: '의문은 if/whether로',
+          note: '의문문은 간접화법에서 **if/whether + 주어 + 동사** 어순으로 바꿉니다.\n"Can you come?" → They asked **if I could come.**\n⚠️ 어순이 평서문이 됩니다: ×if could I come → ✓if I could come' },
       ]},
     ],
     examples: [
@@ -1102,12 +1166,17 @@ const MASTER_LESSONS = [
     scenario: { title: '소문 전달 게임', desc: 'AI가 다른 사람의 말을 들려줍니다. 간접화법으로 전달해 보세요.' } },
   { id: 404, master: 'B2', title: '관용어 & 어휘 확장',
     sections: [
-      { title: '자주 쓰는 관용어', points: [
-        { en: 'a piece of cake = 식은 죽 먹기', kr: 'The test was a piece of cake' },
-        { en: 'under the weather = 몸이 안 좋은', kr: "I'm feeling under the weather" },
-        { en: 'break a leg = 행운을 빌어', kr: '공연·시험 앞둔 사람에게' },
-        { en: 'hit the nail on the head = 정곡을 찌르다', kr: '' },
-        { en: 'bite the bullet = 이를 악물고 하다', kr: '하기 싫지만 해야 할 때' },
+      { title: '자주 쓰는 관용어', intro: '관용어(idiom)는 단어를 하나씩 해석하면 뜻이 맞지 않는 표현입니다. **통째로 암기**해야 합니다. 원어민과 대화할 때 관용어를 쓰면 훨씬 자연스럽게 들립니다.', points: [
+        { en: 'a piece of cake = 식은 죽 먹기', kr: 'The test was a piece of cake',
+          note: '케이크 한 조각처럼 **아주 쉬운 일**을 뜻합니다.\n"The exam was **a piece of cake.**"\n비슷한 표현: **no sweat** (땀도 안 남), **a cakewalk**.' },
+        { en: 'under the weather = 몸이 안 좋은', kr: "I'm feeling under the weather",
+          note: '날씨 아래에 있듯이 **몸 상태가 좋지 않다**는 뜻.\n"I\'m feeling **under the weather** today. I might stay home."\n가볍게 아플 때 쓰는 표현입니다.' },
+        { en: 'break a leg = 행운을 빌어', kr: '공연·시험 앞둔 사람에게',
+          note: '연극·발표·시험 등 **중요한 순간** 앞에 쓰는 격려 표현.\n"Good luck!" 대신 씁니다.\n"**Break a leg** tonight!" (오늘 잘 해낼 수 있어!)' },
+        { en: 'hit the nail on the head = 정곡을 찌르다', kr: '',
+          note: '망치로 못을 정확히 박듯 **핵심을 정확히 말하다**는 뜻.\n"You **hit the nail on the head!**" = 바로 그거야!\n칭찬·확인 표현으로 씁니다.' },
+        { en: 'bite the bullet = 이를 악물고 하다', kr: '하기 싫지만 해야 할 때',
+          note: '옛날 수술 중 마취 없이 총알을 깨물며 고통을 참은 데서 유래.\n**하기 싫지만 어쩔 수 없이 해야 할 때** 씁니다.\n"I had to **bite the bullet** and apologize."' },
       ]},
     ],
     examples: [
@@ -1119,11 +1188,15 @@ const MASTER_LESSONS = [
     scenario: { title: '관용어 넣어 수다', desc: 'AI와 일상 수다를 떨면서 관용어를 최대한 많이 써 보세요.' } },
   { id: 405, master: 'B2', title: '토론 & 의견 표현',
     sections: [
-      { title: '논리 전개', points: [
-        { en: 'On the one hand... / On the other hand...', kr: '한편으로는 / 다른 한편으로는' },
-        { en: 'However / Nevertheless / Despite this', kr: '그러나 / 그럼에도 불구하고' },
-        { en: 'I strongly believe that...', kr: '강하게 주장하기' },
-        { en: 'To sum up, the pros outweigh the cons.', kr: '요약: 장점이 단점보다 많다' },
+      { title: '논리 전개', intro: '논리적으로 의견을 전달하려면 **연결어(discourse marker)**를 잘 써야 합니다. 이 표현들은 발표·토론·면접에서도 상대방에게 명료한 인상을 줍니다.', points: [
+        { en: 'On the one hand... / On the other hand...', kr: '한편으로는 / 다른 한편으로는',
+          note: '**한쪽 입장 → 반대 입장** 을 균형 있게 제시하는 구조.\n"**On the one hand**, it\'s expensive. **On the other hand**, the quality is excellent."' },
+        { en: 'However / Nevertheless / Despite this', kr: '그러나 / 그럼에도 불구하고',
+          note: '**역접 연결어**:\n**However** = 그러나 (가장 중립적)\n**Nevertheless** = 그럼에도 불구하고 (강한 역접)\n**Despite this** = 이럼에도 불구하고\n앞 문장과 반대되는 내용을 연결합니다.' },
+        { en: 'I strongly believe that...', kr: '강하게 주장하기',
+          note: '강도별 의견 표현:\n**I think** (가벼운 의견)\n**I believe** (확신)\n**I strongly believe** (강한 확신)\n**I am absolutely convinced that** (최강 확신)' },
+        { en: 'To sum up, the pros outweigh the cons.', kr: '요약: 장점이 단점보다 많다',
+          note: '결론 연결어: **To sum up / In conclusion / All in all**\n**pros** = 장점(찬성 이유), **cons** = 단점(반대 이유)\n"The pros **outweigh** the cons." = 장점이 단점보다 크다.' },
       ]},
     ],
     examples: [
@@ -1138,11 +1211,15 @@ const MASTER_LESSONS = [
   /* ── C1 고급 ── */
   { id: 501, master: 'C1', title: '동명사 & 부정사 뉘앙스',
     sections: [
-      { title: '의미가 달라지는 동사', points: [
-        { en: 'stop to buy (사려고 멈춤) vs stop smoking (끊음)', kr: 'to = 목적, -ing = 하던 행동' },
-        { en: 'remember to lock (할 것을 기억) vs remember meeting (했던 것을 기억)', kr: '미래 vs 과거' },
-        { en: 'regret telling (말한 것을 후회) vs regret to tell (유감이지만 전한다)', kr: '' },
-        { en: 'try to open (애써 시도) vs try opening (시험삼아 해보다)', kr: '' },
+      { title: '의미가 달라지는 동사', intro: '일부 동사는 뒤에 **동명사(-ing)**가 오느냐 **부정사(to + 동사)**가 오느냐에 따라 **뜻이 완전히 달라집니다.** C1 핵심 문법으로, 원어민은 직관적으로 구분하지만 학습자에게는 어렵습니다.', points: [
+        { en: 'stop to buy (사려고 멈춤) vs stop smoking (끊음)', kr: 'to = 목적, -ing = 하던 행동',
+          note: '**stop + to부정사** = ~하기 위해 하던 일을 멈추다 (목적)\n**stop + 동명사** = ~하는 것을 완전히 그만두다 (종료)\n예: "She **stopped to check** her phone." (폰 보려고 멈췄다)\nvs "She **stopped checking** her phone." (폰 보는 것을 끊었다)' },
+        { en: 'remember to lock (할 것을 기억) vs remember meeting (했던 것을 기억)', kr: '미래 vs 과거',
+          note: '**remember + to부정사** = 앞으로 해야 할 것을 기억하다 (미래)\n**remember + 동명사** = 과거에 했던 것을 기억하다 (과거)\n예: "**Remember to send** the email." (보내는 것 잊지 마)\nvs "I **remember sending** it." (보냈던 기억이 나)' },
+        { en: 'regret telling (말한 것을 후회) vs regret to tell (유감이지만 전한다)', kr: '',
+          note: '**regret + 동명사** = 과거에 한 것을 후회한다\n**regret + to부정사** = 유감스럽게도 ~를 알려드립니다 (공식 표현)\n예: "I **regret telling** him." (말한 걸 후회)\nvs "We **regret to inform** you that..." (유감스럽게도 알려드립니다)' },
+        { en: 'try to open (애써 시도) vs try opening (시험삼아 해보다)', kr: '',
+          note: '**try + to부정사** = ~하려고 애쓰다 (어려워서 노력 필요)\n**try + 동명사** = 혹시 되나 시험삼아 해보다\n예: "I **tried to open** the jar but it was stuck." (열려고 했지만 안 됐다)\nvs "**Try opening** the window — it might help." (창문 열어 봐)' },
       ]},
     ],
     examples: [
@@ -1154,14 +1231,19 @@ const MASTER_LESSONS = [
     scenario: { title: '후회 & 다짐 토크', desc: '후회하는 일과 새 다짐을 동명사/부정사 뉘앙스를 살려 말해 보세요.' } },
   { id: 502, master: 'C1', title: '고급 어휘 & 연어',
     sections: [
-      { title: '연어 (collocations)', points: [
-        { en: 'make a decision / make progress / make an effort', kr: 'do가 아니라 make!' },
-        { en: 'take a risk / take responsibility', kr: '' },
-        { en: 'pay attention to details', kr: '주의를 기울이다' },
+      { title: '연어 (collocations)', intro: '연어(collocation)란 **원어민이 자연스럽게 함께 쓰는 단어 조합**입니다. 문법적으로 맞더라도 자연스럽지 않은 조합이 있습니다. (예: do a mistake ✗ → make a mistake ✓)', points: [
+        { en: 'make a decision / make progress / make an effort', kr: 'do가 아니라 make!',
+          note: '**make**와 짝을 이루는 표현들:\n✓ **make** a mistake / a decision / a suggestion / progress / a noise\n✗ do a mistake / do a decision\ndo와 헷갈리기 쉬우니 통째로 암기하세요.' },
+        { en: 'take a risk / take responsibility', kr: '',
+          note: '**take**와 어울리는 표현들:\n✓ **take** a risk / a chance / responsibility / advantage of / a break / a look\n"**Take a break**" = 쉬다\n"**Take a risk**" = 위험을 감수하다' },
+        { en: 'pay attention to details', kr: '주의를 기울이다',
+          note: '**pay**와 어울리는 표현들:\n✓ **pay** attention to / a compliment / a visit / a fine / tribute to\n"**Pay attention to details**" = 세부 사항에 주의를 기울이다\n업무·발표에서 자주 씁니다.' },
       ]},
-      { title: '강한 형용사', points: [
-        { en: 'very good → brilliant / very angry → furious', kr: 'very 없이 한 단어로' },
-        { en: 'very tired → exhausted / very big → enormous', kr: '' },
+      { title: '강한 형용사', intro: '**very**를 쓰는 대신 의미가 강화된 단어 하나로 바꾸면 더 영어다운 표현이 됩니다. 이를 **extreme adjective(극단 형용사)**라고 합니다.', points: [
+        { en: 'very good → brilliant / very angry → furious', kr: 'very 없이 한 단어로',
+          note: '**very + 보통 형용사 → 극단 형용사** 변환:\nvery good → **excellent / brilliant / outstanding**\nvery bad → **terrible / awful / dreadful**\nvery angry → **furious / livid**\nvery happy → **thrilled / ecstatic**' },
+        { en: 'very tired → exhausted / very big → enormous', kr: '',
+          note: '계속:\nvery tired → **exhausted**\nvery big → **enormous / huge / massive**\nvery small → **tiny / minute**\nvery cold → **freezing** | very hot → **boiling / scorching**\nvery funny → **hilarious**\n⚠️ 극단 형용사 앞에는 **very 대신 absolutely/completely**를 씁니다.' },
       ]},
     ],
     examples: [
@@ -1173,11 +1255,15 @@ const MASTER_LESSONS = [
     scenario: { title: '리뷰어 되기', desc: '최근 본 영화·음식점을 강한 형용사와 연어로 리뷰해 보세요.' } },
   { id: 503, master: 'C1', title: '발표 & 프레젠테이션',
     sections: [
-      { title: '발표 흐름 표현', points: [
-        { en: "Today I'd like to present...", kr: '발표 시작' },
-        { en: 'Firstly... / Secondly... / Finally...', kr: '순서 전개' },
-        { en: 'As you can see, sales have increased.', kr: '자료 가리키기' },
-        { en: 'In conclusion... / Do you have any questions?', kr: '마무리 & 질의응답' },
+      { title: '발표 흐름 표현', intro: '발표는 **도입 → 본론 → 결론**의 3단계 구조를 따릅니다. 각 단계에서 쓰는 영어 표현을 알아 두면 더 전문적이고 자신감 있게 발표할 수 있습니다.', points: [
+        { en: "Today I'd like to present...", kr: '발표 시작',
+          note: '**발표 시작 표현**:\n"**Today I\'d like to present/talk about/discuss...**"\n또는 "Good morning, everyone. My name is ___ and today I\'d like to..."\n첫 문장이 청중의 집중을 잡습니다.' },
+        { en: 'Firstly... / Secondly... / Finally...', kr: '순서 전개',
+          note: '**순서 나열 표현**:\n**Firstly / First of all**\n→ **Secondly / Then / Next**\n→ **Finally / Lastly / To wrap up**\n항목이 세 개 이상일 때: "I have **three main points**..."로 먼저 예고하면 청중이 따라오기 쉽습니다.' },
+        { en: 'As you can see, sales have increased.', kr: '자료 가리키기',
+          note: '**자료·슬라이드 가리키기**:\n"**As you can see** in this graph..."\n"**This chart shows** that..."\n"**Looking at** these figures..."\n시각 자료를 설명할 때 쓰는 표현들입니다.' },
+        { en: 'In conclusion... / Do you have any questions?', kr: '마무리 & 질의응답',
+          note: '**발표 마무리**:\n"**In conclusion** / To sum up / To wrap up, ..." 으로 결론.\n"**Thank you for your attention.**"\n"Does anyone have any **questions**?" 로 마무리합니다.' },
       ]},
     ],
     examples: [
@@ -1190,11 +1276,15 @@ const MASTER_LESSONS = [
     roleplay: '당신은 발표를 듣는 청중 역할입니다. 사용자가 발표하면 경청하고, 발표가 끝나면 내용에 대한 질문을 1개씩 던지세요. 발표 표현(Firstly, In conclusion 등)을 쓰도록 유도하세요.' },
   { id: 504, master: 'C1', title: '뉘앙스 & 화용론',
     sections: [
-      { title: '부드럽게 말하기 (hedging)', points: [
-        { en: "I might be wrong, but I don't think that's true.", kr: '단정 대신 완곡하게' },
-        { en: "That's not ideal. (= 별로다)", kr: '영어식 절제 표현 (understatement)' },
-        { en: 'Would you mind if I opened the window?', kr: '아주 정중한 부탁' },
-        { en: "To be honest, it wasn't great.", kr: '솔직히 말하면' },
+      { title: '부드럽게 말하기 (hedging)', intro: '**Hedging**이란 단정적인 주장을 완화해 더 정중하거나 겸손하게 말하는 기법입니다. 영어 원어민, 특히 영국식 대화에서 의견을 직접적으로 표현하기보다 hedging 표현으로 부드럽게 전달합니다.', points: [
+        { en: "I might be wrong, but I don't think that's true.", kr: '단정 대신 완곡하게',
+          note: '자신의 의견이 틀릴 수 있음을 인정하며 부드럽게 반박하는 표현.\n비슷한 패턴:\n"**Correct me if I\'m wrong, but...**"\n"**With all due respect,...**"' },
+        { en: "That's not ideal. (= 별로다)", kr: '영어식 절제 표현 (understatement)',
+          note: '실제보다 덜 강하게 말하는 **understatement(절제 표현)**:\n**"That\'s not ideal."** = 별로다 (very bad)\n**"Not bad."** = 꽤 좋다\n**"A bit tricky."** = 매우 어렵다\n영국식 영어에서 특히 자주 씁니다.' },
+        { en: 'Would you mind if I opened the window?', kr: '아주 정중한 부탁',
+          note: '**"Would you mind if + 과거 시제?"** = 가장 정중한 부탁 방식.\n**Yes, I mind.** = 싫어요\n**No, go ahead.** = 괜찮아요 (열어도 됩니다)\n⚠️ Yes/No 응답 방향이 한국어와 반대이니 주의!' },
+        { en: "To be honest, it wasn't great.", kr: '솔직히 말하면',
+          note: '"**To be honest / Frankly speaking / To tell you the truth...**" = 솔직히 말하자면.\n부드러운 부정적 평가를 할 때 앞에 이 표현을 붙이면 충격이 완화됩니다.' },
       ]},
     ],
     examples: [
@@ -1206,12 +1296,17 @@ const MASTER_LESSONS = [
     scenario: { title: '정중하게 거절하기', desc: 'AI의 제안을 부드럽게 거절하고 대안을 제시해 보세요.' } },
   { id: 505, master: 'C1', title: '복합 담화 & 응집성',
     sections: [
-      { title: '담화 연결어', points: [
-        { en: 'Furthermore / Moreover / In addition', kr: '게다가 (추가)' },
-        { en: 'Nevertheless / However', kr: '그럼에도 / 그러나 (대조)' },
-        { en: 'As a result / Therefore', kr: '그 결과 (인과)' },
-        { en: 'In contrast / On the contrary', kr: '대조적으로' },
-        { en: 'Let me elaborate on this point.', kr: '자세히 설명하자면' },
+      { title: '담화 연결어', intro: '복잡한 생각을 전달할 때 **담화 연결어(discourse markers)**로 **논리 흐름**을 만들어 줍니다. 연결어 없이 짧은 문장만 나열하면 유아적인 느낌을 주지만, 연결어를 쓰면 C1 수준의 유창한 발화가 됩니다.', points: [
+        { en: 'Furthermore / Moreover / In addition', kr: '게다가 (추가)',
+          note: '**추가 정보 연결**:\n**Furthermore** = 게다가 (앞 내용 강화)\n**Moreover** = 더욱이 (더 중요한 정보 추가)\n**In addition** = 또한 (단순 추가)\n예: "She is talented. **Furthermore**, she works incredibly hard."' },
+        { en: 'Nevertheless / However', kr: '그럼에도 / 그러나 (대조)',
+          note: '**역접(대조) 연결**:\n**However** = 그러나 (중립적)\n**Nevertheless** = 그럼에도 (어려움에도 불구하고 계속)\n예: "It was raining. **Nevertheless**, we went for a walk."' },
+        { en: 'As a result / Therefore', kr: '그 결과 (인과)',
+          note: '**인과 연결**:\n**As a result** = 그 결과 (원인 다음 결과 제시)\n**Therefore** = 따라서 (논리적 결론)\n예: "Traffic was terrible. **As a result**, I was late."\nvs "The data is clear. **Therefore**, we must act."' },
+        { en: 'In contrast / On the contrary', kr: '대조적으로',
+          note: '**대조 연결**:\n**In contrast** = 대조적으로 (두 가지 비교)\n**On the contrary** = 오히려, 반대로 (앞 말을 부정 후 반대 내용)\n예: "I hate coffee. **On the contrary**, I love tea."' },
+        { en: 'Let me elaborate on this point.', kr: '자세히 설명하자면',
+          note: '한 가지를 더 자세히 설명하고 싶을 때:\n"**Let me elaborate on...**"\n"**To expand on that...**"\n"**What I mean is...**" = 제가 뜻하는 바는...' },
       ]},
     ],
     examples: [
@@ -1225,12 +1320,17 @@ const MASTER_LESSONS = [
   /* ── C2 원어민 수준 ── */
   { id: 601, master: 'C2', title: '원어민 관용 표현',
     sections: [
-      { title: '네이티브 일상 표현', points: [
-        { en: "I'm on the fence. = 아직 결정 못 했어", kr: '울타리 위에 있다 → 고민 중' },
-        { en: 'Give it a shot! = 한번 해 봐', kr: 'shot = 시도' },
-        { en: 'Let it go. = 그냥 잊어버려', kr: '' },
-        { en: 'hit the sack = 자러 가다', kr: "I'm going to hit the sack" },
-        { en: 'cold turkey = 단번에 끊다', kr: 'I quit coffee cold turkey' },
+      { title: '네이티브 일상 표현', intro: '원어민은 교과서 표현보다 **줄임말·관용어·속어**를 일상적으로 씁니다. 이 표현들을 알면 원어민 대화에서 당황하지 않고, 사용하면 "교과서 영어"에서 벗어난 자연스러운 모습을 보일 수 있습니다.', points: [
+        { en: "I'm on the fence. = 아직 결정 못 했어", kr: '울타리 위에 있다 → 고민 중',
+          note: '울타리 위에 앉아 어느 쪽으로도 내려가지 못하는 모습에서 유래.\n"**I\'m on the fence about it.**" = 아직 결정을 못 했어.\n비슷한 표현: "**I\'m torn between...**" = ~와 ~ 사이에서 갈등 중이야.' },
+        { en: 'Give it a shot! = 한번 해 봐', kr: 'shot = 시도',
+          note: '**shot** = 시도, 기회. 격려의 표현.\n비슷한 표현: **"Go for it!"** / **"Just give it a try!"**\n포기하지 말라고 할 때: **"Hang in there!"** / **"Don\'t give up!"**' },
+        { en: 'Let it go. = 그냥 잊어버려', kr: '',
+          note: '이미 일어난 일에 집착하지 말라는 조언.\n비슷한 표현:\n**"Move on."** = 미련을 버려\n**"Don\'t dwell on it."** = 그 일에 연연하지 마' },
+        { en: 'hit the sack = 자러 가다', kr: "I'm going to hit the sack",
+          note: '**sack** = 자루 (침대 이불을 상상).\n"**I\'m going to hit the sack.**" = 자러 갈게.\n비슷한 표현:\n**"hit the hay"** = 자러 가다 (건초 더미→침대)\n**"crash"** = 기절하듯 자다' },
+        { en: 'cold turkey = 단번에 끊다', kr: 'I quit coffee cold turkey',
+          note: '서서히가 아니라 **단번에 완전히 끊다**.\n"I quit smoking **cold turkey**." (담배를 단번에 끊었다)\n반대 표현:\n**gradually** = 서서히\n**wean off** = 조금씩 줄여가며 끊다' },
       ]},
     ],
     examples: [
@@ -1242,14 +1342,19 @@ const MASTER_LESSONS = [
     scenario: { title: '네이티브처럼 수다', desc: '교과서 표현 금지! 오늘 배운 관용 표현만으로 수다를 떨어 보세요.' } },
   { id: 602, master: 'C2', title: '미묘한 어조 & 어감',
     sections: [
-      { title: '격식 vs 캐주얼', points: [
-        { en: '격식: I would like to request a change.', kr: '업무 이메일·공식 자리' },
-        { en: '캐주얼: Wanna grab a bite?', kr: 'want to → wanna / 뭐 먹으러 갈래?' },
-        { en: '격식: I apologize for the inconvenience.', kr: '불편을 끼쳐 죄송합니다' },
+      { title: '격식 vs 캐주얼', intro: '같은 내용을 말해도 **상황·청중·관계**에 따라 쓰는 표현이 달라집니다. 격식(formal)과 캐주얼(informal)의 차이를 알면 직장 동료와 친구, 낯선 이에게 모두 적절하게 말할 수 있습니다.', points: [
+        { en: '격식: I would like to request a change.', kr: '업무 이메일·공식 자리',
+          note: '**격식(formal)** 표현:\n**I would like to** (= I want to 격식 버전)\n**I am writing to inform you**\n**Please be advised that**\n줄임말(wanna/gonna)을 쓰지 않습니다.' },
+        { en: '캐주얼: Wanna grab a bite?', kr: 'want to → wanna / 뭐 먹으러 갈래?',
+          note: '**캐주얼** 단축 표현:\n**wanna** (want to) / **gonna** (going to)\n**gotta** (got to) / **hafta** (have to)\n**kinda** (kind of)\n친한 친구·가족과의 대화에서 자연스럽습니다. 격식 자리에서는 금물!' },
+        { en: '격식: I apologize for the inconvenience.', kr: '불편을 끼쳐 죄송합니다',
+          note: '**격식 사과** 표현:\n**I apologize for...**\n**I sincerely regret...**\n**Please accept my apologies for...**\n캐주얼 사과: **Sorry about that!** / **My bad!** / **Oops!**' },
       ]},
-      { title: '절제된 표현 (understatement)', points: [
-        { en: "That's not bad at all. (= 꽤 좋다)", kr: '영국식 절제 칭찬' },
-        { en: "It's a bit pricey. (= 많이 비싸다)", kr: 'a bit으로 완화' },
+      { title: '절제된 표현 (understatement)', intro: '특히 **영국식 영어**에서 직접적으로 말하기보다 **축소해서 표현**하는 경향이 강합니다. 겸손하게 말하는 것처럼 보이지만 실제로는 강한 의견을 담고 있습니다.', points: [
+        { en: "That's not bad at all. (= 꽤 좋다)", kr: '영국식 절제 칭찬',
+          note: '**이중 부정**으로 긍정을 표현하는 영국식 절제 표현.\n"**Not bad!**" = 꽤 좋아!\n"**Not too shabby.**" = 나쁘지 않네.\n직접 "It\'s great!"라고 말하는 것보다 훨씬 절제된 칭찬입니다.' },
+        { en: "It's a bit pricey. (= 많이 비싸다)", kr: 'a bit으로 완화',
+          note: '**"a bit"** = 약간 (완화 표현). 실제로는 "엄청 비싸다"지만 a bit을 써서 완화.\n"It\'s **a bit** cold." (꽤 춥다)\n"I\'m **slightly** tired." (상당히 피곤하다)\n영어 특유의 완곡 표현입니다.' },
       ]},
     ],
     examples: [
@@ -1262,13 +1367,17 @@ const MASTER_LESSONS = [
     roleplay: '당신은 두 역할을 번갈아 맡습니다: 격식이 필요한 회사 상사, 그리고 캐주얼한 친한 친구. 역할이 바뀔 때마다 [상사] 또는 [친구]를 밝히고, 사용자가 어조를 상황에 맞게 바꾸는지 관찰해 교정하세요.' },
   { id: 603, master: 'C2', title: '전문 분야 어휘',
     sections: [
-      { title: '비즈니스', points: [
-        { en: 'ROI(투자수익률) / stakeholder(이해관계자) / deadline', kr: 'This project has a high ROI' },
-        { en: 'meet the deadline = 마감을 맞추다', kr: '' },
+      { title: '비즈니스', intro: '비즈니스 영어에서는 일반 어휘 대신 **전문 용어**를 써야 전문성이 느껴집니다. 회의·이메일·발표에서 자신감 있게 쓸 수 있도록 맥락과 함께 외워 두세요.', points: [
+        { en: 'ROI(투자수익률) / stakeholder(이해관계자) / deadline', kr: 'This project has a high ROI',
+          note: '핵심 비즈니스 용어:\n**ROI** = Return on Investment (투자 대비 수익)\n**stakeholder** = 이해관계자 (프로젝트에 영향받는 모든 사람)\n**deadline** = 마감 기한' },
+        { en: 'meet the deadline = 마감을 맞추다', kr: '',
+          note: '비즈니스 필수 표현:\n"We need to **meet the deadline** by Friday."\n**Behind schedule** = 일정보다 늦고 있다\n**On track** = 계획대로 진행 중\n**Ahead of schedule** = 일정보다 앞서 있다' },
       ]},
-      { title: '기술 & 의료', points: [
-        { en: 'algorithm / bandwidth / database', kr: 'This algorithm is efficient' },
-        { en: 'symptom(증상) / diagnosis(진단)', kr: 'If you have symptoms, get a diagnosis' },
+      { title: '기술 & 의료', intro: '기술(IT) 분야와 의료 분야에는 고유한 전문 어휘가 있습니다. 해당 분야에서 일하거나 대화할 때 이 어휘들을 자연스럽게 사용할 수 있어야 합니다.', points: [
+        { en: 'algorithm / bandwidth / database', kr: 'This algorithm is efficient',
+          note: '**IT 핵심 용어**:\n**algorithm** = 알고리즘 (문제 해결 절차)\n**bandwidth** = 대역폭 (데이터 전송 용량)\n**database** = 데이터베이스\n발음 주의: algorithm [ˈælɡərɪðəm]' },
+        { en: 'symptom(증상) / diagnosis(진단)', kr: 'If you have symptoms, get a diagnosis',
+          note: '**의료 핵심 용어**:\n**symptom** [ˈsɪmptəm] = 증상 (겉으로 나타나는 표시)\n**diagnosis** [ˌdaɪəɡˈnoʊsɪs] = 진단 (의사가 내리는 병명 결론)\n"What are your **symptoms**?"\n"The **diagnosis** is..."' },
       ]},
     ],
     examples: [
@@ -1281,11 +1390,15 @@ const MASTER_LESSONS = [
     roleplay: '당신은 해외 지사의 동료 역할입니다. 사용자의 프로젝트 진행 상황을 묻고, 일정·예산·리스크에 대해 비즈니스 어휘로 논의를 이어가세요.' },
   { id: 604, master: 'C2', title: '유머 & 은유',
     sections: [
-      { title: '은유 & 직유', points: [
-        { en: 'Life is a journey. / Time is money.', kr: '은유 (A는 B다)' },
-        { en: 'as busy as a bee = 벌처럼 바쁜', kr: '직유 (as...as)' },
-        { en: 'a bolt from the blue = 청천벽력', kr: '' },
-        { en: 'the life of the party = 분위기 메이커', kr: '' },
+      { title: '은유 & 직유', intro: '**은유(metaphor)**와 **직유(simile)**는 창의적이고 생생한 표현을 만드는 도구입니다.\n은유: "A는 B다" 형태로 직접 동일시\n직유: "A는 B처럼/같이" 형태로 비교\n원어민은 대화 중에 이 표현들을 자연스럽게 씁니다.', points: [
+        { en: 'Life is a journey. / Time is money.', kr: '은유 (A는 B다)',
+          note: '**은유(metaphor)**: A = B로 직접 동일시.\n**"Life is a journey."** (인생은 여행)\n**"Time is money."** (시간은 돈)\n**"The world is a stage."** (세상은 무대)\n추상적 개념을 구체적으로 만들어 줍니다.' },
+        { en: 'as busy as a bee = 벌처럼 바쁜', kr: '직유 (as...as)',
+          note: '**직유(simile)**: **as + 형용사 + as + 비교 대상** 구조.\n**as busy as a bee** (벌처럼 바쁜)\n**as quiet as a mouse** (쥐처럼 조용한)\n**as brave as a lion** (사자처럼 용감한)\n**as cool as a cucumber** (오이처럼 침착한)' },
+        { en: 'a bolt from the blue = 청천벽력', kr: '',
+          note: '파란 하늘에서 번개처럼 **갑작스러운 일**.\n"The news was **a bolt from the blue.**"\n비슷한 표현:\n**"out of nowhere"** = 갑자기\n**"out of the blue"** = 예기치 않게' },
+        { en: 'the life of the party = 분위기 메이커', kr: '',
+          note: '파티(모임)에 활기를 불어넣는 사람.\n"She\'s **the life of the party**!"\n반대: **"a wallflower"** = 벽에 붙어 파티에 녹아들지 못하는 수줍은 사람.' },
       ]},
     ],
     examples: [
@@ -1297,14 +1410,19 @@ const MASTER_LESSONS = [
     scenario: { title: '비유 게임', desc: 'AI와 서로의 일상을 은유·직유로 재치있게 묘사해 보세요.' } },
   { id: 605, master: 'C2', title: '문화 & 스몰토크',
     sections: [
-      { title: '스몰토크', points: [
-        { en: "Lovely weather, isn't it?", kr: '날씨 — 만능 스몰토크 (부가의문문)' },
-        { en: 'How was your weekend?', kr: '월요일 단골 인사' },
-        { en: "What's up? — Not much.", kr: '캐주얼 인사와 답' },
+      { title: '스몰토크', intro: '**스몰토크(small talk)**는 깊은 주제 없이 가볍게 나누는 대화입니다. 영어권 문화에서는 엘리베이터·대기줄·파티 등 어디서든 낯선 사람과 스몰토크를 나누는 것이 자연스럽습니다.', points: [
+        { en: "Lovely weather, isn't it?", kr: '날씨 — 만능 스몰토크 (부가의문문)',
+          note: '날씨는 전세계 공통 스몰토크 주제.\n**부가의문문**: 평서문 뒤에 **, isn\'t it? / wasn\'t it? / don\'t you?** 등을 붙여 동의를 구합니다.\n"Beautiful day, **isn\'t it?**"\n답: "Absolutely! / It really is."' },
+        { en: 'How was your weekend?', kr: '월요일 단골 인사',
+          note: '월요일 아침 가장 흔한 인사.\n답변 패턴: "**It was great/relaxing/pretty busy.** I went hiking."\n간단히 1~2문장으로 답하고 반드시 **"What about you?"** 로 되물어요.' },
+        { en: "What's up? — Not much.", kr: '캐주얼 인사와 답',
+          note: '"**What\'s up?**" = 어떻게 지냈어? (캐주얼)\n답변:\n**"Not much."** / **"Nothing much."**\n**"Same old, same old."** = 별거 없어 맨날 똑같지\n의례적 인사로 쓰이는 경우 깊은 대답을 기대하지 않습니다.' },
       ]},
-      { title: '문화 차이', points: [
-        { en: 'In the US, people usually tip 15-20%.', kr: '팁 문화' },
-        { en: 'elevator(미국) vs lift(영국) / apartment vs flat', kr: '미국식 vs 영국식' },
+      { title: '문화 차이', intro: '영어를 잘해도 **문화 차이**를 모르면 실수할 수 있습니다. 특히 팁 문화, 영미권 어휘 차이 등을 알아 두면 현지에서 당황하지 않습니다.', points: [
+        { en: 'In the US, people usually tip 15-20%.', kr: '팁 문화',
+          note: '미국·캐나다에서는 레스토랑·택시·미용실 등에서 **15~20%의 팁**이 기본입니다.\n영수증에 **"Tip" 또는 "Gratuity"** 칸이 있습니다.\n팁을 안 주면 실례입니다. 반면 일본·한국에는 팁 문화가 없습니다.' },
+        { en: 'elevator(미국) vs lift(영국) / apartment vs flat', kr: '미국식 vs 영국식',
+          note: '**미국식 vs 영국식 영어**:\nelevator(미) / **lift**(영)\napartment(미) / **flat**(영)\ncookie(미) / **biscuit**(영)\ntrash(미) / **rubbish**(영)\nsubway(미) / **underground/tube**(영)\nvacation(미) / **holiday**(영)' },
       ]},
     ],
     examples: [
