@@ -437,7 +437,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.27';
+const APP_VERSION = 'v4.28';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2635,7 +2635,11 @@ async function fetchYouTubeCaption(vid) {
   const ct = resp.headers.get('content-type') || '';
   if (!ct.includes('application/json')) throw new Error('NO_PROXY');   // 함수 미배포(정적) → HTML이 옴
   const data = await resp.json();
-  if (!resp.ok || !data.text) throw new Error(data.error || 'no_captions');
+  if (!resp.ok || !data.text) {
+    const e = new Error(data.error || 'no_captions');
+    e.why = data.why || data.message || '';   // 서버가 알려준 실패 원인
+    throw e;
+  }
   _capSegs = Array.isArray(data.segments) ? data.segments : null;   // 실시간 싱크용 타임스탬프 보관
   _capSegsVid = vid;
   return data;
@@ -2654,6 +2658,7 @@ async function autoFetchCaption() {
     toast(`✅ 자막을 가져왔어요${data.lang ? ` (${data.lang})` : ''} · ✨ 분석하기를 눌러주세요`);
   } catch (err) {
     if (err.message === 'NO_PROXY') toast('ℹ️ 자동수집은 배포 환경에서만 동작해요. 스크립트를 직접 붙여넣어 주세요.', 4500);
+    else if (err.why) toast(`😢 자막 자동수집 실패: ${err.why} · 직접 붙여넣어 주세요.`, 5500);
     else if (err.message === 'no_captions') toast('😢 이 영상엔 가져올 자막이 없어요. 직접 붙여넣어 주세요.', 4500);
     else toast('🤖 자막 자동수집에 실패했어요. 스크립트를 직접 붙여넣어 주세요.', 4500);
   } finally {
@@ -2681,7 +2686,9 @@ async function analyzeVideo() {
       if (btn) { btn.disabled = false; btn.textContent = '✨ 문장·단어별로 분석하기'; }
       const msg = err.message === 'NO_PROXY'
         ? 'ℹ️ 자동수집은 배포 환경에서만 동작해요. 영상의 더보기 → 스크립트 표시에서 자막을 복사해 붙여넣어 주세요.'
-        : '😢 자막을 자동으로 가져오지 못했어요. 스크립트를 직접 붙여넣어 주세요.';
+        : err.why
+          ? `😢 자막 자동수집 실패: ${err.why}<br>유튜브 영상 아래 <b>더보기 → 스크립트 표시</b>에서 자막을 복사해 붙여넣어 주세요.`
+          : '😢 자막을 자동으로 가져오지 못했어요. 유튜브 <b>더보기 → 스크립트 표시</b>의 자막을 복사해 붙여넣어 주세요.';
       renderVideoInput(document.getElementById('video-content'), msg);
       if (url) { const u = document.getElementById('vid-url'); if (u) u.value = url; }
       return;
