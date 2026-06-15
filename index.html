@@ -433,11 +433,14 @@
 <!-- 🧰 FEATURES HUB -->
 <div class="panel" id="panel-features"><div class="panel-inner" id="features-content"></div></div>
 
+<!-- 🎓 4-SKILL TRAINING + PLACEMENT (launched from hub) -->
+<div class="panel" id="panel-learn"><div class="panel-inner" id="learn-content"></div></div>
+
 <!-- 🗺 MASTER ROADMAP -->
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.29';
+const APP_VERSION = 'v4.30';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -4382,7 +4385,19 @@ function renderFeatures() {
 
   html += dailyGoalRing();
 
-  html += `<div style="font-size:0.8rem;font-weight:800;color:var(--primary-light);margin:6px 0 8px">🎬 콘텐츠로 배우기</div>`;
+  const prof = getProfile();
+  const placed = load('va_placed', null);
+  html += `<div style="font-size:0.8rem;font-weight:800;color:var(--primary-light);margin:6px 0 8px">🧭 내 레벨</div>`;
+  html += featCard('🧭', placed ? `배치 결과: ${prof.cefr} (GSE ${prof.gse})` : 'CEFR 배치고사 보기', placed ? '다시 진단하려면 탭하세요 · 4대 영역 시작점 설정' : '18문항으로 내 레벨(A1~C2)을 진단하고 학습 경로를 맞춥니다', "gotoLearn('placement')", placed ? 'var(--green)' : 'var(--yellow)');
+
+  html += `<div style="font-size:0.8rem;font-weight:800;color:var(--primary-light);margin:14px 0 8px">🎓 4대 영역 훈련 <span style="font-size:0.7rem;font-weight:400;color:var(--text-muted)">· 초보→원어민 풀커버리지</span></div>`;
+  html += featCard('🗣', '말하기 (Speaking)', '회화·드릴·쉐도잉으로 발화 훈련 — CAF 분석', "document.querySelector('[data-mode=talk]').click()");
+  html += featCard('🎧', '듣기 (Listening)', '들리는 문장 받아쓰기(딕테이션) — 듣기·철자·문법 동시 훈련', "gotoLearn('listening')");
+  html += featCard('📖', '읽기 (Reading)', '레벨별 지문 + 이해 문제 + 핵심 어휘 (AI 새 지문 생성)', "gotoLearn('reading')");
+  html += featCard('✍️', '쓰기 (Writing)', 'AI가 IELTS 스타일 채점 — 문법·어휘·구성·교정문·모범답안', "gotoLearn('writing')");
+  html += featCard('🔡', '어휘 (Vocabulary)', '빈도순 핵심 단어팩(A1~C2) → 표현장·간격반복 자동 등록', "gotoLearn('vocab')");
+
+  html += `<div style="font-size:0.8rem;font-weight:800;color:var(--primary-light);margin:14px 0 8px">🎬 콘텐츠로 배우기</div>`;
   html += featCard('🎬', '영상 학습', '유튜브 영상 + AI 문장·단어별 영/한 번역·해석', "document.querySelector('[data-mode=video]').click()");
   html += featCard('📌', '내 표현장', `저장한 표현 ${phraseCount}개 — 모아보기·발음·KR→EN 드릴`, 'openPhrasebook()');
 
@@ -4417,17 +4432,489 @@ function runVoiceDiagnostics() {
   setTimeout(() => voiceDiagnostics(), 100);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   🎓 4대 영역 풀커버리지 트레이닝 (초보→원어민)
+   레퍼런스: Cambridge/EF SET(배치) · IELTS/TOEFL 4영역·라이팅 밴드
+   · BBC Learning English/News in Levels(등급별 독해) · Duolingo(딕테이션)
+   · NGSL/Oxford 3000–5000(빈도 어휘) · CEFR(유럽언어공통기준)
+═══════════════════════════════════════════════════════════════════════ */
+let learnView = null;
+function aiReady() { return !!groqKey(); }
+
+/* 키가 있으면 Groq 모델을 강제 선택 (다른 백엔드로 잘못 선택돼 있어도 AI 호출 보장) */
+function ensureGroqSelected() {
+  if (!groqKey()) return false;
+  const sel = document.getElementById('model-sel');
+  if (sel && !isGroqModel(sel.value)) {
+    const opt = [...sel.options].find(o => isGroqModel(o.value));
+    if (opt) { sel.value = opt.value; store('va_model', opt.value); }
+  }
+  return !!(sel && isGroqModel(sel.value));
+}
+
+/* 기능 허브에서 학습 모듈로 진입 (탭 없이 전용 패널 사용) */
+function gotoLearn(view) {
+  if (currentMode === 'talk') { handsFree = false; try { stopHandsFreeWatchdog(); } catch {} if (sttActive) stopMic(); try { stopSpeaking(); } catch {} }
+  if (currentMode === 'video') { try { stopYtSync(); } catch {} }
+  currentMode = 'learn';
+  learnView = view;
+  document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+  const fb = document.querySelector('[data-mode=features]'); if (fb) fb.classList.add('active');
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-learn').classList.add('active');
+  document.getElementById('lesson-bar').style.display = 'none';
+  window.scrollTo(0, 0);
+  renderLearn();
+}
+function backToFeatures() { document.querySelector('[data-mode=features]').click(); }
+function learnHeader(emoji, title, sub) {
+  return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+    <button class="btn" onclick="backToFeatures()" style="padding:6px 11px;flex:0 0 auto">‹ 기능</button>
+    <div style="min-width:0"><div style="font-size:1rem;font-weight:800;color:var(--primary-light)">${emoji} ${esc(title)}</div>
+    <div style="font-size:0.74rem;color:var(--text-muted);margin-top:1px">${esc(sub)}</div></div></div>`;
+}
+function levelChips(active, onclick) {
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">` +
+    CEFR_ORDER.map(c => `<button onclick="${onclick}('${c}')" style="flex:1 0 auto;min-width:48px;padding:7px 4px;border-radius:8px;font-size:0.78rem;font-weight:800;cursor:pointer;border:1px solid ${c === active ? 'var(--primary)' : 'var(--border)'};background:${c === active ? 'var(--primary)' : 'var(--surface)'};color:${c === active ? '#fff' : 'var(--text-muted)'}">${c}</button>`).join('') +
+    `</div>`;
+}
+function myCefr() { return getProfile().cefr || 'A2'; }
+
+function renderLearn() {
+  const el = document.getElementById('learn-content');
+  if (!el) return;
+  switch (learnView) {
+    case 'placement': return renderPlacement(el);
+    case 'reading': return renderReading(el);
+    case 'listening': return renderListening(el);
+    case 'writing': return renderWriting(el);
+    case 'vocab': return renderVocab(el);
+    default: el.innerHTML = learnHeader('🎓', '트레이닝', '');
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+   ① CEFR 배치고사 (EF SET / Cambridge 스타일 · 18문항 · 오프라인 동작)
+─────────────────────────────────────────────────────────────────────── */
+const PLACEMENT_Q = [
+  { lv:'A1', q:'___ name is Mina.', o:['My','Me','I','Mine'], a:0 },
+  { lv:'A1', q:'She ___ a teacher.', o:['are','is','am','be'], a:1 },
+  { lv:'A1', q:'There ___ two cats on the sofa.', o:['is','am','are','be'], a:2 },
+  { lv:'A2', q:'I ___ to the gym yesterday.', o:['go','goes','went','going'], a:2 },
+  { lv:'A2', q:'This bag is ___ than that one.', o:['cheap','cheaper','cheapest','more cheap'], a:1 },
+  { lv:'A2', q:'We ___ watch a movie tonight.', o:['are going to','goes to','is going','go to'], a:0 },
+  { lv:'B1', q:'I have lived here ___ 2019.', o:['for','since','from','during'], a:1 },
+  { lv:'B1', q:'If it rains, we ___ stay home.', o:['will','would','are','have'], a:0 },
+  { lv:'B1', q:'You ___ smoke here — it is not allowed.', o:["mustn't","don't have to","might not","needn't"], a:0 },
+  { lv:'B2', q:'By next year, she ___ here for a decade.', o:['will work','will have worked','works','worked'], a:1 },
+  { lv:'B2', q:'The report, ___ was due Monday, is still missing.', o:['who','which','that','what'], a:1 },
+  { lv:'B2', q:'I wish I ___ more time to prepare.', o:['have','had','will have','am having'], a:1 },
+  { lv:'C1', q:'___ had I arrived when the meeting started.', o:['No sooner','Hardly','Scarcely','Rarely'], a:1 },
+  { lv:'C1', q:'Choose the best fit: "Her argument was ___ and hard to refute."', o:['cogent','cozy','candid','curt'], a:0 },
+  { lv:'C1', q:'He spoke as though he ___ the whole story.', o:['knows','knew','had known','has known'], a:2 },
+  { lv:'C2', q:'The proposal was, to put it ___, dead on arrival.', o:['mildly','bluntly','vaguely','fondly'], a:1 },
+  { lv:'C2', q:'Pick the idiom: "They decided to ___ the issue rather than confront it."', o:['skirt','skim','ski','skip'], a:0 },
+  { lv:'C2', q:'"Notwithstanding the setbacks, the team ___ undeterred."', o:['remain','remains','remained','is remaining'], a:2 },
+];
+let placeAns = [];
+function renderPlacement(el) {
+  placeAns = [];
+  let html = learnHeader('🧭', 'CEFR 배치고사', '18문항 · 내 레벨(A1~C2)을 진단해 학습 경로를 맞춥니다');
+  html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;font-size:0.8rem;color:var(--text-muted);line-height:1.6">문법·어휘 객관식입니다. 모르면 찍지 말고 비워두세요(정확한 진단을 위해). 끝까지 풀고 <b>채점</b>을 누르면 CEFR 레벨과 4대 영역 시작점이 설정됩니다.</div>`;
+  html += `<div id="place-qs">`;
+  PLACEMENT_Q.forEach((item, i) => {
+    html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 14px;margin-bottom:10px">
+      <div style="font-size:0.86rem;font-weight:700;margin-bottom:9px"><span style="color:var(--primary-light)">Q${i+1}.</span> ${esc(item.q)}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">` +
+      item.o.map((opt, j) => `<button id="pq-${i}-${j}" onclick="pickPlace(${i},${j})" style="text-align:left;padding:9px 11px;border-radius:8px;font-size:0.82rem;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text)">${esc(opt)}</button>`).join('') +
+      `</div></div>`;
+  });
+  html += `</div><button class="start-drill-btn" onclick="gradePlacement()" style="margin-top:6px">📊 채점하고 내 레벨 보기</button>`;
+  el.innerHTML = html;
+}
+function pickPlace(i, j) {
+  placeAns[i] = j;
+  PLACEMENT_Q[i].o.forEach((_, k) => {
+    const b = document.getElementById(`pq-${i}-${k}`);
+    if (!b) return;
+    const on = k === j;
+    b.style.borderColor = on ? 'var(--primary)' : 'var(--border)';
+    b.style.background = on ? 'var(--primary)' : 'var(--surface2)';
+    b.style.color = on ? '#fff' : 'var(--text)';
+  });
+}
+function gradePlacement() {
+  const byLv = {};
+  CEFR_ORDER.forEach(c => byLv[c] = { correct: 0, total: 0 });
+  PLACEMENT_Q.forEach((item, i) => {
+    byLv[item.lv].total++;
+    if (placeAns[i] === item.a) byLv[item.lv].correct++;
+  });
+  // 최고 통과 레벨: 해당 레벨에서 과반 정답이면 통과로 간주, 가장 높은 통과 레벨 채택
+  let passed = 'A1';
+  for (const c of CEFR_ORDER) {
+    if (byLv[c].total && byLv[c].correct / byLv[c].total >= 0.6) passed = c;
+  }
+  // 부분 점수로 GSE 미세조정
+  const totalCorrect = Object.values(byLv).reduce((a, b) => a + b.correct, 0);
+  const band = CEFR_GSE[passed];
+  const gse = Math.min(90, band.min + Math.round((band.max - band.min) * Math.min(1, (totalCorrect / PLACEMENT_Q.length) + 0.2)));
+  // 프로필 + 4대 스킬 시작점 반영
+  const prof = getProfile();
+  prof.cefr = passed; prof.gse = gse; prof.scaffolding = scaffoldFor(passed);
+  saveProfile(prof);
+  const stats = getSkillStats();
+  SKILLS.forEach(sk => { stats[sk.key] = { gse, sessions: (stats[sk.key]?.sessions || 0) }; });
+  store('va_skill_stats', stats);
+  store('va_placed', { cefr: passed, gse, ts: Date.now() });
+
+  const el = document.getElementById('learn-content');
+  let html = learnHeader('🧭', '배치 결과', '진단이 완료되어 학습 경로가 설정됐어요');
+  html += `<div style="text-align:center;background:var(--surface);border:1px solid var(--primary);border-radius:16px;padding:22px;margin-bottom:14px">
+    <div style="font-size:0.8rem;color:var(--text-muted)">당신의 추정 레벨</div>
+    <div style="font-size:2.6rem;font-weight:900;color:var(--primary-light);margin:4px 0">${passed}</div>
+    <div style="font-size:0.82rem;color:var(--text-muted)">GSE ${gse} · ${CEFR_LABEL[passed] || ''}</div>
+    <div style="font-size:0.78rem;margin-top:8px">정답 ${totalCorrect} / ${PLACEMENT_Q.length}</div>
+  </div>`;
+  html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:12px;font-size:0.82rem;line-height:1.7">
+    <b>다음 단계 추천</b><br>
+    📖 레슨 로드맵에서 <b style="color:var(--primary-light)">${passed}</b> 유닛부터 시작<br>
+    🎧 청해 · 📖 독해 · ✍️ 작문도 ${passed} 레벨로 자동 설정됨</div>`;
+  html += `<button class="start-drill-btn" onclick="document.querySelector('[data-mode=master]').click()">📖 내 레벨 로드맵 보기 →</button>`;
+  html += `<button class="btn" style="width:100%;margin-top:8px" onclick="renderPlacement(document.getElementById('learn-content'))">↻ 다시 풀기</button>`;
+  el.innerHTML = html;
+  toast(`🧭 배치 완료 — ${passed} 레벨로 설정했어요!`, 3600);
+}
+const CEFR_LABEL = { A1:'입문 (Beginner)', A2:'기초 (Elementary)', B1:'중급 (Intermediate)', B2:'중상급 (Upper-Int.)', C1:'고급 (Advanced)', C2:'원어민급 (Mastery)' };
+
+/* ───────────────────────────────────────────────────────────────────────
+   ② 독해 — 등급별 지문 + 이해 문제 + 핵심 어휘 (BBC/News in Levels 스타일)
+─────────────────────────────────────────────────────────────────────── */
+const READING_BANK = {
+  A1: [{ title:'My Morning', text:`I get up at seven o'clock. I drink a glass of water and eat some bread. My sister makes coffee. We go to school together. School starts at nine. I like my English class the best.`,
+    qs:[{q:'What time does the writer get up?',o:['Six','Seven','Nine'],a:1},{q:'Who makes coffee?',o:['The writer','The mother','The sister'],a:2},{q:'Which class does the writer like best?',o:['Math','English','Science'],a:1}],
+    vocab:[{w:'get up',kr:'일어나다'},{w:'together',kr:'함께'},{w:'the best',kr:'가장 좋아하는'}] }],
+  A2: [{ title:'A Trip to the Market', text:`Last Saturday, I went to the local market with my friend. We wanted to buy fresh vegetables and fruit. The market was crowded, but the food looked delicious. I bought some tomatoes and apples. My friend chose a big watermelon. We were tired but happy on the way home.`,
+    qs:[{q:'When did they go to the market?',o:['Last Sunday','Last Saturday','Yesterday'],a:1},{q:'What did the friend buy?',o:['Tomatoes','Apples','A watermelon'],a:2},{q:'How did they feel going home?',o:['Tired but happy','Angry','Bored'],a:0}],
+    vocab:[{w:'crowded',kr:'붐비는'},{w:'fresh',kr:'신선한'},{w:'on the way home',kr:'집에 가는 길에'}] }],
+  B1: [{ title:'Working from Home', text:`Since the pandemic, many companies have allowed employees to work from home. This change has both advantages and disadvantages. On one hand, workers save time because they no longer commute. On the other hand, some people find it hard to separate work from their personal life. Experts suggest setting a fixed schedule and a dedicated workspace to stay productive.`,
+    qs:[{q:'What is one advantage mentioned?',o:['Higher salary','Saving commute time','More holidays'],a:1},{q:'What problem do some people face?',o:['Slow internet','Separating work and personal life','Noisy offices'],a:1},{q:'What do experts recommend?',o:['Working at night','A fixed schedule and workspace','Working less'],a:1}],
+    vocab:[{w:'commute',kr:'통근하다'},{w:'advantage',kr:'장점'},{w:'productive',kr:'생산적인'}] }],
+  B2: [{ title:'The Value of Failure', text:`We often regard failure as something to be avoided at all costs. Yet many successful entrepreneurs argue that failure is an essential part of innovation. When a project collapses, it reveals flawed assumptions that would otherwise remain hidden. The key, they insist, is not to dwell on the setback but to extract lessons quickly and adapt. In this sense, resilience matters far more than an unbroken record of success.`,
+    qs:[{q:'How do many entrepreneurs view failure?',o:['As a disaster','As essential to innovation','As irrelevant'],a:1},{q:'What does failure reveal?',o:['Flawed assumptions','Hidden talent','Financial gain'],a:0},{q:'What matters most, according to the text?',o:['Resilience','Luck','Money'],a:0}],
+    vocab:[{w:'regard A as B',kr:'A를 B로 여기다'},{w:'flawed',kr:'결함이 있는'},{w:'resilience',kr:'회복탄력성'}] }],
+  C1: [{ title:'The Paradox of Choice', text:`Conventional wisdom holds that more options lead to greater satisfaction. However, psychologist Barry Schwartz contends that an abundance of choice can be paralysing. When confronted with dozens of nearly identical products, consumers often experience anxiety and, paradoxically, less contentment with whatever they ultimately select. The phenomenon underscores a subtle truth: autonomy, while valuable, carries a cognitive cost that we rarely acknowledge.`,
+    qs:[{q:'What is conventional wisdom about choice?',o:['Fewer options are better','More options increase satisfaction','Choice is unimportant'],a:1},{q:'What does Schwartz argue?',o:['Choice can be paralysing','Choice is always good','Money buys happiness'],a:0},{q:'What "cognitive cost" is implied?',o:['Memory loss','Mental effort of deciding','Physical fatigue'],a:1}],
+    vocab:[{w:'conventional wisdom',kr:'통념'},{w:'contend',kr:'주장하다'},{w:'paradoxically',kr:'역설적이게도'}] }],
+  C2: [{ title:'On Linguistic Relativity', text:`The hypothesis that language shapes thought has long oscillated between fervent endorsement and outright dismissal. Strong formulations—claiming that speakers of different languages inhabit incommensurable conceptual worlds—have largely been discredited. Yet a more tempered version persists: that habitual linguistic categories subtly bias attention and memory. The contemporary consensus, insofar as one exists, is that language nudges cognition without imprisoning it.`,
+    qs:[{q:'What has happened to strong formulations of the hypothesis?',o:['They are widely accepted','They have been discredited','They were never proposed'],a:1},{q:'What does the tempered version claim?',o:['Language bias attention and memory','Language has no effect','Thought creates language'],a:0},{q:'The phrase "nudges cognition without imprisoning it" means language…',o:['controls thought completely','influences but does not determine thought','is unrelated to thought'],a:1}],
+    vocab:[{w:'oscillate',kr:'오가다, 진동하다'},{w:'incommensurable',kr:'통약 불가능한'},{w:'tempered',kr:'누그러진, 절제된'}] }],
+};
+let readLevel = null, readItem = null, readAns = [];
+function renderReading(el) {
+  readLevel = readLevel || myCefr();
+  let html = learnHeader('📖', '독해 (Reading)', '내 레벨에 맞춘 지문 + 이해 문제 + 핵심 어휘');
+  html += levelChips(readLevel, 'pickReadLevel');
+  html += `<div style="display:flex;gap:8px;margin-bottom:14px">
+    <button class="btn primary" style="flex:1" onclick="startReading()">📄 ${readLevel} 지문 풀기</button>
+    <button class="btn" style="flex:0 0 auto" onclick="aiGenReading()" title="AI가 새 지문을 생성합니다">🤖 AI 새 지문</button></div>`;
+  html += `<div id="read-body"></div>`;
+  el.innerHTML = html;
+}
+function pickReadLevel(c) { readLevel = c; renderReading(document.getElementById('learn-content')); }
+function startReading(custom) {
+  readItem = custom || (READING_BANK[readLevel] && READING_BANK[readLevel][0]);
+  if (!readItem) { toast('이 레벨 지문을 준비 중이에요. 🤖 AI 새 지문을 눌러보세요.'); return; }
+  readAns = [];
+  const body = document.getElementById('read-body');
+  let html = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px 16px;margin-bottom:12px">
+    <div style="font-weight:800;margin-bottom:8px;font-size:0.92rem">${esc(readItem.title)}
+      <button class="btn" onclick="tts(readItem.text,'en-US')" style="padding:3px 9px;float:right;font-size:0.74rem">🔊 듣기</button></div>
+    <div style="font-size:0.9rem;line-height:1.85;color:var(--text)">${esc(readItem.text)}</div></div>`;
+  html += `<div style="font-size:0.82rem;font-weight:800;color:var(--primary-light);margin:6px 0 8px">📝 이해 문제</div>`;
+  readItem.qs.forEach((qq, i) => {
+    html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:9px">
+      <div style="font-size:0.84rem;font-weight:700;margin-bottom:8px">${i+1}. ${esc(qq.q)}</div>` +
+      qq.o.map((opt, j) => `<button id="rq-${i}-${j}" onclick="pickRead(${i},${j})" style="display:block;width:100%;text-align:left;padding:8px 11px;border-radius:8px;font-size:0.82rem;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text);margin-bottom:5px">${esc(opt)}</button>`).join('') +
+      `</div>`;
+  });
+  html += `<button class="start-drill-btn" onclick="gradeReading()">채점하기</button>`;
+  html += `<div style="font-size:0.82rem;font-weight:800;color:var(--primary-light);margin:16px 0 8px">🔑 핵심 어휘 <span style="font-size:0.7rem;font-weight:400;color:var(--text-muted)">· 탭하면 표현장 저장</span></div>`;
+  html += readItem.vocab.map(v => `<button onclick="savePhrase('${escAttr(v.w)}','${escAttr(v.kr)}','독해 어휘')" style="display:inline-block;margin:0 6px 6px 0;padding:7px 11px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:0.8rem;cursor:pointer"><b>${esc(v.w)}</b> · ${esc(v.kr)} ＋</button>`).join('');
+  body.innerHTML = html;
+  body.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function pickRead(i, j) {
+  readAns[i] = j;
+  readItem.qs[i].o.forEach((_, k) => {
+    const b = document.getElementById(`rq-${i}-${k}`); if (!b) return;
+    const on = k === j;
+    b.style.borderColor = on ? 'var(--primary)' : 'var(--border)';
+    b.style.background = on ? 'var(--primary)' : 'var(--surface2)';
+    b.style.color = on ? '#fff' : 'var(--text)';
+  });
+}
+function gradeReading() {
+  let correct = 0;
+  readItem.qs.forEach((qq, i) => {
+    const b = document.getElementById(`rq-${i}-${qq.a}`);
+    if (b) { b.style.borderColor = 'var(--green)'; b.style.boxShadow = '0 0 0 1px var(--green)'; }
+    if (readAns[i] === qq.a) correct++;
+    else if (readAns[i] != null) { const w = document.getElementById(`rq-${i}-${readAns[i]}`); if (w) { w.style.borderColor = 'var(--red)'; w.style.background = 'rgba(239,68,68,0.12)'; } }
+  });
+  const ratio = correct / readItem.qs.length;
+  const band = CEFR_GSE[readLevel];
+  const gse = Math.round(band.min + (band.max - band.min) * ratio);
+  bumpSkill('reading', gse); markPracticedToday();
+  toast(`📖 독해 ${correct}/${readItem.qs.length} 정답 · 청해 GSE ${gse} 반영`, 3800);
+}
+async function aiGenReading() {
+  if (!ensureGroqSelected()) { toast('🤖 AI 지문 생성은 Groq 키가 필요해요.'); openGroqKeyModal(); return; }
+  toast('🤖 ' + readLevel + ' 지문 생성 중...');
+  try {
+    const sys = `You are an English reading-material author. Output ONLY JSON.`;
+    const user = `Create a CEFR ${readLevel} reading passage for a Korean learner.
+JSON shape: {"title":"...","text":"5-7 sentences at ${readLevel} difficulty","qs":[{"q":"...","o":["a","b","c"],"a":0},{...3 questions...}],"vocab":[{"w":"word/phrase","kr":"Korean meaning"},{...3 items...}]}
+Keep vocabulary and grammar appropriate for ${readLevel}. "a" is the index (0-based) of the correct option.`;
+    const raw = await groqComplete([{ role:'system', content:sys }, { role:'user', content:user }], { json:true, maxTokens:900, temperature:0.7 });
+    const data = JSON.parse(raw);
+    if (!data.text || !Array.isArray(data.qs)) throw new Error('bad');
+    startReading(data);
+  } catch (e) { toast('🤖 지문 생성 실패 — 기본 지문으로 진행하세요.'); }
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+   ③ 청해 — 딕테이션 (들리는 문장 받아쓰기, Duolingo 스타일) + 단어 단위 채점
+─────────────────────────────────────────────────────────────────────── */
+const LISTEN_BANK = {
+  A1: ['I have two brothers.', 'She is reading a book.', 'We go to school by bus.', "It's very cold today.", 'My favorite color is blue.', 'They are playing soccer.'],
+  A2: ['I went to the beach last weekend.', 'He is taller than his brother.', 'We are going to visit Seoul next month.', 'She has lived here for three years.', 'Can you help me with my homework?', 'I usually wake up at seven.'],
+  B1: ['I have already finished my report.', 'If I were you, I would take the job.', "She's been studying English since 2020.", 'The train was delayed because of the snow.', 'You should have called me earlier.', 'We need to cut down on plastic waste.'],
+  B2: ['Had I known earlier, I would have acted differently.', 'The committee postponed the decision until further notice.', 'Despite the rain, the event went ahead as planned.', 'He tends to underestimate how long tasks take.', 'The proposal was met with considerable skepticism.', 'They managed to resolve the issue without escalating it.'],
+  C1: ['Her unwavering commitment ultimately paid off.', 'The findings call into question our basic assumptions.', 'He has a tendency to overcomplicate simple matters.', 'Such measures, though controversial, proved effective.', 'The negotiations reached an impasse late last night.', 'We must weigh the benefits against the potential risks.'],
+  C2: ['The verdict set an unprecedented legal precedent.', 'His prose is at once elegant and remarkably economical.', 'They were inclined to dismiss the anomaly as negligible.', 'The reform was, in hindsight, woefully inadequate.', 'Her argument hinges on a rather tenuous assumption.', 'The phenomenon defies any straightforward explanation.'],
+};
+let listLevel = null, listQueue = [], listIdx = 0;
+function renderListening(el) {
+  listLevel = listLevel || myCefr();
+  let html = learnHeader('🎧', '청해 (Listening)', '들리는 문장을 받아쓰는 딕테이션 — 듣기·철자·문법을 한번에');
+  html += levelChips(listLevel, 'pickListLevel');
+  html += `<button class="start-drill-btn" onclick="startListening()">🎧 ${listLevel} 받아쓰기 시작 (6문항)</button>`;
+  html += `<div id="list-body" style="margin-top:14px"></div>`;
+  el.innerHTML = html;
+}
+function pickListLevel(c) { listLevel = c; renderListening(document.getElementById('learn-content')); }
+function startListening() {
+  const bank = (LISTEN_BANK[listLevel] || []).slice();
+  for (let i = bank.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [bank[i], bank[j]] = [bank[j], bank[i]]; }
+  listQueue = bank.slice(0, 6); listIdx = 0;
+  renderListenCard();
+}
+function renderListenCard() {
+  const body = document.getElementById('list-body');
+  if (listIdx >= listQueue.length) { return finishListening(); }
+  const sent = listQueue[listIdx];
+  body.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
+    <div style="font-size:0.76rem;color:var(--text-muted);margin-bottom:10px">문항 ${listIdx+1} / ${listQueue.length} · 들리는 문장을 그대로 적으세요</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="btn primary" style="flex:1" onclick="tts(listQueue[listIdx],'en-US')">🔊 다시 듣기</button>
+      <button class="btn" style="flex:0 0 auto" onclick="ttsSlow(listQueue[listIdx],'en-US')">🐢 느리게</button></div>
+    <textarea id="list-input" rows="2" placeholder="여기에 받아쓰기..." style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:11px;font-size:0.92rem;resize:vertical"></textarea>
+    <button class="start-drill-btn" style="margin-top:10px" onclick="checkListen()">확인</button>
+    <div id="list-result" style="margin-top:12px"></div></div>`;
+  setTimeout(() => { tts(sent, 'en-US'); document.getElementById('list-input')?.focus(); }, 200);
+}
+function normWords(s) { return (s || '').toLowerCase().replace(/[^a-z0-9'\s]/g, '').split(/\s+/).filter(Boolean); }
+function checkListen() {
+  const sent = listQueue[listIdx];
+  const guess = document.getElementById('list-input').value;
+  const target = normWords(sent), got = normWords(guess);
+  // 단어 단위 정합 (LCS 기반 정확도)
+  const m = target.length, n = got.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++)
+    dp[i][j] = target[i-1] === got[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+  const hit = dp[m][n];
+  const acc = m ? Math.round((hit / m) * 100) : 0;
+  // 단어별 색칠 (정답 기준)
+  const gotSet = new Set(got);
+  const colored = target.map(w => gotSet.has(w) ? `<span style="color:var(--green)">${w}</span>` : `<span style="color:var(--red);text-decoration:underline">${w}</span>`).join(' ');
+  const res = document.getElementById('list-result');
+  res.innerHTML = `<div style="font-size:0.82rem;margin-bottom:6px">정확도 <b style="color:${acc>=80?'var(--green)':acc>=50?'var(--yellow)':'var(--red)'}">${acc}%</b></div>
+    <div style="font-size:0.9rem;line-height:1.7;background:var(--surface2);border-radius:8px;padding:10px">${colored}</div>
+    <div style="font-size:0.78rem;color:var(--text-muted);margin-top:6px">정답: ${esc(sent)}</div>
+    <button class="btn primary" style="width:100%;margin-top:10px" onclick="nextListen(${acc})">${listIdx+1 < listQueue.length ? '다음 문항 →' : '결과 보기'}</button>`;
+  if (acc < 70) updateWeakList({ en: sent, kr: '(받아쓰기 문장)', lesson: 'listening', cat: 'listening' }, false);
+  listScore = (listScore || 0) + acc;
+}
+let listScore = 0;
+function nextListen(acc) { listIdx++; renderListenCard(); }
+function finishListening() {
+  const avg = Math.round((listScore || 0) / Math.max(1, listQueue.length));
+  listScore = 0;
+  const band = CEFR_GSE[listLevel];
+  const gse = Math.round(band.min + (band.max - band.min) * (avg / 100));
+  bumpSkill('listening', gse); markPracticedToday();
+  document.getElementById('list-body').innerHTML = `<div style="text-align:center;background:var(--surface);border:1px solid var(--primary);border-radius:14px;padding:20px">
+    <div style="font-size:0.8rem;color:var(--text-muted)">받아쓰기 평균 정확도</div>
+    <div style="font-size:2.2rem;font-weight:900;color:var(--primary-light);margin:4px 0">${avg}%</div>
+    <div style="font-size:0.8rem;color:var(--text-muted)">청해 GSE ${gse} 반영됨</div>
+    <button class="start-drill-btn" style="margin-top:14px" onclick="startListening()">↻ 다시 (새 문항)</button></div>`;
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+   ④ 작문 — 레벨별 과제 + AI 피드백 (IELTS 라이팅 밴드 / Cambridge Write&Improve)
+─────────────────────────────────────────────────────────────────────── */
+const WRITE_PROMPTS = {
+  A1: [{ p:'Introduce yourself in 3–4 sentences (name, age, job/school, hobby).', min:25 }, { p:'Describe your family in a few simple sentences.', min:25 }],
+  A2: [{ p:'Write about what you did last weekend (4–6 sentences, past tense).', min:40 }, { p:'Describe your daily routine.', min:40 }],
+  B1: [{ p:'Do you prefer living in a city or the countryside? Give reasons.', min:70 }, { p:'Write an email to a friend inviting them to your birthday party.', min:70 }],
+  B2: [{ p:'Some people think social media does more harm than good. Discuss both views and give your opinion.', min:120 }, { p:'Describe a challenge you overcame and what you learned.', min:120 }],
+  C1: [{ p:'"Remote work will eventually replace the traditional office." To what extent do you agree?', min:160 }, { p:'Analyse the impact of artificial intelligence on creative professions.', min:160 }],
+  C2: [{ p:'"Economic growth and environmental protection are fundamentally incompatible." Critically evaluate this claim.', min:200 }, { p:'Discuss whether objective truth is attainable in journalism.', min:200 }],
+};
+let writeLevel = null, writePrompt = null;
+function renderWriting(el) {
+  writeLevel = writeLevel || myCefr();
+  const list = WRITE_PROMPTS[writeLevel] || WRITE_PROMPTS.A2;
+  writePrompt = writePrompt && list.includes(writePrompt) ? writePrompt : list[0];
+  let html = learnHeader('✍️', '작문 (Writing)', 'AI가 IELTS 스타일로 채점 — 문법·어휘·구성·교정문 제공');
+  html += levelChips(writeLevel, 'pickWriteLevel');
+  html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:10px">
+    <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:4px">✏️ 과제 (${writeLevel}) · 최소 ${writePrompt.min}단어</div>
+    <div style="font-size:0.9rem;font-weight:700;line-height:1.5">${esc(writePrompt.p)}</div>
+    <button class="btn" onclick="rollWritePrompt()" style="margin-top:8px;padding:5px 10px;font-size:0.74rem">🎲 다른 과제</button></div>`;
+  html += `<textarea id="write-input" rows="9" placeholder="여기에 영어로 작성하세요..." oninput="updateWriteCount()" style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:0.92rem;line-height:1.6;resize:vertical"></textarea>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:8px 0">
+      <span id="write-count" style="font-size:0.76rem;color:var(--text-muted)">0 단어</span></div>
+    <button class="start-drill-btn" onclick="gradeWriting()">🤖 AI 첨삭 받기</button>
+    <div id="write-result" style="margin-top:14px"></div>`;
+  el.innerHTML = html;
+}
+function pickWriteLevel(c) { writeLevel = c; writePrompt = null; renderWriting(document.getElementById('learn-content')); }
+function rollWritePrompt() {
+  const list = WRITE_PROMPTS[writeLevel] || WRITE_PROMPTS.A2;
+  let next = writePrompt;
+  while (list.length > 1 && next === writePrompt) next = list[Math.floor(Math.random() * list.length)];
+  writePrompt = next; renderWriting(document.getElementById('learn-content'));
+}
+function updateWriteCount() {
+  const v = document.getElementById('write-input').value.trim();
+  const n = v ? v.split(/\s+/).length : 0;
+  const el = document.getElementById('write-count');
+  el.textContent = `${n} 단어` + (n < writePrompt.min ? ` (목표 ${writePrompt.min})` : ' ✓');
+  el.style.color = n >= writePrompt.min ? 'var(--green)' : 'var(--text-muted)';
+}
+async function gradeWriting() {
+  const text = document.getElementById('write-input').value.trim();
+  if (text.split(/\s+/).length < 8) { toast('조금 더 작성해 주세요 (최소 8단어).'); return; }
+  const res = document.getElementById('write-result');
+  if (!ensureGroqSelected()) {
+    res.innerHTML = `<div style="background:var(--surface);border:1px solid var(--yellow);border-radius:12px;padding:14px;font-size:0.82rem;line-height:1.6">
+      🤖 상세 AI 첨삭은 무료 Groq 키 연결 후 가능해요.<br><button class="btn primary" style="margin-top:8px" onclick="openGroqKeyModal()">AI 강사 연결하기</button></div>`;
+    return;
+  }
+  res.innerHTML = `<div style="color:var(--text-muted);font-size:0.84rem">🤖 ${writeLevel} 기준으로 채점 중...</div>`;
+  try {
+    const sys = `You are an IELTS/CEFR writing examiner for Korean learners. Output ONLY JSON.`;
+    const user = `Task prompt: "${writePrompt.p}"
+Target level: CEFR ${writeLevel}.
+Student's writing: """${text}"""
+Return JSON: {"cefr":"estimated CEFR like B1","score":0-100,"summary":"1-2 sentence overall in Korean","strengths":["Korean point",...],"issues":[{"wrong":"exact phrase from text","fix":"corrected phrase","why":"short Korean reason"},... up to 5],"corrected":"the full text rewritten correctly in natural English","modelAnswer":"a model answer at ${writeLevel}+ level"}`;
+    const raw = await groqComplete([{ role:'system', content:sys }, { role:'user', content:user }], { json:true, maxTokens:1400, temperature:0.4 });
+    const d = JSON.parse(raw);
+    renderWriteFeedback(d);
+    const band = CEFR_GSE[writeLevel];
+    const gse = Math.round(band.min + (band.max - band.min) * Math.min(1, (d.score || 60) / 100));
+    bumpSkill('writing', gse); markPracticedToday();
+  } catch (e) { res.innerHTML = `<div style="color:var(--red);font-size:0.84rem">🤖 첨삭 실패: ${esc(String(e.message||e))}</div>`; }
+}
+function renderWriteFeedback(d) {
+  const res = document.getElementById('write-result');
+  let html = `<div style="background:var(--surface);border:1px solid var(--primary);border-radius:14px;padding:16px">
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
+      <span style="font-size:1.6rem;font-weight:900;color:var(--primary-light)">${esc(d.cefr||'')}</span>
+      <span style="font-size:0.9rem;color:var(--text-muted)">${d.score!=null?d.score+'/100':''}</span></div>
+    <div style="font-size:0.84rem;line-height:1.6;margin-bottom:10px">${esc(d.summary||'')}</div>`;
+  if (Array.isArray(d.strengths) && d.strengths.length)
+    html += `<div style="font-size:0.78rem;font-weight:800;color:var(--green);margin:6px 0 4px">잘한 점</div><ul style="margin:0 0 8px 18px;font-size:0.8rem;line-height:1.6;color:var(--text-muted)">${d.strengths.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`;
+  if (Array.isArray(d.issues) && d.issues.length) {
+    html += `<div style="font-size:0.78rem;font-weight:800;color:var(--yellow);margin:8px 0 4px">고칠 점</div>`;
+    d.issues.forEach(it => {
+      html += `<div style="background:var(--surface2);border-radius:8px;padding:9px 11px;margin-bottom:6px;font-size:0.8rem;line-height:1.5">
+        <span style="color:var(--red);text-decoration:line-through">${esc(it.wrong||'')}</span> → <span style="color:var(--green);font-weight:700">${esc(it.fix||'')}</span>
+        <div style="color:var(--text-muted);font-size:0.74rem;margin-top:2px">${esc(it.why||'')}</div></div>`;
+    });
+  }
+  if (d.corrected) html += `<div style="font-size:0.78rem;font-weight:800;color:var(--primary-light);margin:10px 0 4px">✅ 교정문</div><div style="font-size:0.84rem;line-height:1.7;background:var(--surface2);border-radius:8px;padding:11px">${esc(d.corrected)}</div>`;
+  if (d.modelAnswer) html += `<div style="font-size:0.78rem;font-weight:800;color:var(--primary-light);margin:10px 0 4px">🌟 모범답안</div><div style="font-size:0.84rem;line-height:1.7;background:var(--surface2);border-radius:8px;padding:11px">${esc(d.modelAnswer)}</div>`;
+  html += `</div>`;
+  res.innerHTML = html;
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+   ⑤ 어휘 — 빈도 기반 레벨별 단어팩 (NGSL/Oxford 3000–5000) → SRS 연동
+─────────────────────────────────────────────────────────────────────── */
+const VOCAB_BANK = {
+  A1: [['family','가족'],['water','물'],['house','집'],['friend','친구'],['happy','행복한'],['eat','먹다'],['big','큰'],['school','학교'],['day','날, 하루'],['like','좋아하다']],
+  A2: [['weather','날씨'],['travel','여행하다'],['decide','결정하다'],['remember','기억하다'],['important','중요한'],['expensive','비싼'],['arrive','도착하다'],['favorite','가장 좋아하는'],['busy','바쁜'],['borrow','빌리다']],
+  B1: [['advantage','장점'],['environment','환경'],['suggest','제안하다'],['available','이용 가능한'],['experience','경험'],['improve','개선하다'],['recommend','추천하다'],['responsible','책임이 있는'],['describe','묘사하다'],['opportunity','기회']],
+  B2: [['assume','가정하다'],['consequence','결과'],['significant','상당한'],['acknowledge','인정하다'],['reluctant','꺼리는'],['flexible','유연한'],['estimate','추정하다'],['demonstrate','입증하다'],['inevitable','불가피한'],['perspective','관점']],
+  C1: [['advocate','옹호하다'],['ambiguous','모호한'],['compelling','설득력 있는'],['undermine','약화시키다'],['prevalent','만연한'],['scrutiny','면밀한 조사'],['nuance','미묘한 차이'],['coherent','일관성 있는'],['mitigate','완화하다'],['plausible','그럴듯한']],
+  C2: [['ubiquitous','어디에나 있는'],['esoteric','난해한'],['ostensibly','표면상'],['juxtapose','병치하다'],['tenuous','빈약한'],['paradigm','패러다임'],['quintessential','전형적인'],['cogent','설득력 있는'],['precarious','불안정한'],['ostentatious','과시적인']],
+};
+let vocabLevel = null;
+function renderVocab(el) {
+  vocabLevel = vocabLevel || myCefr();
+  const pack = VOCAB_BANK[vocabLevel] || [];
+  let html = learnHeader('🔡', '어휘 (Vocabulary)', '빈도순 핵심 단어팩 — 탭하면 표현장+간격반복(SRS)에 등록');
+  html += levelChips(vocabLevel, 'pickVocabLevel');
+  html += `<div style="display:flex;gap:8px;margin-bottom:12px">
+    <button class="btn primary" style="flex:1" onclick="addVocabPack()">＋ ${vocabLevel} 단어팩 전체 저장 (${pack.length})</button>
+    <button class="btn" style="flex:0 0 auto" onclick="tts(VOCAB_BANK[vocabLevel].map(w=>w[0]).join(', '),'en-US')">🔊</button></div>`;
+  html += pack.map(([w, kr]) => `<div style="display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:7px">
+    <button class="btn" onclick="tts('${escAttr(w)}','en-US')" style="padding:5px 9px;flex:0 0 auto">🔊</button>
+    <div style="flex:1;min-width:0"><b style="font-size:0.92rem">${esc(w)}</b> <span style="color:var(--text-muted);font-size:0.82rem">· ${esc(kr)}</span></div>
+    <button class="btn" onclick="savePhrase('${escAttr(w)}','${escAttr(kr)}','어휘 ${vocabLevel}')" style="padding:5px 10px;flex:0 0 auto">＋</button></div>`).join('');
+  el.innerHTML = html;
+}
+function pickVocabLevel(c) { vocabLevel = c; renderVocab(document.getElementById('learn-content')); }
+function addVocabPack() {
+  const pack = VOCAB_BANK[vocabLevel] || [];
+  let added = 0;
+  const list = load('va_phrases', []);
+  pack.forEach(([w, kr]) => {
+    if (!list.some(p => p.en.toLowerCase() === w.toLowerCase())) { list.push({ en: w, kr, note: `어휘 ${vocabLevel}`, ts: Date.now() }); added++; }
+  });
+  store('va_phrases', list);
+  // SRS에도 등록 (오늘 복습 대상)
+  pack.forEach(([w, kr]) => updateWeakList({ en: w, kr, lesson: 'vocab', cat: 'vocab' }, false));
+  toast(`🔡 ${added}개 단어를 표현장+복습에 등록했어요`, 3600);
+}
+
+/* escAttr: 작은따옴표/이중따옴표 안전 처리 (onclick 인라인용) */
+function escAttr(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' '); }
+
 function renderMaster() {
   const stats = load('va_stats', {});
   const weakCount = load('va_weak', []).length;
   const dueCount = dueWeak().length;
+  const prof = getProfile();
+  const placed = load('va_placed', null);
   let html = `<div style="margin-bottom:14px">
     <div style="font-size:1rem;font-weight:800;color:var(--primary-light);margin-bottom:4px">🏠 PREPLY AI 스피킹 코치</div>
-    <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.6">CEFR A1 → C2 로드맵 · 현재 A2 진행 중</div>
+    <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.6">CEFR A1 → C2 풀커버리지 · 현재 <b style="color:var(--text)">${prof.cefr}</b> (GSE ${prof.gse}) 진행 중</div>
   </div>
-  ${dailyGoalRing()}
-  <div style="margin-bottom:14px">
+  ${dailyGoalRing()}`;
+  if (!placed) {
+    html += `<div style="background:linear-gradient(135deg,rgba(99,102,241,0.14),rgba(99,102,241,0.04));border:1px solid var(--primary);border-radius:14px;padding:15px 16px;margin-bottom:14px">
+      <div style="font-size:0.9rem;font-weight:800;margin-bottom:4px">🧭 먼저 내 레벨을 진단해 보세요</div>
+      <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.6;margin-bottom:10px">18문항 배치고사로 A1~C2 레벨을 파악하고, 말하기·듣기·읽기·쓰기 시작점을 자동으로 맞춥니다.</div>
+      <button class="start-drill-btn" onclick="gotoLearn('placement')">🧭 1분 배치고사 시작 →</button></div>`;
+  }
+  html += `<div style="margin-bottom:14px">
     <button class="start-drill-btn" onclick="startDailyMix()">⚡ 오늘의 훈련 시작${dueCount ? ` — 복습 ${Math.min(dueCount, 5)}문항 포함` : ' (랜덤 10문항)'}</button>
+    <button class="btn" style="width:100%;margin-top:8px" onclick="document.querySelector('[data-mode=features]').click()">🎓 4대 영역 훈련 (듣기·읽기·쓰기·어휘) →</button>
     <button class="btn" style="width:100%;margin-top:8px" onclick="openPhrasebook()">📌 내 표현장 (${load('va_phrases', []).length})</button>
   </div>
 
