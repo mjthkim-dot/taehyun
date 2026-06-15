@@ -23,7 +23,8 @@ export default async function handler(req, res) {
       res.status(404).json({ error: 'no_captions', message: '이 영상에는 가져올 수 있는 자막이 없습니다. 스크립트를 직접 붙여넣어 주세요.', title: out.title || '' });
       return;
     }
-    res.status(200).json({ vid, lang: out.lang || '', title: out.title || '', text: out.text });
+    // segments: [{ start(초), dur(초), text }] — 실시간 싱크용 타임스탬프
+    res.status(200).json({ vid, lang: out.lang || '', title: out.title || '', text: out.text, segments: out.segments || [] });
   } catch (e) {
     res.status(502).json({ error: 'fetch_failed', message: String((e && e.message) || e) });
   }
@@ -75,30 +76,37 @@ async function fetchTranscript(vid, preferLang) {
   let baseUrl = (pick && pick.baseUrl || '').replace(/\\u0026/g, '&');
   if (!baseUrl) return { text: '', title };
 
-  // 4) json3 포맷으로 깔끔하게 파싱 (실패 시 XML 폴백)
+  // 4) json3 포맷으로 깔끔하게 파싱 (실패 시 XML 폴백) — 텍스트 + 타임스탬프 세그먼트
   let text = '';
+  let segments = [];
   try {
     const cr = await fetch(baseUrl + '&fmt=json3', { headers: { 'Accept-Language': 'en-US' } });
     const cj = await cr.json();
     if (cj && Array.isArray(cj.events)) {
-      text = cj.events
-        .filter(e => e.segs)
-        .map(e => e.segs.map(s => s.utf8 || '').join(''))
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+      for (const e of cj.events) {
+        if (!e.segs) continue;
+        const t = e.segs.map(s => s.utf8 || '').join('').replace(/\s+/g, ' ').trim();
+        if (!t) continue;
+        segments.push({ start: Math.round((e.tStartMs || 0) / 100) / 10, dur: Math.round((e.dDurationMs || 0) / 100) / 10, text: t });
+      }
+      text = segments.map(s => s.text).join(' ').replace(/\s+/g, ' ').trim();
     }
   } catch { /* XML 폴백으로 */ }
 
   if (!text) {
     const xr = await fetch(baseUrl);
     const xml = await xr.text();
-    text = decodeEntities(
-      xml.replace(/<text[^>]*>/g, ' ').replace(/<\/text>/g, ' ').replace(/<[^>]+>/g, '')
-    ).replace(/\s+/g, ' ').trim();
+    const re = /<text[^>]*\bstart="([\d.]+)"[^>]*?(?:\bdur="([\d.]+)")?[^>]*>([\s\S]*?)<\/text>/g;
+    let m;
+    while ((m = re.exec(xml)) !== null) {
+      const t = decodeEntities(m[3].replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
+      if (!t) continue;
+      segments.push({ start: parseFloat(m[1]) || 0, dur: parseFloat(m[2]) || 0, text: t });
+    }
+    text = segments.map(s => s.text).join(' ').replace(/\s+/g, ' ').trim();
   }
 
-  return { text, title, lang: (pick && pick.languageCode) || '' };
+  return { text, title, segments, lang: (pick && pick.languageCode) || '' };
 }
 
 function decodeEntities(s) {

@@ -322,6 +322,14 @@
     /* ── 🎬 영상 문장·단어별 학습 ── */
     .vid-embed { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; background: #000; margin-bottom: 14px; }
     .vid-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    /* 실시간 싱크: 영상+자막바를 상단에 고정해두고 카드만 스크롤 */
+    .vid-sticky { position: sticky; top: 0; z-index: 6; background: var(--bg); padding: 6px 0 8px; margin-bottom: 4px; }
+    .vid-sticky .vid-embed { margin-bottom: 8px; }
+    .vid-subbar { background: var(--surface); border: 1px solid var(--primary); border-radius: 10px; padding: 9px 12px; min-height: 34px; }
+    .vid-subbar .sub-en { font-size: 0.9rem; font-weight: 700; line-height: 1.45; }
+    .vid-subbar .sub-ko { font-size: 0.82rem; color: var(--primary-light); margin-top: 3px; line-height: 1.45; }
+    .vid-subbar .sub-idle { font-size: 0.78rem; color: var(--text-muted); }
+    .vsent.active { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); background: rgba(99,102,241,0.07); }
     .vsent { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
     .vsent .v-en { font-size: 0.96rem; font-weight: 600; line-height: 1.5; }
     .vsent .v-ko { font-size: 0.84rem; color: var(--primary-light); margin-top: 4px; line-height: 1.5; }
@@ -429,7 +437,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.26';
+const APP_VERSION = 'v4.27';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2008,6 +2016,8 @@ function setMode(mode, btn) {
     if (sttActive) stopMic();
     stopSpeaking();
   }
+  // 영상 탭을 벗어나면 실시간 싱크 폴링을 멈춘다 (재진입 시 재개)
+  if (currentMode === 'video' && mode !== 'video') stopYtSync();
   currentMode = mode;
   document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
@@ -2553,8 +2563,9 @@ function drillPhrasebook() {
    문장·단어별로 영어/한국어 번역 + 해석해 카드로 보여준다.
    (정적 SPA라 자막 자동수집은 CORS로 불가 → 스크립트 붙여넣기 방식)
 ═══════════════════════════════════════════════════ */
-let videoData = load('va_video_last', null);   // { vid, title, sentences:[{en,ko,words:[{en,ko}],note}] }
+let videoData = load('va_video_last', null);   // { vid, title, sentences:[{en,ko,words,note,start}], segments:[{start,dur,text}] }
 let videoBusy = false;
+let _capSegs = null, _capSegsVid = null;   // 가장 최근 자동수집한 자막의 타임스탬프 세그먼트
 
 /* 다양한 유튜브 URL 형식에서 11자리 영상 ID 추출 */
 function parseYouTubeId(url) {
@@ -2572,12 +2583,19 @@ function parseYouTubeId(url) {
   return '';
 }
 
+let _videoRenderedVid = null;   // 현재 화면에 그려진 영상 vid (탭 재진입 시 불필요한 재생성 방지)
 function renderVideo() {
   const el = document.getElementById('video-content');
   if (videoData && videoData.sentences && videoData.sentences.length) {
+    // 같은 영상이 이미 그려져 있으면 재생 위치를 유지하고 싱크만 재개
+    if (_videoRenderedVid === videoData.vid && document.getElementById('vsent-0')) {
+      if (videoData.segments && videoData.segments.length && ytPlayer) startYtSync();
+      return;
+    }
     renderVideoStudy(el);
   } else {
     renderVideoInput(el);
+    _videoRenderedVid = null;
   }
 }
 
@@ -2618,6 +2636,8 @@ async function fetchYouTubeCaption(vid) {
   if (!ct.includes('application/json')) throw new Error('NO_PROXY');   // 함수 미배포(정적) → HTML이 옴
   const data = await resp.json();
   if (!resp.ok || !data.text) throw new Error(data.error || 'no_captions');
+  _capSegs = Array.isArray(data.segments) ? data.segments : null;   // 실시간 싱크용 타임스탬프 보관
+  _capSegsVid = vid;
   return data;
 }
 
@@ -2674,7 +2694,10 @@ async function analyzeVideo() {
   try {
     const sentences = await aiAnalyzeTranscript(script);
     if (!sentences.length) throw new Error('empty');
-    videoData = { vid, sentences, ts: Date.now() };
+    // 이 영상의 타임스탬프 세그먼트가 있으면 문장별 시작 시각을 정렬 → 실시간 싱크 가능
+    const segments = (_capSegsVid === vid && _capSegs) ? _capSegs : [];
+    if (segments.length) alignSentenceTimes(sentences, segments);
+    videoData = { vid, sentences, segments, ts: Date.now() };
     store('va_video_last', videoData);
     renderVideoStudy(document.getElementById('video-content'));
   } catch (err) {
@@ -2729,26 +2752,63 @@ Respond ONLY in this JSON format (no other text):
     }));
 }
 
+/* 자막 타임스탬프 세그먼트에 맞춰 각 AI 문장의 시작 시각(start)을 추정한다.
+   세그먼트 텍스트를 정규화해 이어 붙이고, 각 문장 앞부분이 등장하는 위치의
+   세그먼트 시간을 가져온다. 매칭 실패한 문장은 앞 문장 시간을 이어받는다. */
+function alignSentenceTimes(sentences, segments) {
+  const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  let concat = '';
+  const idx = [];   // { ch: 문자위치, time: 세그먼트 시작초 }
+  segments.forEach(seg => {
+    const n = norm(seg.text);
+    if (!n) return;
+    idx.push({ ch: concat.length, time: seg.start });
+    concat += n + ' ';
+  });
+  let prev = segments.length ? segments[0].start : 0;
+  sentences.forEach(s => {
+    const key = norm(s.en).slice(0, 14);
+    let pos = key.length >= 6 ? concat.indexOf(key) : -1;
+    if (pos < 0 && key.length >= 6) pos = concat.indexOf(key.slice(0, 8));   // 살짝 느슨하게 재시도
+    if (pos < 0) { s.start = prev; return; }
+    let t = prev;
+    for (const e of idx) { if (e.ch <= pos) t = e.time; else break; }
+    s.start = t; prev = t;
+  });
+}
+
 function renderVideoStudy(el) {
+  stopYtSync();
   const d = videoData;
-  let html = `<div class="vid-embed">
-    <iframe src="https://www.youtube-nocookie.com/embed/${esc(d.vid)}" title="YouTube video"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-  </div>
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-    <div style="font-size:0.82rem;font-weight:800">📝 문장·단어별 해석 (${d.sentences.length}문장)</div>
+  const synced = Array.isArray(d.segments) && d.segments.length > 0;
+  let html = '';
+  if (synced) {
+    // 실시간 싱크: 영상 + 현재 줄 자막바를 상단 고정
+    html += `<div class="vid-sticky">
+      <div class="vid-embed"><div id="yt-player"></div></div>
+      <div class="vid-subbar" id="vid-subbar"><span class="sub-idle">▶️ 재생하면 지금 나오는 문장이 여기에 영어+한국어로 실시간 표시됩니다.</span></div>
+    </div>`;
+  } else {
+    html += `<div class="vid-embed">
+      <iframe src="https://www.youtube-nocookie.com/embed/${esc(d.vid)}" title="YouTube video"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    </div>`;
+  }
+  html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div style="font-size:0.82rem;font-weight:800">📝 문장·단어별 해석 (${d.sentences.length}문장)${synced ? ' · ⏱ 실시간 싱크' : ''}</div>
     <button class="btn" onclick="resetVideo()" style="padding:5px 12px;font-size:0.76rem">🔄 새 영상</button>
   </div>
   <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:12px;line-height:1.6">
-    🔊 문장 듣기 · 🐢 천천히 · 🇰🇷 번역 토글 · 📌 표현장 저장 · 단어 칩을 탭하면 발음을 들려줍니다
+    🔊 문장 듣기 · 🐢 천천히 · 🇰🇷 번역 토글 · 📌 표현장 저장 · 단어 칩을 탭하면 발음을 들려줍니다${synced ? '<br>⏱ <b>실시간 싱크</b>: 영상이 재생되면 현재 문장이 자동 강조·스크롤됩니다 (탭하면 그 지점으로 점프)' : ''}
   </div>`;
 
   d.sentences.forEach((s, i) => {
     const words = (s.words || []).map(w =>
       `<span class="v-word" onclick="tts('${jsAttr(w.en)}','en-US')" title="발음 듣기"><b>${esc(w.en)}</b>${w.ko ? `<span>${esc(w.ko)}</span>` : ''}</span>`
     ).join('');
-    html += `<div class="vsent">
-      <div class="v-en">${esc(s.en)}</div>
+    const jump = (synced && s.start != null) ? ` onclick="seekVideoTo(${s.start})" title="이 지점으로 영상 점프" style="cursor:pointer"` : '';
+    html += `<div class="vsent" id="vsent-${i}">
+      <div class="v-en"${jump}>${esc(s.en)}</div>
       <div class="v-ko" id="vko-${i}" style="display:none">🇰🇷 ${esc(s.ko)}</div>
       ${words ? `<div class="v-words">${words}</div>` : ''}
       ${s.note ? `<div class="v-note">💡 ${noteHtml(s.note)}</div>` : ''}
@@ -2761,6 +2821,73 @@ function renderVideoStudy(el) {
     </div>`;
   });
   el.innerHTML = html;
+  _videoRenderedVid = d.vid;
+  if (synced) initYTPlayer(d.vid);
+}
+
+/* ── 실시간 싱크 엔진 (YouTube IFrame Player API) ── */
+let ytPlayer = null, ytSyncTimer = null, ytActiveIdx = -1, _ytApiPromise = null;
+
+function loadYTApi() {
+  if (window.YT && window.YT.Player) return Promise.resolve();
+  if (_ytApiPromise) return _ytApiPromise;
+  _ytApiPromise = new Promise(resolve => {
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { try { prev && prev(); } catch (e) {} resolve(); };
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+  });
+  return _ytApiPromise;
+}
+
+async function initYTPlayer(vid) {
+  try { await loadYTApi(); } catch (e) { return; }
+  if (!document.getElementById('yt-player')) return;   // 화면이 이미 바뀜
+  if (ytPlayer) { try { ytPlayer.destroy(); } catch (e) {} ytPlayer = null; }
+  ytActiveIdx = -1;
+  ytPlayer = new YT.Player('yt-player', {
+    videoId: vid,
+    playerVars: { rel: 0, modestbranding: 1, playsinline: 1, origin: location.origin },
+    events: {
+      onReady: () => startYtSync(),
+      onStateChange: (e) => {
+        // 재생 중일 때만 폴링 (1=재생) — 일시정지/종료 시 절약
+        if (e.data === 1) startYtSync(); else stopYtSync();
+      },
+    },
+  });
+}
+
+function startYtSync() { stopYtSync(); ytSyncTimer = setInterval(updateYtSync, 250); }
+function stopYtSync() { if (ytSyncTimer) { clearInterval(ytSyncTimer); ytSyncTimer = null; } }
+
+function updateYtSync() {
+  if (!ytPlayer || !ytPlayer.getCurrentTime || !videoData || !videoData.sentences) return;
+  let t;
+  try { t = ytPlayer.getCurrentTime(); } catch (e) { return; }
+  const sents = videoData.sentences;
+  let idx = -1;
+  for (let i = 0; i < sents.length; i++) {
+    if (sents[i].start != null && sents[i].start <= t + 0.2) idx = i; else if (sents[i].start != null) break;
+  }
+  if (idx === ytActiveIdx) return;
+  ytActiveIdx = idx;
+  const bar = document.getElementById('vid-subbar');
+  if (bar) {
+    if (idx >= 0) { const s = sents[idx]; bar.innerHTML = `<div class="sub-en">${esc(s.en)}</div><div class="sub-ko">🇰🇷 ${esc(s.ko)}</div>`; }
+    else bar.innerHTML = `<span class="sub-idle">▶️ 재생하면 지금 나오는 문장이 여기에 표시됩니다.</span>`;
+  }
+  document.querySelectorAll('.vsent.active').forEach(e => e.classList.remove('active'));
+  if (idx >= 0) {
+    const card = document.getElementById('vsent-' + idx);
+    if (card) { card.classList.add('active'); card.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  }
+}
+
+/* 문장 카드/자막을 탭하면 그 시점으로 영상 점프 */
+function seekVideoTo(sec) {
+  if (ytPlayer && ytPlayer.seekTo) { try { ytPlayer.seekTo(sec, true); ytPlayer.playVideo && ytPlayer.playVideo(); } catch (e) {} }
 }
 
 function toggleVko(i, btn) {
@@ -2772,6 +2899,8 @@ function toggleVko(i, btn) {
 }
 
 function resetVideo() {
+  stopYtSync();
+  if (ytPlayer) { try { ytPlayer.destroy(); } catch (e) {} ytPlayer = null; }
   videoData = null;
   store('va_video_last', null);
   renderVideoInput(document.getElementById('video-content'));
