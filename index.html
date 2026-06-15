@@ -329,6 +329,15 @@
     .vid-subbar .sub-en { font-size: 0.9rem; font-weight: 700; line-height: 1.45; }
     .vid-subbar .sub-ko { font-size: 0.82rem; color: var(--primary-light); margin-top: 3px; line-height: 1.45; }
     .vid-subbar .sub-idle { font-size: 0.78rem; color: var(--text-muted); }
+    /* ── 라이브 번역 자막바 ── */
+    .live-sub-wrap { position: sticky; top: 0; z-index: 6; background: var(--bg); padding: 6px 0 6px; }
+    .live-sub-wrap .vid-embed { margin-bottom: 0; }
+    .live-subbar { background: rgba(12,12,24,0.93); border-radius: 0 0 14px 14px; padding: 12px 16px 14px; min-height: 56px; border: 1px solid rgba(99,102,241,0.35); border-top: none; }
+    .live-en { font-size: 1.1rem; font-weight: 700; color: #fff; line-height: 1.5; letter-spacing: 0.01em; }
+    .live-ko { font-size: 0.95rem; color: #a5b4fc; margin-top: 5px; line-height: 1.45; min-height: 1.3em; }
+    .live-note-bar { font-size: 0.78rem; color: rgba(255,255,255,0.55); margin-top: 5px; line-height: 1.5; }
+    .live-word-chip { display:inline-block; margin:4px 4px 0 0; padding:4px 9px; background:rgba(99,102,241,0.22); border:1px solid rgba(99,102,241,0.35); border-radius:6px; font-size:0.78rem; color:#c4b5fd; cursor:pointer; transition:background 0.12s; }
+    .live-word-chip:hover { background:rgba(99,102,241,0.5); color:#fff; }
     .vsent.active { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); background: rgba(99,102,241,0.07); }
     .vsent { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
     .vsent .v-en { font-size: 0.96rem; font-weight: 600; line-height: 1.5; }
@@ -440,7 +449,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.30';
+const APP_VERSION = 'v4.31';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2569,6 +2578,10 @@ function drillPhrasebook() {
 let videoData = load('va_video_last', null);   // { vid, title, sentences:[{en,ko,words,note,start}], segments:[{start,dur,text}] }
 let videoBusy = false;
 let _capSegs = null, _capSegsVid = null;   // 가장 최근 자동수집한 자막의 타임스탬프 세그먼트
+let _segCache = {};      // 'vid:idx' → {ko,note,words} — 세그먼트별 실시간 번역 캐시
+let _liveMode = false;   // true = 라이브 번역 모드(전체 AI 분석 없이 세그먼트 즉시 번역)
+let _liveSegIdx = -1;    // 라이브 모드 현재 세그먼트 인덱스
+let _livePendingIdx = -1; // 번역 요청 중인 세그먼트 인덱스
 
 /* 다양한 유튜브 URL 형식에서 11자리 영상 ID 추출 */
 function parseYouTubeId(url) {
@@ -2618,7 +2631,13 @@ function renderVideoInput(el, note) {
       <div style="font-size:0.74rem;font-weight:700;margin-bottom:4px">영어 스크립트 (자막)</div>
       <textarea id="vid-script" rows="6" placeholder="위 버튼으로 자동으로 채워지거나, 직접 붙여넣어도 됩니다.&#10;예) Hello everyone. Today I want to talk about how to learn English faster..."
         style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font-family:inherit;font-size:0.86rem;resize:vertical"></textarea>
-      <button class="btn primary" id="vid-go" onclick="analyzeVideo()" style="width:100%;margin-top:10px">✨ 문장·단어별로 분석하기</button>
+      <button id="vid-live-btn" onclick="startLiveMode()" style="display:none;width:100%;margin-top:10px;padding:12px;border-radius:10px;font-size:0.88rem;font-weight:800;cursor:pointer;border:2px solid var(--primary);background:var(--primary);color:#fff">▶️ 즉시 번역으로 바로 보기</button>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+        <span style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap">또는 전체 AI 분석</span>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+      <button class="btn primary" id="vid-go" onclick="analyzeVideo()" style="width:100%;margin-top:10px;opacity:0.85">🤖 문장·단어·해석 카드로 분석하기 (AI 필요)</button>
       <button class="btn" onclick="loadSampleVideo()" style="width:100%;margin-top:8px">🎁 샘플 영상으로 체험해보기</button>
       ${note ? `<div style="font-size:0.78rem;color:#fca5a5;margin-top:10px">${esc(note)}</div>` : ''}
     </div>`;
@@ -2664,7 +2683,10 @@ async function autoFetchCaption() {
     const data = await fetchYouTubeCaption(vid);
     const ta = document.getElementById('vid-script');
     if (ta) ta.value = data.text;
-    toast(`✅ 자막을 가져왔어요${data.lang ? ` (${data.lang})` : ''} · ✨ 분석하기를 눌러주세요`);
+    toast(`✅ 자막 ${data.segments?.length || 0}개 세그먼트 수집됨${data.lang ? ` (${data.lang})` : ''}`, 3000);
+    // 자막 수집 성공 → 라이브 번역 버튼 표시
+    const liveBtn = document.getElementById('vid-live-btn');
+    if (liveBtn) { liveBtn.style.display = 'block'; liveBtn.textContent = `▶️ 즉시 번역으로 바로 보기 (${data.segments?.length || 0}개 자막 준비됨)`; }
   } catch (err) {
     if (err.name === 'AbortError') toast('⏱ 자막 수집 시간 초과. 잠시 후 다시 시도하거나 스크립트를 직접 붙여넣어 주세요.', 5000);
     else if (err.message === 'NO_PROXY') toast('ℹ️ 자동수집은 배포 환경에서만 동작해요. 스크립트를 직접 붙여넣어 주세요.', 4500);
@@ -2797,6 +2819,7 @@ function alignSentenceTimes(sentences, segments) {
 
 function renderVideoStudy(el) {
   stopYtSync();
+  _liveMode = false; _liveSegIdx = -1;
   const d = videoData;
   const synced = Array.isArray(d.segments) && d.segments.length > 0;
   let html = '';
@@ -2881,6 +2904,8 @@ function startYtSync() { stopYtSync(); ytSyncTimer = setInterval(updateYtSync, 2
 function stopYtSync() { if (ytSyncTimer) { clearInterval(ytSyncTimer); ytSyncTimer = null; } }
 
 function updateYtSync() {
+  // 라이브 번역 모드
+  if (_liveMode) { updateYtSyncLive(); return; }
   if (!ytPlayer || !ytPlayer.getCurrentTime || !videoData || !videoData.sentences) return;
   let t;
   try { t = ytPlayer.getCurrentTime(); } catch (e) { return; }
@@ -2903,6 +2928,174 @@ function updateYtSync() {
   }
 }
 
+/* ── 라이브 번역 모드 ────────────────────────────────────────────────────
+   자막 세그먼트를 영상 재생과 동시에 Groq로 즉시 번역해 자막바에 표시.
+   전체 AI 분석 없이도 영상을 바로 시청·학습할 수 있다.
+─────────────────────────────────────────────────────────────────────── */
+
+/* 라이브 모드 진입: 자막 자동수집 성공 후 "즉시 번역으로 보기" 버튼 */
+function startLiveMode() {
+  const url = (document.getElementById('vid-url')?.value || '').trim();
+  const vid = parseYouTubeId(url);
+  if (!vid) { toast('⚠️ 유튜브 주소를 먼저 넣어주세요.'); return; }
+  if (!_capSegs || _capSegsVid !== vid) { toast('⚠️ 자막을 먼저 가져오세요.'); return; }
+  _liveMode = true;
+  _liveSegIdx = -1;
+  _livePendingIdx = -1;
+  renderLiveMode(document.getElementById('video-content'), vid);
+}
+
+function renderLiveMode(el, vid) {
+  const segCount = (_capSegs || []).length;
+  const hasAI = !!groqKey();
+  let html = `<div class="live-sub-wrap">
+    <div class="vid-embed"><div id="yt-player"></div></div>
+    <div class="live-subbar" id="live-subbar">
+      <div id="live-en" class="live-en" style="color:rgba(255,255,255,0.55)">▶️ 재생하면 실시간 자막이 표시됩니다</div>
+      <div id="live-ko" class="live-ko"></div>
+      <div id="live-note" class="live-note-bar"></div>
+      <div id="live-chips" style="margin-top:2px"></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:7px;margin:10px 0 8px;flex-wrap:wrap">
+    <button class="btn" onclick="resetVideo()" style="flex:0 0 auto;font-size:0.8rem">🔄 새 영상</button>
+    <button class="btn primary" onclick="analyzeVideo()" style="flex:1;font-size:0.8rem" ${hasAI ? '' : 'title="Groq 키 필요"'}>🤖 전체 AI 분석 (단어·해석 카드)</button>
+    <button class="btn" onclick="toggleLiveNote()" style="flex:0 0 auto;font-size:0.8rem" id="live-note-toggle">💡 해석 켜기</button>
+  </div>
+  <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:10px;line-height:1.6">
+    ⏱ 세그먼트 ${segCount}개${hasAI ? ' · <b>Groq AI 즉시 번역</b> ON' : ' · <b>원문 자막</b>만 표시 (Groq 키 연결 시 한국어 번역)'} · 자막 탭하면 그 지점으로 이동
+  </div>
+  <div id="live-seg-list"></div>`;
+  el.innerHTML = html;
+  _videoRenderedVid = vid;
+
+  // 세그먼트 목록 렌더링 (타임라인 역할)
+  renderLiveSegList();
+
+  // YouTube 플레이어 초기화
+  initYTPlayer(vid);
+}
+
+let _liveNoteOn = false;
+function toggleLiveNote() {
+  _liveNoteOn = !_liveNoteOn;
+  const btn = document.getElementById('live-note-toggle');
+  if (btn) btn.textContent = _liveNoteOn ? '💡 해석 끄기' : '💡 해석 켜기';
+  const noteEl = document.getElementById('live-note');
+  if (noteEl) noteEl.style.display = _liveNoteOn ? '' : 'none';
+}
+
+function renderLiveSegList() {
+  const el = document.getElementById('live-seg-list');
+  if (!el || !_capSegs) return;
+  let html = `<div style="font-size:0.8rem;font-weight:800;color:var(--primary-light);margin-bottom:8px">📋 자막 타임라인 <span style="font-weight:400;color:var(--text-muted)">(탭하면 그 지점으로 점프)</span></div>`;
+  _capSegs.forEach((seg, i) => {
+    const mm = Math.floor(seg.start / 60).toString().padStart(2, '0');
+    const ss = Math.floor(seg.start % 60).toString().padStart(2, '0');
+    html += `<div id="lseg-${i}" onclick="seekVideoTo(${seg.start})" style="display:flex;gap:8px;align-items:baseline;padding:7px 10px;border-radius:9px;margin-bottom:4px;cursor:pointer;border:1px solid transparent;transition:all 0.12s" onmouseover="this.style.background='var(--surface)'" onmouseout="if(!this.classList.contains('lseg-on'))this.style.background=''">
+      <span style="font-size:0.7rem;color:var(--text-muted);flex:0 0 36px">${mm}:${ss}</span>
+      <span class="lseg-en" style="font-size:0.84rem;flex:1">${esc(seg.text)}</span>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+/* 라이브 싱크: 세그먼트 기반 (videoData.sentences 대신 _capSegs 사용) */
+function updateYtSyncLive() {
+  if (!ytPlayer || !ytPlayer.getCurrentTime || !_capSegs) return;
+  let t;
+  try { t = ytPlayer.getCurrentTime(); } catch (e) { return; }
+  let idx = -1;
+  for (let i = 0; i < _capSegs.length; i++) {
+    if (_capSegs[i].start <= t + 0.3) idx = i; else break;
+  }
+  if (idx === _liveSegIdx) return;
+  _liveSegIdx = idx;
+  updateLiveSubbar(idx);
+  // 타임라인 하이라이트
+  document.querySelectorAll('[id^="lseg-"].lseg-on').forEach(e => {
+    e.classList.remove('lseg-on');
+    e.style.background = ''; e.style.borderColor = 'transparent';
+  });
+  if (idx >= 0) {
+    const row = document.getElementById('lseg-' + idx);
+    if (row) { row.classList.add('lseg-on'); row.style.background = 'var(--surface)'; row.style.borderColor = 'var(--primary)'; row.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+  }
+}
+
+function updateLiveSubbar(idx) {
+  const enEl = document.getElementById('live-en');
+  const koEl = document.getElementById('live-ko');
+  const noteEl = document.getElementById('live-note');
+  const chipsEl = document.getElementById('live-chips');
+  if (!enEl) return;
+
+  if (idx < 0) {
+    enEl.textContent = '▶️ 재생하면 실시간 자막이 표시됩니다';
+    enEl.style.color = 'rgba(255,255,255,0.55)';
+    koEl.innerHTML = ''; if (noteEl) noteEl.innerHTML = ''; if (chipsEl) chipsEl.innerHTML = '';
+    return;
+  }
+
+  const seg = _capSegs[idx];
+  enEl.textContent = seg.text;
+  enEl.style.color = '#fff';
+
+  const cacheKey = `${_capSegsVid}:${idx}`;
+  if (_segCache[cacheKey]) {
+    const c = _segCache[cacheKey];
+    koEl.innerHTML = c.ko ? `🇰🇷 ${esc(c.ko)}` : '';
+    if (noteEl) noteEl.innerHTML = c.note ? `💡 ${esc(c.note)}` : '';
+    if (chipsEl) chipsEl.innerHTML = renderLiveWordChips(c.words || []);
+    return;
+  }
+
+  // 번역 대기 표시
+  koEl.innerHTML = '<span style="color:rgba(255,255,255,0.3);font-size:0.82rem">번역 중...</span>';
+  if (noteEl) noteEl.innerHTML = ''; if (chipsEl) chipsEl.innerHTML = '';
+
+  if (!groqKey()) { koEl.innerHTML = ''; return; }
+
+  // 이전 요청 취소(같은 인덱스가 아닌 새 세그먼트)
+  if (_livePendingIdx === idx) return;
+  _livePendingIdx = idx;
+
+  translateSegLive(seg, idx, cacheKey).then(result => {
+    if (_liveSegIdx !== idx) return;   // 이미 다음 세그먼트로 넘어갔으면 무시
+    const koEl2 = document.getElementById('live-ko');
+    const noteEl2 = document.getElementById('live-note');
+    const chipsEl2 = document.getElementById('live-chips');
+    if (koEl2) koEl2.innerHTML = result.ko ? `🇰🇷 ${esc(result.ko)}` : '';
+    if (noteEl2) noteEl2.innerHTML = result.note ? `💡 ${esc(result.note)}` : '';
+    if (chipsEl2) chipsEl2.innerHTML = renderLiveWordChips(result.words || []);
+    _livePendingIdx = -1;
+  });
+}
+
+function renderLiveWordChips(words) {
+  return (words || []).slice(0, 6).map(w =>
+    `<span class="live-word-chip" onclick="tts('${escAttr(w.en)}','en-US')" title="${escAttr(w.ko)}">${esc(w.en)} <span style="opacity:0.7">· ${esc(w.ko)}</span></span>`
+  ).join('');
+}
+
+/* 세그먼트 하나를 즉시 번역 + 핵심 단어 추출 (Groq, JSON) */
+async function translateSegLive(seg, idx, cacheKey) {
+  const empty = { ko: '', note: '', words: [] };
+  try {
+    const raw = await groqComplete([
+      { role: 'system', content: 'You are an English tutor for Korean learners. Output ONLY compact JSON.' },
+      { role: 'user', content: `Translate this English subtitle to Korean and extract key words.
+Subtitle: "${seg.text}"
+JSON: {"ko":"자연스러운 한국어 번역","note":"핵심 문법·표현을 1문장 한국어로","words":[{"en":"key word/phrase","ko":"한국어 뜻"},{"en":"...","ko":"..."}]}
+words는 최대 4개, note는 30자 이내.` }
+    ], { json: true, maxTokens: 200, temperature: 0.2 });
+    const d = JSON.parse(raw || '{}');
+    const result = { ko: d.ko || '', note: d.note || '', words: Array.isArray(d.words) ? d.words : [] };
+    _segCache[cacheKey] = result;
+    return result;
+  } catch (e) { return empty; }
+}
+
 /* 문장 카드/자막을 탭하면 그 시점으로 영상 점프 */
 function seekVideoTo(sec) {
   if (ytPlayer && ytPlayer.seekTo) { try { ytPlayer.seekTo(sec, true); ytPlayer.playVideo && ytPlayer.playVideo(); } catch (e) {} }
@@ -2919,7 +3112,7 @@ function toggleVko(i, btn) {
 function resetVideo() {
   stopYtSync();
   if (ytPlayer) { try { ytPlayer.destroy(); } catch (e) {} ytPlayer = null; }
-  videoData = null;
+  videoData = null; _liveMode = false; _liveSegIdx = -1; _livePendingIdx = -1;
   store('va_video_last', null);
   renderVideoInput(document.getElementById('video-content'));
 }
