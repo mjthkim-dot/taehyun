@@ -317,6 +317,21 @@
     .para-card .up { color: #86efac; font-weight: 700; }
     .para-card .or { color: var(--text-muted); text-decoration: line-through; opacity: 0.7; }
 
+    /* ── 🎬 영상 문장·단어별 학습 ── */
+    .vid-embed { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; background: #000; margin-bottom: 14px; }
+    .vid-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    .vsent { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+    .vsent .v-en { font-size: 0.96rem; font-weight: 600; line-height: 1.5; }
+    .vsent .v-ko { font-size: 0.84rem; color: var(--primary-light); margin-top: 4px; line-height: 1.5; }
+    .vsent .v-note { font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; line-height: 1.6; background: var(--surface2); border-radius: 8px; padding: 7px 10px; }
+    .vsent .v-actions { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
+    .v-words { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .v-word { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; font-size: 0.78rem; cursor: pointer; transition: background 0.12s; }
+    .v-word:hover { background: var(--primary); color: #fff; }
+    .v-word b { color: var(--text); font-weight: 700; }
+    .v-word span { color: var(--text-muted); margin-left: 4px; }
+    .v-word:hover span { color: rgba(255,255,255,0.85); }
+
     /* ── Word-tap 오디오 싱크 ── */
     .sync-word { cursor: pointer; border-radius: 4px; padding: 0 1px; transition: background 0.12s, color 0.12s; }
     .sync-word:hover { background: var(--surface2); }
@@ -359,6 +374,7 @@
   <button class="mode-tab active" data-mode="study" onclick="setMode('study', this)">📖 레슨</button>
   <button class="mode-tab" data-mode="drill" onclick="setMode('drill', this)">🔁 드릴</button>
   <button class="mode-tab" data-mode="talk" onclick="setMode('talk', this)">🗣 회화</button>
+  <button class="mode-tab" data-mode="video" onclick="setMode('video', this)">🎬 영상</button>
   <button class="mode-tab" data-mode="review" onclick="setMode('review', this)">📝 복습</button>
   <button class="mode-tab" data-mode="progress" onclick="setMode('progress', this)">📊 진도</button>
 </div>
@@ -394,6 +410,9 @@
   </div>
 </div>
 
+<!-- 🎬 VIDEO -->
+<div class="panel" id="panel-video"><div class="panel-inner" id="video-content"></div></div>
+
 <!-- 📝 REVIEW -->
 <div class="panel" id="panel-review"><div class="panel-inner" id="review-content"></div></div>
 
@@ -404,7 +423,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.24';
+const APP_VERSION = 'v4.25';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -1988,11 +2007,12 @@ function setMode(mode, btn) {
   btn.classList.add('active');
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + mode).classList.add('active');
-  document.getElementById('lesson-bar').style.display = (mode === 'review' || mode === 'progress' || mode === 'master') ? 'none' : 'flex';
+  document.getElementById('lesson-bar').style.display = (mode === 'review' || mode === 'progress' || mode === 'master' || mode === 'video') ? 'none' : 'flex';
   if (mode === 'drill' && drillQueue.length === 0) renderDrillIntro();
   if (mode === 'review') renderReview();
   if (mode === 'progress') renderProgress();
   if (mode === 'master') renderMaster();
+  if (mode === 'video') renderVideo();
   if (mode === 'talk') renderHelperChips();
   // 회화 탭: 대화가 비어있으면 AI 코치가 먼저 인사하며 수업을 시작
   if (mode === 'talk' && history.length === 0 && !isProcessing) {
@@ -2519,6 +2539,185 @@ function drillPhrasebook() {
   drillResults = [];
   setMode('drill', document.querySelector('[data-mode="drill"]'));
   renderDrillCard();
+}
+
+/* ═══════════════════════════════════════════════════
+   🎬 영상 학습 — 유튜브 영상을 임베드하고, 스크립트를 AI가
+   문장·단어별로 영어/한국어 번역 + 해석해 카드로 보여준다.
+   (정적 SPA라 자막 자동수집은 CORS로 불가 → 스크립트 붙여넣기 방식)
+═══════════════════════════════════════════════════ */
+let videoData = load('va_video_last', null);   // { vid, title, sentences:[{en,ko,words:[{en,ko}],note}] }
+let videoBusy = false;
+
+/* 다양한 유튜브 URL 형식에서 11자리 영상 ID 추출 */
+function parseYouTubeId(url) {
+  if (!url) return '';
+  url = url.trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(url)) return url;   // 이미 ID만 붙여넣은 경우
+  const patterns = [
+    /[?&]v=([A-Za-z0-9_-]{11})/,        // watch?v=
+    /youtu\.be\/([A-Za-z0-9_-]{11})/,   // youtu.be/
+    /embed\/([A-Za-z0-9_-]{11})/,       // /embed/
+    /shorts\/([A-Za-z0-9_-]{11})/,      // /shorts/
+    /live\/([A-Za-z0-9_-]{11})/,        // /live/
+  ];
+  for (const re of patterns) { const m = url.match(re); if (m) return m[1]; }
+  return '';
+}
+
+function renderVideo() {
+  const el = document.getElementById('video-content');
+  if (videoData && videoData.sentences && videoData.sentences.length) {
+    renderVideoStudy(el);
+  } else {
+    renderVideoInput(el);
+  }
+}
+
+function renderVideoInput(el, note) {
+  el.innerHTML = `
+    <div class="study-card">
+      <h3>🎬 영상으로 배우기</h3>
+      <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.7;margin-bottom:12px">
+        좋아하는 유튜브 영상을 넣고, 그 영상의 <b>스크립트(자막)</b>를 붙여넣으면<br>
+        AI가 <b>문장별 + 단어별로 영어/한국어 번역 + 해석</b>을 카드로 만들어 줍니다.<br>
+        <span style="font-size:0.72rem">💡 자막 복사법: 유튜브 영상 → 더보기(…) → <b>스크립트 표시</b> → 전체 선택·복사</span>
+      </div>
+      <div style="font-size:0.74rem;font-weight:700;margin-bottom:4px">유튜브 주소 또는 영상 ID</div>
+      <input id="vid-url" placeholder="https://youtu.be/... 또는 https://www.youtube.com/watch?v=..."
+        style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font-family:inherit;font-size:0.86rem;margin-bottom:10px"/>
+      <div style="font-size:0.74rem;font-weight:700;margin-bottom:4px">영어 스크립트 (자막) 붙여넣기</div>
+      <textarea id="vid-script" rows="6" placeholder="Paste the English transcript here...&#10;예) Hello everyone. Today I want to talk about how to learn English faster..."
+        style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font-family:inherit;font-size:0.86rem;resize:vertical"></textarea>
+      <button class="btn primary" id="vid-go" onclick="analyzeVideo()" style="width:100%;margin-top:10px">✨ 문장·단어별로 분석하기</button>
+      <button class="btn" onclick="loadSampleVideo()" style="width:100%;margin-top:8px">🎁 샘플 영상으로 체험해보기</button>
+      ${note ? `<div style="font-size:0.78rem;color:#fca5a5;margin-top:10px">${esc(note)}</div>` : ''}
+    </div>`;
+}
+
+/* 샘플: 짧은 동기부여 스크립트로 즉시 체험 (실제 영상 ID 포함) */
+function loadSampleVideo() {
+  const u = document.getElementById('vid-url'); const s = document.getElementById('vid-script');
+  if (u) u.value = 'https://youtu.be/ZXsQAXx_ao0';
+  if (s) s.value = "Your time is limited, so don't waste it living someone else's life. Don't be trapped by dogma, which is living with the results of other people's thinking. Don't let the noise of others' opinions drown out your own inner voice. And most important, have the courage to follow your heart and intuition.";
+  toast('🎁 샘플을 채웠어요. ✨ 분석하기를 눌러보세요!');
+}
+
+async function analyzeVideo() {
+  if (videoBusy) return;
+  const url = (document.getElementById('vid-url')?.value || '').trim();
+  const script = (document.getElementById('vid-script')?.value || '').trim();
+  const vid = parseYouTubeId(url);
+  if (!vid) { renderVideoInput(document.getElementById('video-content'), '⚠️ 유튜브 주소를 인식하지 못했어요. watch?v=… 또는 youtu.be/… 형식으로 넣어주세요.'); return; }
+  if (script.length < 15) { renderVideoInput(document.getElementById('video-content'), '⚠️ 영어 스크립트(자막)를 붙여넣어 주세요. (영상의 더보기 → 스크립트 표시에서 복사)'); return; }
+
+  videoBusy = true;
+  const btn = document.getElementById('vid-go');
+  if (btn) { btn.disabled = true; btn.textContent = '✨ 분석 중... (몇 초 걸려요)'; }
+  try {
+    const sentences = await aiAnalyzeTranscript(script);
+    if (!sentences.length) throw new Error('empty');
+    videoData = { vid, sentences, ts: Date.now() };
+    store('va_video_last', videoData);
+    renderVideoStudy(document.getElementById('video-content'));
+  } catch (err) {
+    videoBusy = false;
+    if (err.message === 'NO_GROQ_KEY') { openGroqKeyModal(); renderVideoInput(document.getElementById('video-content'), '⚡ ⚙️에서 무료 Groq 키를 등록하면 AI 분석이 가능합니다.'); }
+    else renderVideoInput(document.getElementById('video-content'), '🤖 분석에 실패했어요. AI 모델 연결을 확인하고 다시 시도해 주세요.');
+    return;
+  }
+  videoBusy = false;
+}
+
+/* 스크립트를 문장 단위로 쪼개 각 문장의 한국어 번역·단어별 뜻·해석을 JSON으로 받는다 */
+async function aiAnalyzeTranscript(text) {
+  const clip = text.slice(0, 2200);   // 너무 길면 앞부분만 (토큰 보호)
+  const prompt = `You are an English-Korean language tutor for a Korean learner.
+Break the following English transcript into natural sentences. For EACH sentence, provide:
+- "en": the sentence in English (clean up filler/typos lightly)
+- "ko": a natural Korean translation of the whole sentence
+- "words": an array of the KEY words/phrases (5~10 important ones) each as {"en": word/phrase, "ko": Korean meaning}
+- "note": a short Korean explanation (해석 포인트: 핵심 문법/뉘앙스/표현) in 1-2 sentences
+
+Transcript:
+"""${clip}"""
+
+Respond ONLY in this JSON format (no other text):
+{"sentences":[{"en":"...","ko":"...","words":[{"en":"...","ko":"..."}],"note":"..."}]}`;
+  const model = document.getElementById('model-sel').value;
+  let content;
+  if (isGroqModel(model)) {
+    content = await groqComplete([{ role: 'user', content: prompt }], { temperature: 0.3, maxTokens: 2600, json: true });
+  } else if (typeof isWebLLMModel === 'function' && isWebLLMModel(model)) {
+    const engine = await getWebLLMEngine(model);
+    const reply = await engine.chat.completions.create({
+      messages: [{ role: 'user', content: prompt }], stream: false, temperature: 0.3, max_tokens: 2200,
+      response_format: { type: 'json_object' },
+    });
+    content = reply.choices[0].message.content;
+  } else {
+    const resp = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], stream: false, format: 'json', keep_alive: '30m', options: { temperature: 0.3, num_predict: 2200 } }) });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    content = (await resp.json()).message?.content || '{}';
+  }
+  const parsed = JSON.parse(content || '{}');
+  return (parsed.sentences || [])
+    .filter(s => s && typeof s.en === 'string' && s.en.trim())
+    .map(s => ({
+      en: s.en.trim(),
+      ko: (s.ko || '').trim(),
+      words: (s.words || []).filter(w => w && w.en).map(w => ({ en: String(w.en).trim(), ko: String(w.ko || '').trim() })).slice(0, 12),
+      note: (s.note || '').trim(),
+    }));
+}
+
+function renderVideoStudy(el) {
+  const d = videoData;
+  let html = `<div class="vid-embed">
+    <iframe src="https://www.youtube-nocookie.com/embed/${esc(d.vid)}" title="YouTube video"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div style="font-size:0.82rem;font-weight:800">📝 문장·단어별 해석 (${d.sentences.length}문장)</div>
+    <button class="btn" onclick="resetVideo()" style="padding:5px 12px;font-size:0.76rem">🔄 새 영상</button>
+  </div>
+  <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:12px;line-height:1.6">
+    🔊 문장 듣기 · 🐢 천천히 · 🇰🇷 번역 토글 · 📌 표현장 저장 · 단어 칩을 탭하면 발음을 들려줍니다
+  </div>`;
+
+  d.sentences.forEach((s, i) => {
+    const words = (s.words || []).map(w =>
+      `<span class="v-word" onclick="tts('${jsAttr(w.en)}','en-US')" title="발음 듣기"><b>${esc(w.en)}</b>${w.ko ? `<span>${esc(w.ko)}</span>` : ''}</span>`
+    ).join('');
+    html += `<div class="vsent">
+      <div class="v-en">${esc(s.en)}</div>
+      <div class="v-ko" id="vko-${i}" style="display:none">🇰🇷 ${esc(s.ko)}</div>
+      ${words ? `<div class="v-words">${words}</div>` : ''}
+      ${s.note ? `<div class="v-note">💡 ${noteHtml(s.note)}</div>` : ''}
+      <div class="v-actions">
+        <button class="speak-mini" onclick="tts('${jsAttr(s.en)}','en-US')">🔊 듣기</button>
+        <button class="speak-mini" onclick="ttsSlow('${jsAttr(s.en)}','en-US')" title="0.6배속">🐢 천천히</button>
+        <button class="speak-mini" onclick="toggleVko(${i}, this)">🇰🇷 번역</button>
+        <button class="speak-mini" onclick="savePhrase('${jsAttr(s.en)}','${jsAttr(s.ko)}','영상')" title="내 표현장에 저장">📌 저장</button>
+      </div>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+function toggleVko(i, btn) {
+  const box = document.getElementById('vko-' + i);
+  if (!box) return;
+  const show = box.style.display === 'none';
+  box.style.display = show ? 'block' : 'none';
+  if (btn) btn.textContent = show ? '🇰🇷 숨기기' : '🇰🇷 번역';
+}
+
+function resetVideo() {
+  videoData = null;
+  store('va_video_last', null);
+  renderVideoInput(document.getElementById('video-content'));
 }
 
 async function submitAsk() {
