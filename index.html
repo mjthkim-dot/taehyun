@@ -437,7 +437,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.28';
+const APP_VERSION = 'v4.29';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2631,16 +2631,22 @@ function loadSampleVideo() {
 
 /* 🤖 서버리스 프록시(/api/transcript)로 유튜브 자막을 자동 수집해 스크립트 칸을 채운다 */
 async function fetchYouTubeCaption(vid) {
-  const resp = await fetch(`/api/transcript?v=${encodeURIComponent(vid)}`);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 55000);   // 클라이언트 타임아웃 55초
+  let resp;
+  try {
+    resp = await fetch(`/api/transcript?v=${encodeURIComponent(vid)}`, { signal: ctrl.signal });
+  } finally { clearTimeout(timer); }
   const ct = resp.headers.get('content-type') || '';
   if (!ct.includes('application/json')) throw new Error('NO_PROXY');   // 함수 미배포(정적) → HTML이 옴
   const data = await resp.json();
   if (!resp.ok || !data.text) {
     const e = new Error(data.error || 'no_captions');
-    e.why = data.why || data.message || '';   // 서버가 알려준 실패 원인
+    e.why = data.why || data.message || '';
+    e.vid = vid;
     throw e;
   }
-  _capSegs = Array.isArray(data.segments) ? data.segments : null;   // 실시간 싱크용 타임스탬프 보관
+  _capSegs = Array.isArray(data.segments) ? data.segments : null;
   _capSegsVid = vid;
   return data;
 }
@@ -2657,8 +2663,9 @@ async function autoFetchCaption() {
     if (ta) ta.value = data.text;
     toast(`✅ 자막을 가져왔어요${data.lang ? ` (${data.lang})` : ''} · ✨ 분석하기를 눌러주세요`);
   } catch (err) {
-    if (err.message === 'NO_PROXY') toast('ℹ️ 자동수집은 배포 환경에서만 동작해요. 스크립트를 직접 붙여넣어 주세요.', 4500);
-    else if (err.why) toast(`😢 자막 자동수집 실패: ${err.why} · 직접 붙여넣어 주세요.`, 5500);
+    if (err.name === 'AbortError') toast('⏱ 자막 수집 시간 초과. 잠시 후 다시 시도하거나 스크립트를 직접 붙여넣어 주세요.', 5000);
+    else if (err.message === 'NO_PROXY') toast('ℹ️ 자동수집은 배포 환경에서만 동작해요. 스크립트를 직접 붙여넣어 주세요.', 4500);
+    else if (err.why) toast(`😢 자막 수집 실패: ${err.why}`, 5500);
     else if (err.message === 'no_captions') toast('😢 이 영상엔 가져올 자막이 없어요. 직접 붙여넣어 주세요.', 4500);
     else toast('🤖 자막 자동수집에 실패했어요. 스크립트를 직접 붙여넣어 주세요.', 4500);
   } finally {
@@ -2684,11 +2691,12 @@ async function analyzeVideo() {
       if (ta) ta.value = script;
     } catch (err) {
       if (btn) { btn.disabled = false; btn.textContent = '✨ 문장·단어별로 분석하기'; }
+      const whyMsg = err.why ? `<br><small style="opacity:.7">${err.why}</small>` : '';
       const msg = err.message === 'NO_PROXY'
-        ? 'ℹ️ 자동수집은 배포 환경에서만 동작해요. 영상의 더보기 → 스크립트 표시에서 자막을 복사해 붙여넣어 주세요.'
-        : err.why
-          ? `😢 자막 자동수집 실패: ${err.why}<br>유튜브 영상 아래 <b>더보기 → 스크립트 표시</b>에서 자막을 복사해 붙여넣어 주세요.`
-          : '😢 자막을 자동으로 가져오지 못했어요. 유튜브 <b>더보기 → 스크립트 표시</b>의 자막을 복사해 붙여넣어 주세요.';
+        ? 'ℹ️ 자동수집은 배포 환경에서만 동작해요. 영상의 <b>더보기 → 스크립트 표시</b>에서 자막을 복사해 붙여넣어 주세요.'
+        : err.name === 'AbortError'
+          ? '⏱ 자막 수집 시간 초과. 잠시 후 다시 시도하거나 스크립트를 직접 붙여넣어 주세요.'
+          : `😢 자막을 자동으로 가져오지 못했어요.${whyMsg}<br>유튜브 영상 아래 <b>더보기 → 스크립트 표시</b>에서 자막을 복사해 붙여넣어 주세요.`;
       renderVideoInput(document.getElementById('video-content'), msg);
       if (url) { const u = document.getElementById('vid-url'); if (u) u.value = url; }
       return;
