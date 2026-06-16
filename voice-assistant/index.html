@@ -457,7 +457,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.32';
+const APP_VERSION = 'v4.33';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -3814,35 +3814,67 @@ function wordScoreHtml(marks) {
   ).join(' ') + `</div>`;
 }
 
-function checkDrill() {
+/* Groq로 '의미상 정답'을 판정 — 모범답안과 단어가 달라도 뜻이 통하는 자연스러운 영어면 정답 인정.
+   (모음 일치도만으로는 잡지 못하는 유효한 패러프레이즈를 구제) */
+async function judgeAnswerMeaning(kr, target, answer) {
+  const messages = [{
+    role: 'user',
+    content: `한국어 뜻: "${kr}"\n모범답안: "${target}"\n학생답안: "${answer}"\n\n학생답안이 한국어 뜻을 정확히 전달하는, 문법적으로 자연스러운 영어이면 정답입니다(모범답안과 단어·표현이 달라도 인정). 뜻이 다르거나 문법 오류가 있으면 오답입니다.\nJSON만 출력: {"ok": true/false, "note": "한국어 한 줄 코칭 — 맞으면 왜 좋은 표현인지, 틀리면 무엇을 고쳐야 하는지"}`
+  }];
+  const raw = await groqComplete(messages, { temperature: 0, maxTokens: 120, json: true });
+  const parsed = JSON.parse(raw);
+  return { ok: !!parsed.ok, note: String(parsed.note || '') };
+}
+
+let drillChecking = false;
+async function checkDrill() {
+  if (drillChecking) return;
   const input = document.getElementById('drill-input');
   const answer = input.value.trim();
   if (!answer) return;
+  drillChecking = true;
   const item = drillQueue[drillIdx];
   const sim = similarity(answer, item.en);
-  const correct = sim >= 0.82;
+  let correct = sim >= 0.82;
+  let semanticNote = '';
+  const nextBtn = document.getElementById('drill-check-btn');
+
+  // 유사도로는 오답이지만 의미가 같은 패러프레이즈일 수 있음 → Groq 키가 있으면 의미 판정으로 구제
+  if (!correct && !drillShadow && groqKey() && answer.split(/\s+/).filter(Boolean).length >= 2) {
+    if (nextBtn) { nextBtn.disabled = true; nextBtn.textContent = '✓ 의미 확인 중...'; }
+    try {
+      const verdict = await judgeAnswerMeaning(item.kr, item.en, answer);
+      if (verdict.ok) { correct = true; semanticNote = verdict.note || '모범답안과 다르지만 뜻이 통하는 자연스러운 표현이에요.'; }
+      else if (verdict.note) semanticNote = verdict.note;
+    } catch (e) { /* 판정 실패 시 유사도 결과 유지 */ }
+    if (nextBtn) nextBtn.disabled = false;
+  }
+
   drillResults.push(correct);
   recordDrillStat(item.lesson, correct);
   updateWeakList(item, correct);
   markPracticedToday();
 
   const ws = wordScore(answer, item.en);
+  const speakBtns = `<button class="speak-mini" onclick="tts('${jsAttr(item.en)}','en-US')">🔊</button> <button class="speak-mini" onclick="ttsSlow('${jsAttr(item.en)}','en-US')" title="0.6배속">🐢</button> <button class="speak-mini" onclick="savePhrase('${jsAttr(item.en)}','${jsAttr(item.kr)}','드릴')" title="내 표현장에 저장">📌</button>`;
+  // '음성 인식 일치도' — STT가 받아쓴 텍스트와 정답의 단어 일치율(실제 음향 발음 점수가 아님). 정직하게 표기.
+  const matchLabel = `음성 인식 일치도 <b>${ws.score}%</b>`;
   const fb = document.getElementById('drill-feedback');
   fb.className = 'drill-feedback ' + (correct ? 'correct' : 'wrong');
+  const semHtml = semanticNote ? `<div style="font-size:0.78rem;color:${correct ? '#86efac' : '#fca5a5'};margin-top:5px;line-height:1.5">💬 ${esc(semanticNote)}</div>` : '';
   fb.innerHTML = correct
-    ? `✅ 정답입니다! · 발음 정확도 <b>${ws.score}%</b>${sim < 0.95 ? ' (거의 완벽)' : ''}
-       <div class="target">${esc(item.en)} <button class="speak-mini" onclick="tts('${jsAttr(item.en)}','en-US')">🔊</button> <button class="speak-mini" onclick="ttsSlow('${jsAttr(item.en)}','en-US')" title="0.6배속">🐢</button> <button class="speak-mini" onclick="savePhrase('${jsAttr(item.en)}','${jsAttr(item.kr)}','드릴')" title="내 표현장에 저장">📌</button></div>
-       ${wordScoreHtml(ws.marks)}`
-    : `❌ 아쉬워요 · 발음 정확도 <b>${ws.score}%</b>. 정답:
-       <div class="target">${esc(item.en)} <button class="speak-mini" onclick="tts('${jsAttr(item.en)}','en-US')">🔊</button> <button class="speak-mini" onclick="ttsSlow('${jsAttr(item.en)}','en-US')" title="0.6배속">🐢</button> <button class="speak-mini" onclick="savePhrase('${jsAttr(item.en)}','${jsAttr(item.kr)}','드릴')" title="내 표현장에 저장">📌</button></div>
-       ${wordScoreHtml(ws.marks)}
+    ? `✅ 정답입니다!${semanticNote ? ' (의미 인정)' : ''} · ${matchLabel}
+       <div class="target">${esc(item.en)} ${speakBtns}</div>
+       ${wordScoreHtml(ws.marks)}${semHtml}
+       <span style="opacity:0.65;font-size:0.72rem">ⓘ 일치도는 음성 인식 텍스트 기준이라 실제 발음과 다를 수 있어요. 🐢로 원음을 듣고 따라 말해보세요.</span>`
+    : `❌ 아쉬워요 · ${matchLabel}. 정답:
+       <div class="target">${esc(item.en)} ${speakBtns}</div>
+       ${wordScoreHtml(ws.marks)}${semHtml}
        <span style="opacity:0.8;font-size:0.8rem">내 답: ${esc(answer)} · 🔁 복습 목록에 추가됨 — 빨간 단어를 또렷이 발음하며 3번 따라 말해보세요.</span>`;
   tts(item.en, 'en-US');
   input.disabled = true;
-  const nextBtn = document.getElementById('drill-check-btn');
-  nextBtn.textContent = '다음 →';
-  nextBtn.onclick = nextDrill;
-  nextBtn.focus();  // Enter로 바로 다음 문제 진행
+  if (nextBtn) { nextBtn.textContent = '다음 →'; nextBtn.onclick = nextDrill; nextBtn.focus(); }
+  drillChecking = false;
 }
 
 function revealDrill() {
@@ -3899,23 +3931,33 @@ function recordDrillStat(lessonId, correct) {
   store('va_stats', stats);
 }
 
-/* Leitner 간격 반복: 틀리면 box 0, 맞히면 box+1, box 3이면 졸업 */
-/* 간격 반복(Leitner): 박스가 오를수록 다음 복습일이 멀어진다.
-   box0=오늘, box1=내일(+1일), box2=+3일, box3=졸업(목록에서 제거). */
-const SRS_INTERVAL_DAYS = { 0: 0, 1: 1, 2: 3 };
-function srsDue(box) { return Date.now() + (SRS_INTERVAL_DAYS[box] || 0) * 86400000; }
+/* 간격 반복(SM-2 근사): 박스가 오를수록 다음 복습일이 기하급수적으로 멀어진다.
+   box0=오늘, 1=+1, 2=+3, 3=+7, 4=+16, 5=+35일. box5는 '숙달'로 보관하되 삭제하지 않고
+   35일 뒤 유지복습(maintenance)으로 다시 등장 → 망각곡선에 맞춘 장기기억 정착.
+   lapses: 한 번 익힌 뒤 다시 틀린 횟수(4회↑ = leech '골칫거리'로 표시). */
+const SRS_INTERVAL_DAYS = { 0: 0, 1: 1, 2: 3, 3: 7, 4: 16, 5: 35 };
+const SRS_MAX_BOX = 5;
+const SRS_LEECH_THRESHOLD = 4;
+function srsDue(box) { return Date.now() + (SRS_INTERVAL_DAYS[Math.min(box, SRS_MAX_BOX)] || 0) * 86400000; }
+function isLeech(w) { return (w.lapses || 0) >= SRS_LEECH_THRESHOLD; }
+function isMastered(w) { return (w.box || 0) >= SRS_MAX_BOX; }
 function updateWeakList(item, correct) {
   let weak = load('va_weak', []);
   const idx = weak.findIndex(w => w.en === item.en);
   if (correct) {
     if (idx >= 0) {
-      weak[idx].box = (weak[idx].box || 0) + 1;
-      if (weak[idx].box >= 3) weak.splice(idx, 1);   // 3번 연속 정답 → 졸업
-      else weak[idx].due = srsDue(weak[idx].box);     // 다음 복습일을 뒤로 미룸
+      const w = weak[idx];
+      w.box = Math.min((w.box || 0) + 1, SRS_MAX_BOX);   // 졸업해도 삭제하지 않고 장기 보관
+      w.due = srsDue(w.box);                             // 다음 복습일을 기하급수적으로 미룸
     }
   } else {
-    if (idx >= 0) { weak[idx].box = 0; weak[idx].due = srsDue(0); }
-    else weak.push({ kr: item.kr, en: item.en, lesson: item.lesson, cat: item.cat, box: 0, due: srsDue(0) });
+    if (idx >= 0) {
+      const w = weak[idx];
+      if ((w.box || 0) > 0) w.lapses = (w.lapses || 0) + 1;   // 익힌 뒤 재실패 = lapse 누적
+      w.box = 0; w.due = srsDue(0);
+    } else {
+      weak.push({ kr: item.kr, en: item.en, lesson: item.lesson, cat: item.cat, box: 0, lapses: 0, due: srsDue(0) });
+    }
   }
   store('va_weak', weak);
   updateReviewBadge();
@@ -3970,15 +4012,24 @@ function buildSystemPrompt() {
 ${prevLessons.map(pl => `- ${pl.title}: ${pl.sections.flatMap(s => s.points).slice(0, 2).map(p => p.en).join(' / ')}`).join('\n')}`
     : '';
 
+  // ♻️ 약점 어휘 재순환(i+1): 학습자가 어려워한 표현/저장 표현을 이번 대화에 자연스럽게 다시 등장시킨다.
+  const weakItems = load('va_weak', []).filter(w => w.en && (w.due == null || w.due <= Date.now())).slice(0, 3).map(w => w.en);
+  const savedPhrases = load('va_phrases', []).slice(0, 2).map(p => p.en || p).filter(Boolean);
+  const recycleItems = [...new Set([...weakItems, ...savedPhrases])].slice(0, 4);
+  const recycleNote = recycleItems.length
+    ? `\n\n♻️ 약점 표현 재순환 (자연스러울 때만): 학생이 전에 어려워했거나 저장한 아래 표현을 이번 대화에서 다시 쓸 기회가 생기면 슬쩍 유도하세요. 억지로 끼워넣지 말고 맥락이 맞을 때만:\n${recycleItems.map(t => `- ${t}`).join('\n')}`
+    : '';
+
   // 시나리오: activeScenario(즉흥 주제)가 있으면 그걸, 없으면 레슨 기본값 사용
   const scenario = activeScenario || l.scenario;
 
   return `당신은 PREPLY의 친절하고 인내심 많은 초보자용 영어 튜터입니다. (Act as a friendly and patient English tutor for a beginner.) 원어민 수준의 영어-한국어 바이링구얼 AI 스피킹 코치로서, 학생이 긴장하지 않도록 따뜻하고 격려하는 선생님 톤을 유지하세요.
 
-🟢 가장 중요 — 회화는 '대화'가 우선, 교정은 나중:
+🟢 가장 중요 — 회화는 '대화'가 우선, 교정은 자연스러운 '리캐스트'로:
 - 당신의 1순위는 상황(시나리오)에 맞는 자연스러운 대화를 이어가는 것입니다. 실제 원어민 친구/선생님처럼 학생이 말한 '내용'에 반응하세요.
 - 학생이 한 문장마다 즉시 문법·발음을 지적하지 마세요. 매 턴 교정하면 대화 흐름이 끊겨 학습이 안 됩니다.
-- 사소한 실수는 그냥 넘어가고 대화를 이어가세요. (자세한 교정 피드백은 학생이 🎯 CAF 또는 📋 평가 버튼을 누를 때 따로 제공됩니다.)
+- 단, 분명한 오류가 있을 때는 '리캐스트(recast)'로 슬쩍 고쳐 들려주세요: 지적·설명 없이, 네 대답 안에서 올바른 표현을 자연스럽게 되받아 말하면 됩니다. (예: 학생 "I go there yesterday" → 너 "Oh, you went there yesterday? How was it?") 3턴에 1번 이하로, 가장 중요한 오류 하나만, 대화처럼 부드럽게.
+- 사소한 실수는 그냥 넘어가세요. (복잡도·정확도·유창성 정밀 분석은 학생이 🎯 CAF 또는 📋 평가 버튼을 누를 때 따로 제공됩니다.)
 
 ⚠️ 발음/음성 인식 처리:
 - 학생 입력은 한국어 모국어 화자의 음성 인식(STT) 결과라, 발음 영향으로 단어가 잘못 받아쓰기될 수 있습니다.
@@ -3986,7 +4037,7 @@ ${prevLessons.map(pl => `- ${pl.title}: ${pl.sections.flatMap(s => s.points).sli
 - 단, 무슨 말인지 도저히 이해할 수 없어 대화를 이어갈 수 없을 때만(거의 드물게) 이 형식으로 한 번 확인하세요: [HEARD: "들은 그대로" → "추측한 의도" | 올바른 단어/발음 힌트 한국어 한 줄]. 의미가 통하면 절대 쓰지 마세요.
 
 오늘 수업 내용 (${lessonLabel(l)}: ${l.title}):
-${points}${teachNote}${spiralNote}
+${points}${teachNote}${spiralNote}${recycleNote}
 
 대화 시나리오: ${scenario.title} — ${scenario.desc}${roleplay}
 
@@ -3997,7 +4048,7 @@ ${targets}
 1. ${levelNote}
 2. 응답은 2~3문장, 40단어 이내로 짧게. 목록·번호·헤더 없이 자연스러운 대화체로만 말하세요.
 3. 상황에 몰입해서 대화하세요. 위 목표 표현을 학생이 자연스럽게 쓰도록 질문으로 유도하되, 강요하지 마세요.
-4. 회화 중에는 [CORRECT:] 교정을 쓰지 마세요. 흐름을 끊지 않는 게 우선입니다. (교정은 평가/CAF 때 별도로 제공)
+4. [CORRECT:] 같은 명시적 교정 태그나 "틀렸어요" 식 지적은 쓰지 마세요. 교정이 필요하면 위 리캐스트 방식으로 대화 안에서 자연스럽게 고쳐 들려주는 것만 허용됩니다.
 5. 학생이 "한국어로", "설명해줘", "무슨 뜻이야"라고 명시적으로 물을 때만: [EXPLAIN: 한국어 설명]
 6. 초보자가 위축되지 않게 따뜻하게 반응하고, 잘하면 가볍게 칭찬한 뒤 대화를 이어가세요.
 7. 같은 인사를 반복하지 말고, 학생의 마지막 말에 먼저 반응한 뒤 대화를 이어가세요.
@@ -4446,29 +4497,50 @@ function renderReview() {
   const pending = pendingWeakCount();
   let phraseBtn = `<button class="btn" onclick="openPhrasebook()" style="margin-top:10px">📌 내 표현장 (${load('va_phrases', []).length})</button>`;
   if (!weak.length) {
-    el.innerHTML = `<div class="empty-note">🎉 복습할 문장이 없습니다!<br>드릴에서 틀린 문장이 자동으로 여기에 쌓입니다.<br>3번 연속 맞히면 졸업합니다.</div>
+    el.innerHTML = `<div class="empty-note">🎉 복습할 문장이 없습니다!<br>드릴·청해·어휘에서 틀린 항목이 자동으로 여기에 쌓입니다.<br>맞힐수록 복습 간격이 1→3→7→16→35일로 늘어나며 장기기억에 정착합니다.</div>
       <div style="text-align:center">${phraseBtn}</div>`;
     return;
   }
   const now = Date.now();
-  let html = `<div class="study-card"><h3>📝 간격 반복 복습 — 3번 맞히면 졸업</h3>
+  const leeches = weak.filter(isLeech);
+  const masteredCount = weak.filter(isMastered).length;
+  // 오늘 복습 우선 시작 CTA (due가 있을 때 항상 최상단)
+  let html = '';
+  if (due.length) {
+    html += `<button class="start-drill-btn" onclick="startDrill(true)" style="margin-bottom:12px">▶ 오늘 복습 ${due.length}개 바로 시작 →</button>`;
+  }
+  html += `<div class="study-card"><h3>📝 간격 반복 복습 (SM-2)</h3>
     <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px;line-height:1.6">
-      오늘 복습할 문장 <b style="color:var(--primary-light)">${due.length}개</b>${pending ? ` · ⏳ 대기 중 ${pending}개 (복습일이 미래)` : ''}<br>
-      <span style="font-size:0.72rem">맞힐수록 다음 복습일이 멀어집니다 (오늘 → +1일 → +3일 → 졸업)</span>
+      오늘 복습 <b style="color:var(--primary-light)">${due.length}개</b>${pending ? ` · ⏳ 대기 ${pending}개` : ''}${masteredCount ? ` · ✅ 숙달 ${masteredCount}개` : ''}<br>
+      <span style="font-size:0.72rem">맞힐수록 복습 간격이 멀어집니다 (오늘 → +1 → +3 → +7 → +16 → +35일). 숙달해도 35일 뒤 유지복습으로 한 번 더 확인합니다.</span>
     </div>`;
-  weak.forEach(w => {
-    const boxes = '●'.repeat(w.box || 0) + '○'.repeat(3 - (w.box || 0));
+  if (leeches.length) {
+    html += `<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.4);border-radius:10px;padding:9px 12px;margin-bottom:10px;font-size:0.76rem;color:#fca5a5;line-height:1.5">
+      🔥 <b>골칫거리 표현 ${leeches.length}개</b> — 4번 이상 다시 틀린 문장입니다. 통째로 외우지 말고 🙋 질문으로 원리를 이해하거나, 더 쉬운 표현으로 바꿔 보세요.</div>`;
+  }
+  // 정렬: due(오늘) 먼저, 그다음 대기, 숙달은 맨 뒤
+  const sorted = [...weak].sort((a, b) => {
+    const ad = (a.due == null) || a.due <= now, bd = (b.due == null) || b.due <= now;
+    if (ad !== bd) return ad ? -1 : 1;
+    return (a.box || 0) - (b.box || 0);
+  });
+  sorted.forEach(w => {
+    const box = Math.min(w.box || 0, SRS_MAX_BOX);
+    const boxes = '●'.repeat(box) + '○'.repeat(SRS_MAX_BOX - box);
     const isDue = (w.due == null) || w.due <= now;
     const dueTag = isDue
       ? `<span style="color:var(--yellow);font-size:0.7rem;margin-left:6px">● 오늘</span>`
-      : `<span style="color:var(--text-muted);font-size:0.7rem;margin-left:6px">⏳ ${new Date(w.due).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}</span>`;
-    html += `<div class="point" style="${isDue ? '' : 'opacity:0.5'}"><div class="en">${esc(w.kr)}${dueTag}</div>
+      : isMastered(w)
+        ? `<span style="color:var(--green);font-size:0.7rem;margin-left:6px">✅ 숙달 · ${new Date(w.due).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}</span>`
+        : `<span style="color:var(--text-muted);font-size:0.7rem;margin-left:6px">⏳ ${new Date(w.due).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}</span>`;
+    const leechTag = isLeech(w) ? `<span style="color:#fca5a5;font-size:0.7rem;margin-left:6px">🔥 ${w.lapses}회 재실패</span>` : '';
+    html += `<div class="point" style="${isDue ? '' : 'opacity:0.5'}"><div class="en">${esc(w.kr)}${dueTag}${leechTag}</div>
       <div class="kr">${esc(w.en)} <button class="speak-mini" onclick="tts('${jsAttr(w.en)}','en-US')">🔊</button> <span style="color:var(--green);letter-spacing:2px;margin-left:4px">${boxes}</span></div></div>`;
   });
   html += `</div>`;
-  html += due.length
-    ? `<button class="start-drill-btn" onclick="startDrill(true)">오늘 복습 드릴 시작 (${due.length}) →</button>`
-    : `<div class="empty-note" style="margin-top:12px">✅ 오늘 복습할 문장을 모두 끝냈어요!<br>대기 중인 ${pending}개는 복습일이 되면 다시 나타납니다.</div>`;
+  if (!due.length) {
+    html += `<div class="empty-note" style="margin-top:12px">✅ 오늘 복습할 문장을 모두 끝냈어요!<br>대기 중인 ${pending}개는 복습일이 되면 다시 나타납니다.</div>`;
+  }
   html += `<div style="text-align:center">${phraseBtn}</div>`;
   el.innerHTML = html;
 }
@@ -5144,6 +5216,18 @@ function renderMaster() {
     <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.6">CEFR A1 → C2 풀커버리지 · 현재 <b style="color:var(--text)">${prof.cefr}</b> (GSE ${prof.gse}) 진행 중</div>
   </div>
   ${dailyGoalRing()}`;
+  // 🔥 스트릭 위험 알림: 어제까지 연속 학습했는데 오늘 아직 0회면 끊기기 직전 → 강조
+  const streak = calcStreak();
+  if (streak > 0 && todayCount() === 0) {
+    html += `<div style="background:linear-gradient(135deg,rgba(245,158,11,0.16),rgba(245,158,11,0.04));border:1px solid var(--yellow);border-radius:14px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
+      <div style="font-size:1.5rem;flex-shrink:0">🔥</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.86rem;font-weight:800">${streak}일 연속 학습이 오늘 끊길 수 있어요</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);line-height:1.5">단 1문장만 연습해도 스트릭이 이어집니다. 지금 바로 시작해요!</div>
+      </div>
+      <button class="btn primary" onclick="startDailyMix()" style="flex-shrink:0;font-size:0.78rem;padding:7px 12px">▶ 시작</button>
+    </div>`;
+  }
   if (!groqKey()) {
     html += `<div style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(239,68,68,0.04));border:1px solid rgba(239,68,68,0.45);border-radius:14px;padding:13px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
       <div style="font-size:1.5rem;flex-shrink:0">🔑</div>
