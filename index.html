@@ -338,6 +338,13 @@
     .live-note-bar { font-size: 0.78rem; color: rgba(255,255,255,0.55); margin-top: 5px; line-height: 1.5; }
     .live-word-chip { display:inline-block; margin:4px 4px 0 0; padding:4px 9px; background:rgba(99,102,241,0.22); border:1px solid rgba(99,102,241,0.35); border-radius:6px; font-size:0.78rem; color:#c4b5fd; cursor:pointer; transition:background 0.12s; }
     .live-word-chip:hover { background:rgba(99,102,241,0.5); color:#fff; }
+    /* Groq 연결 표시 dot */
+    @keyframes groq-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.85)} }
+    .groq-dot { width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;transition:background 0.3s; }
+    .groq-dot.ok { background:var(--green); }
+    .groq-dot.missing { animation:groq-pulse 1.8s ease-in-out infinite; }
+    /* 복습 탭 배지 */
+    .review-badge { font-size:0.63rem;background:var(--red);color:#fff;border-radius:9px;padding:1px 5px;margin-left:3px;font-weight:800;vertical-align:middle;line-height:1; }
     .vsent.active { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); background: rgba(99,102,241,0.07); }
     .vsent { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
     .vsent .v-en { font-size: 0.96rem; font-weight: 600; line-height: 1.5; }
@@ -364,6 +371,7 @@
   <div class="header-controls">
     <span class="streak" id="streak">🔥 0일</span>
     <div class="status-dot" id="status-dot" title="Ollama 연결 상태"></div>
+    <div class="groq-dot missing" id="groq-dot" title="Groq API 키 없음 — ⚙️을 눌러 무료 키를 등록하세요"></div>
     <button class="mini-btn" id="settings-btn" onclick="openGroqKeyModal()" title="AI 강사 API 키 설정">⚙️</button>
     <select id="voice-sel" title="영어 음성 선택 — 바꾸면 샘플이 재생됩니다"></select>
     <select id="model-sel" title="모델 선택">
@@ -394,7 +402,7 @@
   <button class="mode-tab" data-mode="drill" onclick="setMode('drill', this)">🔁 드릴</button>
   <button class="mode-tab" data-mode="talk" onclick="setMode('talk', this)">🗣 회화</button>
   <button class="mode-tab" data-mode="video" onclick="setMode('video', this)">🎬 영상</button>
-  <button class="mode-tab" data-mode="review" onclick="setMode('review', this)">📝 복습</button>
+  <button class="mode-tab" id="review-tab" data-mode="review" onclick="setMode('review', this)">📝 복습</button>
   <button class="mode-tab" data-mode="progress" onclick="setMode('progress', this)">📊 진도</button>
   <button class="mode-tab" data-mode="features" onclick="setMode('features', this)">🧰 기능</button>
 </div>
@@ -449,7 +457,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.31';
+const APP_VERSION = 'v4.32';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -1970,6 +1978,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   renderStreak();
   addTalkIntro();
+  updateGroqIndicator();
+  updateReviewBadge();
   // 첫 화면은 🏠 홈 (로드맵 + 학습 가이드)
   setMode('master', document.querySelector('[data-mode="master"]'));
 });
@@ -2311,6 +2321,32 @@ function switchToWhisper(reason) {
 ═══════════════════════════════════════════════════ */
 function isGroqModel(m) { return m && m.startsWith('groq:'); }
 function groqKey() { return (load('va_groq_key', '') || '').trim(); }
+
+/* 헤더의 Groq 연결 표시 dot 업데이트 */
+function updateGroqIndicator() {
+  const dot = document.getElementById('groq-dot');
+  const btn = document.getElementById('settings-btn');
+  if (!dot) return;
+  const hasKey = !!groqKey();
+  dot.classList.toggle('ok', hasKey);
+  dot.classList.toggle('missing', !hasKey);
+  dot.title = hasKey ? '✅ Groq AI 강사 연결됨' : 'Groq API 키 없음 — ⚙️을 눌러 무료 키를 등록하세요';
+  if (btn) btn.style.outline = hasKey ? '' : '2px solid var(--red)';
+}
+
+/* 복습 탭 배지: 오늘 복습 대기 수 표시 */
+function updateReviewBadge() {
+  const btn = document.getElementById('review-tab');
+  if (!btn) return;
+  const n = dueWeak().length;
+  const badge = btn.querySelector('.review-badge');
+  if (n > 0) {
+    if (badge) { badge.textContent = n; }
+    else { btn.insertAdjacentHTML('beforeend', `<span class="review-badge">${n}</span>`); }
+  } else {
+    if (badge) badge.remove();
+  }
+}
 function groqModelId() { return document.getElementById('model-sel').value.replace(/^groq:/, ''); }
 
 async function _groqFetch(messages, { temperature = 0.7, maxTokens = 400, json = false, stream = false }) {
@@ -2417,6 +2453,7 @@ function saveGroqKey() {
   if (opt) { sel.value = opt.value; store('va_model', opt.value); }
   document.getElementById('groq-key-status').textContent = '✅ 저장됐어요! 이제 회화·질문이 빨라집니다.';
   setDemoBanner('');
+  updateGroqIndicator();
   toast('⚡ Groq AI 강사 연결됨 — 이제 실시간으로 대화하세요!', 4000);
   setTimeout(closeGroqKeyModal, 900);
 }
@@ -2424,6 +2461,7 @@ function clearGroqKey() {
   store('va_groq_key', '');
   document.getElementById('groq-key-input').value = '';
   document.getElementById('groq-key-status').textContent = '키를 삭제했습니다.';
+  updateGroqIndicator();
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2631,7 +2669,7 @@ function renderVideoInput(el, note) {
       <div style="font-size:0.74rem;font-weight:700;margin-bottom:4px">영어 스크립트 (자막)</div>
       <textarea id="vid-script" rows="6" placeholder="위 버튼으로 자동으로 채워지거나, 직접 붙여넣어도 됩니다.&#10;예) Hello everyone. Today I want to talk about how to learn English faster..."
         style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font-family:inherit;font-size:0.86rem;resize:vertical"></textarea>
-      <button id="vid-live-btn" onclick="startLiveMode()" style="display:none;width:100%;margin-top:10px;padding:12px;border-radius:10px;font-size:0.88rem;font-weight:800;cursor:pointer;border:2px solid var(--primary);background:var(--primary);color:#fff">▶️ 즉시 번역으로 바로 보기</button>
+      <button id="vid-live-btn" onclick="startLiveMode()" disabled style="width:100%;margin-top:10px;padding:12px;border-radius:10px;font-size:0.88rem;font-weight:800;cursor:not-allowed;border:2px solid var(--border);background:var(--surface2);color:var(--text-muted);opacity:0.6" title="위의 🤖 자막 자동 가져오기 버튼으로 자막을 수집한 뒤 활성화됩니다">▶️ 즉시 번역으로 바로 보기 (자막 수집 후 활성화)</button>
       <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
         <div style="flex:1;height:1px;background:var(--border)"></div>
         <span style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap">또는 전체 AI 분석</span>
@@ -2684,9 +2722,14 @@ async function autoFetchCaption() {
     const ta = document.getElementById('vid-script');
     if (ta) ta.value = data.text;
     toast(`✅ 자막 ${data.segments?.length || 0}개 세그먼트 수집됨${data.lang ? ` (${data.lang})` : ''}`, 3000);
-    // 자막 수집 성공 → 라이브 번역 버튼 표시
+    // 자막 수집 성공 → 라이브 번역 버튼 활성화
     const liveBtn = document.getElementById('vid-live-btn');
-    if (liveBtn) { liveBtn.style.display = 'block'; liveBtn.textContent = `▶️ 즉시 번역으로 바로 보기 (${data.segments?.length || 0}개 자막 준비됨)`; }
+    if (liveBtn) {
+      liveBtn.disabled = false;
+      liveBtn.style.cssText = 'width:100%;margin-top:10px;padding:12px;border-radius:10px;font-size:0.88rem;font-weight:800;cursor:pointer;border:2px solid var(--primary);background:var(--primary);color:#fff;opacity:1';
+      liveBtn.title = '';
+      liveBtn.textContent = `▶️ 즉시 번역으로 바로 보기 (${data.segments?.length || 0}개 자막 준비됨)`;
+    }
   } catch (err) {
     if (err.name === 'AbortError') toast('⏱ 자막 수집 시간 초과. 잠시 후 다시 시도하거나 스크립트를 직접 붙여넣어 주세요.', 5000);
     else if (err.message === 'NO_PROXY') toast('ℹ️ 자동수집은 배포 환경에서만 동작해요. 스크립트를 직접 붙여넣어 주세요.', 4500);
@@ -3875,6 +3918,7 @@ function updateWeakList(item, correct) {
     else weak.push({ kr: item.kr, en: item.en, lesson: item.lesson, cat: item.cat, box: 0, due: srsDue(0) });
   }
   store('va_weak', weak);
+  updateReviewBadge();
 }
 
 /* 오늘 복습할 때가 된 문장만(due ≤ now). due 필드가 없는 옛 데이터는 항상 대상. */
@@ -4395,6 +4439,7 @@ function renderAiText(raw) {
    📝 REVIEW (간격 반복 복습)
 ═══════════════════════════════════════════════════ */
 function renderReview() {
+  updateReviewBadge();
   const weak = load('va_weak', []);
   const el = document.getElementById('review-content');
   const due = dueWeak();
@@ -5099,6 +5144,16 @@ function renderMaster() {
     <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.6">CEFR A1 → C2 풀커버리지 · 현재 <b style="color:var(--text)">${prof.cefr}</b> (GSE ${prof.gse}) 진행 중</div>
   </div>
   ${dailyGoalRing()}`;
+  if (!groqKey()) {
+    html += `<div style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(239,68,68,0.04));border:1px solid rgba(239,68,68,0.45);border-radius:14px;padding:13px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
+      <div style="font-size:1.5rem;flex-shrink:0">🔑</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.88rem;font-weight:800;margin-bottom:2px">AI 강사 연결이 필요해요</div>
+        <div style="font-size:0.76rem;color:var(--text-muted);line-height:1.6">무료 Groq 키를 등록하면 AI 회화·번역·피드백이 모두 활성화됩니다. (ChatGPT/Gemini급 · 무료)</div>
+      </div>
+      <button class="btn primary" onclick="openGroqKeyModal()" style="flex-shrink:0;font-size:0.78rem;padding:7px 12px">⚙️ 키 등록</button>
+    </div>`;
+  }
   if (!placed) {
     html += `<div style="background:linear-gradient(135deg,rgba(99,102,241,0.14),rgba(99,102,241,0.04));border:1px solid var(--primary);border-radius:14px;padding:15px 16px;margin-bottom:14px">
       <div style="font-size:0.9rem;font-weight:800;margin-bottom:4px">🧭 먼저 내 레벨을 진단해 보세요</div>
