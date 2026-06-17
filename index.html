@@ -457,7 +457,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.33';
+const APP_VERSION = 'v4.34';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -609,6 +609,42 @@ const LESSONS = [
       ],
     },
   },
+  {
+    id: 5, title: "미래 시제 (gonna) & 발음 정리", date: "2026-06-17",
+    sections: [
+      { title: "① 미래 시제 — be going to / gonna", intro: "앞으로 할 일은 'be going to + 동사원형'으로 말합니다. 원어민은 실제 대화에서 going to를 거의 항상 gonna로 줄여 발음해요.", points: [
+        { en: "I'm going to + 동사원형 → 실제 발음은 'I'm gonna ~'", kr: "I'm gonna eat. (먹을 거야)",
+          note: "be going to는 '~할 예정'이라는 미래. 말할 땐 going to가 **gonna**로 뭉쳐집니다.\n• I'm **gonna** study tonight. (오늘 밤 공부할 거야)\n• 주어별 be동사: I'm / You're / We're / They're / She's / He's / It's + gonna" },
+        { en: "의문문: be동사를 주어 앞으로 — Are you gonna ~?", kr: "Are you gonna eat? (먹을 거야?)",
+          note: "현재·과거 의문문과 똑같은 원리: **be동사만 앞으로** 보냅니다.\n• **Are you** gonna drink coffee?\n• **Is she** gonna study?" },
+        { en: "부정문: be동사 + not — I'm not gonna ~", kr: "I'm not gonna eat. (안 먹을 거야)",
+          note: "not을 be동사 뒤에 붙입니다.\n• I'm **not** gonna go. (안 갈 거야)\n• She's **not** gonna come. (그녀는 안 올 거야)" },
+        { en: "의문사 결합: What/Where/When/How + are you gonna ~?", kr: "What are you gonna do? (뭐 할 거야?)",
+          note: "의문사를 맨 앞에 붙이면 끝.\n• **What** are you gonna eat? (뭐 먹을 거야?)\n• **When** are you gonna study? (언제 공부할 거야?)" },
+        { en: "요일·주말 앞에는 항상 on — on Sunday", kr: "I'm gonna rest on Sunday.",
+          note: "요일과 '주말' 앞에는 전치사 **on**.\n• on Monday, on Sunday, on the weekend" },
+      ]},
+      { title: "② 발음 — 알파벳 사운드 정리 & r 사운드", intro: "그동안 연습한 소리를 한 번에 정리합니다. 특히 r 사운드와 문장 끝 억양에 주의하세요.", points: [
+        { en: "r: 혀를 입천장 어디에도 안 닿게 — 과장해서 굴려요", kr: "study에 r 소리가 섞이지 않게 주의",
+          note: "r은 혀끝을 **어디에도 대지 않고** 안쪽으로 말아요. 단, study처럼 r이 없는 단어엔 **r 소리를 섞지 마세요**.\n• **r**ed, d**r**ink (r 굴림) / study ('스터디' — 스털디 ❌)" },
+        { en: "F는 바람, G는 혀 뒷부분, L은 초성/받침 위치가 다름", kr: "food / good / milk",
+          note: "• **F**: 윗니로 아랫입술 물고 바람 (food, fat)\n• **G**: 혀 뒷부분을 입천장 뒤에 (good, gap)\n• **L**: 초성은 혀끝을 윗니 뒤 잇몸에(light), 받침은 혀를 더 뒤로(milk)" },
+        { en: "I(짧은 이): 앞혀 내리고 '에/이' 중간 — is는 '에즈'에 가깝게", kr: "is, sit, this",
+          note: "짧고 힘 뺀 소리. is를 '이즈'보다 **'에즈'**에 가깝게.\n• s**i**t / th**i**s / **i**sn't" },
+        { en: "문장 끝 억양: 평서문은 내려요 (drink 같은 끝맺음 올리지 않기)", kr: "I drink coffee.↘",
+          note: "평서문은 끝을 **내려야** 자연스럽습니다. 무심코 끝을 올리면 의문문처럼 들려요." },
+      ]},
+    ],
+    examples: [
+      { en: "I'm gonna study English tonight.", kr: "오늘 밤 영어 공부할 거야." },
+      { en: "Are you gonna eat dinner?", kr: "저녁 먹을 거야?" },
+      { en: "I'm not gonna drink coffee today.", kr: "오늘은 커피 안 마실 거야." },
+      { en: "What are you gonna do on Sunday?", kr: "일요일에 뭐 할 거야?" },
+    ],
+    homework: "미래 시제(gonna) 30문장 영어/한국어 작성 + 녹음, 카페 대화 연습 녹음",
+    scenario: { title: "주말 계획 말하기 (gonna)", desc: "이번 주말·다음 주에 할 일을 'gonna'로 말해보세요. AI가 What/When/Where로 되물어요." },
+    roleplay: "당신은 친구 역할로 사용자에게 주말·다음 주 계획을 묻는 대화를 시작하세요. 사용자가 'be going to / gonna'로 답하도록 What/Where/When/How are you gonna ~? 형태의 후속 질문을 자연스럽게 던지세요. 사용자가 will과 헷갈리면 가볍게 짚어주세요.",
+  },
 
   /* ── 🔮 선행학습 (다음 PREPLY 수업 대비 — 표준 A2 커리큘럼 진도순) ── */
   {
@@ -759,6 +795,19 @@ const DRILL_ITEMS = [
   { kr: "그녀는 소고기를 먹지 않아", en: "She doesn't eat beef", lesson: 1, cat: "부정문" },
   { kr: "그것은 작동하지 않아", en: "It doesn't work", lesson: 1, cat: "부정문" },
   { kr: "그것은 상관없어", en: "It doesn't matter", lesson: 1, cat: "부정문" },
+  /* 5회차 — 미래 시제(gonna) 자료(PPT 2026.6.17) */
+  { kr: "나는 오늘 밤 공부할 거야", en: "I'm gonna study tonight", lesson: 5, cat: "미래 (gonna)" },
+  { kr: "나는 점심을 먹을 거야", en: "I'm gonna eat lunch", lesson: 5, cat: "미래 (gonna)" },
+  { kr: "우리는 영화를 볼 거야", en: "We're gonna watch a movie", lesson: 5, cat: "미래 (gonna)" },
+  { kr: "너는 커피 마실 거야?", en: "Are you gonna drink coffee?", lesson: 5, cat: "미래 의문문" },
+  { kr: "그녀는 공부할 거야?", en: "Is she gonna study?", lesson: 5, cat: "미래 의문문" },
+  { kr: "나는 안 갈 거야", en: "I'm not gonna go", lesson: 5, cat: "미래 부정문" },
+  { kr: "나는 오늘 커피 안 마실 거야", en: "I'm not gonna drink coffee today", lesson: 5, cat: "미래 부정문" },
+  { kr: "너 뭐 할 거야?", en: "What are you gonna do?", lesson: 5, cat: "미래 의문사" },
+  { kr: "언제 떠날 거야?", en: "When are you gonna leave?", lesson: 5, cat: "미래 의문사" },
+  { kr: "어디서 만날 거야?", en: "Where are you gonna meet?", lesson: 5, cat: "미래 의문사" },
+  { kr: "나는 일요일에 쉴 거야", en: "I'm gonna rest on Sunday", lesson: 5, cat: "미래 (gonna)" },
+  { kr: "오랜만이야. 그동안 어떻게 지냈어?", en: "It's been a while. How have you been?", lesson: 5, cat: "카페 대화" },
   /* 🔮 선행학습 드릴 */
   { kr: "나는 지금 영어를 공부하고 있다", en: "I am studying English now", lesson: 101, cat: "현재 진행형" },
   { kr: "그녀는 커피를 마시고 있다", en: "She is drinking coffee", lesson: 101, cat: "현재 진행형" },
@@ -804,6 +853,12 @@ const MISSIONS = {
     { id: 'l4m2', label: "사이즈/온도 말하기", re: /\b(medium|large|small|hot|iced)\b/i },
     { id: 'l4m3', label: "sleep in 사용하기", re: /sleep(ing)?\s+in\b/i },
     { id: 'l4m4', label: "looking forward to 복습", re: /looking\s+forward\s+to/i },
+  ],
+  5: [
+    { id: 'l5m1', label: "gonna로 미래 말하기", re: /\bgonna\s+\w+/i },
+    { id: 'l5m2', label: "be going to로 계획 말하기", re: /\bgoing\s+to\s+\w+/i },
+    { id: 'l5m3', label: "Are you gonna ...? 의문문", re: /\b(are|is)\s+\w+\s+gonna\b/i },
+    { id: 'l5m4', label: "의문사 + gonna (What are you gonna...)", re: /\b(what|when|where|how)\b[\s\w']*\bgonna\b/i },
   ],
   101: [
     { id: 'p1m1', label: "현재 진행형 (am/is/are + ~ing)", re: /\b(am|is|are)\s+\w+ing\b/i },
