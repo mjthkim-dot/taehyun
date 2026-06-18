@@ -2,86 +2,120 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no"/>
   <title>PREPLY AI 스피킹 코치</title>
   <link rel="manifest" href="/manifest.webmanifest"/>
-  <meta name="theme-color" content="#6366f1"/>
+  <meta name="theme-color" content="#0b0d14"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="PREPLY"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0f1117;
-      --surface: #1a1d27;
-      --surface2: #22263a;
-      --border: #2e3352;
-      --primary: #6366f1;
-      --primary-light: #818cf8;
-      --green: #10b981;
-      --yellow: #f59e0b;
-      --red: #ef4444;
-      --text: #e2e8f0;
-      --text-muted: #64748b;
-      --radius: 14px;
+      --bg: #0b0d14;
+      --surface: #171a26;
+      --surface2: #1f2333;
+      --surface3: #262b40;
+      --border: #2c3148;
+      --primary: #6d5ef0;
+      --primary-light: #8b7bff;
+      --primary-dk: #4f3fd1;
+      --green: #2fd97f;
+      --green-dk: #1ea862;
+      --yellow: #ffb734;
+      --red: #ff5470;
+      --text: #f1f3f9;
+      --text-muted: #8893ab;
+      --radius: 20px;
+      --radius-sm: 14px;
+      --radius-lg: 26px;
+      --nav-h: 64px;
+      --shadow-card: 0 2px 0 rgba(0,0,0,0.18), 0 8px 20px -10px rgba(0,0,0,0.45);
+      --shadow-press: 0 1px 0 rgba(0,0,0,0.25);
+      font-family: 'Nunito', 'Baloo 2', system-ui, sans-serif;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'Nunito', system-ui, sans-serif; background: var(--bg); color: var(--text);
+      height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
     button { font-family: inherit; }
+    button, .lesson-chip, .mode-tab, .helper-chip, .mission, .unit-go, .speak-mini { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+    button:active, .tappable:active { transform: scale(0.96); }
 
-    /* ── Header ── */
+    /* ── Header (app bar) ── */
     header {
-      padding: 12px 18px; background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px; background: var(--surface);
+      border-bottom: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-shrink: 0;
     }
-    .logo { font-size: 0.95rem; font-weight: 800; color: var(--primary-light); white-space: nowrap; }
-    .logo span { color: var(--text-muted); font-weight: 400; font-size: 0.75rem; margin-left: 6px; }
-    .header-controls { display: flex; gap: 8px; align-items: center; }
+    .logo { font-size: 0.95rem; font-weight: 800; color: var(--text); white-space: nowrap; display: flex; align-items: center; gap: 8px; font-family: 'Baloo 2', sans-serif; }
+    .logo-badge {
+      width: 30px; height: 30px; border-radius: 10px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--primary), #8b7bff);
+      display: flex; align-items: center; justify-content: center; font-size: 1rem;
+      box-shadow: 0 2px 6px rgba(109,94,240,0.5);
+    }
+    .logo span { color: var(--text-muted); font-weight: 600; font-size: 0.65rem; margin-left: 2px; }
+    .header-controls { display: flex; gap: 6px; align-items: center; }
     select {
       background: var(--surface2); border: 1px solid var(--border); color: var(--text);
-      border-radius: 8px; padding: 5px 8px; font-size: 0.78rem; cursor: pointer; outline: none;
+      border-radius: 999px; padding: 6px 10px; font-size: 0.72rem; font-weight: 700; cursor: pointer; outline: none;
+      max-width: 92px;
     }
     .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; transition: background 0.3s; }
     .status-dot.ok { background: var(--green); }
-    .streak { font-size: 0.78rem; color: var(--yellow); font-weight: 700; white-space: nowrap; }
+    .streak {
+      font-size: 0.78rem; color: #ffb734; font-weight: 800; white-space: nowrap;
+      background: rgba(255,183,52,0.14); border: 1px solid rgba(255,183,52,0.35);
+      padding: 5px 10px; border-radius: 999px;
+    }
 
-    /* ── Mode tabs ── */
+    /* ── Bottom tab bar (app navigation) ── */
     .mode-tabs {
-      display: flex; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
-      overflow-x: auto; scrollbar-width: none;
+      display: flex; background: var(--surface); border-top: 1px solid var(--border); flex-shrink: 0;
+      overflow-x: auto; scrollbar-width: none; order: 99;
+      padding: 4px 2px calc(env(safe-area-inset-bottom, 0px) + 4px);
+      box-shadow: 0 -6px 18px -10px rgba(0,0,0,0.5);
     }
     .mode-tabs::-webkit-scrollbar { display: none; }
     .mode-tab {
-      flex: 1 0 auto; min-width: 56px; padding: 10px 6px; background: none; border: none; border-bottom: 2.5px solid transparent;
-      color: var(--text-muted); font-size: 0.74rem; font-weight: 700; cursor: pointer; transition: all 0.2s;
-      white-space: nowrap;
+      flex: 1 0 auto; min-width: 58px; padding: 7px 4px 5px; background: none; border: none;
+      color: var(--text-muted); font-size: 0.62rem; font-weight: 800; cursor: pointer; transition: all 0.18s;
+      white-space: nowrap; border-radius: 14px; display: flex; flex-direction: column; align-items: center; gap: 3px;
     }
-    .mode-tab.active { color: var(--primary-light); border-bottom-color: var(--primary); }
+    .mode-tab .ic { font-size: 1.28rem; line-height: 1; filter: grayscale(0.6) opacity(0.75); transition: filter 0.18s, transform 0.18s; }
+    .mode-tab.active { color: var(--primary-light); background: rgba(109,94,240,0.12); }
+    .mode-tab.active .ic { filter: none; transform: translateY(-1px) scale(1.08); }
 
-    /* ── Lesson chips ── */
+    /* ── Lesson chips (path pills) ── */
     .lesson-bar {
-      padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--border);
-      display: flex; gap: 6px; overflow-x: auto; flex-shrink: 0; scrollbar-width: none;
+      padding: 12px 14px; background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; gap: 8px; overflow-x: auto; flex-shrink: 0; scrollbar-width: none;
     }
     .lesson-bar::-webkit-scrollbar { display: none; }
     .lesson-chip {
-      flex-shrink: 0; padding: 6px 12px; border-radius: 18px; font-size: 0.76rem; font-weight: 600;
-      background: var(--surface2); border: 1.5px solid var(--border); color: var(--text-muted);
-      cursor: pointer; transition: all 0.2s; white-space: nowrap;
+      flex-shrink: 0; padding: 9px 16px; border-radius: 999px; font-size: 0.78rem; font-weight: 800;
+      background: var(--surface2); border: 2px solid var(--border); color: var(--text-muted);
+      cursor: pointer; transition: all 0.18s; white-space: nowrap;
     }
-    .lesson-chip.active { background: var(--primary); border-color: var(--primary); color: white; }
+    .lesson-chip.active { background: var(--primary); border-color: var(--primary); color: white; box-shadow: 0 3px 0 var(--primary-dk), 0 6px 14px -6px rgba(109,94,240,0.7); }
     .lesson-chip.preview { border-style: dashed; color: #c4b5fd; }
-    .lesson-chip.preview.active { background: #7c3aed; border-color: #7c3aed; color: white; }
+    .lesson-chip.preview.active { background: #7c3aed; border-color: #7c3aed; color: white; box-shadow: 0 3px 0 #5b21b6; }
 
     /* ── Main panels ── */
-    .panel { flex: 1; overflow-y: auto; display: none; flex-direction: column; }
+    .panel { flex: 1; overflow-y: auto; display: none; flex-direction: column; -webkit-overflow-scrolling: touch; }
     .panel.active { display: flex; }
-    .panel-inner { padding: 16px; max-width: 760px; width: 100%; margin: 0 auto; }
+    .panel-inner { padding: 16px; padding-bottom: 28px; max-width: 760px; width: 100%; margin: 0 auto; }
 
     /* ── Lesson study ── */
     .study-card {
       background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 16px; margin-bottom: 12px;
+      padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow-card);
     }
     .study-card h3 { font-size: 0.9rem; color: var(--primary-light); margin-bottom: 10px; }
     .point { padding: 8px 0; border-bottom: 1px solid var(--border); }
@@ -108,10 +142,12 @@
       padding: 12px 14px; font-size: 0.82rem; color: #fcd34d; line-height: 1.6;
     }
     .start-drill-btn {
-      width: 100%; padding: 13px; margin-top: 12px; background: var(--primary); border: none;
-      border-radius: var(--radius); color: white; font-size: 0.92rem; font-weight: 700; cursor: pointer;
+      width: 100%; padding: 14px; margin-top: 12px; background: var(--primary); border: none;
+      border-radius: var(--radius); color: white; font-size: 0.95rem; font-weight: 800; cursor: pointer;
+      box-shadow: 0 4px 0 var(--primary-dk); transition: transform 0.1s, box-shadow 0.1s;
     }
     .start-drill-btn:hover { background: var(--primary-light); }
+    .start-drill-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--primary-dk); }
 
     /* ── Drill ── */
     .drill-progress { display: flex; gap: 4px; margin-bottom: 14px; }
@@ -120,16 +156,16 @@
     .drill-progress .seg.bad { background: var(--red); }
     .drill-progress .seg.cur { background: var(--primary); }
     .drill-card {
-      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 24px 20px; text-align: center;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+      padding: 24px 20px; text-align: center; box-shadow: var(--shadow-card);
     }
     .drill-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 10px; }
     .drill-kr { font-size: 1.25rem; font-weight: 700; line-height: 1.5; margin-bottom: 6px; }
     .drill-cat { display: inline-block; font-size: 0.7rem; color: var(--primary-light); background: rgba(99,102,241,0.15); padding: 3px 10px; border-radius: 10px; margin-bottom: 16px; }
     .drill-input-row { display: flex; gap: 8px; margin-top: 8px; }
     .drill-input {
-      flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
-      border-radius: 10px; padding: 11px 14px; font-size: 0.95rem; outline: none;
+      flex: 1; background: var(--surface2); border: 2px solid var(--border); color: var(--text);
+      border-radius: var(--radius-sm); padding: 11px 14px; font-size: 0.95rem; outline: none;
     }
     .drill-input:focus { border-color: var(--primary); }
     .drill-feedback { margin-top: 14px; padding: 14px; border-radius: 10px; font-size: 0.9rem; line-height: 1.6; text-align: left; display: none; }
@@ -151,12 +187,15 @@
     .helper-chip.hint { border-color: rgba(245,158,11,0.5); color: #fcd34d; }
     .drill-actions { display: flex; gap: 8px; margin-top: 14px; }
     .btn {
-      flex: 1; padding: 11px; border-radius: 10px; font-size: 0.88rem; font-weight: 700; cursor: pointer;
-      background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+      flex: 1; padding: 12px; border-radius: var(--radius-sm); font-size: 0.88rem; font-weight: 800; cursor: pointer;
+      background: var(--surface2); color: var(--text); border: 2px solid var(--border);
+      box-shadow: 0 3px 0 var(--border); transition: transform 0.1s, box-shadow 0.1s;
     }
-    .btn.primary { background: var(--primary); color: white; border: none; }
+    .btn.primary { background: var(--primary); color: white; border: 2px solid var(--primary-dk); box-shadow: 0 3px 0 var(--primary-dk); }
     .btn.primary:hover { background: var(--primary-light); }
-    .btn:disabled { opacity: 0.4; cursor: default; }
+    .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--border); }
+    .btn.primary:active { box-shadow: 0 1px 0 var(--primary-dk); }
+    .btn:disabled { opacity: 0.4; cursor: default; transform: none; }
     .drill-done { text-align: center; padding: 30px 16px; }
     .drill-done .big { font-size: 2.4rem; margin-bottom: 10px; }
     .drill-done .score { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
@@ -179,7 +218,7 @@
     .msg.user { align-self: flex-end; align-items: flex-end; }
     .msg.ai { align-self: flex-start; align-items: flex-start; }
     .msg.system { align-self: center; max-width: 100%; align-items: center; }
-    .bubble { padding: 11px 15px; border-radius: var(--radius); line-height: 1.65; font-size: 0.9rem; word-break: break-word; }
+    .bubble { padding: 11px 15px; border-radius: var(--radius); line-height: 1.65; font-size: 0.9rem; word-break: break-word; box-shadow: var(--shadow-press); }
     .msg.user .bubble { background: var(--primary); color: white; border-bottom-right-radius: 4px; }
     .msg.ai .bubble { background: var(--surface2); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
     .msg.system .bubble { background: transparent; color: var(--text-muted); font-size: 0.76rem; text-align: center; }
@@ -224,34 +263,35 @@
     .interim { min-height: 20px; font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-bottom: 8px; font-style: italic; }
     .controls { display: flex; gap: 8px; align-items: center; }
     .text-input {
-      flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
-      border-radius: 12px; padding: 11px 15px; font-size: 0.9rem; outline: none;
+      flex: 1; background: var(--surface2); border: 2px solid var(--border); color: var(--text);
+      border-radius: 999px; padding: 11px 16px; font-size: 0.9rem; outline: none;
     }
     .text-input:focus { border-color: var(--primary); }
     .round-btn {
-      width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer;
-      background: var(--surface2); font-size: 1.2rem; display: flex; align-items: center; justify-content: center;
-      transition: all 0.2s; flex-shrink: 0; color: var(--text);
+      width: 50px; height: 50px; border-radius: 50%; border: none; cursor: pointer;
+      background: var(--surface2); font-size: 1.25rem; display: flex; align-items: center; justify-content: center;
+      transition: transform 0.1s, box-shadow 0.1s; flex-shrink: 0; color: var(--text);
+      box-shadow: 0 3px 0 var(--border);
     }
-    .round-btn:hover { border-color: var(--primary); }
-    .round-btn.listening { background: var(--primary); border-color: var(--primary); animation: pulse 1.2s infinite; }
-    .round-btn.speaking { background: var(--green); border-color: var(--green); }
-    .round-btn.send { background: var(--primary); border: none; color: white; }
-    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.6); } 50% { box-shadow: 0 0 0 12px rgba(99,102,241,0); } }
+    .round-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--border); }
+    .round-btn.listening { background: var(--primary); box-shadow: 0 3px 0 var(--primary-dk), 0 0 0 0 rgba(109,94,240,0.6); animation: pulse 1.2s infinite; color: white; }
+    .round-btn.speaking { background: var(--green); box-shadow: 0 3px 0 var(--green-dk); color: white; }
+    .round-btn.send { background: var(--primary); color: white; box-shadow: 0 3px 0 var(--primary-dk); }
+    @keyframes pulse { 0%,100% { box-shadow: 0 3px 0 var(--primary-dk), 0 0 0 0 rgba(109,94,240,0.6); } 50% { box-shadow: 0 3px 0 var(--primary-dk), 0 0 0 10px rgba(109,94,240,0); } }
     .mini-btn {
       background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted);
-      border-radius: 8px; padding: 5px 10px; font-size: 0.74rem; font-weight: 600; cursor: pointer;
+      border-radius: 999px; padding: 6px 12px; font-size: 0.74rem; font-weight: 700; cursor: pointer;
     }
     .mini-btn:hover { border-color: var(--primary); color: var(--primary-light); }
 
     /* ── Review / Progress ── */
     .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
-    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; text-align: center; }
-    .stat-card .num { font-size: 1.5rem; font-weight: 800; color: var(--primary-light); }
-    .stat-card .lbl { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; text-align: center; box-shadow: var(--shadow-card); }
+    .stat-card .num { font-size: 1.6rem; font-weight: 800; color: var(--primary-light); font-family: 'Baloo 2', sans-serif; }
+    .stat-card .lbl { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; font-weight: 700; }
     .lesson-progress-row {
       background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 13px 15px; margin-bottom: 8px;
+      padding: 13px 15px; margin-bottom: 8px; box-shadow: var(--shadow-card);
     }
     .lesson-progress-row .top { display: flex; justify-content: space-between; font-size: 0.84rem; font-weight: 600; margin-bottom: 7px; }
     .lesson-progress-row .top .pct { color: var(--primary-light); }
@@ -263,9 +303,9 @@
     /* ── Master roadmap ── */
     .level-card {
       background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 15px; margin-bottom: 12px; position: relative;
+      padding: 15px; margin-bottom: 12px; position: relative; box-shadow: var(--shadow-card);
     }
-    .level-card.current { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+    .level-card.current { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary), var(--shadow-card); }
     .level-card.locked { opacity: 0.75; }
     .level-head { display: flex; align-items: center; gap: 9px; margin-bottom: 4px; }
     .level-badge {
@@ -397,14 +437,14 @@
 </header>
 
 <div class="mode-tabs">
-  <button class="mode-tab" data-mode="master" onclick="setMode('master', this)">🏠 홈</button>
-  <button class="mode-tab active" data-mode="study" onclick="setMode('study', this)">📖 레슨</button>
-  <button class="mode-tab" data-mode="drill" onclick="setMode('drill', this)">🔁 드릴</button>
-  <button class="mode-tab" data-mode="talk" onclick="setMode('talk', this)">🗣 회화</button>
-  <button class="mode-tab" data-mode="video" onclick="setMode('video', this)">🎬 영상</button>
-  <button class="mode-tab" id="review-tab" data-mode="review" onclick="setMode('review', this)">📝 복습</button>
-  <button class="mode-tab" data-mode="progress" onclick="setMode('progress', this)">📊 진도</button>
-  <button class="mode-tab" data-mode="features" onclick="setMode('features', this)">🧰 기능</button>
+  <button class="mode-tab" data-mode="master" onclick="setMode('master', this)"><span class="ic">🏠</span>홈</button>
+  <button class="mode-tab active" data-mode="study" onclick="setMode('study', this)"><span class="ic">📖</span>레슨</button>
+  <button class="mode-tab" data-mode="drill" onclick="setMode('drill', this)"><span class="ic">🔁</span>드릴</button>
+  <button class="mode-tab" data-mode="talk" onclick="setMode('talk', this)"><span class="ic">🗣</span>회화</button>
+  <button class="mode-tab" data-mode="video" onclick="setMode('video', this)"><span class="ic">🎬</span>영상</button>
+  <button class="mode-tab" id="review-tab" data-mode="review" onclick="setMode('review', this)"><span class="ic">📝</span>복습</button>
+  <button class="mode-tab" data-mode="progress" onclick="setMode('progress', this)"><span class="ic">📊</span>진도</button>
+  <button class="mode-tab" data-mode="features" onclick="setMode('features', this)"><span class="ic">🧰</span>기능</button>
 </div>
 
 <div class="lesson-bar" id="lesson-bar"></div>
@@ -457,7 +497,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.36';
+const APP_VERSION = 'v4.37';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
