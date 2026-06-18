@@ -457,7 +457,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.34';
+const APP_VERSION = 'v4.35';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -489,6 +489,20 @@ const LESSONS = [
       { en: "What do you do on weekends?", kr: "주말에 무엇을 합니까?" },
     ],
     homework: "긍정문/부정문/의문문 포함 30문장 작성 + 녹음",
+    freeTalk: {
+      intro: "첫 수업에서 진옥쌤과 나눈 자기소개·학습 동기 이야기예요. 내 진짜 이야기라 기억에 오래 남아요.",
+      topics: [
+        { topic: "학습 동기", kr: "저는 영어 실력을 키우고 꿈을 이루고 싶어요. 그래서 매일 영어를 공부해요.",
+          en: "I want to improve my English and achieve my dreams, so I study English every day.",
+          tip: "improve = (실력이) 늘다, 나아지다." },
+        { topic: "학습 배경", kr: "학교 다닐 때는 영어보다 수학과 과학을 더 좋아했어요.",
+          en: "In school, I liked math and science more than English.",
+          tip: "비교: A ... more than B = B보다 A를 더." },
+        { topic: "예전 공부 방식", kr: "예전에는 감으로 영어를 해석했어요. 이제는 구조를 배우고 있어요.",
+          en: "I used to read English by intuition. Now I'm learning the structure.",
+          tip: "used to + 동사원형 = (예전에) ~하곤 했다 (지금은 아님)." },
+      ],
+    },
     scenario: { title: "일상 루틴 토크", desc: "AI가 하루 일과를 물어봅니다. 현재형으로 답하세요." },
   },
   {
@@ -529,6 +543,23 @@ const LESSONS = [
       { en: "I'm grateful for having nice weather.", kr: "좋은 날씨에 감사하다." },
     ],
     homework: "의문사 포함 한/영 30문장 + 녹음",
+    freeTalk: {
+      intro: "2회차엔 진옥쌤과 아침 루틴·근황으로 프리토킹을 했어요. 아래는 그때 나온 내 이야기예요.",
+      topics: [
+        { topic: "아침 루틴", kr: "저는 아침마다 아내와 커피를 마셔요. 보통 카누나 네스프레소를 마셔요.",
+          en: "I drink coffee with my wife every morning. We usually have Kanu or Nespresso.",
+          tip: "커피 브랜드(Kanu, Nespresso)는 고유명사라 관사 없이." },
+        { topic: "사전투표", kr: "저는 이번에 사전투표를 했어요.",
+          en: "I voted early this time.",
+          tip: "vote early = 사전투표하다 (과거 voted)." },
+        { topic: "아버지 생신 선물", kr: "아버지 생신 선물로 하이마트에서 전동 면도기를 샀어요.",
+          en: "I went to Hi-Mart to buy an electric shaver for my father's birthday.",
+          tip: "to buy = ~을 사기 위해 (to부정사 목적)." },
+        { topic: "영어 듣기 습관", kr: "출퇴근할 때 AI 엔지니어 유튜브를 들어요. 20~30% 정도 이해해요.",
+          en: "I listen to an AI engineer's YouTube channel on my commute. I understand about 20 to 30 percent.",
+          tip: "on my commute = 출퇴근길에." },
+      ],
+    },
     scenario: { title: "어제 이야기 & 감사한 일", desc: "어제 한 일을 과거형으로 말하고, 감사한 일을 나눠보세요." },
   },
   {
@@ -557,6 +588,20 @@ const LESSONS = [
       { en: "I am looking forward to starting a new job.", kr: "새 직장 시작이 기대된다." },
     ],
     homework: "look forward to 문장 10개 + 녹음 2개 제출",
+    freeTalk: {
+      intro: "3회차엔 바쁜 직장 생활과 영어 공부 환경을 진옥쌤과 이야기했어요.",
+      topics: [
+        { topic: "바쁜 하루", kr: "오늘 정말 바빴어요. 8시에 퇴근해서 저녁도 못 먹었어요.",
+          en: "I was really busy today. I got off work at 8 and couldn't even eat dinner.",
+          tip: "get off work = 퇴근하다 (과거 got)." },
+        { topic: "동료와 함께 공부", kr: "저는 회사 동료와 회의실에서 같이 영어를 연습해요.",
+          en: "I practice English with a coworker in a meeting room.",
+          tip: "coworker = 직장 동료." },
+        { topic: "업무 속 영어", kr: "요즘 외국인과의 미팅이 점점 늘고 있어요.",
+          en: "These days, I'm having more and more meetings with foreigners.",
+          tip: "more and more = 점점 더 많은." },
+      ],
+    },
     scenario: { title: "기대되는 일들", desc: "앞으로 기대되는 일을 'looking forward to'로 말해보세요." },
   },
   {
@@ -587,6 +632,20 @@ const LESSONS = [
       { en: "I am looking forward to sleeping in on Saturday.", kr: "토요일에 늦잠 자는 게 기대된다." },
     ],
     homework: "looking forward to 11~20번 + 카페 대화문 연습 + 녹음",
+    freeTalk: {
+      intro: "4회차엔 일상 속 영어 노출과 운동·주변 이야기로 프리토킹했어요.",
+      topics: [
+        { topic: "영어로 말해보기 습관", kr: "상황이 생기면 영어로 말해보고, 모르면 AI에게 물어봐요.",
+          en: "When a situation comes up, I try to say it in English, and if I don't know, I ask AI.",
+          tip: "come up = (일·상황이) 생기다." },
+        { topic: "운동", kr: "저는 보통 러닝머신에서 유산소 운동을 해요.",
+          en: "I usually do cardio on the treadmill.",
+          tip: "cardio = 유산소 운동, treadmill = 러닝머신." },
+        { topic: "주변 영어 학습 분위기", kr: "회사 동료들도 영어를 배우고 싶어 해요.",
+          en: "My coworkers want to learn English, too.",
+          tip: "want to + 동사원형 = ~하고 싶다." },
+      ],
+    },
     scenario: { title: "☕ 카페 롤플레이", desc: "AI가 바리스타가 됩니다. 영어로 주문하고, 주문 후엔 친구처럼 수다를 떨어요." },
     roleplay: "당신은 카페 바리스타 역할로 대화를 시작하세요. 사용자가 주문을 완료하면 친구 역할로 바꿔 주말 계획을 묻는 수다를 이어가세요.",
     dialogue: {
@@ -642,6 +701,20 @@ const LESSONS = [
       { en: "What are you gonna do on Sunday?", kr: "일요일에 뭐 할 거야?" },
     ],
     homework: "미래 시제(gonna) 30문장 영어/한국어 작성 + 녹음, 카페 대화 연습 녹음",
+    freeTalk: {
+      intro: "5회차엔 주말 근황과 직접 만든 영어 앱 이야기로 프리토킹했어요.",
+      topics: [
+        { topic: "주말 근황 — 친구 결혼식", kr: "지난 주말에 친구 결혼식에 갔어요. 재미있으면서도 감동적이었어요.",
+          en: "Last weekend, I went to my friend's wedding. It was fun and touching at the same time.",
+          tip: "touching = 감동적인, at the same time = 동시에." },
+        { topic: "직접 만든 영어 앱", kr: "저는 클로드로 영어 학습 앱을 직접 만들었어요. 하루 10분씩 써요.",
+          en: "I built an English learning app myself using Claude. I use it for 10 minutes a day.",
+          tip: "myself = 직접/스스로 (강조)." },
+        { topic: "오랜만의 인사", kr: "오랜만이야! 그동안 어떻게 지냈어?",
+          en: "It's been a while! How have you been?",
+          tip: "현재완료 — 다음에 자세히 배울 예정. 통으로 익혀두세요." },
+      ],
+    },
     scenario: { title: "주말 계획 말하기 (gonna)", desc: "이번 주말·다음 주에 할 일을 'gonna'로 말해보세요. AI가 What/When/Where로 되물어요." },
     roleplay: "당신은 친구 역할로 사용자에게 주말·다음 주 계획을 묻는 대화를 시작하세요. 사용자가 'be going to / gonna'로 답하도록 What/Where/When/How are you gonna ~? 형태의 후속 질문을 자연스럽게 던지세요. 사용자가 will과 헷갈리면 가볍게 짚어주세요.",
   },
@@ -3543,6 +3616,26 @@ function renderStudy() {
     html += `</div>`;
   }
 
+  if (l.freeTalk) {
+    html += `<div class="study-card" style="border-color:var(--green);background:rgba(34,197,94,0.06)">
+      <h3>🗣 진옥쌤과 프리토킹 — 내 이야기로 말하기</h3>
+      <div class="sec-intro">${esc(l.freeTalk.intro)} <b>한국어를 보고 먼저 영어로 말해본 뒤</b> 🔊로 모범 답안을 확인하세요.</div>`;
+    l.freeTalk.topics.forEach(t => {
+      html += `<div class="point">
+        <div style="font-weight:800;color:var(--green);font-size:0.82rem;margin-bottom:4px">🗣 ${esc(t.topic)}</div>
+        <div class="kr" style="font-weight:600;color:var(--text)">${esc(t.kr)}</div>
+        <div class="example-row" style="margin-top:6px">
+          <div class="txt"><div class="en sync-line" data-text="${jsAttr(t.en)}" data-loop="0" style="font-weight:600">${syncWords(t.en)}</div></div>
+          <button class="speak-mini" onclick="playSync(this.closest('.example-row').querySelector('.sync-line'), 0)" title="처음부터 재생">🔊</button>
+          <button class="speak-mini" onclick="ttsSlow('${jsAttr(t.en)}','en-US')" title="0.6배속 느리게">🐢</button>
+          <button class="speak-mini" onclick="savePhrase('${jsAttr(t.en)}','${jsAttr(t.kr)}','프리토킹')" title="내 표현장에 저장">📌</button>
+        </div>
+        ${t.tip ? `<div class="note">💡 ${noteHtml(t.tip)}</div>` : ''}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
   html += `<div class="hw-box">📌 <b>${l.preview ? '예습 과제' : '숙제'}</b><br>${esc(l.homework)}</div>`;
   html += `<button class="start-drill-btn" onclick="document.querySelector('[data-mode=drill]').click()">이 레슨으로 말하기 드릴 시작 →</button>`;
   document.getElementById('study-content').innerHTML = html;
@@ -4075,6 +4168,11 @@ ${prevLessons.map(pl => `- ${pl.title}: ${pl.sections.flatMap(s => s.points).sli
     ? `\n\n♻️ 약점 표현 재순환 (자연스러울 때만): 학생이 전에 어려워했거나 저장한 아래 표현을 이번 대화에서 다시 쓸 기회가 생기면 슬쩍 유도하세요. 억지로 끼워넣지 말고 맥락이 맞을 때만:\n${recycleItems.map(t => `- ${t}`).join('\n')}`
     : '';
 
+  // 🗣 프리토킹 개인화: 이 회차에 학생이 진옥쌤과 실제로 나눈 일상 주제를 알려, 대화 중 학생의 진짜 삶을 자연스럽게 물어보게 한다.
+  const freeTalkNote = (l.freeTalk && l.freeTalk.topics && l.freeTalk.topics.length)
+    ? `\n\n🗣 학생의 실제 일상 (이 회차에 학생이 선생님과 나눈 진짜 이야기 — 대화가 자연스러울 때 이 중 하나를 화제로 슬쩍 물어보세요. 학생이 자기 진짜 경험을 영어로 말하게 하면 가장 잘 배웁니다):\n${l.freeTalk.topics.map(t => `- ${t.topic}: ${t.en}`).join('\n')}`
+    : '';
+
   // 시나리오: activeScenario(즉흥 주제)가 있으면 그걸, 없으면 레슨 기본값 사용
   const scenario = activeScenario || l.scenario;
 
@@ -4092,7 +4190,7 @@ ${prevLessons.map(pl => `- ${pl.title}: ${pl.sections.flatMap(s => s.points).sli
 - 단, 무슨 말인지 도저히 이해할 수 없어 대화를 이어갈 수 없을 때만(거의 드물게) 이 형식으로 한 번 확인하세요: [HEARD: "들은 그대로" → "추측한 의도" | 올바른 단어/발음 힌트 한국어 한 줄]. 의미가 통하면 절대 쓰지 마세요.
 
 오늘 수업 내용 (${lessonLabel(l)}: ${l.title}):
-${points}${teachNote}${spiralNote}${recycleNote}
+${points}${teachNote}${spiralNote}${recycleNote}${freeTalkNote}
 
 대화 시나리오: ${scenario.title} — ${scenario.desc}${roleplay}
 
