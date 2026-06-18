@@ -62,11 +62,33 @@ if ! curl -s --max-time 2 "http://localhost:11434/api/tags" >/dev/null; then
   fi
 fi
 
+# ── 3-1. 권장 모델 확인 ──────────────────────────
+RECOMMENDED="gemma3:27b"
+if command -v ollama &>/dev/null; then
+  if ! ollama list 2>/dev/null | grep -q "$RECOMMENDED"; then
+    echo ""
+    echo "  💡 권장 모델($RECOMMENDED)이 없습니다."
+    echo "     최고 품질을 위해 아래 명령으로 다운로드하세요 (약 17GB):"
+    echo "     ollama pull $RECOMMENDED"
+    echo "     저사양: ollama pull gemma3:12b  또는  ollama pull gemma3:4b"
+    echo ""
+  fi
+fi
+
 # ── 4. 기존 서버 정리 후 서버 실행 ─────────────────
 EXISTING=$(lsof -ti tcp:"$PORT" 2>/dev/null || true)
 [ -n "$EXISTING" ] && kill $EXISTING 2>/dev/null && sleep 1
 
-python3 "$DIR/server.py" &
+# 백엔드 선택:
+#   · BACKEND=fastapi 이고 uvicorn/fastapi 설치돼 있으면 풀스택(FastAPI+LangChain) 경로
+#   · 그 외에는 의존성 0 stdlib server.py (CAF 분석 포함, 항상 동작)
+if [ "${BACKEND:-}" = "fastapi" ] && python3 -c "import fastapi, uvicorn" 2>/dev/null; then
+  echo "  🧠 FastAPI 백엔드로 실행 (AI 스피치 파이프라인 + WebSocket)"
+  ( cd "$DIR/backend" && python3 -m uvicorn main:app --host "${HOST:-0.0.0.0}" --port "$PORT" ) &
+else
+  [ "${BACKEND:-}" = "fastapi" ] && echo "  ℹ️  FastAPI 미설치 → stdlib server.py로 폴백 (pip install -r backend/requirements.txt 로 활성화)"
+  python3 "$DIR/server.py" &
+fi
 SERVER_PID=$!
 sleep 2
 

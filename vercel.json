@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "api/transcript.js": { "maxDuration": 60 }
+  },
+  "rewrites": [
+    { "source": "/((?!voice-assistant/|api/|sw\\.js|manifest\\.webmanifest).*)", "destination": "/voice-assistant/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, must-revalidate" }
+      ]
+    }
+  ]
+}
