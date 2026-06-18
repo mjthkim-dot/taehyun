@@ -542,7 +542,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.46';
+const APP_VERSION = 'v4.47';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -4113,6 +4113,7 @@ function renderDrillCard() {
       <div class="drill-input-row">
         <input class="drill-input" id="drill-input" placeholder="${drillShadow ? '들은 문장을 말하거나 입력...' : '영어로 말하거나 입력...'}" autocomplete="off"
           onkeydown="if(event.key==='Enter'){checkDrill();}"/>
+        <button class="round-btn" id="drill-clear" onclick="clearDrillInput()" title="입력 지우고 다시 말하기" style="width:46px;height:46px">🗑️</button>
         <button class="round-btn" id="drill-mic" onclick="drillMic()" style="width:46px;height:46px">🎙️</button>
       </div>
       <div class="drill-feedback" id="drill-feedback"></div>
@@ -4342,6 +4343,16 @@ function drillMic() {
   if (sttFallbackWhisper || !recognition) { startWhisperRecording(true); return; }
   if (sttActive) stopMic();
   else startMic(true);   // startMic이 미지원·비보안 시 toast로 원인 안내
+}
+
+/* 잘못 인식됐을 때 입력칸을 비우고 바로 다시 말할 수 있게 한다 (마이크는 켜져 있으면 유지) */
+function clearDrillInput() {
+  const di = document.getElementById('drill-input');
+  if (di) { di.value = ''; di.focus(); }
+  sttFinal = '';
+  document.getElementById('drill-feedback').innerHTML = '';
+  document.getElementById('drill-feedback').className = 'drill-feedback';
+  toast('🗑️ 입력을 지웠어요 — 다시 말해보세요', 2000);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -5716,6 +5727,21 @@ let restartTries = 0;    // onend 연속 재시작 시도 횟수 (폭주 방지)
 let lastSpeechActivityAt = 0;      // 마지막으로 실제 사용자 음성이 들린 시각
 const HF_IDLE_TIMEOUT_MS = 25000;  // 이 시간 동안 말이 없으면 핸즈프리 듣기를 자동 종료 (소음·환청 자동전송 방지)
 
+/* 드릴은 정답 문장을 이미 알고 있으므로, Web Speech가 주는 여러 인식 후보(maxAlternatives)
+   중 정답과 가장 비슷한 것을 골라 쓴다 — 발음이 또렷하지 않아도 엉뚱한 1순위 후보 대신
+   "그 발음으로 의도했을 법한" 정답에 가까운 후보를 인식 결과로 채택해 정확도를 높인다. */
+function bestDrillTranscript(res) {
+  if (!sttDrill || drillIdx >= drillQueue.length) return res[0].transcript;
+  const target = drillQueue[drillIdx]?.en;
+  if (!target) return res[0].transcript;
+  let best = res[0].transcript, bestSim = -1;
+  for (let k = 0; k < res.length; k++) {
+    const sim = similarity(res[k].transcript, target);
+    if (sim > bestSim) { bestSim = sim; best = res[k].transcript; }
+  }
+  return best;
+}
+
 function initSpeechRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
@@ -5755,8 +5781,9 @@ function initSpeechRecognition() {
     let interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const res = e.results[i];
-      if (res.isFinal) sttFinal += res[0].transcript + ' ';
-      else interim += res[0].transcript;
+      const transcript = bestDrillTranscript(res);
+      if (res.isFinal) sttFinal += transcript + ' ';
+      else interim += transcript;
     }
     const shown = (sttFinal + interim).replace(/\s+/g, ' ').trim();
     if (shown) lastSpeechActivityAt = Date.now();   // 실제 음성 활동 기록 → 무활동 자동종료 타이머 리셋
