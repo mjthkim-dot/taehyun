@@ -187,7 +187,9 @@
     .pw.near { background: rgba(245,158,11,0.18); color: #fcd34d; }
     .pw.miss { background: rgba(239,68,68,0.18); color: #fca5a5; text-decoration: underline wavy rgba(239,68,68,0.6); }
     /* 회화 도우미 칩 */
-    .helper-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0 2px; }
+    /* 막혔을 때 쓰는 도우미 칩 — 가로 스크롤 한 줄로 고정해 채팅 영역을 가리지 않게 함 */
+    .helper-chips { display: flex; flex-wrap: nowrap; gap: 6px; padding: 6px 0 2px; overflow-x: auto; scrollbar-width: none; }
+    .helper-chips::-webkit-scrollbar { display: none; }
     .helper-chip { padding: 7px 12px; border-radius: 16px; font-size: 0.8rem; font-weight: 600;
       cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text);
       white-space: nowrap; transition: all .15s; }
@@ -212,12 +214,14 @@
     /* ── Conversation ── */
     #panel-talk { overflow: hidden; }
     .missions {
-      padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
+      padding: 8px 14px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
     }
-    .missions-title { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; }
-    .mission-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .missions-title { font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px; }
+    /* 미션 목록도 가로 스크롤 한 줄로 — 줄바꿈으로 채팅 영역을 잠식하지 않게 함 */
+    .mission-list { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+    .mission-list::-webkit-scrollbar { display: none; }
     .mission {
-      font-size: 0.74rem; padding: 4px 10px; border-radius: 12px; font-weight: 600;
+      font-size: 0.74rem; padding: 4px 10px; border-radius: 12px; font-weight: 600; flex-shrink: 0; white-space: nowrap;
       background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted); transition: all 0.3s;
     }
     .mission.done { background: rgba(16,185,129,0.15); border-color: var(--green); color: #6ee7b7; }
@@ -538,7 +542,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.41';
+const APP_VERSION = 'v4.42';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
