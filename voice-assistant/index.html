@@ -542,7 +542,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.42';
+const APP_VERSION = 'v4.43';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -6003,10 +6003,12 @@ function tts(text, lang, opts = {}) {
     synth.cancel();
     // Chrome 버그: cancel 직후 즉시 speak하면 씹힌다 → 한 틱 뒤에 말한다.
     setTimeout(() => {
+      const emo = emotionProsody(clean);
       const u = new SpeechSynthesisUtterance(clean);
       u.lang = lang;
-      u.rate = opts.rate ?? 0.95;   // 또박또박 (따라 말하기 좋게) · 0.6 = 슬로우 재생
-      u.pitch = 1.06;
+      u.rate = (opts.rate ?? 0.95) * emo.rateMul;   // 또박또박 (따라 말하기 좋게) · 0.6 = 슬로우 재생
+      u.pitch = 1.06 * emo.pitchMul;
+      u.volume = emo.volume;
       const v = pickVoice(lang);
       if (v) u.voice = v;
       try { synth.resume(); } catch (e) {}   // Chrome이 일시정지로 빠지는 것 방지
@@ -6162,10 +6164,12 @@ function speakDialogueLine(text, speaker) {
     setTimeout(() => {
       const { A, B } = getDialogueVoicePair();
       const v = speaker === 'B' ? B : A;
+      const emo = emotionProsody(clean);
       const u = new SpeechSynthesisUtterance(clean);
       u.lang = 'en-US';
-      u.rate = v.rate;
-      u.pitch = v.pitch;
+      u.rate = v.rate * emo.rateMul;
+      u.pitch = v.pitch * emo.pitchMul;
+      u.volume = emo.volume;
       if (v.voice) u.voice = v.voice;
       try { synth.resume(); } catch (e) {}
       synth.speak(u);
@@ -6185,10 +6189,12 @@ function playDialogue() {
     if (i >= lines.length) return;
     const ln = lines[i++];
     const v = ln.sp === 'B' ? B : A;
+    const emo = emotionProsody(ln.en);
     const u = new SpeechSynthesisUtterance(ln.en);
     u.lang = 'en-US';
-    u.rate = v.rate;
-    u.pitch = v.pitch;
+    u.rate = v.rate * emo.rateMul;
+    u.pitch = v.pitch * emo.pitchMul;
+    u.volume = emo.volume;
     if (v.voice) u.voice = v.voice;
     u.onend = next;
     u.onerror = next;
@@ -6279,20 +6285,48 @@ function segmentByScript(text, baseLang) {
   return merged.length ? merged : [{ text: text.trim(), lang: baseLang || 'en-US' }];
 }
 
+/* 문장 내용을 보고 감정 톤(피치/속도/볼륨 보정값)을 추정 — Web Speech API는 SSML 감정 태그를
+   지원하지 않으므로, 문장부호·표현을 단서로 사람처럼 들리는 자연스러운 억양 변화를 흉내낸다. */
+function emotionProsody(text) {
+  const t = String(text || '');
+  let pitchMul = 1, rateMul = 1, volume = 1;
+  // 신나는/칭찬하는 톤 — 느낌표, 칭찬 표현
+  if (/!/.test(t) || /\b(great|awesome|amazing|excellent|perfect|wonderful|fantastic|congrat(ulation)?s?|well done|good job|nice job|bravo|love it)\b/i.test(t)
+      || /(잘했|훌륭|최고|좋아요|굉장|대박|축하)/.test(t)) {
+    pitchMul *= 1.10; rateMul *= 1.05; volume = 1.0;
+  }
+  // 궁금해하는 톤 — 문장이 물음표로 끝남
+  if (/\?\s*$/.test(t.trim())) {
+    pitchMul *= 1.05;
+  }
+  // 다독이는/공감하는 톤 — 사과·위로·실수 언급
+  if (/\b(sorry|unfortunately|mistake|oops|no worries|don't worry|that'?s okay|it'?s okay|i understand)\b/i.test(t)
+      || /(괜찮아요|아쉽|죄송|걱정하지)/.test(t)) {
+    pitchMul *= 0.96; rateMul *= 0.94;
+  }
+  // 생각하는/머뭇거리는 톤 — 말줄임표, 추임새
+  if (/\.\.\.|\bhmm\b|\bwell,/i.test(t) || /(음\.\.|글쎄)/.test(t)) {
+    rateMul *= 0.93;
+  }
+  return { pitchMul, rateMul, volume };
+}
+
 /* 단일 구간을 모국어 음성/톤으로 발화 (pendingUtter 큐 관리 포함) */
 function _speakSegment(text, lang) {
   const u = new SpeechSynthesisUtterance(text);
   const isKo = lang.slice(0, 2) === 'ko';
   u.lang = isKo ? 'ko-KR' : lang;
+  const emo = emotionProsody(text);
   if (isKo) {
-    // 한국어 원어민 톤: 살짝 느긋하고 따뜻하게 (또박또박, 기계적 흔들림 없음)
-    u.rate = 0.97;
-    u.pitch = 1.0;
+    // 한국어 원어민 톤: 살짝 느긋하고 따뜻하게 (또박또박, 기계적 흔들림 없음) + 감정 보정
+    u.rate = 0.97 * emo.rateMul;
+    u.pitch = 1.0 * emo.pitchMul;
   } else {
-    // 영어 원어민 톤: 자연스러운 속도, 문장마다 미세한 변화로 단조로움 완화
-    u.rate = 1.0 + (Math.random() * 0.05 - 0.02);
-    u.pitch = 1.02 + (Math.random() * 0.05 - 0.025);
+    // 영어 원어민 톤: 자연스러운 속도, 문장마다 미세한 변화로 단조로움 완화 + 감정 보정
+    u.rate = (1.0 + (Math.random() * 0.05 - 0.02)) * emo.rateMul;
+    u.pitch = (1.02 + (Math.random() * 0.05 - 0.025)) * emo.pitchMul;
   }
+  u.volume = emo.volume;
   const v = pickVoice(u.lang);
   if (v) u.voice = v;
   pendingUtter++;
