@@ -542,7 +542,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.44';
+const APP_VERSION = 'v4.45';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -5661,8 +5661,8 @@ let sttFinal = '';       // 이번 발화에서 확정된 텍스트 누적
 let sttActive = false;   // 사용자가 마이크를 켜두려는 의도
 let sttDrill = false;    // 드릴 모드 여부
 let sttSilenceTimer = null;     // 침묵 감지 → 자동 전송
-let STT_SILENCE_MS = 2500;      // 회화: 말을 멈추고 2.5초 지나면 자동 전송 (생각하며 말할 여유)
-let STT_DRILL_SILENCE_MS = 3500;  // 드릴: 천천히 생각하며 말할 수 있게 넉넉히 (3.5초)
+let STT_SILENCE_MS = 4200;      // 회화: 말을 멈추고 4.2초 지나면 자동 전송 (생각하며 천천히 말할 여유)
+let STT_DRILL_SILENCE_MS = 4500;  // 드릴: 천천히 생각하며 말할 수 있게 더 넉넉히 (4.5초)
 let handsFree = false;   // 실시간 핸즈프리 회화 모드 (AI 답변 후 자동으로 다시 듣기)
 let hfWatchdog = null;   // 핸즈프리 루프 감시기 — 인식기가 조용히 죽어도 되살린다
 let restartTries = 0;    // onend 연속 재시작 시도 횟수 (폭주 방지)
@@ -6219,6 +6219,7 @@ function playDialogue() {
     if (v.voice) u.voice = v.voice;
     u.onend = next;
     u.onerror = next;
+    try { window.speechSynthesis.resume(); } catch (e) {}
     window.speechSynthesis.speak(u);
   };
   next();
@@ -6230,6 +6231,14 @@ let speakCursor = 0;
 let pendingUtter = 0;
 let ttsIdleSince = 0;   // 합성기가 idle로 관측되기 시작한 시각 (멀티 세그먼트 공백 vs 진짜 멈춤 구분)
 let lastTtsEndAt = 0;   // 마지막 TTS 발화가 끝난 시각 (에코 쿨다운용)
+
+/* Chrome/Safari는 발화가 ~15초를 넘기거나 탭이 잠시 백그라운드로 가면 합성기를 조용히
+   멈춰버리는 버그가 있다 — 말하는 중에는 주기적으로 pause/resume을 살짝 흔들어 깨운다. */
+setInterval(() => {
+  const synth = window.speechSynthesis;
+  if (!synth || !pendingUtter) return;
+  try { if (synth.speaking) { synth.pause(); synth.resume(); } } catch (e) {}
+}, 4000);
 
 /* 멀티 세그먼트 발화 사이의 짧은 공백을 '끝남'으로 오인하지 않도록,
    합성기가 '지속적으로' idle일 때만 pendingUtter를 보정한다 (콜백 누락 복구). */
@@ -6351,7 +6360,8 @@ function _speakSegment(text, lang) {
   const v = pickVoice(u.lang);
   if (v) u.voice = v;
   pendingUtter++;
-  document.getElementById('mic-btn').classList.add('speaking');
+  document.getElementById('mic-btn')?.classList.add('speaking');
+  try { window.speechSynthesis.resume(); } catch (e) {}   // iOS/Safari가 합성기를 일시정지 상태로 빠뜨려 회화 중 음성이 안 나오는 문제 방지
   u.onend = u.onerror = () => {
     // stopSpeaking()이 이미 pendingUtter를 0으로 정리한 뒤(바지인 등) 취소된
     // 발화의 onend가 늦게 도착하면 음수로 내려가며 가짜 재개를 부른다 — 방지.
@@ -6360,7 +6370,7 @@ function _speakSegment(text, lang) {
     if (--pendingUtter <= 0) {
       pendingUtter = 0;
       lastTtsEndAt = Date.now();   // 에코 쿨다운 기준 시각
-      document.getElementById('mic-btn').classList.remove('speaking');
+      document.getElementById('mic-btn')?.classList.remove('speaking');
       maybeResumeHandsFree();   // AI 음성까지 끝났으니 다시 듣기 시작
     }
   };
@@ -6378,7 +6388,7 @@ function stopSpeaking() {
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   pendingUtter = 0;
   ttsIdleSince = 0;
-  document.getElementById('mic-btn').classList.remove('speaking');
+  document.getElementById('mic-btn')?.classList.remove('speaking');
 }
 
 /* ═══════════════════════════════════════════════════
