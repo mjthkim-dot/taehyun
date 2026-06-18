@@ -557,7 +557,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.50';
+const APP_VERSION = 'v4.51';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -3617,8 +3617,8 @@ let askRec = null, askRecording = false, askChunks = [], askStream = null;
 let askAudioCtx = null, askAnalyser = null, askVadRaf = null;
 let askHasSpoken = false, askLastVoiceAt = 0, askRecStartedAt = 0;
 const ASK_VAD_THRESHOLD = 0.02;     // 이 RMS 이상이면 "말하는 중"으로 판단
-const ASK_VAD_SILENCE_MS = 2200;    // 말을 시작한 뒤 이만큼 조용하면 자동 종료
-const ASK_VAD_MAX_MS = 30000;       // 잡음 등으로 침묵 감지가 안 돼도 이 시간엔 무조건 종료
+const ASK_VAD_SILENCE_MS = 4000;    // 말을 시작한 뒤 이만큼 조용하면 자동 종료 (생각하며 끊어 말해도 끊기지 않게 여유를 둠)
+const ASK_VAD_MAX_MS = 45000;       // 잡음 등으로 침묵 감지가 안 돼도 이 시간엔 무조건 종료
 
 async function toggleAskMic() {
   if (askRecording) { stopAskMic(); return; }
