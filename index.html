@@ -557,7 +557,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.54';
+const APP_VERSION = 'v4.55';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2687,6 +2687,53 @@ async function groqTranscribe(blob) {
   return (data.text || '').trim();
 }
 
+/* ── Groq AI 음성(TTS) — Canopy Labs Orpheus v1 English ──
+   Web Speech API와 달리 실제 신경망 음성이라 pitch/rate 흉내가 아니라 [cheerful]/[serious]
+   같은 보컬 디렉션 태그로 진짜 감정 표현을 낸다. 영어 전용이라 한국어 구간은 항상
+   브라우저 Web Speech로 폴백한다. 키가 없거나 호출이 실패하면 호출부에서 폴백 처리. */
+const GROQ_TTS_MODEL = 'canopylabs/orpheus-v1-english';
+const GROQ_TTS_VOICE_AI = 'austin';     // AI 채팅 내레이터 음성
+const GROQ_TTS_VOICE_A = 'hannah';      // 실전 대화문 화자 A
+const GROQ_TTS_VOICE_B = 'daniel';      // 실전 대화문 화자 B
+
+/* emotionProsody()와 같은 판정 기준을 Orpheus 보컬 디렉션 태그로 변환 */
+function emotionDirectionTag(text) {
+  const t = String(text || '').trim();
+  if (/\b(wow|whoa|oh my|oh my gosh|no way|amazing!|really\?!|seriously\?!)\b/i.test(t) || /(우와|헐|대박이|진짜요\?!)/.test(t)) return '[excited]';
+  if (/!/.test(t) || /\b(great|awesome|amazing|excellent|perfect|wonderful|fantastic|congrat(ulation)?s?|well done|good job|nice job|bravo|love it|so (fun|good|cute))\b/i.test(t)
+      || /(잘했|훌륭|최고|좋아요|굉장|대박|축하)/.test(t)) return '[cheerful]';
+  if (/\b(actually|the correct (way|form)|instead of|should be|let'?s fix|one small (thing|note))\b/i.test(t)
+      || /(정정하면|올바른 표현|이렇게 고쳐|이렇게 말해야|살짝 다듬으면)/.test(t)) return '[serious]';
+  if (/\b(sorry|unfortunately|mistake|oops|no worries|don'?t worry|that'?s okay|it'?s okay|i understand)\b/i.test(t)
+      || /(괜찮아요|아쉽|죄송|걱정하지)/.test(t)) return '[sympathetic]';
+  if (/\.\.\.|\bhmm+\b|\bwell,/i.test(t) || /(음\.\.|글쎄)/.test(t)) return '[hesitant]';
+  if (/\?\s*$/.test(t)) return '[curious]';
+  return '';
+}
+
+async function groqTTS(text, voice) {
+  const key = groqKey();
+  if (!key) throw new Error('NO_GROQ_KEY');
+  const resp = await fetch('https://api.groq.com/openai/v1/audio/speech', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+    body: JSON.stringify({
+      model: GROQ_TTS_MODEL,
+      input: text,
+      voice: voice || GROQ_TTS_VOICE_AI,
+      response_format: 'mp3',
+    }),
+  }).catch(err => { throw new Error('NETWORK: ' + (err.message || err)); });
+  if (!resp.ok) {
+    let detail = `HTTP ${resp.status}`;
+    try { const e = await resp.json(); detail = e.error?.message || detail; } catch (e) {}
+    if (resp.status === 401) detail = 'API 키가 올바르지 않습니다. ⚙️에서 다시 확인하세요.';
+    throw new Error(detail);
+  }
+  const blob = await resp.blob();
+  return URL.createObjectURL(blob);
+}
+
 /* Groq 키 입력/변경 모달 */
 function ensureGroqKeyModal() {
   if (document.getElementById('groq-modal')) return;
@@ -2702,7 +2749,8 @@ function ensureGroqKeyModal() {
       </div>
       <div style="padding:16px;font-size:0.86rem;line-height:1.6">
         <div style="color:var(--text-muted);margin-bottom:10px">
-          무료 키를 발급받아 붙여넣으면 <b>Llama 3.3 70B</b>로 ChatGPT/Gemini처럼 빠른 영어 강사 대화가 됩니다.
+          무료 키를 발급받아 붙여넣으면 <b>Llama 3.3 70B</b>로 ChatGPT/Gemini처럼 빠른 영어 강사 대화가 되고,
+          음성도 브라우저 합성음 대신 <b>Groq의 Orpheus AI 음성</b>(실제 감정 표현 지원)으로 들을 수 있습니다.
           키는 <b>이 브라우저에만 저장</b>되고 우리 서버를 거치지 않습니다.
         </div>
         <ol style="margin:0 0 12px 18px;color:var(--text-muted);font-size:0.8rem;line-height:1.8">
@@ -6312,58 +6360,68 @@ function getDialogueVoicePair() {
   return _dialogueVoicePair;
 }
 
-/* 대화문 한 줄을 화자(A/B)에 맞는 음성으로 읽는다 — study 카드의 🔊 버튼이 사용 */
-function speakDialogueLine(text, speaker) {
-  const synth = window.speechSynthesis;
-  if (!synth) { toast('🔊 이 브라우저는 음성 합성을 지원하지 않습니다.'); return; }
-  const clean = cleanForSpeech(text);
-  if (!clean) return;
-  whenVoicesReady(() => {
-    synth.cancel();
-    setTimeout(() => {
-      const { A, B } = getDialogueVoicePair();
-      const v = speaker === 'B' ? B : A;
-      const emo = emotionProsody(clean);
-      const u = new SpeechSynthesisUtterance(clean);
-      u.lang = 'en-US';
-      u.rate = v.rate * emo.rateMul;
-      u.pitch = v.pitch * emo.pitchMul;
-      u.volume = emo.volume;
-      if (v.voice) u.voice = v.voice;
-      try { synth.resume(); } catch (e) {}
-      synth.speak(u);
-    }, 60);
-  });
-}
-
-/* 실전 대화문 전체 자동 재생 — A/B를 서로 다른 음성대역(가능하면 남/여)으로 구분해 들려준다 */
-function playDialogue() {
-  if (!window.speechSynthesis || !currentLesson.dialogue) return;
-  window.speechSynthesis.cancel();
-  _dialogueVoicePair = null;   // 레슨마다, 재생마다 최신 음성 목록으로 다시 계산
-  const { A, B } = getDialogueVoicePair();
-  const lines = currentLesson.dialogue.lines;
-  let i = 0;
-  const next = () => {
-    if (i >= lines.length) return;
-    const ln = lines[i++];
-    const v = ln.sp === 'B' ? B : A;
-    const emo = emotionProsody(ln.en);
-    const u = new SpeechSynthesisUtterance(ln.en);
+/* Web Speech API로 대화문 한 줄을 화자(A/B) 음성으로 발화 — Groq 키가 없을 때의 폴백 */
+function _speakDialogueLineWeb(text, v) {
+  return new Promise((resolve) => {
+    const emo = emotionProsody(text);
+    const u = new SpeechSynthesisUtterance(text);
     u.lang = 'en-US';
     u.rate = v.rate * emo.rateMul;
     u.pitch = v.pitch * emo.pitchMul;
     u.volume = emo.volume;
     if (v.voice) u.voice = v.voice;
+    try { window.speechSynthesis.resume(); } catch (e) {}
+    u.onend = u.onerror = () => resolve();
+    window.speechSynthesis.speak(u);
+  });
+}
+
+/* 대화문 한 줄을 화자(A/B)에 맞는 음성으로 읽는다 — study 카드의 🔊 버튼이 사용.
+   Groq 키가 있으면 Orpheus 실제 감정 음성, 없으면 Web Speech 휴리스틱으로 폴백. */
+function speakDialogueLine(text, speaker) {
+  if (!window.speechSynthesis) { toast('🔊 이 브라우저는 음성 합성을 지원하지 않습니다.'); return; }
+  const clean = cleanForSpeech(text);
+  if (!clean) return;
+  stopSpeaking();
+  if (groqKey()) {
+    _speakSegmentGroq(clean, speaker === 'B' ? GROQ_TTS_VOICE_B : GROQ_TTS_VOICE_A);
+    return;
+  }
+  whenVoicesReady(() => {
+    setTimeout(() => {
+      const { A, B } = getDialogueVoicePair();
+      _speakDialogueLineWeb(clean, speaker === 'B' ? B : A);
+    }, 60);
+  });
+}
+
+/* 실전 대화문 전체 자동 재생 — A/B를 서로 다른 음성으로 구분해 들려준다.
+   Groq 키가 있으면 Orpheus 두 음성(실제 감정 표현), 없으면 Web Speech 음성쌍으로 폴백. */
+function playDialogue() {
+  if (!currentLesson.dialogue) return;
+  stopSpeaking();
+  const useGroq = !!groqKey();
+  let A, B;
+  if (!useGroq) {
+    if (!window.speechSynthesis) return;
+    _dialogueVoicePair = null;   // 레슨마다, 재생마다 최신 음성 목록으로 다시 계산
+    ({ A, B } = getDialogueVoicePair());
+  }
+  const lines = currentLesson.dialogue.lines;
+  let i = 0;
+  const next = () => {
+    if (i >= lines.length) return;
+    const ln = lines[i++];
+    const emo = emotionProsody(ln.en);
     // 화자가 바뀌는 순간은 실제 대화처럼 확실히 뜸을 들이고("내 차례야" 느낌),
     // 같은 화자가 이어 말할 때는 짧게 끊어서 한 호흡처럼 들리게 한다.
     const nextLn = lines[i];
     const isTurnChange = nextLn && nextLn.sp !== ln.sp;
     const gapMs = isTurnChange ? (emo.pauseMs || 200) + 650 : Math.round((emo.pauseMs || 200) * 0.45);
-    u.onend = () => setTimeout(next, gapMs);
-    u.onerror = next;
-    try { window.speechSynthesis.resume(); } catch (e) {}
-    window.speechSynthesis.speak(u);
+    const job = useGroq
+      ? _speakSegmentGroq(ln.en, ln.sp === 'B' ? GROQ_TTS_VOICE_B : GROQ_TTS_VOICE_A)
+      : _speakDialogueLineWeb(ln.en, ln.sp === 'B' ? B : A);
+    job.then(() => setTimeout(next, gapMs)).catch(() => setTimeout(next, gapMs));
   };
   next();
 }
@@ -6374,6 +6432,8 @@ let speakCursor = 0;
 let pendingUtter = 0;
 let ttsIdleSince = 0;   // 합성기가 idle로 관측되기 시작한 시각 (멀티 세그먼트 공백 vs 진짜 멈춤 구분)
 let lastTtsEndAt = 0;   // 마지막 TTS 발화가 끝난 시각 (에코 쿨다운용)
+let _activeGroqAudio = null;   // 현재 재생 중인 Groq TTS <audio> (있으면 합성기가 idle이어도 '말하는 중')
+let _speechChain = Promise.resolve();   // Web Speech/Groq TTS를 순서대로 재생하기 위한 직렬 체인
 
 /* Chrome/Safari는 발화가 ~15초를 넘기거나 탭이 잠시 백그라운드로 가면 합성기를 조용히
    멈춰버리는 버그가 있다 — 말하는 중에는 주기적으로 pause/resume을 살짝 흔들어 깨운다. */
@@ -6387,6 +6447,7 @@ setInterval(() => {
    합성기가 '지속적으로' idle일 때만 pendingUtter를 보정한다 (콜백 누락 복구). */
 function reconcilePendingUtter() {
   if (pendingUtter <= 0) { ttsIdleSince = 0; return; }
+  if (_activeGroqAudio) { ttsIdleSince = 0; return; }   // Groq TTS 오디오 재생 중 → 정상
   const synth = window.speechSynthesis;
   if (!synth) return;
   if (synth.speaking || synth.pending) { ttsIdleSince = 0; return; }  // 발화 중/대기 중 → 정상
@@ -6504,30 +6565,56 @@ function emotionProsody(text) {
   return { pitchMul, rateMul, volume, pauseMs };
 }
 
-/* 단일 구간을 모국어 음성/톤으로 발화 (pendingUtter 큐 관리 포함) */
+/* Web Speech API로 한 구간을 발화 — 끝나면 resolve (Groq 실패 시 폴백 경로로도 쓰임) */
+function _speakSegmentWeb(text, lang) {
+  return new Promise((resolve) => {
+    const u = new SpeechSynthesisUtterance(text);
+    const isKo = lang.slice(0, 2) === 'ko';
+    u.lang = isKo ? 'ko-KR' : lang;
+    const emo = emotionProsody(text);
+    if (isKo) {
+      // 한국어 원어민 톤: 살짝 느긋하고 따뜻하게 (또박또박, 기계적 흔들림 없음) + 감정 보정
+      u.rate = 0.97 * emo.rateMul;
+      u.pitch = 1.0 * emo.pitchMul;
+    } else {
+      // 영어 원어민 톤: 자연스러운 속도, 문장마다 미세한 변화로 단조로움 완화 + 감정 보정
+      u.rate = (1.0 + (Math.random() * 0.05 - 0.02)) * emo.rateMul;
+      u.pitch = (1.02 + (Math.random() * 0.05 - 0.025)) * emo.pitchMul;
+    }
+    u.volume = emo.volume;
+    const v = pickVoice(u.lang);
+    if (v) u.voice = v;
+    try { window.speechSynthesis.resume(); } catch (e) {}   // iOS/Safari가 합성기를 일시정지 상태로 빠뜨려 회화 중 음성이 안 나오는 문제 방지
+    u.onend = u.onerror = () => resolve();
+    window.speechSynthesis.speak(u);
+  });
+}
+
+/* Groq Orpheus TTS로 한 구간을 발화(영어 전용) — 실패하면 Web Speech로 폴백 */
+function _speakSegmentGroq(text, voice) {
+  const tag = emotionDirectionTag(text);
+  const input = tag ? `${tag} ${text}` : text;
+  return groqTTS(input, voice).then((url) => new Promise((resolve) => {
+    const audio = new Audio(url);
+    _activeGroqAudio = audio;
+    const done = () => { URL.revokeObjectURL(url); if (_activeGroqAudio === audio) _activeGroqAudio = null; resolve(); };
+    audio.onended = done;
+    audio.onerror = done;
+    audio.play().catch(done);
+  })).catch(() => _speakSegmentWeb(text, 'en-US'));
+}
+
+/* 단일 구간을 발화 — Groq 키가 있고 영어면 Orpheus(실제 감정 표현), 아니면 Web Speech 휴리스틱.
+   여러 구간이 동시에 들어와도 _speechChain으로 순서대로 재생되도록 직렬화한다. */
 function _speakSegment(text, lang) {
-  const u = new SpeechSynthesisUtterance(text);
   const isKo = lang.slice(0, 2) === 'ko';
-  u.lang = isKo ? 'ko-KR' : lang;
-  const emo = emotionProsody(text);
-  if (isKo) {
-    // 한국어 원어민 톤: 살짝 느긋하고 따뜻하게 (또박또박, 기계적 흔들림 없음) + 감정 보정
-    u.rate = 0.97 * emo.rateMul;
-    u.pitch = 1.0 * emo.pitchMul;
-  } else {
-    // 영어 원어민 톤: 자연스러운 속도, 문장마다 미세한 변화로 단조로움 완화 + 감정 보정
-    u.rate = (1.0 + (Math.random() * 0.05 - 0.02)) * emo.rateMul;
-    u.pitch = (1.02 + (Math.random() * 0.05 - 0.025)) * emo.pitchMul;
-  }
-  u.volume = emo.volume;
-  const v = pickVoice(u.lang);
-  if (v) u.voice = v;
+  const useGroq = !isKo && !!groqKey();
   pendingUtter++;
   document.getElementById('mic-btn')?.classList.add('speaking');
-  try { window.speechSynthesis.resume(); } catch (e) {}   // iOS/Safari가 합성기를 일시정지 상태로 빠뜨려 회화 중 음성이 안 나오는 문제 방지
-  u.onend = u.onerror = () => {
+  const startJob = () => useGroq ? _speakSegmentGroq(text, GROQ_TTS_VOICE_AI) : _speakSegmentWeb(text, lang);
+  _speechChain = _speechChain.then(startJob).catch(() => {}).then(() => {
     // stopSpeaking()이 이미 pendingUtter를 0으로 정리한 뒤(바지인 등) 취소된
-    // 발화의 onend가 늦게 도착하면 음수로 내려가며 가짜 재개를 부른다 — 방지.
+    // 발화의 종료가 늦게 도착하면 음수로 내려가며 가짜 재개를 부른다 — 방지.
     if (pendingUtter <= 0) return;
     ttsIdleSince = 0;
     if (--pendingUtter <= 0) {
@@ -6536,8 +6623,7 @@ function _speakSegment(text, lang) {
       document.getElementById('mic-btn')?.classList.remove('speaking');
       maybeResumeHandsFree();   // AI 음성까지 끝났으니 다시 듣기 시작
     }
-  };
-  window.speechSynthesis.speak(u);
+  });
 }
 
 function enqueueSpeech(text, lang) {
@@ -6549,6 +6635,8 @@ function enqueueSpeech(text, lang) {
 
 function stopSpeaking() {
   if (window.speechSynthesis) window.speechSynthesis.cancel();
+  if (_activeGroqAudio) { try { _activeGroqAudio.pause(); } catch (e) {} _activeGroqAudio = null; }
+  _speechChain = Promise.resolve();   // 대기 중인 체인을 끊어 정지 후 새 발화가 밀리지 않게
   pendingUtter = 0;
   ttsIdleSince = 0;
   document.getElementById('mic-btn')?.classList.remove('speaking');
