@@ -542,7 +542,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.43';
+const APP_VERSION = 'v4.44';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2202,7 +2202,28 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   // 첫 화면은 🏠 홈 (로드맵 + 학습 가이드)
   setMode('master', document.querySelector('[data-mode="master"]'));
+  handleSharedVideo();
 });
+
+/* 🔗 공유 받기: 유튜브 앱/사이트에서 "공유하기 → PREPLY"로 보내면 (Android Web Share Target)
+   주소창 쿼리(?yt= 또는 ?url=, ?text=)에 영상 링크가 담겨 도착한다. 이를 읽어 영상 탭으로
+   바로 이동시키고 자막 자동수집까지 이어준다. iOS Safari는 공유 타깃 API를 지원하지 않으므로,
+   대신 사파리 단축어(Shortcuts)로 같은 쿼리 형식의 링크를 열도록 안내한다(설정 → 동기화 섹션). */
+function handleSharedVideo() {
+  const params = new URLSearchParams(location.search);
+  let shared = params.get('yt') || params.get('url') || params.get('text') || '';
+  const m = shared.match(/https?:\/\/\S+/);
+  if (m) shared = m[0];
+  if (!shared || !parseYouTubeId(shared)) return;
+  history.replaceState(null, '', location.pathname);   // 쿼리 정리(다음 새로고침에서 재실행 방지)
+  setMode('video', document.querySelector('[data-mode="video"]'));
+  setTimeout(() => {
+    const input = document.getElementById('vid-url');
+    if (input) input.value = shared;
+    toast('🔗 공유받은 영상을 가져왔어요. 자막을 자동수집합니다…', 3000);
+    autoFetchCaption();
+  }, 200);
+}
 
 /* 학습 단계 표시줄: 지금 어디에 있고 다음에 뭘 하면 되는지 */
 function stepBar(cur) {
