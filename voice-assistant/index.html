@@ -542,7 +542,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.45';
+const APP_VERSION = 'v4.46';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2784,12 +2784,12 @@ function ensureAskModal() {
           <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:4px">📌 지금 연습 중인 문장</div>
           <div id="ask-context" style="font-size:0.85rem;background:var(--surface2);border-radius:8px;padding:8px 10px"></div>
         </div>
-        <textarea id="ask-input" rows="3" placeholder="모르는 것을 편하게 물어보세요. (🎙️로 말해도 돼요)&#10;예) 'have been'이 무슨 뜻이야? / 왜 여기서 the를 써? / 이거 더 자연스럽게 말하려면?"
+        <textarea id="ask-input" rows="3" placeholder="모르는 것을 편하게 물어보세요. (🎙️ 누르고 말하면 멈췄을 때 자동 전송돼요)&#10;예) 'have been'이 무슨 뜻이야? / 왜 여기서 the를 써? / 이거 더 자연스럽게 말하려면?"
           style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font-family:inherit;font-size:0.9rem;resize:vertical"
           onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){submitAsk();}"></textarea>
         <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
-          <button class="round-btn" id="ask-mic" onclick="toggleAskMic()" title="음성으로 질문 (한국어/영어)" style="width:44px;height:44px;flex:0 0 auto">🎙️</button>
-          <span id="ask-mic-status" style="font-size:0.74rem;color:var(--text-muted)">🎙️ 눌러서 음성으로 질문할 수 있어요</span>
+          <button class="round-btn" id="ask-mic" onclick="toggleAskMic()" title="음성으로 질문 (한국어/영어) — 한 번 누르면 말이 끝날 때 자동으로 인식·전송됩니다" style="width:44px;height:44px;flex:0 0 auto">🎙️</button>
+          <span id="ask-mic-status" style="font-size:0.74rem;color:var(--text-muted)">🎙️ 눌러서 말하면 멈췄을 때 자동으로 인식·전송돼요</span>
         </div>
         <button class="btn primary" id="ask-send" onclick="submitAsk()" style="width:100%;margin-top:10px">질문하기 (Ctrl+Enter)</button>
         <div id="ask-answer" style="margin-top:14px;font-size:0.9rem;line-height:1.7"></div>
@@ -3564,6 +3564,14 @@ async function loadWhisperML() {
 }
 
 let askRec = null, askRecording = false, askChunks = [], askStream = null;
+/* 핸즈프리 자동 인식: 말이 멈추면 직접 멈추는 버튼을 누를 필요 없이 스스로 녹음을
+   끝내고 인식 → 질문창 채움 → 자동 전송까지 이어간다 (회화 탭의 자동전송과 동일한 감각). */
+let askAudioCtx = null, askAnalyser = null, askVadRaf = null;
+let askHasSpoken = false, askLastVoiceAt = 0, askRecStartedAt = 0;
+const ASK_VAD_THRESHOLD = 0.02;     // 이 RMS 이상이면 "말하는 중"으로 판단
+const ASK_VAD_SILENCE_MS = 2200;    // 말을 시작한 뒤 이만큼 조용하면 자동 종료
+const ASK_VAD_MAX_MS = 30000;       // 잡음 등으로 침묵 감지가 안 돼도 이 시간엔 무조건 종료
+
 async function toggleAskMic() {
   if (askRecording) { stopAskMic(); return; }
   if (!window.isSecureContext) { toast('🔒 https(또는 localhost)에서만 마이크가 동작합니다.'); return; }
@@ -3588,12 +3596,49 @@ async function toggleAskMic() {
   const b = document.getElementById('ask-mic');
   if (b) b.classList.add('listening');
   const st = document.getElementById('ask-mic-status');
-  if (st) st.textContent = '● 녹음 중 — 다 말하면 🎙️를 다시 누르세요';
+  if (st) st.textContent = '● 듣는 중 — 편하게 말하세요 (멈추면 자동으로 인식·전송돼요)';
+  startAskVad(askStream);
+}
+
+/* 마이크 입력 볼륨을 감시해 "말한 뒤 조용해짐"을 감지하면 stopAskMic()을 자동 호출 */
+function startAskVad(stream) {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    askAudioCtx = new Ctx();
+    const src = askAudioCtx.createMediaStreamSource(stream);
+    askAnalyser = askAudioCtx.createAnalyser();
+    askAnalyser.fftSize = 512;
+    src.connect(askAnalyser);
+    const buf = new Float32Array(askAnalyser.fftSize);
+    askHasSpoken = false;
+    askLastVoiceAt = 0;
+    askRecStartedAt = Date.now();
+    const tick = () => {
+      if (!askRecording) return;
+      askAnalyser.getFloatTimeDomainData(buf);
+      let sum = 0;
+      for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+      const rms = Math.sqrt(sum / buf.length);
+      const now = Date.now();
+      if (rms > ASK_VAD_THRESHOLD) { askHasSpoken = true; askLastVoiceAt = now; }
+      if (askHasSpoken && now - askLastVoiceAt > ASK_VAD_SILENCE_MS) { stopAskMic(); return; }
+      if (now - askRecStartedAt > ASK_VAD_MAX_MS) { stopAskMic(); return; }
+      askVadRaf = requestAnimationFrame(tick);
+    };
+    askVadRaf = requestAnimationFrame(tick);
+  } catch (e) { /* VAD는 보조 기능 — 실패해도 수동으로 🎙️ 다시 눌러 멈추는 건 그대로 동작 */ }
+}
+
+function stopAskVad() {
+  if (askVadRaf) { cancelAnimationFrame(askVadRaf); askVadRaf = null; }
+  try { askAudioCtx && askAudioCtx.close(); } catch (e) {}
+  askAudioCtx = null; askAnalyser = null;
 }
 
 function stopAskMic() {
   if (!askRecording || !askRec) return;
   askRecording = false;
+  stopAskVad();
   try { askRec.stop(); } catch (e) {}
   askStream?.getTracks().forEach(t => t.stop());
 }
@@ -3619,6 +3664,8 @@ async function onAskMicStop() {
     if (!text) { toast('🎙️ 음성을 인식하지 못했어요. 다시 시도해 주세요.', 4000); return; }
     const inp = document.getElementById('ask-input');
     if (inp) { inp.value = (inp.value ? inp.value.trim() + ' ' : '') + text; inp.focus(); }
+    toast('🎙️→🤖 인식된 질문을 자동 전송합니다', 2500);
+    submitAsk();
   } catch (e) {
     if (st) st.textContent = '';
     toast('🎙️ 음성 인식 실패: ' + (e.message || e), 5000);
