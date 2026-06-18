@@ -542,7 +542,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.47';
+const APP_VERSION = 'v4.48';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -1973,7 +1973,13 @@ let drillQueue = [], drillIdx = 0, drillResults = [], drillIsReview = false, dri
 let webllmEngine = null, webllmLoading = false, webllmReady = false, webllmCurrentModel = null;
 let missionState = {};
 
-function store(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+let _storeWarned = false;
+function store(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); }
+  catch (e) {
+    if (!_storeWarned) { _storeWarned = true; toast('⚠️ 저장 공간이 부족해 일부 기록이 저장되지 않을 수 있어요', 4000); }
+  }
+}
 function load(key, def) { try { return JSON.parse(localStorage.getItem(key)) ?? def; } catch { return def; } }
 
 /* ── 오프라인 복습: IndexedDB 로 AI 드릴 세트 저장/조회 (vanilla, 무의존성) ── */
@@ -5921,6 +5927,16 @@ function stopMic() {
   try { recognition.stop(); } catch (e) {}
 }
 
+/* 백그라운드 전환 시 마이크·녹음을 정리 — 화면이 꺼지거나 다른 앱으로 전환되면
+   인식기/녹음기가 멈춘 채로 방치되어 복귀 후 "이미 사용 중" 오류가 나는 것을 방지. */
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'hidden') return;
+  try { if (sttActive || isListening) stopMic(); } catch (e) {}
+  try { if (whisperRecording) stopWhisperRecording(); } catch (e) {}
+  try { if (askRecording) stopAskMic(); } catch (e) {}
+  try { stopSpeaking(); } catch (e) {}
+});
+
 /* 핸즈프리 루프 감시기: AI 차례가 아닌데도 마이크가 꺼져 있으면 되살린다.
    Chrome 음성인식이 네트워크/타임아웃으로 조용히 죽어 "응답이 없는" 것처럼
    보이던 문제를 근본적으로 막는 안전망. */
@@ -6212,6 +6228,7 @@ function playSync(lineEl, fromChar) {
     spans.forEach(s => s.classList.remove('on'));
     if (lineEl.dataset.loop === '1') playSync(lineEl, fromChar);
   };
+  try { window.speechSynthesis.resume(); } catch (e) {}
   window.speechSynthesis.speak(u);
 }
 
