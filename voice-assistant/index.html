@@ -557,7 +557,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.49';
+const APP_VERSION = 'v4.50';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2660,6 +2660,33 @@ async function groqComplete(messages, opts = {}) {
   return data.choices?.[0]?.message?.content || '';
 }
 
+/* 음성 인식 (질문 모드) — Groq Whisper API. 모델을 브라우저에 다운로드하지 않고
+   바로 서버로 보내 텍스트를 받는다. 키가 없으면 호출하는 쪽에서 로컬 Whisper로 폴백. */
+async function groqTranscribe(blob) {
+  const key = groqKey();
+  if (!key) throw new Error('NO_GROQ_KEY');
+  const ext = (blob.type || '').includes('webm') ? 'webm'
+    : (blob.type || '').includes('ogg') ? 'ogg'
+    : (blob.type || '').includes('mp4') ? 'mp4' : 'wav';
+  const fd = new FormData();
+  fd.append('file', blob, `audio.${ext}`);
+  fd.append('model', 'whisper-large-v3-turbo');
+  fd.append('response_format', 'json');
+  const resp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + key },
+    body: fd,
+  }).catch(err => { throw new Error('NETWORK: ' + (err.message || err)); });
+  if (!resp.ok) {
+    let detail = `HTTP ${resp.status}`;
+    try { const e = await resp.json(); detail = e.error?.message || detail; } catch (e) {}
+    if (resp.status === 401) detail = 'API 키가 올바르지 않습니다. ⚙️에서 다시 확인하세요.';
+    throw new Error(detail);
+  }
+  const data = await resp.json();
+  return (data.text || '').trim();
+}
+
 /* Groq 키 입력/변경 모달 */
 function ensureGroqKeyModal() {
   if (document.getElementById('groq-modal')) return;
@@ -3673,14 +3700,19 @@ async function onAskMicStop() {
   const st = document.getElementById('ask-mic-status');
   if (st) st.textContent = '🧠 음성 인식 중...';
   try {
-    const pipe = await loadWhisperML();
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    const ctx = new Ctx({ sampleRate: 16000 });
-    const decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
-    const audio = decoded.getChannelData(0);
-    await ctx.close();
-    const out = await pipe(audio, { chunk_length_s: 30, stride_length_s: 5 });
-    const text = (out && out.text || '').trim();
+    let text;
+    if (groqKey()) {
+      text = await groqTranscribe(blob);
+    } else {
+      const pipe = await loadWhisperML();
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new Ctx({ sampleRate: 16000 });
+      const decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
+      const audio = decoded.getChannelData(0);
+      await ctx.close();
+      const out = await pipe(audio, { chunk_length_s: 30, stride_length_s: 5 });
+      text = (out && out.text || '').trim();
+    }
     if (st) st.textContent = '🎙️ 눌러서 음성으로 질문할 수 있어요';
     if (!text) { toast('🎙️ 음성을 인식하지 못했어요. 다시 시도해 주세요.', 4000); return; }
     const inp = document.getElementById('ask-input');
