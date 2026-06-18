@@ -522,7 +522,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.38';
+const APP_VERSION = 'v4.39';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2621,9 +2621,65 @@ function ensureGroqKeyModal() {
           <button class="btn primary" onclick="saveGroqKey()" style="flex:1">저장하고 시작</button>
         </div>
         <div id="groq-key-status" style="font-size:0.78rem;color:var(--text-muted);margin-top:10px"></div>
+
+        <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px">
+          <b style="font-size:0.9rem">🔄 기기 간 동기화 (PC ↔ 폰)</b>
+          <div style="color:var(--text-muted);font-size:0.78rem;line-height:1.6;margin:6px 0 10px">
+            학습 기록·연속일·Groq 키는 <b>각 기기(브라우저)에만</b> 저장됩니다. PC와 폰을 맞추려면
+            한쪽에서 <b>내보내기</b>로 코드를 복사해 다른 기기 같은 화면에 <b>붙여넣고 가져오기</b>를 누르세요.
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <button class="btn" onclick="exportSyncCode()" style="flex:1">📤 이 기기 내보내기</button>
+            <button class="btn primary" onclick="importSyncCode()" style="flex:1">📥 코드 가져오기</button>
+          </div>
+          <textarea id="sync-code-box" placeholder="여기에 동기화 코드가 나타나거나, 다른 기기에서 복사한 코드를 붙여넣으세요."
+            style="width:100%;height:64px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font-family:monospace;font-size:0.72rem;resize:vertical"></textarea>
+          <div id="sync-status" style="font-size:0.78rem;color:var(--text-muted);margin-top:8px"></div>
+        </div>
       </div>
     </div>`;
   document.body.appendChild(m);
+}
+
+/* 모든 학습 데이터(va_*)를 압축 코드로 내보낸다 — 다른 기기에 그대로 옮길 수 있다. */
+function exportSyncCode() {
+  const data = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('va_')) data[k] = localStorage.getItem(k);
+  }
+  const code = 'PREPLY1:' + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+  const box = document.getElementById('sync-code-box');
+  box.value = code;
+  box.focus(); box.select();
+  const st = document.getElementById('sync-status');
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(code)
+      .then(() => { st.textContent = `✅ 코드를 복사했어요 (${Object.keys(data).length}개 항목). 다른 기기 같은 화면에 붙여넣고 "가져오기"를 누르세요.`; })
+      .catch(() => { st.textContent = '✅ 코드를 만들었어요. 위 칸을 길게 눌러 복사하세요.'; });
+  } else {
+    st.textContent = '✅ 코드를 만들었어요. 위 칸을 길게 눌러 복사하세요.';
+  }
+}
+
+/* 다른 기기에서 만든 코드를 받아 학습 데이터를 복원한다. */
+function importSyncCode() {
+  const st = document.getElementById('sync-status');
+  const code = (document.getElementById('sync-code-box').value || '').trim();
+  if (!code) { st.textContent = '⚠️ 먼저 다른 기기에서 복사한 코드를 붙여넣으세요.'; return; }
+  if (!code.startsWith('PREPLY1:')) { st.textContent = '⚠️ 올바른 동기화 코드가 아닙니다. (PREPLY1:로 시작해야 함)'; return; }
+  let data;
+  try { data = JSON.parse(decodeURIComponent(escape(atob(code.slice(8))))); }
+  catch { st.textContent = '⚠️ 코드를 읽지 못했어요. 코드 전체를 빠짐없이 붙여넣었는지 확인하세요.'; return; }
+  if (!data || typeof data !== 'object') { st.textContent = '⚠️ 코드 내용이 비어 있습니다.'; return; }
+  if (!confirm('이 기기의 기존 학습 기록을 가져온 코드로 덮어씁니다. 계속할까요?')) return;
+  let n = 0;
+  for (const [k, v] of Object.entries(data)) {
+    if (k.startsWith('va_') && typeof v === 'string') { localStorage.setItem(k, v); n++; }
+  }
+  st.textContent = `✅ ${n}개 항목을 가져왔어요. 잠시 후 새로고침됩니다…`;
+  toast('🔄 동기화 완료! 화면을 새로고침합니다.', 2500);
+  setTimeout(() => location.reload(), 1400);
 }
 
 function openGroqKeyModal() {
@@ -4243,6 +4299,12 @@ ${prevLessons.map(pl => `- ${pl.title}: ${pl.sections.flatMap(s => s.points).sli
 
   return `당신은 PREPLY의 친절하고 인내심 많은 초보자용 영어 튜터입니다. (Act as a friendly and patient English tutor for a beginner.) 원어민 수준의 영어-한국어 바이링구얼 AI 스피킹 코치로서, 학생이 긴장하지 않도록 따뜻하고 격려하는 선생님 톤을 유지하세요.
 
+🌐 언어 규칙 (가장 엄격 — 반드시 지킬 것):
+- 오직 **영어(라틴 문자)** 와 **한국어(한글)** 만 사용하세요.
+- 일본어(ひらがな·カタカナ·漢字), 중국어 한자(漢字), 태국어, 베트남어, 기타 어떤 외국 문자도 절대 쓰지 마세요.
+- 한국어 단어는 반드시 한글로만 적으세요. (❌ '今週末에', '아침ご飯', 'อะไร' / ✅ '이번 주말에', '아침밥', '뭐')
+- 영어 단어는 알파벳으로, 한국어 설명은 한글로. 그 외 문자가 섞이면 안 됩니다.
+
 🟢 가장 중요 — 회화는 '대화'가 우선, 교정은 자연스러운 '리캐스트'로:
 - 당신의 1순위는 상황(시나리오)에 맞는 자연스러운 대화를 이어가는 것입니다. 실제 원어민 친구/선생님처럼 학생이 말한 '내용'에 반응하세요.
 - 학생이 한 문장마다 즉시 문법·발음을 지적하지 마세요. 매 턴 교정하면 대화 흐름이 끊겨 학습이 안 됩니다.
@@ -4676,7 +4738,19 @@ function updateTalkBtns() {
 }
 
 /* ── 응답 파서: [CORRECT:] [EXPLAIN:] [HEARD:] ── */
+/* 🌐 모델이 간혹 섞어 내보내는 외국 문자(일본어 かな·한자, 중국어 한자, 태국/키릴/아랍 등)를
+   제거해 영어+한국어만 남긴다. 음성 합성이 엉뚱한 외국어를 읽거나 화면에 깨진 글자가 보이는 것을 막는 안전장치. */
+const FOREIGN_SCRIPT_RE = /[぀-ヿㇰ-ㇿｦ-ﾟ㐀-䶿一-鿿豈-﫿฀-๿Ѐ-ӿ؀-ۿऀ-ॿ֐-׿]/g;
+function stripForeignScripts(s) {
+  if (!s) return s;
+  return s.replace(FOREIGN_SCRIPT_RE, '')
+    .replace(/[ \t]{2,}/g, ' ')      // 제거 후 생긴 이중 공백 정리
+    .replace(/\s+([,.!?])/g, '$1')   // 부호 앞 공백 정리
+    .trim();
+}
+
 function renderAiText(raw) {
+  raw = stripForeignScripts(raw);
   const correctionRe = /\[CORRECT:\s*"([^"]+)"\s*→\s*"([^"]+)"\s*\|([^\]]+)\]/g;
   const explainRe = /\[EXPLAIN:\s*([^\]]+)\]/g;
   // [HEARD: "들린 말" → "의도한 말" | 올바른 발음/단어 안내]
@@ -6081,6 +6155,7 @@ function reconcilePendingUtter() {
 
 function streamSpeak(raw, flush) {
   if (!window.speechSynthesis) return;
+  raw = stripForeignScripts(raw);
   let s = raw.slice(speakCursor);
   // 아직 닫히지 않은 [CORRECT:/[EXPLAIN: 태그는 다음 청크에서 처리
   const open = s.lastIndexOf('[');
