@@ -557,7 +557,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.51';
+const APP_VERSION = 'v4.52';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -6355,7 +6355,10 @@ function playDialogue() {
     u.pitch = v.pitch * emo.pitchMul;
     u.volume = emo.volume;
     if (v.voice) u.voice = v.voice;
-    u.onend = next;
+    // 화자가 바뀌는 순간은 실제 대화처럼 더 뜸을 들이고, 같은 화자가 이어 말할 때는 더 짧게.
+    const nextLn = lines[i];
+    const turnGap = nextLn && nextLn.sp !== ln.sp ? 1 : 0.55;
+    u.onend = () => setTimeout(next, Math.round((emo.pauseMs || 220) * turnGap));
     u.onerror = next;
     try { window.speechSynthesis.resume(); } catch (e) {}
     window.speechSynthesis.speak(u);
@@ -6453,30 +6456,47 @@ function segmentByScript(text, baseLang) {
   return merged.length ? merged : [{ text: text.trim(), lang: baseLang || 'en-US' }];
 }
 
-/* 문장 내용을 보고 감정 톤(피치/속도/볼륨 보정값)을 추정 — Web Speech API는 SSML 감정 태그를
-   지원하지 않으므로, 문장부호·표현을 단서로 사람처럼 들리는 자연스러운 억양 변화를 흉내낸다. */
+/* 문장 내용을 보고 감정 톤(피치/속도/볼륨/쉼 보정값)을 추정한다.
+   ChatGPT 음성모드·Gemini Live 같은 네이티브 음성 AI는 텍스트가 아니라 음성 토큰을 직접
+   생성해 감정을 표현하지만, Web Speech API는 SSML 감정 태그를 지원하지 않는다 — 대신
+   문장부호·감탄사·의미 카테고리를 더 세분화한 휴리스틱으로 사람처럼 들리는 억양 변화와
+   "숨 쉬는" 자연스러운 쉼(pauseMs)을 흉내낸다. 카테고리가 겹치면 더 강한 감정이 우선한다. */
 function emotionProsody(text) {
-  const t = String(text || '');
-  let pitchMul = 1, rateMul = 1, volume = 1;
-  // 신나는/칭찬하는 톤 — 느낌표, 칭찬 표현
-  if (/!/.test(t) || /\b(great|awesome|amazing|excellent|perfect|wonderful|fantastic|congrat(ulation)?s?|well done|good job|nice job|bravo|love it)\b/i.test(t)
+  const t = String(text || '').trim();
+  let pitchMul = 1, rateMul = 1, volume = 1, pauseMs = 70;
+
+  // 1) 놀람/감탄 — 가장 두드러진 톤이라 우선 적용
+  if (/\b(wow|whoa|oh my|no way|amazing!|really\?!|seriously\?!)\b/i.test(t) || /(우와|헐|대박이|진짜요\?!)/.test(t)) {
+    pitchMul *= 1.16; rateMul *= 1.07; volume = 1.0; pauseMs = 130;
+  }
+  // 2) 신나는/칭찬하는 톤 — 느낌표, 칭찬 표현
+  else if (/!/.test(t) || /\b(great|awesome|amazing|excellent|perfect|wonderful|fantastic|congrat(ulation)?s?|well done|good job|nice job|bravo|love it)\b/i.test(t)
       || /(잘했|훌륭|최고|좋아요|굉장|대박|축하)/.test(t)) {
-    pitchMul *= 1.10; rateMul *= 1.05; volume = 1.0;
+    pitchMul *= 1.10; rateMul *= 1.05; volume = 1.0; pauseMs = 100;
   }
-  // 궁금해하는 톤 — 문장이 물음표로 끝남
-  if (/\?\s*$/.test(t.trim())) {
-    pitchMul *= 1.05;
+
+  // 3) 진지한/교정하는 톤 — 문법을 고쳐줄 때는 혼내는 느낌이 아니라 또박또박 명확하게,
+  //    약간 느리고 차분하게 들려야 신뢰감을 준다 (사람 튜터가 설명할 때의 톤).
+  if (/\b(actually|the correct (way|form)|instead of|should be|let'?s fix|one small (thing|note))\b/i.test(t)
+      || /(정정하면|올바른 표현|이렇게 고쳐|이렇게 말해야|살짝 다듬으면)/.test(t)) {
+    pitchMul *= 0.97; rateMul *= 0.92; pauseMs = Math.max(pauseMs, 150);
   }
-  // 다독이는/공감하는 톤 — 사과·위로·실수 언급
-  if (/\b(sorry|unfortunately|mistake|oops|no worries|don't worry|that'?s okay|it'?s okay|i understand)\b/i.test(t)
+
+  // 4) 궁금해하는 톤 — 문장이 물음표로 끝남 (영어 의문문 특유의 끝음 상승 느낌)
+  if (/\?\s*$/.test(t)) { pitchMul *= 1.05; pauseMs = Math.max(pauseMs, 110); }
+
+  // 5) 다독이는/공감하는 톤 — 사과·위로·실수 언급은 부드럽고 느리게
+  if (/\b(sorry|unfortunately|mistake|oops|no worries|don'?t worry|that'?s okay|it'?s okay|i understand)\b/i.test(t)
       || /(괜찮아요|아쉽|죄송|걱정하지)/.test(t)) {
-    pitchMul *= 0.96; rateMul *= 0.94;
+    pitchMul *= 0.96; rateMul *= 0.94; pauseMs = Math.max(pauseMs, 160);
   }
-  // 생각하는/머뭇거리는 톤 — 말줄임표, 추임새
-  if (/\.\.\.|\bhmm\b|\bwell,/i.test(t) || /(음\.\.|글쎄)/.test(t)) {
-    rateMul *= 0.93;
+
+  // 6) 생각하는/머뭇거리는 톤 — 말줄임표, 추임새는 길게 늘이고 쉼도 길게
+  if (/\.\.\.|\bhmm+\b|\bwell,/i.test(t) || /(음\.\.|글쎄)/.test(t)) {
+    rateMul *= 0.90; pauseMs = Math.max(pauseMs, 220);
   }
-  return { pitchMul, rateMul, volume };
+
+  return { pitchMul, rateMul, volume, pauseMs };
 }
 
 /* 단일 구간을 모국어 음성/톤으로 발화 (pendingUtter 큐 관리 포함) */
