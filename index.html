@@ -557,7 +557,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.59';
+const APP_VERSION = 'v4.60';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -3954,6 +3954,7 @@ function renderStudy() {
   }
 
   html += `<div class="hw-box">📌 <b>${l.preview ? '예습 과제' : '숙제'}</b><br>${esc(l.homework)}</div>`;
+  if (l.homework) html += `<button class="btn primary" style="width:100%;margin-bottom:8px" onclick="openHomework(${l.id})">📚 이 숙제 AI 도우미와 함께 풀기 →</button>`;
   html += `<button class="start-drill-btn" onclick="document.querySelector('[data-mode=drill]').click()">이 레슨으로 말하기 드릴 시작 →</button>`;
   document.getElementById('study-content').innerHTML = html;
 }
@@ -5201,7 +5202,7 @@ function renderFeatures() {
   html += featCard('🧭', placed ? `배치 결과: ${prof.cefr} (GSE ${prof.gse})` : 'CEFR 배치고사 보기', placed ? '다시 진단하려면 탭하세요 · 4대 영역 시작점 설정' : '18문항으로 내 레벨(A1~C2)을 진단하고 학습 경로를 맞춥니다', "gotoLearn('placement')", placed ? 'var(--green)' : 'var(--yellow)');
 
   html += `<div style="font-size:0.8rem;font-weight:800;color:var(--primary-light);margin:14px 0 8px">📚 숙제 & 암기</div>`;
-  html += featCard('📚', '숙제 도우미', '사진·텍스트로 영어 숙제를 한국어로 풀이 (힌트 / 정답 모드)', "gotoLearn('homework')", 'var(--green)');
+  html += featCard('📚', '숙제 도우미', '회차별 숙제를 AI와 함께 — 풀이 가이드·예시·사진 인식', "openHomework()", 'var(--green)');
   html += featCard('🃏', '암기 카드', `능동적 회상 플래시카드로 외우기 — 오늘 복습 ${dueCount}장`, "startFlashcards('due')", 'var(--yellow)');
 
   html += `<div style="font-size:0.8rem;font-weight:800;color:var(--primary-light);margin:14px 0 8px">🎓 4대 영역 훈련 <span style="font-size:0.7rem;font-weight:400;color:var(--text-muted)">· 초보→원어민 풀커버리지</span></div>`;
@@ -5721,15 +5722,60 @@ let hwMode = 'full';     // 'full'=정답+풀이, 'hint'=힌트만
 let hwImage = null;      // { dataUrl, name }
 let hwText = '';         // 입력칸 보존(사진 추가 시 리렌더돼도 유지)
 let hwResult = null;     // 마지막 결과(표현 저장용)
+let hwLessonRef = null;  // 숙제 도우미가 연결된 회차(레슨) 객체. null이면 현재 학습 중인 회차를 자동 사용.
 
 function _hwCapture() { const t = document.getElementById('hw-input'); if (t) hwText = t.value; }
 
+/* 숙제 도우미가 다룰 회차를 결정 — 명시 선택이 있으면 그것, 없으면 현재 학습 중인 회차,
+   그것도 숙제가 없으면 가장 최근 PREPLY 회차. 회차가 늘어나도 별도 작업 없이 자동 연결된다. */
+function hwLessonObj() {
+  if (hwLessonRef) return hwLessonRef;
+  if (currentLesson && currentLesson.homework) return currentLesson;
+  const sessions = LESSONS.filter(l => !l.preview && l.homework);
+  return sessions[sessions.length - 1] || currentLesson || null;
+}
+function pickHwLesson(id) {
+  hwLessonRef = ALL_LESSONS.find(l => String(l.id) === String(id)) || null;
+  hwResult = null;
+  renderHomework(document.getElementById('learn-content'));
+}
+/* 학습 화면 등에서 특정 회차의 숙제로 바로 진입 */
+function openHomework(lessonId) {
+  hwLessonRef = (lessonId != null) ? (ALL_LESSONS.find(l => l.id === lessonId) || null) : null;
+  hwResult = null; hwImage = null; hwText = '';
+  gotoLearn('homework');
+}
+/* AI 호출에 이번 회차 숙제 지시문 + 핵심 문법을 컨텍스트로 실어, 도움이 과제에 딱 맞게 나오도록 */
+function _hwLessonContext() {
+  const l = hwLessonObj();
+  if (!l) return '';
+  const points = (l.sections || []).flatMap(s => (s.points || []).map(p => `- ${p.en}${p.kr ? ` (${p.kr})` : ''}`)).join('\n');
+  return `\n\nContext — this is for a Korean student's English lesson "${lessonLabel(l)} · ${l.title}". Homework assignment (Korean): "${l.homework || ''}". Lesson's key patterns:\n${points}\nMake your help directly relevant to this assignment and these patterns.`;
+}
+
 function renderHomework(el) {
-  let html = learnHeader('📚', '숙제 도우미', '사진을 찍거나 문제를 붙여넣으면 한국어로 풀이해 드려요');
+  const lesson = hwLessonObj();
+  const sessions = LESSONS.filter(l => !l.preview && l.homework);
+  let html = learnHeader('📚', '숙제 도우미', '회차별 숙제를 AI와 함께 — 사진·텍스트로 풀이');
+  // 📋 이번 회차 숙제 — currentLesson.homework를 자동으로 읽어 연결 (회차 추가 시 자동 반영)
+  if (lesson && lesson.homework) {
+    html += `<div style="background:linear-gradient(135deg,rgba(34,197,94,0.12),rgba(34,197,94,0.04));border:1px solid rgba(34,197,94,0.5);border-radius:12px;padding:13px 15px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:0.74rem;font-weight:800;color:var(--green)">📋 ${lesson.preview ? '예습 과제' : '이번 회차 숙제'}</span>
+        ${sessions.length > 1 ? `<select onchange="pickHwLesson(this.value)" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:0.73rem;max-width:62%">${sessions.map(s => `<option value="${s.id}" ${s.id === lesson.id ? 'selected' : ''}>${esc(lessonLabel(s))} · ${esc(s.title)}</option>`).join('')}</select>` : `<span style="font-size:0.72rem;color:var(--text-muted)">${esc(lessonLabel(lesson))}</span>`}
+      </div>
+      <div style="font-size:0.88rem;font-weight:700;line-height:1.5">${esc(lesson.homework)}</div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn primary" style="flex:1;padding:7px;font-size:0.78rem" onclick="hwAssignmentHelp('guide')">📝 풀이 가이드</button>
+        <button class="btn" style="flex:1;padding:7px;font-size:0.78rem" onclick="hwAssignmentHelp('examples')">🌟 예시 답안</button>
+      </div>
+    </div>`;
+  }
   html += `<div style="display:flex;gap:8px;margin-bottom:10px">
     <button onclick="setHwMode('full')" style="flex:1;padding:9px;border-radius:9px;font-size:0.8rem;font-weight:800;cursor:pointer;border:1px solid ${hwMode==='full'?'var(--primary)':'var(--border)'};background:${hwMode==='full'?'var(--primary)':'var(--surface)'};color:${hwMode==='full'?'#fff':'var(--text-muted)'}">✅ 정답 + 풀이</button>
     <button onclick="setHwMode('hint')" style="flex:1;padding:9px;border-radius:9px;font-size:0.8rem;font-weight:800;cursor:pointer;border:1px solid ${hwMode==='hint'?'var(--primary)':'var(--border)'};background:${hwMode==='hint'?'var(--primary)':'var(--surface)'};color:${hwMode==='hint'?'#fff':'var(--text-muted)'}">💡 힌트로 스스로 풀기</button></div>`;
   html += `<div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:12px;line-height:1.5">${hwMode==='full'?'정답과 한국어 단계별 풀이, 핵심 문법·표현을 알려드려요.':'정답은 숨기고, 스스로 풀 수 있도록 방향과 힌트만 알려드려요 — 기억에 더 오래 남아요!'}</div>`;
+  html += `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:8px">📷 숙제 문제 사진을 올리거나, 아래에 직접 푼 답안을 적어 검사받을 수도 있어요.</div>`;
   html += `<div style="margin-bottom:10px">`;
   if (hwImage) {
     html += `<div style="position:relative"><img src="${hwImage.dataUrl}" style="width:100%;max-height:240px;object-fit:contain;border-radius:10px;border:1px solid var(--border);background:var(--surface2);display:block"/>
@@ -5768,7 +5814,7 @@ async function solveHomework() {
   const modeRule = hwMode === 'hint'
     ? `MODE: HINT-ONLY. Do NOT reveal final answers. For each item, write a guiding "hint" in Korean (what to look at, which rule applies, how to start) and leave "answer" and "explanation" as empty strings.`
     : `MODE: FULL. For each item, give the correct "answer" (in English) and a clear step-by-step "explanation" in Korean. Leave "hint" empty.`;
-  const sys = `You are a warm, patient Korean tutor helping a Korean student with their ENGLISH homework. Read the problem(s) from the text and/or image. Explain in KOREAN (use English only for the English answers/examples). ${modeRule} Output ONLY valid JSON.`;
+  const sys = `You are a warm, patient Korean tutor helping a Korean student with their ENGLISH homework. Read the problem(s) from the text and/or image. If the student wrote their own attempted answers, also check them and gently correct mistakes. Explain in KOREAN (use English only for the English answers/examples). ${modeRule} Output ONLY valid JSON.${_hwLessonContext()}`;
   const schema = `Return JSON:
 {"detected":"1-line Korean summary of what this homework is",
  "items":[{"question":"the problem restated briefly","answer":"English answer (empty in HINT mode)","explanation":"Korean step-by-step (empty in HINT mode)","hint":"Korean guiding hint (only in HINT mode)"}],
@@ -5838,6 +5884,43 @@ function saveHwItems() {
   store('va_phrases', list);
   updateReviewBadge();
   toast(`💾 ${added}개 표현을 암기카드(복습)에 추가했어요`, 3200);
+}
+
+/* 이번 회차 숙제 자체에 대한 도움 — 'guide'(어떻게 풀지 가이드) / 'examples'(예시 답안) */
+async function hwAssignmentHelp(kind) {
+  const res = document.getElementById('hw-result');
+  if (!ensureGroqSelected()) {
+    res.innerHTML = `<div style="background:var(--surface);border:1px solid var(--yellow);border-radius:12px;padding:14px;font-size:0.82rem;line-height:1.6">🤖 숙제 도우미는 무료 Groq 키 연결 후 쓸 수 있어요.<br><button class="btn primary" style="margin-top:8px" onclick="openGroqKeyModal()">AI 강사 연결하기</button></div>`;
+    return;
+  }
+  const l = hwLessonObj();
+  res.innerHTML = `<div style="color:var(--text-muted);font-size:0.84rem">🤖 ${kind === 'guide' ? '풀이 가이드' : '예시 답안'}를 준비하는 중...</div>`;
+  const want = kind === 'guide'
+    ? `Explain in KOREAN, step by step, HOW to complete this homework well (approach, structure, common mistakes to avoid). Do NOT write all the final answers for them — guide them to do it themselves.`
+    : `Provide 4-5 strong EXAMPLE answers (model sentences) in English with Korean translations, matching the assignment and the lesson's patterns, so the student can model their own work.`;
+  const sys = `You are a warm Korean tutor for a Korean student learning English. ${want} Output ONLY valid JSON.${_hwLessonContext()}`;
+  const schema = kind === 'guide'
+    ? `Return JSON: {"title":"short Korean title","steps":["Korean step",...],"tips":["Korean tip",...],"checklist":["Korean check item",...]}`
+    : `Return JSON: {"title":"short Korean title","examples":[{"en":"model sentence","kr":"Korean translation"}],"tips":["Korean tip",...]}`;
+  try {
+    const raw = await groqComplete([{ role: 'system', content: sys }, { role: 'user', content: `Homework: "${l ? l.homework : ''}".\n${schema}` }], { json: true, maxTokens: 1300, temperature: 0.5 });
+    renderHwAssignment(kind, JSON.parse(raw));
+    markPracticedToday();
+  } catch (e) { res.innerHTML = `<div style="color:var(--red);font-size:0.84rem">🤖 실패: ${esc(String(e.message || e))}</div>`; }
+}
+function renderHwAssignment(kind, d) {
+  const res = document.getElementById('hw-result');
+  let html = `<div style="background:var(--surface);border:1px solid var(--primary);border-radius:14px;padding:16px">`;
+  if (d.title) html += `<div style="font-size:0.86rem;font-weight:800;color:var(--primary-light);margin-bottom:8px">${kind === 'guide' ? '📝' : '🌟'} ${esc(d.title)}</div>`;
+  if (kind === 'guide') {
+    if (Array.isArray(d.steps)) html += `<ol style="margin:0 0 8px 18px;font-size:0.84rem;line-height:1.75">${d.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>`;
+    if (Array.isArray(d.checklist) && d.checklist.length) html += `<div style="font-size:0.78rem;font-weight:800;color:var(--green);margin:8px 0 4px">✅ 체크리스트</div><ul style="margin:0 0 6px 18px;font-size:0.8rem;line-height:1.6;color:var(--text-muted)">${d.checklist.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`;
+  } else if (Array.isArray(d.examples)) {
+    d.examples.forEach(e => { html += `<div style="background:var(--surface2);border-radius:8px;padding:9px 11px;margin-bottom:6px;font-size:0.84rem;line-height:1.6">🌟 <b>${esc(e.en || '')}</b> <button class="speak-mini" onclick="tts('${jsAttr(e.en || '')}','en-US')">🔊</button>${e.kr ? `<div style="color:var(--text-muted);font-size:0.78rem">${esc(e.kr)}</div>` : ''}</div>`; });
+  }
+  if (Array.isArray(d.tips) && d.tips.length) html += `<div style="font-size:0.78rem;font-weight:800;color:var(--yellow);margin:8px 0 4px">💡 팁</div><ul style="margin:0 0 2px 18px;font-size:0.8rem;line-height:1.6;color:var(--text-muted)">${d.tips.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`;
+  html += `</div>`;
+  res.innerHTML = html;
 }
 
 /* ───────────────────────────────────────────────────────────────────────
@@ -6012,7 +6095,7 @@ function renderMaster() {
   html += `<div style="margin-bottom:14px">
     <button class="start-drill-btn" onclick="startDailyMix()">⚡ 오늘의 훈련 시작${dueCount ? ` — 복습 ${Math.min(dueCount, 5)}문항 포함` : ' (랜덤 10문항)'}</button>
     <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn" style="flex:1;background:linear-gradient(135deg,rgba(34,197,94,0.16),rgba(34,197,94,0.05));border-color:rgba(34,197,94,0.5)" onclick="gotoLearn('homework')">📚 숙제 도우미</button>
+      <button class="btn" style="flex:1;background:linear-gradient(135deg,rgba(34,197,94,0.16),rgba(34,197,94,0.05));border-color:rgba(34,197,94,0.5)" onclick="openHomework()">📚 숙제 도우미</button>
       <button class="btn" style="flex:1;background:linear-gradient(135deg,rgba(234,179,8,0.16),rgba(234,179,8,0.05));border-color:rgba(234,179,8,0.5)" onclick="startFlashcards('due')">🃏 암기 카드${dueCount ? ` (${dueCount})` : ''}</button>
     </div>
     <button class="btn" style="width:100%;margin-top:8px" onclick="document.querySelector('[data-mode=features]').click()">🎓 4대 영역 훈련 (듣기·읽기·쓰기·어휘) →</button>
