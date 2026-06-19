@@ -102,11 +102,11 @@
     }
     .mode-tabs::-webkit-scrollbar { display: none; }
     .mode-tab {
-      flex: 1 0 auto; min-width: 58px; padding: 7px 4px 5px; background: none; border: none;
-      color: var(--text-muted); font-size: 0.62rem; font-weight: 800; cursor: pointer; transition: all 0.18s;
+      flex: 1 1 auto; min-width: 42px; padding: 7px 2px 5px; background: none; border: none;
+      color: var(--text-muted); font-size: 0.6rem; font-weight: 800; cursor: pointer; transition: all 0.18s;
       white-space: nowrap; border-radius: 14px; display: flex; flex-direction: column; align-items: center; gap: 3px;
     }
-    .mode-tab .ic { font-size: 1.28rem; line-height: 1; filter: grayscale(0.6) opacity(0.75); transition: filter 0.18s, transform 0.18s; }
+    .mode-tab .ic { font-size: 1.2rem; line-height: 1; filter: grayscale(0.6) opacity(0.75); transition: filter 0.18s, transform 0.18s; }
     .mode-tab.active { color: var(--primary-light); background: linear-gradient(180deg, rgba(124,108,246,0.18), rgba(124,108,246,0.06)); box-shadow: inset 0 1px 0 rgba(155,139,255,0.25); }
     .mode-tab.active .ic { filter: none; transform: translateY(-1px) scale(1.08); }
 
@@ -557,7 +557,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.58';
+const APP_VERSION = 'v4.59';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -6011,6 +6011,10 @@ function renderMaster() {
   }
   html += `<div style="margin-bottom:14px">
     <button class="start-drill-btn" onclick="startDailyMix()">⚡ 오늘의 훈련 시작${dueCount ? ` — 복습 ${Math.min(dueCount, 5)}문항 포함` : ' (랜덤 10문항)'}</button>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn" style="flex:1;background:linear-gradient(135deg,rgba(34,197,94,0.16),rgba(34,197,94,0.05));border-color:rgba(34,197,94,0.5)" onclick="gotoLearn('homework')">📚 숙제 도우미</button>
+      <button class="btn" style="flex:1;background:linear-gradient(135deg,rgba(234,179,8,0.16),rgba(234,179,8,0.05));border-color:rgba(234,179,8,0.5)" onclick="startFlashcards('due')">🃏 암기 카드${dueCount ? ` (${dueCount})` : ''}</button>
+    </div>
     <button class="btn" style="width:100%;margin-top:8px" onclick="document.querySelector('[data-mode=features]').click()">🎓 4대 영역 훈련 (듣기·읽기·쓰기·어휘) →</button>
     <button class="btn" style="width:100%;margin-top:8px" onclick="openPhrasebook()">📌 내 표현장 (${load('va_phrases', []).length})</button>
   </div>
