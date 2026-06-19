@@ -557,7 +557,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.55';
+const APP_VERSION = 'v4.56';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -6590,17 +6590,52 @@ function _speakSegmentWeb(text, lang) {
   });
 }
 
-/* Groq Orpheus TTS로 한 구간을 발화(영어 전용) — 실패하면 Web Speech로 폴백 */
+/* iOS/Safari는 사용자 제스처의 '동기' 호출 스택 밖에서 호출된 audio.play()를 차단한다.
+   Groq TTS는 fetch가 끝난 뒤(비동기)에야 play()를 호출하므로 막힐 수 있다 — 문서 전체에서
+   첫 클릭/탭이 일어나는 순간 같은 <audio> 엘리먼트로 무음 재생을 한 번 실행해 "잠금 해제"해두면,
+   이후 그 엘리먼트는 제스처 밖에서 src만 바꿔 재생해도 Safari가 허용한다. */
+let _groqAudioEl = null;
+let _groqAudioUnlocked = false;
+function _unlockGroqAudio() {
+  if (_groqAudioUnlocked) return;
+  _groqAudioUnlocked = true;
+  _groqAudioEl = new Audio();
+  _groqAudioEl.play().catch(() => {});
+}
+document.addEventListener('click', _unlockGroqAudio, { once: true, capture: true });
+document.addEventListener('touchend', _unlockGroqAudio, { once: true, capture: true });
+
+let _groqTtsWarned = false;   // play() 차단 경고 토스트는 세션당 한 번만
+
+/* Groq Orpheus TTS로 한 구간을 발화(영어 전용) — play()가 차단되면 경고 후 Web Speech로 폴백 */
 function _speakSegmentGroq(text, voice) {
   const tag = emotionDirectionTag(text);
   const input = tag ? `${tag} ${text}` : text;
   return groqTTS(input, voice).then((url) => new Promise((resolve) => {
-    const audio = new Audio(url);
+    const audio = _groqAudioEl || (_groqAudioEl = new Audio());
     _activeGroqAudio = audio;
-    const done = () => { URL.revokeObjectURL(url); if (_activeGroqAudio === audio) _activeGroqAudio = null; resolve(); };
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      URL.revokeObjectURL(url);
+      if (_activeGroqAudio === audio) _activeGroqAudio = null;
+      resolve();
+    };
     audio.onended = done;
     audio.onerror = done;
-    audio.play().catch(done);
+    audio.src = url;
+    audio.play().catch(() => {
+      if (settled) return;
+      settled = true;
+      URL.revokeObjectURL(url);
+      if (_activeGroqAudio === audio) _activeGroqAudio = null;
+      if (!_groqTtsWarned) {
+        _groqTtsWarned = true;
+        toast('🔊 음성 자동재생이 차단됐어요. 화면을 한 번 탭하면 다시 들려요.');
+      }
+      _speakSegmentWeb(text, 'en-US').then(resolve);
+    });
   })).catch(() => _speakSegmentWeb(text, 'en-US'));
 }
 
