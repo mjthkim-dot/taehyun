@@ -557,7 +557,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.56';
+const APP_VERSION = 'v4.57';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2721,7 +2721,7 @@ async function groqTTS(text, voice) {
       model: GROQ_TTS_MODEL,
       input: text,
       voice: voice || GROQ_TTS_VOICE_AI,
-      response_format: 'mp3',
+      response_format: 'wav',   // Orpheus 모델은 현재 wav만 지원 (mp3는 아직 미지원 — 요청 시 오류 발생)
     }),
   }).catch(err => { throw new Error('NETWORK: ' + (err.message || err)); });
   if (!resp.ok) {
@@ -6636,7 +6636,14 @@ function _speakSegmentGroq(text, voice) {
       }
       _speakSegmentWeb(text, 'en-US').then(resolve);
     });
-  })).catch(() => _speakSegmentWeb(text, 'en-US'));
+  })).catch((err) => {
+    console.error('[Groq TTS] 실패, Web Speech로 폴백:', err);
+    if (!_groqTtsWarned) {
+      _groqTtsWarned = true;
+      toast('🔊 Groq 음성 생성 실패: ' + (err?.message || err) + ' — 기본 음성으로 재생합니다.');
+    }
+    return _speakSegmentWeb(text, 'en-US');
+  });
 }
 
 /* 단일 구간을 발화 — Groq 키가 있고 영어면 Orpheus(실제 감정 표현), 아니면 Web Speech 휴리스틱.
