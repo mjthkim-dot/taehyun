@@ -557,7 +557,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.57';
+const APP_VERSION = 'v4.58';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2611,14 +2611,14 @@ function updateReviewBadge() {
 }
 function groqModelId() { return document.getElementById('model-sel').value.replace(/^groq:/, ''); }
 
-async function _groqFetch(messages, { temperature = 0.7, maxTokens = 400, json = false, stream = false }) {
+async function _groqFetch(messages, { temperature = 0.7, maxTokens = 400, json = false, stream = false, model = null }) {
   const key = groqKey();
   if (!key) throw new Error('NO_GROQ_KEY');
   const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
     body: JSON.stringify({
-      model: groqModelId(), messages, stream, temperature, max_tokens: maxTokens,
+      model: model || groqModelId(), messages, stream, temperature, max_tokens: maxTokens,
       ...(json ? { response_format: { type: 'json_object' } } : {}),
     }),
   }).catch(err => { throw new Error('NETWORK: ' + (err.message || err)); });
@@ -5005,8 +5005,9 @@ function renderReview() {
   const masteredCount = weak.filter(isMastered).length;
   // 오늘 복습 우선 시작 CTA (due가 있을 때 항상 최상단)
   let html = '';
+  html += `<button class="start-drill-btn" onclick="startFlashcards('${due.length ? 'due' : 'all'}')" style="margin-bottom:10px;background:linear-gradient(135deg,#7c3aed,#4f46e5)">🃏 암기 카드로 외우기 (${due.length || weak.length}장)</button>`;
   if (due.length) {
-    html += `<button class="start-drill-btn" onclick="startDrill(true)" style="margin-bottom:12px">▶ 오늘 복습 ${due.length}개 바로 시작 →</button>`;
+    html += `<button class="btn" onclick="startDrill(true)" style="width:100%;margin-bottom:12px">🗣 오늘 복습 ${due.length}개 말하기 드릴 →</button>`;
   }
   html += `<div class="study-card"><h3>📝 간격 반복 복습 (SM-2)</h3>
     <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px;line-height:1.6">
@@ -5199,6 +5200,10 @@ function renderFeatures() {
   html += `<div style="font-size:0.8rem;font-weight:800;color:var(--primary-light);margin:6px 0 8px">🧭 내 레벨</div>`;
   html += featCard('🧭', placed ? `배치 결과: ${prof.cefr} (GSE ${prof.gse})` : 'CEFR 배치고사 보기', placed ? '다시 진단하려면 탭하세요 · 4대 영역 시작점 설정' : '18문항으로 내 레벨(A1~C2)을 진단하고 학습 경로를 맞춥니다', "gotoLearn('placement')", placed ? 'var(--green)' : 'var(--yellow)');
 
+  html += `<div style="font-size:0.8rem;font-weight:800;color:var(--primary-light);margin:14px 0 8px">📚 숙제 & 암기</div>`;
+  html += featCard('📚', '숙제 도우미', '사진·텍스트로 영어 숙제를 한국어로 풀이 (힌트 / 정답 모드)', "gotoLearn('homework')", 'var(--green)');
+  html += featCard('🃏', '암기 카드', `능동적 회상 플래시카드로 외우기 — 오늘 복습 ${dueCount}장`, "startFlashcards('due')", 'var(--yellow)');
+
   html += `<div style="font-size:0.8rem;font-weight:800;color:var(--primary-light);margin:14px 0 8px">🎓 4대 영역 훈련 <span style="font-size:0.7rem;font-weight:400;color:var(--text-muted)">· 초보→원어민 풀커버리지</span></div>`;
   html += featCard('🗣', '말하기 (Speaking)', '회화·드릴·쉐도잉으로 발화 훈련 — CAF 분석', "document.querySelector('[data-mode=talk]').click()");
   html += featCard('🎧', '듣기 (Listening)', '들리는 문장 받아쓰기(딕테이션) — 듣기·철자·문법 동시 훈련', "gotoLearn('listening')");
@@ -5298,6 +5303,8 @@ function renderLearn() {
     case 'listening': return renderListening(el);
     case 'writing': return renderWriting(el);
     case 'vocab': return renderVocab(el);
+    case 'homework': return renderHomework(el);
+    case 'flashcards': return renderFlashcards(el);
     default: el.innerHTML = learnHeader('🎓', '트레이닝', '');
   }
 }
@@ -5703,6 +5710,260 @@ function addVocabPack() {
 
 /* escAttr: 작은따옴표/이중따옴표 안전 처리 (onclick 인라인용) */
 function escAttr(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' '); }
+
+/* ───────────────────────────────────────────────────────────────────────
+   ⑥ 숙제 도우미 — 사진/텍스트로 영어 숙제를 받아 한국어로 풀이
+   비전 모델: meta-llama/llama-4-scout-17b-16e-instruct (이미지+텍스트, JSON)
+   힌트 모드(스스로 풀기) / 정답+풀이 모드 + 핵심 표현 암기카드 등록
+─────────────────────────────────────────────────────────────────────── */
+const HW_VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+let hwMode = 'full';     // 'full'=정답+풀이, 'hint'=힌트만
+let hwImage = null;      // { dataUrl, name }
+let hwText = '';         // 입력칸 보존(사진 추가 시 리렌더돼도 유지)
+let hwResult = null;     // 마지막 결과(표현 저장용)
+
+function _hwCapture() { const t = document.getElementById('hw-input'); if (t) hwText = t.value; }
+
+function renderHomework(el) {
+  let html = learnHeader('📚', '숙제 도우미', '사진을 찍거나 문제를 붙여넣으면 한국어로 풀이해 드려요');
+  html += `<div style="display:flex;gap:8px;margin-bottom:10px">
+    <button onclick="setHwMode('full')" style="flex:1;padding:9px;border-radius:9px;font-size:0.8rem;font-weight:800;cursor:pointer;border:1px solid ${hwMode==='full'?'var(--primary)':'var(--border)'};background:${hwMode==='full'?'var(--primary)':'var(--surface)'};color:${hwMode==='full'?'#fff':'var(--text-muted)'}">✅ 정답 + 풀이</button>
+    <button onclick="setHwMode('hint')" style="flex:1;padding:9px;border-radius:9px;font-size:0.8rem;font-weight:800;cursor:pointer;border:1px solid ${hwMode==='hint'?'var(--primary)':'var(--border)'};background:${hwMode==='hint'?'var(--primary)':'var(--surface)'};color:${hwMode==='hint'?'#fff':'var(--text-muted)'}">💡 힌트로 스스로 풀기</button></div>`;
+  html += `<div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:12px;line-height:1.5">${hwMode==='full'?'정답과 한국어 단계별 풀이, 핵심 문법·표현을 알려드려요.':'정답은 숨기고, 스스로 풀 수 있도록 방향과 힌트만 알려드려요 — 기억에 더 오래 남아요!'}</div>`;
+  html += `<div style="margin-bottom:10px">`;
+  if (hwImage) {
+    html += `<div style="position:relative"><img src="${hwImage.dataUrl}" style="width:100%;max-height:240px;object-fit:contain;border-radius:10px;border:1px solid var(--border);background:var(--surface2);display:block"/>
+      <button class="btn" onclick="clearHwImage()" style="position:absolute;top:6px;right:6px;padding:4px 9px">✕ 사진 제거</button></div>`;
+  } else {
+    html += `<label class="btn" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;cursor:pointer;border-style:dashed">📷 숙제 사진 찍기 / 올리기
+      <input type="file" accept="image/*" capture="environment" onchange="onHwImage(event)" style="display:none"></label>`;
+  }
+  html += `</div>`;
+  html += `<textarea id="hw-input" rows="4" oninput="hwText=this.value" placeholder="문제를 직접 입력하거나, 사진에 더해 설명을 적어도 돼요.&#10;예) 빈칸에 알맞은 것은? She ___ to school every day." style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:0.92rem;line-height:1.6;resize:vertical">${esc(hwText)}</textarea>`;
+  html += `<button class="start-drill-btn" style="margin-top:10px" onclick="solveHomework()">🤖 숙제 도움 받기</button>`;
+  html += `<div id="hw-result" style="margin-top:14px"></div>`;
+  el.innerHTML = html;
+}
+function setHwMode(m) { _hwCapture(); hwMode = m; renderHomework(document.getElementById('learn-content')); }
+function clearHwImage() { _hwCapture(); hwImage = null; renderHomework(document.getElementById('learn-content')); }
+function onHwImage(ev) {
+  const f = ev.target.files && ev.target.files[0];
+  if (!f) return;
+  if (f.size > 8 * 1024 * 1024) { toast('사진이 너무 큽니다 (8MB 이하로 다시 찍어주세요).'); return; }
+  _hwCapture();
+  const r = new FileReader();
+  r.onload = () => { hwImage = { dataUrl: r.result, name: f.name }; renderHomework(document.getElementById('learn-content')); };
+  r.readAsDataURL(f);
+}
+async function solveHomework() {
+  _hwCapture();
+  const text = (hwText || '').trim();
+  const res = document.getElementById('hw-result');
+  if (!text && !hwImage) { toast('사진을 올리거나 문제를 입력해 주세요.'); return; }
+  if (!ensureGroqSelected()) {
+    res.innerHTML = `<div style="background:var(--surface);border:1px solid var(--yellow);border-radius:12px;padding:14px;font-size:0.82rem;line-height:1.6">🤖 숙제 도우미는 무료 Groq 키 연결 후 쓸 수 있어요.<br><button class="btn primary" style="margin-top:8px" onclick="openGroqKeyModal()">AI 강사 연결하기</button></div>`;
+    return;
+  }
+  res.innerHTML = `<div style="color:var(--text-muted);font-size:0.84rem">🤖 숙제를 살펴보는 중...${hwImage ? ' (사진 인식)' : ''}</div>`;
+  const modeRule = hwMode === 'hint'
+    ? `MODE: HINT-ONLY. Do NOT reveal final answers. For each item, write a guiding "hint" in Korean (what to look at, which rule applies, how to start) and leave "answer" and "explanation" as empty strings.`
+    : `MODE: FULL. For each item, give the correct "answer" (in English) and a clear step-by-step "explanation" in Korean. Leave "hint" empty.`;
+  const sys = `You are a warm, patient Korean tutor helping a Korean student with their ENGLISH homework. Read the problem(s) from the text and/or image. Explain in KOREAN (use English only for the English answers/examples). ${modeRule} Output ONLY valid JSON.`;
+  const schema = `Return JSON:
+{"detected":"1-line Korean summary of what this homework is",
+ "items":[{"question":"the problem restated briefly","answer":"English answer (empty in HINT mode)","explanation":"Korean step-by-step (empty in HINT mode)","hint":"Korean guiding hint (only in HINT mode)"}],
+ "keyPoints":["short Korean grammar/vocab takeaway"],
+ "saveItems":[{"en":"useful English word/expression from this homework","kr":"Korean meaning"}],
+ "practice":{"q":"one NEW similar practice problem in English","a":"its answer"}}`;
+  try {
+    let raw;
+    const userText = (text ? `Homework text:\n"""${text}"""\n\n` : '') + schema;
+    if (hwImage) {
+      const messages = [
+        { role: 'system', content: sys },
+        { role: 'user', content: [
+          { type: 'text', text: userText },
+          { type: 'image_url', image_url: { url: hwImage.dataUrl } },
+        ] },
+      ];
+      raw = await groqComplete(messages, { json: true, maxTokens: 1700, temperature: 0.3, model: HW_VISION_MODEL });
+    } else {
+      raw = await groqComplete([{ role: 'system', content: sys }, { role: 'user', content: userText }], { json: true, maxTokens: 1500, temperature: 0.3 });
+    }
+    hwResult = JSON.parse(raw);
+    renderHwResult(hwResult);
+    markPracticedToday();
+  } catch (e) {
+    res.innerHTML = `<div style="color:var(--red);font-size:0.84rem">🤖 숙제 도움 실패: ${esc(String(e.message || e))}<br><span style="color:var(--text-muted);font-size:0.78rem">사진 인식이 안 되면 문제를 글로 입력해 다시 시도해 보세요.</span></div>`;
+  }
+}
+function renderHwResult(d) {
+  const res = document.getElementById('hw-result');
+  let html = `<div style="background:var(--surface);border:1px solid var(--primary);border-radius:14px;padding:16px">`;
+  if (d.detected) html += `<div style="font-size:0.78rem;color:var(--primary-light);font-weight:800;margin-bottom:10px">📚 ${esc(d.detected)}</div>`;
+  (d.items || []).forEach((it, i) => {
+    html += `<div style="background:var(--surface2);border-radius:10px;padding:11px 13px;margin-bottom:9px">`;
+    if (it.question) html += `<div style="font-size:0.84rem;font-weight:700;line-height:1.5;margin-bottom:6px">${i + 1}. ${esc(it.question)}</div>`;
+    if (hwMode === 'hint') {
+      if (it.hint) html += `<div style="font-size:0.82rem;color:var(--yellow);line-height:1.6">💡 ${esc(it.hint)}</div>`;
+    } else {
+      if (it.answer) html += `<div style="font-size:0.86rem;line-height:1.6;margin-bottom:4px">✅ <b style="color:var(--green)">${esc(it.answer)}</b> <button class="speak-mini" onclick="tts('${jsAttr(it.answer)}','en-US')">🔊</button></div>`;
+      if (it.explanation) html += `<div style="font-size:0.8rem;color:var(--text-muted);line-height:1.6">${esc(it.explanation)}</div>`;
+    }
+    html += `</div>`;
+  });
+  if (Array.isArray(d.keyPoints) && d.keyPoints.length)
+    html += `<div style="font-size:0.78rem;font-weight:800;color:var(--primary-light);margin:10px 0 4px">🔑 핵심 포인트</div><ul style="margin:0 0 4px 18px;font-size:0.8rem;line-height:1.7;color:var(--text-muted)">${d.keyPoints.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`;
+  if (d.practice && d.practice.q) {
+    html += `<div style="font-size:0.78rem;font-weight:800;color:var(--primary-light);margin:12px 0 4px">📝 비슷한 연습문제</div>
+      <div style="background:var(--surface2);border-radius:10px;padding:11px 13px;font-size:0.84rem;line-height:1.6">${esc(d.practice.q)}
+      <div style="margin-top:6px"><button class="btn" style="padding:4px 10px;font-size:0.74rem" onclick="this.nextElementSibling.style.display='block';this.style.display='none'">정답 보기</button>
+      <div style="display:none;margin-top:6px;color:var(--green);font-weight:700">${esc(d.practice.a || '')}</div></div></div>`;
+  }
+  if (Array.isArray(d.saveItems) && d.saveItems.filter(x => x && x.en).length)
+    html += `<button class="btn primary" style="width:100%;margin-top:12px" onclick="saveHwItems()">💾 핵심 표현 ${d.saveItems.filter(x => x && x.en).length}개 암기카드에 추가</button>`;
+  html += `</div>`;
+  res.innerHTML = html;
+}
+function saveHwItems() {
+  const items = (hwResult && hwResult.saveItems) || [];
+  let added = 0;
+  const list = load('va_phrases', []);
+  items.forEach(it => {
+    const en = (it.en || '').trim(); if (!en) return;
+    if (!list.some(p => p.en.toLowerCase() === en.toLowerCase())) list.push({ en, kr: (it.kr || '').trim(), note: '숙제', ts: Date.now() });
+    updateWeakList({ en, kr: (it.kr || '').trim(), lesson: 'homework', cat: 'homework' }, false);
+    added++;
+  });
+  store('va_phrases', list);
+  updateReviewBadge();
+  toast(`💾 ${added}개 표현을 암기카드(복습)에 추가했어요`, 3200);
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+   🃏 암기 카드 — 능동적 회상(active recall) 플래시카드 (SRS 데이터 기반)
+   뜻↔영어 양방향 · 뒤집어 확인 · 자가채점(다시/어려움/알맞음/쉬움)으로 망각곡선 간격 갱신
+   · 뒤집을 때 자동 발음 · AI 예문/암기팁(선택). "오래 걸려도 좋으니" 천천히 확실하게.
+─────────────────────────────────────────────────────────────────────── */
+let flashState = null;    // { cards, idx, flipped, again:[], total, graded, _spoke }
+let flashDir = 'krToEn';  // 'krToEn'(뜻→영어 떠올리기) | 'enToKr'
+
+/* 4단계 자가채점 → SRS 박스/복습일 갱신 (Anki 근사) */
+function gradeWeakItem(en, grade) {
+  const weak = load('va_weak', []);
+  const w = weak.find(x => x.en === en);
+  if (!w) return;
+  const box = w.box || 0;
+  if (grade === 'again') { if (box > 0) w.lapses = (w.lapses || 0) + 1; w.box = 0; w.due = srsDue(0); }
+  else if (grade === 'hard') { w.box = Math.max(1, box); w.due = srsDue(w.box); }
+  else if (grade === 'good') { w.box = Math.min(box + 1, SRS_MAX_BOX); w.due = srsDue(w.box); }
+  else if (grade === 'easy') { w.box = Math.min(box + 2, SRS_MAX_BOX); w.due = srsDue(w.box); }
+  store('va_weak', weak);
+  updateReviewBadge();
+}
+
+function startFlashcards(scope) {
+  let cards = (scope === 'all' ? load('va_weak', []).slice() : dueWeak()).filter(c => c.en);
+  for (let i = cards.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [cards[i], cards[j]] = [cards[j], cards[i]]; }
+  flashState = { cards, idx: 0, flipped: false, again: [], total: cards.length, graded: 0, _spoke: false, scope };
+  gotoLearn('flashcards');
+}
+function flipFlash() { if (!flashState) return; flashState.flipped = true; renderFlashcards(document.getElementById('learn-content')); }
+function toggleFlashDir() { flashDir = flashDir === 'krToEn' ? 'enToKr' : 'krToEn'; if (flashState) { flashState.flipped = false; flashState._spoke = false; } renderFlashcards(document.getElementById('learn-content')); }
+function quitFlash() { flashState = null; document.querySelector('[data-mode=review]').click(); }
+function gradeFlash(grade) {
+  const fs = flashState; if (!fs) return;
+  const card = fs.cards[fs.idx];
+  gradeWeakItem(card.en, grade);
+  fs.graded++;
+  if (grade === 'again') fs.again.push(card);
+  fs.idx++; fs.flipped = false; fs._spoke = false;
+  renderFlashcards(document.getElementById('learn-content'));
+}
+async function flashExample() {
+  const fs = flashState; if (!fs) return;
+  const card = fs.cards[fs.idx];
+  const box = document.getElementById('flash-extra');
+  if (!box) return;
+  if (card._example) { box.innerHTML = card._example; return; }
+  if (!ensureGroqSelected()) { box.innerHTML = `<div style="font-size:0.78rem;color:var(--yellow);line-height:1.5">💡 AI 예문·암기팁은 무료 Groq 키 연결 후 볼 수 있어요. <button class="btn" style="padding:3px 9px" onclick="openGroqKeyModal()">연결</button></div>`; return; }
+  box.innerHTML = `<div style="font-size:0.8rem;color:var(--text-muted)">💡 예문·암기팁 생성 중...</div>`;
+  try {
+    const sys = `You help a Korean learner memorize an English expression. Output ONLY JSON.`;
+    const user = `Expression: "${card.en}" (Korean meaning: "${card.kr || ''}").
+Return JSON: {"example":"one short natural English example sentence using it","exampleKr":"its Korean translation","tip":"a short Korean memory tip or association to remember it"}`;
+    const raw = await groqComplete([{ role: 'system', content: sys }, { role: 'user', content: user }], { json: true, maxTokens: 320, temperature: 0.6 });
+    const d = JSON.parse(raw);
+    const out = `<div style="background:var(--surface2);border-radius:10px;padding:11px 13px;font-size:0.82rem;line-height:1.6">
+      <div>📝 <b>${esc(d.example || '')}</b> <button class="speak-mini" onclick="tts('${jsAttr(d.example || '')}','en-US')">🔊</button></div>
+      ${d.exampleKr ? `<div style="color:var(--text-muted);font-size:0.78rem;margin-top:2px">${esc(d.exampleKr)}</div>` : ''}
+      ${d.tip ? `<div style="color:var(--yellow);margin-top:6px">💡 ${esc(d.tip)}</div>` : ''}</div>`;
+    card._example = out;
+    box.innerHTML = out;
+  } catch (e) { box.innerHTML = `<div style="font-size:0.78rem;color:var(--red)">예문 생성 실패: ${esc(String(e.message || e))}</div>`; }
+}
+function renderFlashcards(el) {
+  const fs = flashState;
+  if (!fs) {   // 진입 메뉴
+    const due = dueWeak().length, total = load('va_weak', []).filter(c => c.en).length;
+    let html = learnHeader('🃏', '암기 카드', '뜻을 보고 떠올린 뒤 카드를 뒤집어 확인하세요');
+    html += `<div style="font-size:0.82rem;color:var(--text-muted);line-height:1.7;margin-bottom:14px">능동적 회상(active recall)과 망각곡선 간격 반복으로 장기기억에 새깁니다. 정답을 확인한 뒤 얼마나 쉬웠는지 스스로 평가하면 다음 복습 시점이 자동으로 정해져요.</div>`;
+    html += `<button class="start-drill-btn" ${due ? '' : 'disabled style="opacity:.5"'} onclick="startFlashcards('due')">▶ 오늘 복습 카드 ${due}개 외우기</button>`;
+    html += `<button class="btn" style="width:100%;margin-top:10px" ${total ? '' : 'disabled style="opacity:.5"'} onclick="startFlashcards('all')">📚 전체 카드 ${total}개 외우기</button>`;
+    if (!total) html += `<div class="empty-note" style="margin-top:14px">아직 외울 카드가 없어요.<br>드릴·어휘·숙제 도우미에서 표현이 쌓이면 여기서 외울 수 있어요.</div>`;
+    el.innerHTML = html;
+    return;
+  }
+  if (fs.idx >= fs.cards.length) {
+    if (fs.again.length) { fs.cards = fs.again; fs.again = []; fs.idx = 0; fs.flipped = false; fs._spoke = false; }
+    else {
+      markPracticedToday();
+      el.innerHTML = learnHeader('🃏', '암기 카드', '세션 완료') +
+        `<div style="text-align:center;background:var(--surface);border:1px solid var(--primary);border-radius:16px;padding:24px;margin-top:8px">
+        <div style="font-size:2.4rem">🎉</div>
+        <div style="font-size:1rem;font-weight:800;margin:6px 0">${fs.graded}개 카드를 외웠어요!</div>
+        <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.6">맞힌 카드는 복습 간격이 늘어났고,<br>어려웠던 카드는 곧 다시 나타납니다.</div>
+        <button class="start-drill-btn" style="margin-top:16px" onclick="flashState=null;renderFlashcards(document.getElementById('learn-content'))">↻ 더 외우기</button>
+        <button class="btn" style="width:100%;margin-top:10px" onclick="document.querySelector('[data-mode=review]').click()">📝 복습 탭으로</button></div>`;
+      return;
+    }
+  }
+  const card = fs.cards[fs.idx];
+  const front = flashDir === 'krToEn' ? (card.kr || '(뜻 없음)') : card.en;
+  const back = flashDir === 'krToEn' ? card.en : (card.kr || '(뜻 없음)');
+  const backLang = flashDir === 'krToEn' ? 'en-US' : 'ko-KR';
+  const progress = Math.round((fs.idx / Math.max(1, fs.cards.length)) * 100);
+  let html = learnHeader('🃏', '암기 카드', flashDir === 'krToEn' ? '뜻 → 영어 떠올리기' : '영어 → 뜻 떠올리기');
+  html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <span style="font-size:0.76rem;color:var(--text-muted)">${fs.idx + 1} / ${fs.cards.length}${fs.again.length ? ` · 🔁 ${fs.again.length}` : ''}</span>
+    <button class="btn" style="padding:4px 10px;font-size:0.72rem" onclick="toggleFlashDir()">↔ ${flashDir === 'krToEn' ? 'KR→EN' : 'EN→KR'}</button></div>
+    <div class="bar" style="margin-bottom:12px"><div class="fill" style="width:${progress}%"></div></div>`;
+  html += `<div onclick="flipFlash()" style="cursor:pointer;background:var(--surface);border:1px solid var(--primary);border-radius:16px;padding:30px 18px;min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">`;
+  if (!fs.flipped) {
+    html += `<div style="font-size:1.3rem;font-weight:800;line-height:1.5">${esc(front)}</div>
+      <div style="font-size:0.74rem;color:var(--text-muted);margin-top:16px">탭하면 정답이 보여요</div>`;
+  } else {
+    html += `<div style="font-size:0.92rem;color:var(--text-muted);margin-bottom:8px">${esc(front)}</div>
+      <div style="font-size:1.4rem;font-weight:900;color:var(--primary-light);line-height:1.5">${esc(back)} <button class="speak-mini" onclick="event.stopPropagation();tts('${jsAttr(back)}','${backLang}')">🔊</button></div>`;
+    if ((card.lapses || 0) >= SRS_LEECH_THRESHOLD) html += `<div style="font-size:0.72rem;color:#fca5a5;margin-top:8px">🔥 자주 틀리는 표현 — 예문으로 익혀보세요</div>`;
+  }
+  html += `</div>`;
+  if (!fs.flipped) {
+    html += `<button class="start-drill-btn" style="margin-top:14px" onclick="flipFlash()">정답 확인 →</button>`;
+  } else {
+    html += `<div id="flash-extra" style="margin-top:10px"></div>
+      <button class="btn" style="width:100%;margin-top:8px" onclick="flashExample()">💡 예문 · 암기팁 보기</button>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px">
+      <button onclick="gradeFlash('again')" style="padding:11px 4px;border-radius:10px;border:1px solid var(--red);background:rgba(239,68,68,.12);color:#fca5a5;font-weight:800;font-size:0.8rem;cursor:pointer;line-height:1.3">다시<br><span style="font-size:0.63rem;font-weight:400;opacity:.8">처음부터</span></button>
+      <button onclick="gradeFlash('hard')" style="padding:11px 4px;border-radius:10px;border:1px solid var(--yellow);background:rgba(234,179,8,.12);color:var(--yellow);font-weight:800;font-size:0.8rem;cursor:pointer;line-height:1.3">어려움<br><span style="font-size:0.63rem;font-weight:400;opacity:.8">유지</span></button>
+      <button onclick="gradeFlash('good')" style="padding:11px 4px;border-radius:10px;border:1px solid var(--primary);background:rgba(99,102,241,.16);color:var(--primary-light);font-weight:800;font-size:0.8rem;cursor:pointer;line-height:1.3">알맞음<br><span style="font-size:0.63rem;font-weight:400;opacity:.8">+1단계</span></button>
+      <button onclick="gradeFlash('easy')" style="padding:11px 4px;border-radius:10px;border:1px solid var(--green);background:rgba(34,197,94,.12);color:var(--green);font-weight:800;font-size:0.8rem;cursor:pointer;line-height:1.3">쉬움<br><span style="font-size:0.63rem;font-weight:400;opacity:.8">+2단계</span></button></div>`;
+  }
+  html += `<button class="btn" style="width:100%;margin-top:14px" onclick="quitFlash()">← 그만하기</button>`;
+  el.innerHTML = html;
+  // 뒤집는 순간 자동 발음 (한 번만)
+  if (fs.flipped && !fs._spoke) { fs._spoke = true; try { tts(back, backLang); } catch (e) {} }
+}
 
 function renderMaster() {
   const stats = load('va_stats', {});
