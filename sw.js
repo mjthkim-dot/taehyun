@@ -5,7 +5,7 @@
  * - 외부 CDN(모델/Groq 등)은 가로채지 않고 네트워크로 통과시킨다.
  * CACHE 버전을 올리면 이전 캐시는 activate 시 정리된다.
  */
-const CACHE = 'preply-coach-v4.61';
+const CACHE = 'preply-coach-v4.62';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {

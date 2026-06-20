@@ -268,6 +268,16 @@
       border-radius: 0 10px 10px 0; padding: 9px 13px; font-size: 0.82rem; line-height: 1.6; color: #6ee7b7; margin-top: 6px; width: 100%;
     }
     .msg-meta { font-size: 0.68rem; color: var(--text-muted); padding: 0 4px; }
+    /* ✏️ 실시간 배경 교정 노트 (사용자 말풍선 아래) */
+    .bg-correct { align-self: stretch; margin-top: 5px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .bgc-head { font-size: 0.76rem; font-weight: 700; padding: 7px 11px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .bgc-head.ok { color: var(--green); }
+    .bgc-head.warn { color: var(--yellow); background: rgba(234,179,8,0.08); }
+    .bgc-toggle { margin-left: auto; font-size: 0.68rem; color: var(--text-muted); font-weight: 400; }
+    .bgc-body { display: none; padding: 2px 11px 9px; font-size: 0.8rem; line-height: 1.6; }
+    .bg-correct.open .bgc-body { display: block; }
+    .bgc-row { margin: 5px 0; }
+    .bgc-fb { color: var(--text-muted); font-size: 0.76rem; margin-top: 5px; line-height: 1.55; }
     .tr-btn { background: none; border: none; color: var(--primary-light); font-size: 0.7rem; font-weight: 700; cursor: pointer; padding: 0; margin-left: 8px; }
     .tr-btn:hover { text-decoration: underline; }
     .tr-btn:disabled { opacity: 0.5; cursor: default; }
@@ -525,6 +535,7 @@
     <div class="helper-chips" id="helper-chips"></div>
     <div class="interim" id="interim-text"></div>
     <div class="mini-actions">
+      <button class="mini-btn" id="bgcorrect-btn" onclick="toggleBgCorrect()" title="내가 보낸 영어 문장을 대화 흐름을 끊지 않고 조용히 문법 교정해 말풍선 아래에 보여줍니다">✏️ 교정 ON</button>
       <button class="mini-btn" onclick="requestSummary()" title="AI가 오늘 대화를 평가해줍니다">📋 요약</button>
       <button class="mini-btn" id="caf-btn" onclick="analyzeCaf()" title="내 발화를 복잡도·정확도·유창성으로 분석하고 한 단계 위 표현을 제안합니다">🎯 CAF</button>
       <button class="mini-btn" id="topic-btn" onclick="generateNewTopic()" title="같은 문법, 새로운 상황! AI가 즉흥 주제를 만들어 대화를 새로 시작합니다">🎲 새 주제</button>
@@ -558,7 +569,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.61';
+const APP_VERSION = 'v4.62';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2315,7 +2326,7 @@ function setMode(mode, btn) {
   if (mode === 'master') renderMaster();
   if (mode === 'video') renderVideo();
   if (mode === 'features') renderFeatures();
-  if (mode === 'talk') renderHelperChips();
+  if (mode === 'talk') { renderHelperChips(); updateBgCorrectBtn(); }
   // 회화 탭: 대화가 비어있으면 AI 코치가 먼저 인사하며 수업을 시작
   if (mode === 'talk' && history.length === 0 && !isProcessing) {
     sendMessage('(수업 시작) 영어로 짧게 인사하고, 오늘 주제의 핵심 패턴을 예문 1개와 함께 소개한 뒤, 첫 연습 질문을 해주세요.', true);
@@ -4668,10 +4679,11 @@ async function sendMessage(text, hidden) {
   if (!text || isProcessing) return;
   stopSpeaking();
   if (!hidden) {
-    addUserMsg(text);
+    const _userDiv = addUserMsg(text);
     checkMissions(text);
     markPracticedToday();
     talkStamps.push(Date.now());  // 유창성 WPM 추정용 발화 시각
+    maybeBackgroundCorrect(text, _userDiv);   // ✏️ 실시간 배경 문법 교정 (대화 흐름은 안 끊고 조용히)
   }
   const model = document.getElementById('model-sel').value;
   history.push({ role: 'user', content: text });
@@ -7137,7 +7149,84 @@ function addUserMsg(text) {
   div.innerHTML = `<div class="bubble">${esc(text)}</div><div class="msg-meta">${timeStr()}</div>`;
   document.getElementById('chat').appendChild(div);
   scrollBottom();
+  return div;
 }
+
+/* ✏️ 실시간 배경 교정 — 대화(roleplay)는 그대로 두고, 학생이 보낸 문장을 조용히 분석해
+   사용자 말풍선 아래에 살짝 접힌 교정 노트를 붙인다. (사용자가 준 roleplay+correction 설계의
+   'correction' 작업을 회화에 통합한 것 — 흐름을 끊지 않는 background correction) */
+const BG_CORRECT_SYS = `You are 'Preply AI Coach', a strict but warm English grammar coach for a Korean learner.
+Analyze ONLY the student's English sentence for grammar/usage/word-choice errors, paying special attention to the given target_grammar, but also catch other clear mistakes.
+Rules:
+- Use ONLY English (Latin letters) and Korean (Hangul). Never use Japanese kana/kanji, Chinese characters, or any other script.
+- The student's text may come from speech recognition, so ignore casing/punctuation noise and judge the intended sentence.
+- If it is already correct, set is_correct=true, keep corrected_sentence as the cleaned original, still give a more natural native_expression, and a short encouraging Korean note.
+- If the input is mostly Korean or not a real English attempt, set is_correct=true and in korean_feedback gently encourage trying it in English. Do NOT invent errors.
+- korean_feedback: concise (1-3 sentences), friendly, concrete about WHAT to fix and WHY.
+- native_expression: how a native speaker would casually say it in this scenario.
+Respond with ONLY valid JSON (no markdown, no code fences, no extra text), schema:
+{"is_correct":boolean,"corrected_sentence":string,"native_expression":string,"korean_feedback":string}`;
+
+function lessonTargetGrammar() {
+  const l = currentLesson;
+  if (!l) return 'general everyday English';
+  const secs = (l.sections || []).map(s => s.title.replace(/^[①-⑩\s]+/, '')).slice(0, 2).filter(Boolean).join(', ');
+  return `${l.title}${secs ? ` (${secs})` : ''}`;
+}
+function lessonScenarioStr() {
+  const sc = activeScenario || (currentLesson && currentLesson.scenario);
+  return sc ? `${sc.title} — ${sc.desc}` : '';
+}
+function maybeBackgroundCorrect(text, userDiv) {
+  if (!userDiv) return;
+  if (!load('va_bgcorrect', true)) return;     // 토글 OFF면 끔
+  if (!groqKey()) return;                       // 빠르고 무료인 Groq에서만 (로컬 모델 과부하 방지)
+  const latinWords = (text.match(/[A-Za-z]+/g) || []);
+  if (latinWords.length < 2) return;            // 영어 시도일 때만 (한국어 메타질문 등은 건너뜀)
+  backgroundCorrect(text, userDiv);
+}
+async function backgroundCorrect(text, userDiv) {
+  try {
+    const input = JSON.stringify({ task_type: 'correction', target_grammar: lessonTargetGrammar(), scenario: lessonScenarioStr(), user_input: text });
+    const raw = await groqComplete([{ role: 'system', content: BG_CORRECT_SYS }, { role: 'user', content: input }], { json: true, maxTokens: 420, temperature: 0.2 });
+    renderCorrectionNote(userDiv, JSON.parse(raw));
+  } catch (e) { /* 배경 보조 기능 — 조용히 실패 */ }
+}
+function renderCorrectionNote(userDiv, d) {
+  if (!userDiv || !d || userDiv.querySelector('.bg-correct')) return;
+  const correct = !!d.is_correct;
+  const corrected = (d.corrected_sentence || '').trim();
+  const native = (d.native_expression || '').trim();
+  const fb = (d.korean_feedback || '').trim();
+  const note = document.createElement('div');
+  note.className = 'bg-correct' + (correct ? '' : ' open');   // 오류일 때만 펼쳐서 보여줌
+  const nativeRow = native ? `<div class="bgc-row">💬 자연스럽게: <b>${esc(native)}</b> <button class="speak-mini" onclick="tts('${jsAttr(native)}','en-US')">🔊</button> <button class="speak-mini" onclick="savePhrase('${jsAttr(native)}','','회화 교정')">📌</button></div>` : '';
+  const fbRow = fb ? `<div class="bgc-fb">${esc(fb)}</div>` : '';
+  if (correct) {
+    note.innerHTML = `<div class="bgc-head ok" onclick="this.parentElement.classList.toggle('open')">✏️ 문법 좋아요 ✓<span class="bgc-toggle">자세히</span></div>
+      <div class="bgc-body">${nativeRow}${fbRow}</div>`;
+  } else {
+    const correctedRow = corrected ? `<div class="bgc-row">✅ <b style="color:var(--green)">${esc(corrected)}</b> <button class="speak-mini" onclick="tts('${jsAttr(corrected)}','en-US')">🔊</button> <button class="speak-mini" onclick="savePhrase('${jsAttr(corrected)}','','회화 교정')">📌</button></div>` : '';
+    note.innerHTML = `<div class="bgc-head warn" onclick="this.parentElement.classList.toggle('open')">✏️ 이렇게 고치면 더 좋아요<span class="bgc-toggle">접기</span></div>
+      <div class="bgc-body">${correctedRow}${nativeRow}${fbRow}</div>`;
+  }
+  userDiv.appendChild(note);
+  scrollBottom();
+}
+function toggleBgCorrect() {
+  const on = !load('va_bgcorrect', true);
+  store('va_bgcorrect', on);
+  updateBgCorrectBtn();
+  toast(on ? '✏️ 실시간 교정 켜짐 — 보낼 때마다 문법을 살짝 짚어줘요' : '✏️ 실시간 교정 꺼짐', 2600);
+}
+function updateBgCorrectBtn() {
+  const b = document.getElementById('bgcorrect-btn');
+  if (!b) return;
+  const on = load('va_bgcorrect', true);
+  b.textContent = on ? '✏️ 교정 ON' : '✏️ 교정 OFF';
+  b.style.opacity = on ? '1' : '0.55';
+}
+
 function addAiMsg() {
   const div = document.createElement('div');
   div.className = 'msg ai';
