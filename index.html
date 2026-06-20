@@ -569,7 +569,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.66';
+const APP_VERSION = 'v4.67';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -6669,14 +6669,28 @@ function speakAsync(text, lang, rate = 0.95) {
   });
 }
 
-/* playSync()와 동일한 단어 하이라이트지만 끝나면 resolve — 영상 단계 진행에 쓴다 */
+/* playSync()와 동일한 단어 하이라이트지만 끝나면 resolve — 영상 단계 진행에 쓴다.
+   Groq 키가 있으면 Orpheus 실제 음성으로 자연스럽게, 없으면 Web Speech로 폴백. */
 function speakHighlightedAsync(lineEl) {
   return new Promise(resolve => {
-    if (!lineEl || !window.speechSynthesis) { resolve(); return; }
-    window.speechSynthesis.cancel();
+    if (!lineEl) { resolve(); return; }
     const text = lineEl.dataset.text || '';
     const spans = [...lineEl.querySelectorAll('.sync-word')];
     spans.forEach(s => s.classList.remove('on'));
+
+    if (groqKey()) {
+      const clean = cleanForSpeech(text);
+      if (!clean) { resolve(); return; }
+      _cancelAnyAudio();
+      let stopTimer = null;
+      _speakSegmentGroq(clean, GROQ_TTS_VOICE_AI, 1, (audio) => { stopTimer = _runWordTimer(audio, spans); })
+        .then(() => { if (stopTimer) stopTimer(); resolve(); })
+        .catch(() => resolve());
+      return;
+    }
+
+    if (!window.speechSynthesis) { resolve(); return; }
+    window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'en-US';
     u.rate = 0.88;
@@ -7291,11 +7305,19 @@ function whenVoicesReady(cb) {
   setTimeout(run, 350);          // 이벤트가 안 와도 재생 시도
 }
 
+/* 단발성 🔊 재생(단어/문장 카드 전체에서 공용 사용) — 영어이고 Groq 키가 있으면
+   Orpheus 실제 음성(자연스러움)으로, 없으면 Web Speech로 폴백한다. */
 function tts(text, lang, opts = {}) {
-  const synth = window.speechSynthesis;
-  if (!synth) { toast('🔊 이 브라우저는 음성 합성을 지원하지 않습니다.'); return; }
   const clean = cleanForSpeech(text);
   if (!clean) return;
+  if ((lang || '').slice(0, 2) === 'en' && groqKey()) {
+    _cancelAnyAudio();
+    const rateMul = (opts.rate ?? 0.95) / 0.95;
+    _speakSegmentGroq(clean, GROQ_TTS_VOICE_AI, rateMul).catch(() => {});
+    return;
+  }
+  const synth = window.speechSynthesis;
+  if (!synth) { toast('🔊 이 브라우저는 음성 합성을 지원하지 않습니다.'); return; }
   const speakNow = () => {
     synth.cancel();
     // Chrome 버그: cancel 직후 즉시 speak하면 씹힌다 → 한 틱 뒤에 말한다.
@@ -7389,13 +7411,59 @@ function syncWords(text) {
   }).join('');
 }
 
+/* Groq Orpheus 오디오에는 onboundary 이벤트가 없으므로, 단어 길이 비중으로
+   재생 시간을 분배해 currentTime 진행률에 맞춰 하이라이트를 옮긴다(근사치지만 충분히 자연스럽다). */
+function _runWordTimer(audio, spans) {
+  if (!spans.length) return () => {};
+  const weights = spans.map(s => s.textContent.length + 1);
+  const total = weights.reduce((a, b) => a + b, 0);
+  const cum = []; let acc = 0;
+  weights.forEach(w => { acc += w; cum.push(acc); });
+  let raf, stopped = false;
+  const tick = () => {
+    if (stopped) return;
+    const dur = audio.duration;
+    if (dur > 0 && !audio.paused && !audio.ended) {
+      const target = Math.min(1, audio.currentTime / dur) * total;
+      let best = 0;
+      for (let i = 0; i < cum.length; i++) { if (cum[i] <= target) best = i; }
+      spans.forEach((s, i) => s.classList.toggle('on', i === best));
+    }
+    raf = requestAnimationFrame(tick);
+  };
+  tick();
+  return () => { stopped = true; if (raf) cancelAnimationFrame(raf); spans.forEach(s => s.classList.remove('on')); };
+}
+
+function _cancelAnyAudio() {
+  try { window.speechSynthesis?.cancel(); } catch (e) {}
+  if (_activeGroqAudio) { try { _activeGroqAudio.pause(); } catch (e) {} _activeGroqAudio = null; }
+}
+
+/* Groq 키가 있으면 Orpheus 실제 음성(자연스러움)으로, 없으면 Web Speech onboundary로 단어 하이라이트 재생.
+   영어 전용 — Orpheus가 영어만 지원하므로 fromChar 이후 구간을 그대로 합성해 재생한다. */
 function playSync(lineEl, fromChar) {
-  if (!lineEl || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
+  if (!lineEl) return;
   fromChar = fromChar || 0;
   const text = lineEl.dataset.text || '';
-  const spans = [...lineEl.querySelectorAll('.sync-word')];
-  spans.forEach(s => s.classList.remove('on'));
+  const allSpans = [...lineEl.querySelectorAll('.sync-word')];
+  const spans = allSpans.filter(s => +s.dataset.char >= fromChar);
+  allSpans.forEach(s => s.classList.remove('on'));
+  _cancelAnyAudio();
+
+  if (groqKey()) {
+    const clean = cleanForSpeech(text.slice(fromChar));
+    if (!clean) return;
+    let stopTimer = null;
+    _speakSegmentGroq(clean, GROQ_TTS_VOICE_AI, 1, (audio) => { stopTimer = _runWordTimer(audio, spans); })
+      .then(() => {
+        if (stopTimer) stopTimer();
+        if (lineEl.dataset.loop === '1') playSync(lineEl, fromChar);
+      });
+    return;
+  }
+
+  if (!window.speechSynthesis) return;
   const u = new SpeechSynthesisUtterance(text.slice(fromChar));
   u.lang = 'en-US';
   u.rate = 0.92;
@@ -7424,7 +7492,7 @@ function toggleSyncLoop(btn) {
   line.dataset.loop = on ? '0' : '1';
   btn.textContent = on ? '🔁' : '⏹';
   btn.title = on ? '루프 재생' : '루프 중지 (다시 누르면 끔)';
-  if (!on) playSync(line, 0); else window.speechSynthesis.cancel();
+  if (!on) playSync(line, 0); else _cancelAnyAudio();
 }
 
 /* B 역할에 배정할 음성을 고른다 — A와 또렷이 구분되도록 남성 음성을 최우선, 없으면 다음 품질의 영어 음성 */
@@ -7703,8 +7771,10 @@ let _groqTtsWarned = false;   // play() 차단 경고 토스트는 세션당 한
    브라우저는 기본적으로 재생 속도를 늦춰도 피치를 보존(anti-chipmunk)하므로 음높이는 그대로다. */
 const GROQ_TTS_RATE = 0.84;
 
-/* Groq Orpheus TTS로 한 구간을 발화(영어 전용) — play()가 차단되면 경고 후 Web Speech로 폴백 */
-function _speakSegmentGroq(text, voice) {
+/* Groq Orpheus TTS로 한 구간을 발화(영어 전용) — play()가 차단되면 경고 후 Web Speech로 폴백.
+   rateMul: 추가 속도 배수(느리게 듣기 등에 사용). onAudio: 재생 시작 직전 <audio> 엘리먼트를
+   전달받는 콜백(단어 하이라이트 타이머를 오디오 길이에 맞춰 구동하는 데 사용). */
+function _speakSegmentGroq(text, voice, rateMul = 1, onAudio) {
   const tag = emotionDirectionTag(text);
   const input = tag ? `${tag} ${text}` : text;
   const emo = emotionProsody(text);
@@ -7712,7 +7782,8 @@ function _speakSegmentGroq(text, voice) {
     const audio = _groqAudioEl || (_groqAudioEl = new Audio());
     _activeGroqAudio = audio;
     try { audio.preservesPitch = true; audio.mozPreservesPitch = true; audio.webkitPreservesPitch = true; } catch (e) {}
-    audio.playbackRate = GROQ_TTS_RATE * emo.rateMul;
+    audio.playbackRate = GROQ_TTS_RATE * emo.rateMul * rateMul;
+    if (onAudio) onAudio(audio);
     let settled = false;
     const done = () => {
       if (settled) return;
