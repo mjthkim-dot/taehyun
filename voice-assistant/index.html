@@ -569,7 +569,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.69';
+const APP_VERSION = 'v4.70';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2902,6 +2902,90 @@ async function localTTS(text, lang) {
   return URL.createObjectURL(blob);
 }
 
+/* ── 브라우저 내장 오픈소스 한국어 TTS (MMS-TTS · transformers.js) ──────
+   Whisper STT처럼 외부 키/서버 없이 브라우저에서 한국어 음성을 직접 합성한다.
+   배포 웹·휴대폰에서도 동작. 첫 사용 시 모델(~100MB)을 한 번 내려받고 이후 캐시한다.
+   기본 활성(va_browser_tts) — 데이터 절약이 필요하면 설정에서 끌 수 있다. */
+const KO_TTS_MODEL = 'Xenova/mms-tts-kor';
+let koTtsPipe = null, koTtsLoadingP = null, koTtsFailed = false, _koTtsToasted = false;
+
+function browserTtsEnabled() { return load('va_browser_tts', true) !== false; }
+function mmsTtsReady() { return !!koTtsPipe; }
+
+function loadKoreanTts() {
+  if (koTtsPipe) return Promise.resolve(koTtsPipe);
+  if (koTtsFailed) return Promise.resolve(null);
+  if (koTtsLoadingP) return koTtsLoadingP;
+  if (!_koTtsToasted) {
+    _koTtsToasted = true;
+    toast('🗣️ 자연스러운 한국어 음성 모델을 처음 한 번 내려받는 중이에요 (~100MB). 잠시 후부터 적용돼요.', 5000);
+  }
+  koTtsLoadingP = (async () => {
+    try {
+      const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2');
+      koTtsPipe = await pipeline('text-to-speech', KO_TTS_MODEL, { device: navigator.gpu ? 'webgpu' : 'wasm' });
+    } catch (e) {
+      koTtsFailed = true; koTtsPipe = null;
+      console.error('[한국어 TTS] 모델 로드 실패, 브라우저 음성으로 폴백:', e);
+    } finally {
+      koTtsLoadingP = null;
+    }
+    return koTtsPipe;
+  })();
+  return koTtsLoadingP;
+}
+
+/* MMS-TTS 출력(Float32 PCM)을 Web Audio로 재생 — playbackRate로 속도 보정, 끝나면 resolve */
+let _ttsAudioCtx = null, _activeTtsSource = null;
+function _playKoPcm(audio, sampleRate, rateMul = 1) {
+  return new Promise((resolve) => {
+    try {
+      _ttsAudioCtx = _ttsAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = _ttsAudioCtx;
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      const buf = ctx.createBuffer(1, audio.length, sampleRate);
+      buf.getChannelData(0).set(audio);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.playbackRate.value = Math.max(0.5, Math.min(2, rateMul));
+      src.connect(ctx.destination);
+      _activeTtsSource = src;
+      src.onended = () => { if (_activeTtsSource === src) _activeTtsSource = null; resolve(); };
+      src.start();
+    } catch (e) { resolve(); }
+  });
+}
+
+/* 브라우저 내장 음성으로 한 구간(한국어)을 발화 — 로드/합성 실패 시 Web Speech로 폴백 */
+function _speakSegmentBrowserKo(text, rateMul = 1) {
+  return loadKoreanTts().then((pipe) => {
+    if (!pipe) return _speakSegmentWeb(text, 'ko-KR');
+    const emo = emotionProsody(text);
+    return pipe(text).then((out) => _playKoPcm(out.audio, out.sampling_rate, 0.98 * emo.rateMul * rateMul));
+  }).catch((err) => {
+    console.error('[한국어 TTS] 합성 실패, Web Speech 폴백:', err);
+    return _speakSegmentWeb(text, 'ko-KR');
+  });
+}
+
+/* 현재 가용한 최선의 한국어 음성 발화 함수를 고른다(없으면 null → 호출부가 Web Speech 사용).
+   우선순위: 브라우저 내장(MMS) → 로컬 서버(MeloTTS) → Azure. 미준비 시 백그라운드 로드만 트리거. */
+function _koSpeaker(rateMul = 1) {
+  if (browserTtsEnabled()) {
+    if (mmsTtsReady()) return (t) => _speakSegmentBrowserKo(t, rateMul);
+    if (!koTtsFailed) loadKoreanTts();   // 백그라운드 로드 시작 — 이번 발화는 아래 폴백으로 재생
+  }
+  if (localTtsReady()) return (t) => _speakSegmentLocal(t, 'ko-KR', rateMul);
+  if (azureKey() && azureRegion()) return (t) => _speakSegmentAzure(t, AZURE_TTS_VOICE_KO, 'ko-KR', rateMul);
+  return null;
+}
+
+function toggleBrowserTts(on) {
+  store('va_browser_tts', on);
+  if (on) { toast('🗣️ 브라우저 내장 한국어 음성을 사용합니다. 처음 재생 시 모델을 한 번 내려받아요.'); loadKoreanTts(); }
+  else { toast('브라우저 내장 음성을 껐어요. 한국어는 기본 브라우저 음성으로 재생됩니다.'); }
+}
+
 /* 헤더의 Groq 연결 표시 dot 업데이트 */
 function updateGroqIndicator() {
   const dot = document.getElementById('groq-dot');
@@ -3086,9 +3170,15 @@ function ensureGroqKeyModal() {
 
         <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px">
           <div style="background:rgba(34,197,94,0.08);border:1px solid var(--green);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:0.78rem;line-height:1.6;color:var(--text-muted)">
-            🗣️ <b>자연스러운 한국어 음성</b> — 로컬 서버로 실행(<code>start.sh</code>)하면 <b>오픈소스 음성(MeloTTS)</b>으로
-            한국어 내레이션이 자동으로 자연스럽게 나옵니다. <b>키·가입 불필요.</b> 한 번만 설치:
-            <code>bash voice-assistant/tts-setup.sh</code> 실행 후 서버 재시작.
+            🗣️ <b>자연스러운 한국어 음성 (오픈소스 · 키 불필요)</b><br>
+            Whisper 음성인식처럼 <b>브라우저에서 직접</b> 실행되는 오픈소스 음성(MMS-TTS)으로 한국어를 읽어줍니다.
+            설치·키 없이 배포 웹·휴대폰에서도 동작해요. 처음 한국어 음성이 재생될 때 모델을 한 번
+            내려받습니다(~100MB, 이후 캐시).
+            <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer;color:var(--text)">
+              <input type="checkbox" id="browser-tts-toggle" onchange="toggleBrowserTts(this.checked)">
+              <span>브라우저 내장 자연 음성 사용 (데이터 절약하려면 끄기)</span>
+            </label>
+            <div style="margin-top:6px;font-size:0.72rem;opacity:0.85">고급: 로컬 서버(<code>start.sh</code>) 사용 시 <code>bash voice-assistant/tts-setup.sh</code>로 더 고품질의 MeloTTS도 쓸 수 있어요.</div>
           </div>
           <b style="font-size:0.9rem">🗣️ 발음 정밀 평가 + 클라우드 한국어 음성 (선택 · Azure 무료 티어)</b>
           <div style="color:var(--text-muted);font-size:0.78rem;line-height:1.6;margin:6px 0 10px">
@@ -3183,6 +3273,8 @@ function openGroqKeyModal() {
   document.getElementById('azure-key-input').value = azureKey();
   document.getElementById('azure-region-input').value = azureRegion();
   document.getElementById('azure-key-status').textContent = azureKey() ? '✅ Azure 발음 평가가 활성화되어 있습니다.' : '';
+  const bt = document.getElementById('browser-tts-toggle');
+  if (bt) bt.checked = browserTtsEnabled();
   setTimeout(() => inp.focus(), 50);
 }
 function closeGroqKeyModal() { const m = document.getElementById('groq-modal'); if (m) m.style.display = 'none'; }
@@ -6730,17 +6822,9 @@ function speakAsync(text, lang, rate = 0.95) {
     const clean = cleanForSpeech(text);
     if (!clean) { resolve(); return; }
     const isKo = (lang || '').slice(0, 2) === 'ko';
-    if (isKo && localTtsReady()) {
-      _cancelAnyAudio();
-      const rateMul = rate / 0.95;
-      _speakSegmentLocal(clean, 'ko-KR', rateMul).then(resolve).catch(() => resolve());
-      return;
-    }
-    if (isKo && azureKey() && azureRegion()) {
-      _cancelAnyAudio();
-      const rateMul = rate / 0.95;
-      _speakSegmentAzure(clean, AZURE_TTS_VOICE_KO, 'ko-KR', rateMul).then(resolve).catch(() => resolve());
-      return;
+    if (isKo) {
+      const spk = _koSpeaker(rate / 0.95);
+      if (spk) { _cancelAnyAudio(); spk(clean).then(resolve).catch(() => resolve()); return; }
     }
     const synth = window.speechSynthesis;
     if (!synth) { resolve(); return; }
@@ -7409,17 +7493,9 @@ function tts(text, lang, opts = {}) {
     _speakSegmentGroq(clean, GROQ_TTS_VOICE_AI, rateMul).catch(() => {});
     return;
   }
-  if (langPrefix === 'ko' && localTtsReady()) {
-    _cancelAnyAudio();
-    const rateMul = (opts.rate ?? 0.95) / 0.95;
-    _speakSegmentLocal(clean, 'ko-KR', rateMul).catch(() => {});
-    return;
-  }
-  if (langPrefix === 'ko' && azureKey() && azureRegion()) {
-    _cancelAnyAudio();
-    const rateMul = (opts.rate ?? 0.95) / 0.95;
-    _speakSegmentAzure(clean, AZURE_TTS_VOICE_KO, 'ko-KR', rateMul).catch(() => {});
-    return;
+  if (langPrefix === 'ko') {
+    const spk = _koSpeaker((opts.rate ?? 0.95) / 0.95);
+    if (spk) { _cancelAnyAudio(); spk(clean).catch(() => {}); return; }
   }
   const synth = window.speechSynthesis;
   if (!synth) { toast('🔊 이 브라우저는 음성 합성을 지원하지 않습니다.'); return; }
@@ -7543,6 +7619,7 @@ function _runWordTimer(audio, spans) {
 function _cancelAnyAudio() {
   try { window.speechSynthesis?.cancel(); } catch (e) {}
   if (_activeGroqAudio) { try { _activeGroqAudio.pause(); } catch (e) {} _activeGroqAudio = null; }
+  if (_activeTtsSource) { try { _activeTtsSource.stop(); } catch (e) {} _activeTtsSource = null; }
 }
 
 /* Groq 키가 있으면 Orpheus 실제 음성(자연스러움)으로, 없으면 Web Speech onboundary로 단어 하이라이트 재생.
@@ -7865,6 +7942,8 @@ function _unlockGroqAudio() {
   _groqAudioUnlocked = true;
   _groqAudioEl = new Audio();
   _groqAudioEl.play().catch(() => {});
+  // 브라우저 내장 TTS(Web Audio)도 같은 사용자 제스처에서 잠금 해제(자동재생 차단 방지)
+  try { _ttsAudioCtx = _ttsAudioCtx || new (window.AudioContext || window.webkitAudioContext)(); _ttsAudioCtx.resume?.(); } catch (e) {}
 }
 document.addEventListener('click', _unlockGroqAudio, { once: true, capture: true });
 document.addEventListener('touchend', _unlockGroqAudio, { once: true, capture: true });
@@ -7993,19 +8072,17 @@ function _speakSegmentAzure(text, voiceName, lang, rateMul = 1) {
   });
 }
 
-/* 단일 구간을 발화 — 영어면 Groq Orpheus(실제 감정 표현), 한국어면 로컬 오픈소스(MeloTTS)
-   우선 → 없으면 Azure 신경망 음성 → 둘 다 없으면 Web Speech 휴리스틱으로 폴백.
+/* 단일 구간을 발화 — 영어면 Groq Orpheus(실제 감정 표현), 한국어면 _koSpeaker가 고른
+   최선의 음성(브라우저 내장 MMS → 로컬 MeloTTS → Azure), 없으면 Web Speech로 폴백.
    여러 구간이 동시에 들어와도 _speechChain으로 순서대로 재생되도록 직렬화한다. */
 function _speakSegment(text, lang) {
   const isKo = lang.slice(0, 2) === 'ko';
   const useGroq = !isKo && !!groqKey();
-  const useLocal = isKo && localTtsReady();
-  const useAzure = isKo && !useLocal && !!azureKey() && !!azureRegion();
+  const koSpk = isKo ? _koSpeaker(1) : null;
   pendingUtter++;
   document.getElementById('mic-btn')?.classList.add('speaking');
   const startJob = () => useGroq ? _speakSegmentGroq(text, GROQ_TTS_VOICE_AI)
-    : useLocal ? _speakSegmentLocal(text, 'ko-KR')
-    : useAzure ? _speakSegmentAzure(text, AZURE_TTS_VOICE_KO, 'ko-KR')
+    : koSpk ? koSpk(text)
     : _speakSegmentWeb(text, lang);
   _speechChain = _speechChain.then(startJob).catch(() => {}).then(() => {
     // stopSpeaking()이 이미 pendingUtter를 0으로 정리한 뒤(바지인 등) 취소된
@@ -8031,6 +8108,7 @@ function enqueueSpeech(text, lang) {
 function stopSpeaking() {
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   if (_activeGroqAudio) { try { _activeGroqAudio.pause(); } catch (e) {} _activeGroqAudio = null; }
+  if (_activeTtsSource) { try { _activeTtsSource.stop(); } catch (e) {} _activeTtsSource = null; }
   _speechChain = Promise.resolve();   // 대기 중인 체인을 끊어 정지 후 새 발화가 밀리지 않게
   pendingUtter = 0;
   ttsIdleSince = 0;
