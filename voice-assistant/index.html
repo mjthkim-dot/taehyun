@@ -569,7 +569,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.70';
+const APP_VERSION = 'v4.71';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -3180,27 +3180,6 @@ function ensureGroqKeyModal() {
             </label>
             <div style="margin-top:6px;font-size:0.72rem;opacity:0.85">고급: 로컬 서버(<code>start.sh</code>) 사용 시 <code>bash voice-assistant/tts-setup.sh</code>로 더 고품질의 MeloTTS도 쓸 수 있어요.</div>
           </div>
-          <b style="font-size:0.9rem">🗣️ 발음 정밀 평가 + 클라우드 한국어 음성 (선택 · Azure 무료 티어)</b>
-          <div style="color:var(--text-muted);font-size:0.78rem;line-height:1.6;margin:6px 0 10px">
-            등록하면 단어 비교 대신 실제 발음(음소 단위)을 채점하는 <b>Microsoft Azure 발음 평가</b>를
-            대화문 암기 연습에 사용하고, 로컬 음성을 설치하지 않은 환경에서는 AI 강사의 한국어 설명·레슨
-            영상 내레이션도 <b>Azure 신경망 음성</b>으로 자연스럽게 들립니다. 매달 무료 사용량이 제공되며,
-            키는 <b>이 브라우저에만 저장</b>됩니다. 등록하지 않으면 기존 방식(브라우저 음성)으로 자동 동작합니다.
-          </div>
-          <ol style="margin:0 0 12px 18px;color:var(--text-muted);font-size:0.8rem;line-height:1.8">
-            <li><a href="https://portal.azure.com" target="_blank" style="color:var(--primary-light)">portal.azure.com</a>에서 "Speech" 리소스를 무료(F0) 등급으로 생성</li>
-            <li>리소스의 키/지역(예: eastus) 복사</li>
-            <li>아래에 붙여넣고 저장</li>
-          </ol>
-          <input id="azure-key-input" type="password" placeholder="Azure Speech 키" autocomplete="off"
-            style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:11px;font-family:monospace;font-size:0.9rem;margin-bottom:8px"/>
-          <input id="azure-region-input" type="text" placeholder="지역 (예: eastus)" autocomplete="off"
-            style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:11px;font-family:monospace;font-size:0.9rem"/>
-          <div style="display:flex;gap:8px;margin-top:12px">
-            <button class="btn" onclick="clearAzureKey()" style="flex:0 0 auto">키 삭제</button>
-            <button class="btn primary" onclick="saveAzureKey()" style="flex:1">저장</button>
-          </div>
-          <div id="azure-key-status" style="font-size:0.78rem;color:var(--text-muted);margin-top:10px"></div>
         </div>
 
         <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px">
@@ -3270,9 +3249,6 @@ function openGroqKeyModal() {
   const inp = document.getElementById('groq-key-input');
   inp.value = groqKey();
   document.getElementById('groq-key-status').textContent = groqKey() ? '✅ 키가 저장되어 있습니다.' : '';
-  document.getElementById('azure-key-input').value = azureKey();
-  document.getElementById('azure-region-input').value = azureRegion();
-  document.getElementById('azure-key-status').textContent = azureKey() ? '✅ Azure 발음 평가가 활성화되어 있습니다.' : '';
   const bt = document.getElementById('browser-tts-toggle');
   if (bt) bt.checked = browserTtsEnabled();
   setTimeout(() => inp.focus(), 50);
@@ -3297,23 +3273,6 @@ function clearGroqKey() {
   document.getElementById('groq-key-input').value = '';
   document.getElementById('groq-key-status').textContent = '키를 삭제했습니다.';
   updateGroqIndicator();
-}
-
-function saveAzureKey() {
-  const key = (document.getElementById('azure-key-input').value || '').trim();
-  const region = (document.getElementById('azure-region-input').value || '').trim();
-  if (!key || !region) { document.getElementById('azure-key-status').textContent = '⚠️ 키와 지역을 모두 입력하세요.'; return; }
-  store('va_azure_key', key);
-  store('va_azure_region', region);
-  document.getElementById('azure-key-status').textContent = '✅ 저장됐어요! 대화문 암기 연습에서 정밀 발음 평가가 켜집니다.';
-  toast('🗣️ Azure 발음 정밀 평가가 연결됐어요!', 3500);
-}
-function clearAzureKey() {
-  store('va_azure_key', '');
-  store('va_azure_region', '');
-  document.getElementById('azure-key-input').value = '';
-  document.getElementById('azure-region-input').value = '';
-  document.getElementById('azure-key-status').textContent = '키를 삭제했습니다. 기존 받아쓰기 비교 방식으로 동작합니다.';
 }
 
 /* ═══════════════════════════════════════════════════
