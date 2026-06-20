@@ -569,7 +569,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.62';
+const APP_VERSION = 'v4.63';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -3933,7 +3933,8 @@ function renderStudy() {
   if (l.dialogue) {
     html += `<div class="study-card"><h3>💬 실전 대화문 — ${esc(l.dialogue.title)}</h3>
       <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px">각 줄의 🔊로 듣고, ▶︎로 대화 전체를 자동 재생할 수 있어요. 역할(A/B)을 정해 따라 읽어보세요.</div>
-      <button class="speak-mini" style="margin-bottom:10px;padding:6px 14px" onclick="playDialogue()">▶︎ 대화 전체 재생</button>`;
+      <button class="speak-mini" style="margin-bottom:10px;padding:6px 14px" onclick="playDialogue()">▶︎ 대화 전체 재생</button>
+      <button class="btn primary" style="width:100%;margin-bottom:12px" onclick="startDialogueDrill(${l.id})">🗣️ 암기 연습 — 한글 보고 영어로 말하기</button>`;
     l.dialogue.lines.forEach((ln, i) => {
       const color = ln.sp === 'A' ? 'var(--primary-light)' : 'var(--green)';
       html += `<div class="example-row">
@@ -5319,6 +5320,7 @@ function renderLearn() {
     case 'vocab': return renderVocab(el);
     case 'homework': return renderHomework(el);
     case 'flashcards': return renderFlashcards(el);
+    case 'dialoguedrill': return renderDialogueDrill(el);
     default: el.innerHTML = learnHeader('🎓', '트레이닝', '');
   }
 }
@@ -5727,13 +5729,11 @@ function escAttr(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').r
 
 /* ───────────────────────────────────────────────────────────────────────
    ⑥ 숙제 도우미 — 사진/텍스트로 영어 숙제를 받아 한국어로 풀이
-   비전 모델: meta-llama/llama-4-scout-17b-16e-instruct (이미지+텍스트, JSON)
+   입력: 🎤 음성(한국어·영어 모두 Whisper 자동 인식) 또는 직접 텍스트 입력
    힌트 모드(스스로 풀기) / 정답+풀이 모드 + 핵심 표현 암기카드 등록
 ─────────────────────────────────────────────────────────────────────── */
-const HW_VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
 let hwMode = 'full';     // 'full'=정답+풀이, 'hint'=힌트만
-let hwImage = null;      // { dataUrl, name }
-let hwText = '';         // 입력칸 보존(사진 추가 시 리렌더돼도 유지)
+let hwText = '';         // 입력칸 보존(리렌더돼도 유지)
 let hwResult = null;     // 마지막 결과(표현 저장용)
 let hwLessonRef = null;  // 숙제 도우미가 연결된 회차(레슨) 객체. null이면 현재 학습 중인 회차를 자동 사용.
 
@@ -5755,7 +5755,7 @@ function pickHwLesson(id) {
 /* 학습 화면 등에서 특정 회차의 숙제로 바로 진입 */
 function openHomework(lessonId) {
   hwLessonRef = (lessonId != null) ? (ALL_LESSONS.find(l => l.id === lessonId) || null) : null;
-  hwResult = null; hwImage = null; hwText = '';
+  hwResult = null; hwText = '';
   gotoLearn('homework');
 }
 /* AI 호출에 이번 회차 숙제 지시문 + 핵심 문법을 컨텍스트로 실어, 도움이 과제에 딱 맞게 나오도록 */
@@ -5769,7 +5769,7 @@ function _hwLessonContext() {
 function renderHomework(el) {
   const lesson = hwLessonObj();
   const sessions = LESSONS.filter(l => !l.preview && l.homework);
-  let html = learnHeader('📚', '숙제 도우미', '회차별 숙제를 AI와 함께 — 사진·텍스트로 풀이');
+  let html = learnHeader('📚', '숙제 도우미', '회차별 숙제를 AI와 함께 — 음성·텍스트로 풀이');
   // 📋 이번 회차 숙제 — currentLesson.homework를 자동으로 읽어 연결 (회차 추가 시 자동 반영)
   if (lesson && lesson.homework) {
     html += `<div style="background:linear-gradient(135deg,rgba(34,197,94,0.12),rgba(34,197,94,0.04));border:1px solid rgba(34,197,94,0.5);border-radius:12px;padding:13px 15px;margin-bottom:12px">
@@ -5782,45 +5782,27 @@ function renderHomework(el) {
         <button class="btn primary" style="flex:1;padding:7px;font-size:0.78rem" onclick="hwAssignmentHelp('guide')">📝 풀이 가이드</button>
         <button class="btn" style="flex:1;padding:7px;font-size:0.78rem" onclick="hwAssignmentHelp('examples')">🌟 예시 답안</button>
       </div>
+      ${lesson.dialogue ? `<button class="btn" style="width:100%;margin-top:8px;border-color:var(--yellow);color:var(--yellow)" onclick="startDialogueDrill(${lesson.id})">🗣️ 대화문 암기 연습 — 한글 보고 영어로 말하기</button>` : ''}
     </div>`;
   }
   html += `<div style="display:flex;gap:8px;margin-bottom:10px">
     <button onclick="setHwMode('full')" style="flex:1;padding:9px;border-radius:9px;font-size:0.8rem;font-weight:800;cursor:pointer;border:1px solid ${hwMode==='full'?'var(--primary)':'var(--border)'};background:${hwMode==='full'?'var(--primary)':'var(--surface)'};color:${hwMode==='full'?'#fff':'var(--text-muted)'}">✅ 정답 + 풀이</button>
     <button onclick="setHwMode('hint')" style="flex:1;padding:9px;border-radius:9px;font-size:0.8rem;font-weight:800;cursor:pointer;border:1px solid ${hwMode==='hint'?'var(--primary)':'var(--border)'};background:${hwMode==='hint'?'var(--primary)':'var(--surface)'};color:${hwMode==='hint'?'#fff':'var(--text-muted)'}">💡 힌트로 스스로 풀기</button></div>`;
   html += `<div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:12px;line-height:1.5">${hwMode==='full'?'정답과 한국어 단계별 풀이, 핵심 문법·표현을 알려드려요.':'정답은 숨기고, 스스로 풀 수 있도록 방향과 힌트만 알려드려요 — 기억에 더 오래 남아요!'}</div>`;
-  html += `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:8px">🎤 문제를 <b style="color:var(--primary-light)">말하면</b> Groq가 바로 받아써요 · 📷 사진도 가능 · 아래에 직접 적어 검사받아도 돼요.</div>`;
-  // 🎤 음성 입력 (Groq Whisper) — 사진 대신 말로 문제를 불러주는 새 방법
+  html += `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:8px">🎤 문제를 <b style="color:var(--primary-light)">한국어든 영어든 말하면</b> Groq가 자동으로 알아듣고 받아써요 · 아래에 직접 적어 검사받아도 돼요.</div>`;
+  // 🎤 음성 입력 (Groq Whisper, 한국어·영어 자동 인식) — 유일한 입력 보조 수단
   html += `<button id="hw-mic" class="btn" style="width:100%;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-color:var(--primary);color:var(--primary-light);font-weight:800" onclick="toggleHwMic()">🎤 음성으로 문제 말하기</button>`;
   html += `<div id="hw-mic-status" style="font-size:0.73rem;color:var(--text-muted);text-align:center;margin-bottom:8px;min-height:15px"></div>`;
-  // 📷 사진 입력 (보조 수단)
-  html += `<div style="margin-bottom:10px">`;
-  if (hwImage) {
-    html += `<div style="position:relative"><img src="${hwImage.dataUrl}" style="width:100%;max-height:240px;object-fit:contain;border-radius:10px;border:1px solid var(--border);background:var(--surface2);display:block"/>
-      <button class="btn" onclick="clearHwImage()" style="position:absolute;top:6px;right:6px;padding:4px 9px">✕ 사진 제거</button></div>`;
-  } else {
-    html += `<label class="btn" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;cursor:pointer;border-style:dashed;font-size:0.84rem">📷 사진으로 올리기
-      <input type="file" accept="image/*" capture="environment" onchange="onHwImage(event)" style="display:none"></label>`;
-  }
-  html += `</div>`;
-  html += `<textarea id="hw-input" rows="4" oninput="hwText=this.value" placeholder="문제를 직접 입력하거나, 사진에 더해 설명을 적어도 돼요.&#10;예) 빈칸에 알맞은 것은? She ___ to school every day." style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:0.92rem;line-height:1.6;resize:vertical">${esc(hwText)}</textarea>`;
+  html += `<textarea id="hw-input" rows="4" oninput="hwText=this.value" placeholder="문제를 직접 입력해 주세요.&#10;예) 빈칸에 알맞은 것은? She ___ to school every day." style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:0.92rem;line-height:1.6;resize:vertical">${esc(hwText)}</textarea>`;
   html += `<button class="start-drill-btn" style="margin-top:10px" onclick="solveHomework()">🤖 숙제 도움 받기</button>`;
   html += `<div id="hw-result" style="margin-top:14px"></div>`;
   el.innerHTML = html;
 }
 function setHwMode(m) { _hwCapture(); hwMode = m; renderHomework(document.getElementById('learn-content')); }
-function clearHwImage() { _hwCapture(); hwImage = null; renderHomework(document.getElementById('learn-content')); }
-function onHwImage(ev) {
-  const f = ev.target.files && ev.target.files[0];
-  if (!f) return;
-  if (f.size > 8 * 1024 * 1024) { toast('사진이 너무 큽니다 (8MB 이하로 다시 찍어주세요).'); return; }
-  _hwCapture();
-  const r = new FileReader();
-  r.onload = () => { hwImage = { dataUrl: r.result, name: f.name }; renderHomework(document.getElementById('learn-content')); };
-  r.readAsDataURL(f);
-}
 
-/* 🎤 Groq Whisper 음성 입력 — 숙제 문제/답안을 말하면 받아써서 입력칸을 채운다 (사진의 대안).
-   말이 끝나면 VAD가 자동으로 녹음을 멈추고 전사한다. 키가 없으면 로컬 Whisper로 폴백. */
+/* 🎤 Groq Whisper 음성 입력 — 숙제 문제/답안을 한국어·영어 구분 없이 말하면 받아써서 입력칸을 채운다.
+   Whisper는 language 파라미터를 지정하지 않으면 발화 언어를 자동 감지하므로 한/영 혼용도 그대로 인식된다.
+   말이 끝나면 VAD가 자동으로 녹음을 멈추고 전사한다. 키가 없으면 로컬 다국어 Whisper(base)로 폴백. */
 let hwRec = null, hwRecording = false, hwChunks = [], hwStream = null;
 let hwVadCtx = null, hwVadAnalyser = null, hwVadRaf = null, hwHasSpoken = false, hwLastVoiceAt = 0, hwRecStartedAt = 0;
 async function toggleHwMic() {
@@ -5913,16 +5895,16 @@ async function solveHomework() {
   _hwCapture();
   const text = (hwText || '').trim();
   const res = document.getElementById('hw-result');
-  if (!text && !hwImage) { toast('사진을 올리거나 문제를 입력해 주세요.'); return; }
+  if (!text) { toast('음성으로 말하거나 문제를 입력해 주세요.'); return; }
   if (!ensureGroqSelected()) {
     res.innerHTML = `<div style="background:var(--surface);border:1px solid var(--yellow);border-radius:12px;padding:14px;font-size:0.82rem;line-height:1.6">🤖 숙제 도우미는 무료 Groq 키 연결 후 쓸 수 있어요.<br><button class="btn primary" style="margin-top:8px" onclick="openGroqKeyModal()">AI 강사 연결하기</button></div>`;
     return;
   }
-  res.innerHTML = `<div style="color:var(--text-muted);font-size:0.84rem">🤖 숙제를 살펴보는 중...${hwImage ? ' (사진 인식)' : ''}</div>`;
+  res.innerHTML = `<div style="color:var(--text-muted);font-size:0.84rem">🤖 숙제를 살펴보는 중...</div>`;
   const modeRule = hwMode === 'hint'
     ? `MODE: HINT-ONLY. Do NOT reveal final answers. For each item, write a guiding "hint" in Korean (what to look at, which rule applies, how to start) and leave "answer" and "explanation" as empty strings.`
     : `MODE: FULL. For each item, give the correct "answer" (in English) and a clear step-by-step "explanation" in Korean. Leave "hint" empty.`;
-  const sys = `You are a warm, patient Korean tutor helping a Korean student with their ENGLISH homework. Read the problem(s) from the text and/or image. If the student wrote their own attempted answers, also check them and gently correct mistakes. Explain in KOREAN (use English only for the English answers/examples). ${modeRule} Output ONLY valid JSON.${_hwLessonContext()}`;
+  const sys = `You are a warm, patient Korean tutor helping a Korean student with their ENGLISH homework. Read the problem(s) from the text. If the student wrote their own attempted answers, also check them and gently correct mistakes. Explain in KOREAN (use English only for the English answers/examples). ${modeRule} Output ONLY valid JSON.${_hwLessonContext()}`;
   const schema = `Return JSON:
 {"detected":"1-line Korean summary of what this homework is",
  "items":[{"question":"the problem restated briefly","answer":"English answer (empty in HINT mode)","explanation":"Korean step-by-step (empty in HINT mode)","hint":"Korean guiding hint (only in HINT mode)"}],
@@ -5930,25 +5912,13 @@ async function solveHomework() {
  "saveItems":[{"en":"useful English word/expression from this homework","kr":"Korean meaning"}],
  "practice":{"q":"one NEW similar practice problem in English","a":"its answer"}}`;
   try {
-    let raw;
-    const userText = (text ? `Homework text:\n"""${text}"""\n\n` : '') + schema;
-    if (hwImage) {
-      const messages = [
-        { role: 'system', content: sys },
-        { role: 'user', content: [
-          { type: 'text', text: userText },
-          { type: 'image_url', image_url: { url: hwImage.dataUrl } },
-        ] },
-      ];
-      raw = await groqComplete(messages, { json: true, maxTokens: 1700, temperature: 0.3, model: HW_VISION_MODEL });
-    } else {
-      raw = await groqComplete([{ role: 'system', content: sys }, { role: 'user', content: userText }], { json: true, maxTokens: 1500, temperature: 0.3 });
-    }
+    const userText = `Homework text:\n"""${text}"""\n\n` + schema;
+    const raw = await groqComplete([{ role: 'system', content: sys }, { role: 'user', content: userText }], { json: true, maxTokens: 1500, temperature: 0.3 });
     hwResult = JSON.parse(raw);
     renderHwResult(hwResult);
     markPracticedToday();
   } catch (e) {
-    res.innerHTML = `<div style="color:var(--red);font-size:0.84rem">🤖 숙제 도움 실패: ${esc(String(e.message || e))}<br><span style="color:var(--text-muted);font-size:0.78rem">사진 인식이 안 되면 문제를 글로 입력해 다시 시도해 보세요.</span></div>`;
+    res.innerHTML = `<div style="color:var(--red);font-size:0.84rem">🤖 숙제 도움 실패: ${esc(String(e.message || e))}<br><span style="color:var(--text-muted);font-size:0.78rem">잠시 후 다시 시도해 보세요.</span></div>`;
   }
 }
 function renderHwResult(d) {
@@ -6004,11 +5974,11 @@ async function hwAssignmentHelp(kind) {
   const l = hwLessonObj();
   res.innerHTML = `<div style="color:var(--text-muted);font-size:0.84rem">🤖 ${kind === 'guide' ? '풀이 가이드' : '예시 답안'}를 준비하는 중...</div>`;
   const want = kind === 'guide'
-    ? `Explain in KOREAN, step by step, HOW to complete this homework well (approach, structure, common mistakes to avoid). Do NOT write all the final answers for them — guide them to do it themselves.`
+    ? `Explain in KOREAN, step by step, HOW to complete this homework well (approach, structure, common mistakes to avoid). Do NOT write all the final answers for them — guide them to do it themselves. IMPORTANT: also give a handful of concrete, situation-appropriate RECOMMENDED GUIDE SENTENCES in English (with Korean translation) that fit the assignment's actual topic/scenario — sentence patterns/starters the student could adapt, not abstract advice.`
     : `Provide 4-5 strong EXAMPLE answers (model sentences) in English with Korean translations, matching the assignment and the lesson's patterns, so the student can model their own work.`;
   const sys = `You are a warm Korean tutor for a Korean student learning English. ${want} Output ONLY valid JSON.${_hwLessonContext()}`;
   const schema = kind === 'guide'
-    ? `Return JSON: {"title":"short Korean title","steps":["Korean step",...],"tips":["Korean tip",...],"checklist":["Korean check item",...]}`
+    ? `Return JSON: {"title":"short Korean title","steps":["Korean step",...],"recommendedSentences":[{"en":"a concrete recommended/guide sentence fitting this assignment's situation","kr":"Korean translation"}],"tips":["Korean tip",...],"checklist":["Korean check item",...]}`
     : `Return JSON: {"title":"short Korean title","examples":[{"en":"model sentence","kr":"Korean translation"}],"tips":["Korean tip",...]}`;
   try {
     const raw = await groqComplete([{ role: 'system', content: sys }, { role: 'user', content: `Homework: "${l ? l.homework : ''}".\n${schema}` }], { json: true, maxTokens: 1300, temperature: 0.5 });
@@ -6022,6 +5992,10 @@ function renderHwAssignment(kind, d) {
   if (d.title) html += `<div style="font-size:0.86rem;font-weight:800;color:var(--primary-light);margin-bottom:8px">${kind === 'guide' ? '📝' : '🌟'} ${esc(d.title)}</div>`;
   if (kind === 'guide') {
     if (Array.isArray(d.steps)) html += `<ol style="margin:0 0 8px 18px;font-size:0.84rem;line-height:1.75">${d.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>`;
+    if (Array.isArray(d.recommendedSentences) && d.recommendedSentences.length) {
+      html += `<div style="font-size:0.78rem;font-weight:800;color:var(--primary-light);margin:8px 0 4px">💬 이 상황에 쓸 수 있는 추천 문장</div>`;
+      d.recommendedSentences.forEach(s => { html += `<div style="background:var(--surface2);border-radius:8px;padding:9px 11px;margin-bottom:6px;font-size:0.84rem;line-height:1.6">🗣 <b>${esc(s.en || '')}</b> <button class="speak-mini" onclick="tts('${jsAttr(s.en || '')}','en-US')">🔊</button>${s.kr ? `<div style="color:var(--text-muted);font-size:0.78rem">${esc(s.kr)}</div>` : ''}</div>`; });
+    }
     if (Array.isArray(d.checklist) && d.checklist.length) html += `<div style="font-size:0.78rem;font-weight:800;color:var(--green);margin:8px 0 4px">✅ 체크리스트</div><ul style="margin:0 0 6px 18px;font-size:0.8rem;line-height:1.6;color:var(--text-muted)">${d.checklist.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`;
   } else if (Array.isArray(d.examples)) {
     d.examples.forEach(e => { html += `<div style="background:var(--surface2);border-radius:8px;padding:9px 11px;margin-bottom:6px;font-size:0.84rem;line-height:1.6">🌟 <b>${esc(e.en || '')}</b> <button class="speak-mini" onclick="tts('${jsAttr(e.en || '')}','en-US')">🔊</button>${e.kr ? `<div style="color:var(--text-muted);font-size:0.78rem">${esc(e.kr)}</div>` : ''}</div>`; });
@@ -6154,6 +6128,191 @@ function renderFlashcards(el) {
   el.innerHTML = html;
   // 뒤집는 순간 자동 발음 (한 번만)
   if (fs.flipped && !fs._spoke) { fs._spoke = true; try { tts(back, backLang); } catch (e) {} }
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+   🗣️ 대화문 암기 연습 — 한글만 보고 영어 발화 (능동적 회상 + 말하기 연습)
+   l.dialogue가 있는 레슨이면 자동으로 목록에 뜬다 — 새 회차에 dialogue를 추가하면
+   별도 작업 없이 그대로 연결된다. 각 줄의 한국어만 보여주고 마이크로 영어 발화를
+   녹음 → Groq Whisper(또는 로컬 다국어 Whisper)로 전사 → 정답 줄과 단어 단위로
+   비교(wordScore)해 일치도 점수와 단어별 피드백을 보여준다.
+─────────────────────────────────────────────────────────────────────── */
+let dlgState = null; // { lesson, lines, idx, results:[], revealed }
+let dlgRec = null, dlgRecording = false, dlgChunks = [], dlgStream = null;
+let dlgVadCtx = null, dlgVadAnalyser = null, dlgVadRaf = null, dlgHasSpoken = false, dlgLastVoiceAt = 0, dlgRecStartedAt = 0;
+
+function dialogueLessons() { return ALL_LESSONS.filter(l => l.dialogue && l.dialogue.lines && l.dialogue.lines.length); }
+
+function startDialogueDrill(lessonId) {
+  const l = ALL_LESSONS.find(x => x.id === lessonId) || dialogueLessons()[0];
+  if (!l || !l.dialogue) { toast('암기할 대화문이 없는 회차예요.'); return; }
+  dlgState = { lesson: l, lines: l.dialogue.lines, idx: 0, results: [], revealed: false };
+  gotoLearn('dialoguedrill');
+}
+function quitDialogueDrill() { dlgState = null; try { stopDlgMic(); } catch (e) {} backToFeatures(); }
+
+function renderDialogueDrill(el) {
+  const ds = dlgState;
+  if (!ds) {
+    const opts = dialogueLessons();
+    let html = learnHeader('🗣️', '대화문 암기 연습', '한글만 보고 영어로 말해보세요');
+    html += `<div style="font-size:0.82rem;color:var(--text-muted);line-height:1.7;margin-bottom:14px">한국어 대화만 보고 그 자리에서 영어로 말하는 능동적 회상 연습이에요. 말한 내용을 받아써서 정답 대화문과 단어 단위로 비교해 보여드려요.</div>`;
+    if (!opts.length) html += `<div class="empty-note">아직 암기 연습용 대화문이 등록된 회차가 없어요.</div>`;
+    opts.forEach(l => { html += `<button class="start-drill-btn" style="margin-bottom:8px" onclick="startDialogueDrill(${l.id})">▶ ${esc(lessonLabel(l))} · ${esc(l.dialogue.title)}</button>`; });
+    el.innerHTML = html;
+    return;
+  }
+  if (ds.idx >= ds.lines.length) {
+    const avg = ds.results.length ? Math.round(ds.results.reduce((a, r) => a + r.score, 0) / ds.results.length) : 0;
+    markPracticedToday();
+    el.innerHTML = learnHeader('🗣️', '대화문 암기 연습', '세션 완료') +
+      `<div style="text-align:center;background:var(--surface);border:1px solid var(--primary);border-radius:16px;padding:24px;margin-top:8px">
+      <div style="font-size:2.4rem">${avg >= 80 ? '🎉' : avg >= 50 ? '👍' : '💪'}</div>
+      <div style="font-size:1rem;font-weight:800;margin:6px 0">평균 일치도 ${avg}점</div>
+      <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.6">${ds.lines.length}개 대화 줄을 영어로 말해봤어요.<br>점수가 낮았던 줄은 다시 듣고 따라 말해보세요.</div>
+      <button class="start-drill-btn" style="margin-top:16px" onclick="dlgState=null;startDialogueDrill(${ds.lesson.id})">↻ 다시 연습하기</button>
+      <button class="btn" style="width:100%;margin-top:10px" onclick="quitDialogueDrill()">← 그만하기</button></div>`;
+    return;
+  }
+  const ln = ds.lines[ds.idx];
+  const color = ln.sp === 'A' ? 'var(--primary-light)' : 'var(--green)';
+  const progress = Math.round((ds.idx / ds.lines.length) * 100);
+  let html = learnHeader('🗣️', '대화문 암기 연습', esc(ds.lesson.dialogue.title));
+  html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <span style="font-size:0.76rem;color:var(--text-muted)">${ds.idx + 1} / ${ds.lines.length}</span></div>
+    <div class="bar" style="margin-bottom:12px"><div class="fill" style="width:${progress}%"></div></div>`;
+  html += `<div style="background:var(--surface);border:1px solid var(--primary);border-radius:16px;padding:24px 18px;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
+    <span style="color:${color};font-weight:800;font-size:0.85rem;margin-bottom:8px">${ln.sp}</span>
+    <div style="font-size:1.15rem;font-weight:800;line-height:1.6">${esc(ln.kr)}</div>
+    <div style="font-size:0.74rem;color:var(--text-muted);margin-top:14px">이 말을 영어로 소리내어 말해보세요</div>
+  </div>`;
+  if (!ds.revealed) {
+    html += `<button id="dlg-mic" class="btn" style="width:100%;margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-color:var(--primary);color:var(--primary-light);font-weight:800" onclick="toggleDlgMic()">🎤 영어로 말하기</button>`;
+    html += `<div id="dlg-mic-status" style="font-size:0.73rem;color:var(--text-muted);text-align:center;margin-top:6px;min-height:15px"></div>`;
+    html += `<div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn" style="flex:1" onclick="tts('${jsAttr(ln.en)}','en-US')">👂 정답 듣기</button>
+      <button class="btn" style="flex:1" onclick="skipDialogueLine()">⏭ 건너뛰기</button>
+    </div>`;
+  } else {
+    const r = ds.results[ds.results.length - 1];
+    html += `<div style="background:var(--surface2);border-radius:10px;padding:12px;margin-top:14px">
+      <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px">🎙️ 내가 말한 내용: <i>${esc((r && r.spoken) || '(인식 안 됨)')}</i></div>
+      ${r ? wordScoreHtml(r.marks) : ''}
+      <div style="font-size:0.86rem;font-weight:800;margin-top:10px;color:var(--green)">정답: ${esc(ln.en)} <button class="speak-mini" onclick="tts('${jsAttr(ln.en)}','en-US')">🔊</button></div>
+      ${r ? `<div style="font-size:0.78rem;color:var(--primary-light);font-weight:800;margin-top:4px">일치도 ${r.score}점</div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn" style="flex:1" onclick="retryDialogueLine()">🔁 다시 말하기</button>
+        <button class="start-drill-btn" style="flex:1;margin:0" onclick="nextDialogueLine()">다음 →</button>
+      </div>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+function skipDialogueLine() {
+  const ds = dlgState; if (!ds) return;
+  ds.results.push({ spoken: '', score: 0, marks: wordScore('', ds.lines[ds.idx].en).marks });
+  ds.idx++; ds.revealed = false;
+  renderDialogueDrill(document.getElementById('learn-content'));
+}
+function retryDialogueLine() {
+  const ds = dlgState; if (!ds) return;
+  ds.results.pop();
+  ds.revealed = false;
+  renderDialogueDrill(document.getElementById('learn-content'));
+}
+function nextDialogueLine() {
+  const ds = dlgState; if (!ds) return;
+  ds.idx++; ds.revealed = false;
+  renderDialogueDrill(document.getElementById('learn-content'));
+}
+/* 🎤 Groq Whisper(또는 로컬 다국어 Whisper) 음성 입력 — 한국어 줄을 보고 말한 영어 발화를
+   받아써서 정답과 비교한다. language 파라미터를 지정하지 않아 자동 언어 감지가 적용된다. */
+async function toggleDlgMic() {
+  if (dlgRecording) { stopDlgMic(); return; }
+  if (!window.isSecureContext) { toast('🔒 https(또는 localhost)에서만 마이크가 동작합니다.'); return; }
+  try {
+    dlgStream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  } catch (e) {
+    const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+    toast(denied ? '🎙️ 마이크 권한이 거부되었습니다. 자물쇠 → 마이크 → 허용 후 새로고침하세요.' : '🎙️ 마이크를 열 수 없습니다: ' + (e.message || e.name), 6000);
+    return;
+  }
+  micGranted = true;
+  dlgChunks = [];
+  try { dlgRec = new MediaRecorder(dlgStream); }
+  catch (e) { toast('🎙️ 이 브라우저는 녹음을 지원하지 않습니다.'); dlgStream.getTracks().forEach(t => t.stop()); return; }
+  dlgRec.ondataavailable = ev => { if (ev.data && ev.data.size) dlgChunks.push(ev.data); };
+  dlgRec.onstop = onDlgMicStop;
+  dlgRec.start();
+  dlgRecording = true;
+  const b = document.getElementById('dlg-mic');
+  if (b) { b.classList.add('listening'); b.textContent = '● 듣는 중 — 말이 끝나면 자동 인식 (탭하면 종료)'; }
+  startDlgVad(dlgStream);
+}
+function startDlgVad(stream) {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    dlgVadCtx = new Ctx();
+    const src = dlgVadCtx.createMediaStreamSource(stream);
+    dlgVadAnalyser = dlgVadCtx.createAnalyser();
+    dlgVadAnalyser.fftSize = 512;
+    src.connect(dlgVadAnalyser);
+    const buf = new Float32Array(dlgVadAnalyser.fftSize);
+    dlgHasSpoken = false; dlgLastVoiceAt = 0; dlgRecStartedAt = Date.now();
+    const tick = () => {
+      if (!dlgRecording) return;
+      dlgVadAnalyser.getFloatTimeDomainData(buf);
+      let sum = 0; for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+      const rms = Math.sqrt(sum / buf.length); const now = Date.now();
+      if (rms > ASK_VAD_THRESHOLD) { dlgHasSpoken = true; dlgLastVoiceAt = now; }
+      if (dlgHasSpoken && now - dlgLastVoiceAt > ASK_VAD_SILENCE_MS) { stopDlgMic(); return; }
+      if (now - dlgRecStartedAt > ASK_VAD_MAX_MS) { stopDlgMic(); return; }
+      dlgVadRaf = requestAnimationFrame(tick);
+    };
+    dlgVadRaf = requestAnimationFrame(tick);
+  } catch (e) {}
+}
+function stopDlgVad() {
+  if (dlgVadRaf) { cancelAnimationFrame(dlgVadRaf); dlgVadRaf = null; }
+  try { dlgVadCtx && dlgVadCtx.close(); } catch (e) {}
+  dlgVadCtx = null; dlgVadAnalyser = null;
+}
+function stopDlgMic() {
+  if (!dlgRecording || !dlgRec) return;
+  dlgRecording = false;
+  stopDlgVad();
+  try { dlgRec.stop(); } catch (e) {}
+  dlgStream?.getTracks().forEach(t => t.stop());
+  const b = document.getElementById('dlg-mic');
+  if (b) { b.classList.remove('listening'); b.textContent = '🧠 인식 중...'; }
+}
+async function onDlgMicStop() {
+  const ds = dlgState;
+  if (!ds || !dlgChunks.length) { const b = document.getElementById('dlg-mic'); if (b) { b.classList.remove('listening'); b.textContent = '🎤 영어로 말하기'; } return; }
+  const blob = new Blob(dlgChunks, { type: dlgRec?.mimeType || 'audio/webm' });
+  dlgChunks = [];
+  const st = document.getElementById('dlg-mic-status'); if (st) st.textContent = '🧠 음성 인식 중...';
+  let text = '';
+  try {
+    if (groqKey()) {
+      text = await groqTranscribe(blob);
+    } else {
+      const pipe = await loadWhisperML();
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new Ctx({ sampleRate: 16000 });
+      const decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
+      const audio = decoded.getChannelData(0); await ctx.close();
+      const out = await pipe(audio, { chunk_length_s: 30, stride_length_s: 5 });
+      text = (out && out.text || '').trim();
+    }
+  } catch (e) {
+    toast('🎙️ 인식 실패: ' + (e.message || e), 5000);
+  }
+  const ln = ds.lines[ds.idx];
+  const ws = wordScore(text, ln.en);
+  ds.results.push({ spoken: text, score: ws.score, marks: ws.marks });
+  ds.revealed = true;
+  renderDialogueDrill(document.getElementById('learn-content'));
 }
 
 function renderMaster() {
