@@ -569,7 +569,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.71';
+const APP_VERSION = 'v4.72';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -2918,15 +2918,18 @@ function loadKoreanTts() {
   if (koTtsLoadingP) return koTtsLoadingP;
   if (!_koTtsToasted) {
     _koTtsToasted = true;
-    toast('🗣️ 자연스러운 한국어 음성 모델을 처음 한 번 내려받는 중이에요 (~100MB). 잠시 후부터 적용돼요.', 5000);
+    toast('🗣️ 자연스러운 한국어 음성 모델을 처음 한 번 내려받는 중이에요 (~40MB). 잠시 후부터 적용돼요.', 5000);
   }
   koTtsLoadingP = (async () => {
     try {
+      // VITS 계열(text-to-speech) 모델은 WebGPU 백엔드에서 일부 연산이 지원되지 않아 실패할 수 있어 wasm을 강제한다.
       const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2');
-      koTtsPipe = await pipeline('text-to-speech', KO_TTS_MODEL, { device: navigator.gpu ? 'webgpu' : 'wasm' });
+      koTtsPipe = await pipeline('text-to-speech', KO_TTS_MODEL, { device: 'wasm' });
+      toast('✅ 한국어 음성 모델 준비 완료! 이제부터 더 자연스러운 음성으로 들려요.', 3000);
     } catch (e) {
       koTtsFailed = true; koTtsPipe = null;
       console.error('[한국어 TTS] 모델 로드 실패, 브라우저 음성으로 폴백:', e);
+      toast('⚠️ 한국어 음성 모델 다운로드에 실패해 기본 브라우저 음성으로 재생해요. (' + (e?.message || e) + ')', 5000);
     } finally {
       koTtsLoadingP = null;
     }
