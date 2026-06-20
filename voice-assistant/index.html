@@ -569,7 +569,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.65';
+const APP_VERSION = 'v4.66';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -4188,6 +4188,7 @@ function renderStudy() {
         회화 탭에 들어가면 AI가 먼저 인사하며 수업을 시작하고, 틀린 문장은 자동으로 복습 탭에 쌓입니다.
       </div></div>`;
   }
+  html += `<button class="btn primary" style="width:100%;margin-bottom:12px" onclick="startLessonVideo(${l.id})">🎬 이 레슨 설명 영상 보기 — 음성+하이라이트로 쉽게 이해하기</button>`;
   l.sections.forEach(sec => {
     html += `<div class="study-card"><h3>${sec.title}</h3>`;
     if (sec.intro) html += `<div class="sec-intro">${esc(sec.intro)}</div>`;
@@ -5497,6 +5498,7 @@ function renderFeatures() {
   html += featCard('📚', '숙제 도우미', '회차별 숙제를 AI와 함께 — 풀이 가이드·예시·사진 인식', "openHomework()", 'var(--green)');
   html += featCard('🃏', '암기 카드', `능동적 회상 플래시카드로 외우기 — 오늘 복습 ${dueCount}장`, "startFlashcards('due')", 'var(--yellow)');
   html += featCard('📚', '시나리오 라이브러리', `공항·면접·병원 등 일상 상황 대화문 ${SCENARIO_LIBRARY.length}개 — 한글 보고 영어로 말하기`, "dlgState=null;gotoLearn('dialoguedrill')", 'var(--green)');
+  html += featCard('🎬', '레슨 설명 영상', '음성 내레이션 + 단어별 하이라이트로 문법을 영상처럼 쉽게 설명', "lvState=null;gotoLearn('lessonvideo')", 'var(--primary)');
 
   html += `<div style="font-size:0.8rem;font-weight:800;color:var(--primary-light);margin:14px 0 8px">🎓 4대 영역 훈련 <span style="font-size:0.7rem;font-weight:400;color:var(--text-muted)">· 초보→원어민 풀커버리지</span></div>`;
   html += featCard('🗣', '말하기 (Speaking)', '회화·드릴·쉐도잉으로 발화 훈련 — CAF 분석', "document.querySelector('[data-mode=talk]').click()");
@@ -5600,6 +5602,7 @@ function renderLearn() {
     case 'homework': return renderHomework(el);
     case 'flashcards': return renderFlashcards(el);
     case 'dialoguedrill': return renderDialogueDrill(el);
+    case 'lessonvideo': return renderLessonVideo(el);
     default: el.innerHTML = learnHeader('🎓', '트레이닝', '');
   }
 }
@@ -6601,6 +6604,191 @@ async function onDlgMicStop() {
   ds.results.push({ spoken: as.spoken || text, score: as.score, marks: as.marks });
   ds.revealed = true;
   renderDialogueDrill(document.getElementById('learn-content'));
+}
+
+/* ═══════════════════════════════════════════════════
+   🎬 레슨 설명 영상 — 음성 내레이션 + 단어별 하이라이트로
+   문법을 "영상처럼" 쉽게 설명하는 자동 재생 슬라이드.
+   실제 동영상 파일이 아니라 브라우저 음성합성(Web Speech)과
+   기존 syncWords()/playSync() 하이라이트를 이어붙여 같은 효과를 낸다.
+   레슨 데이터(sections/points/examples)를 그대로 재사용해 콘텐츠를 새로
+   만들 필요가 없다.
+═══════════════════════════════════════════════════ */
+let lvState = null; // { lesson, steps, idx, playing, lastPlayedIdx }
+let lvCancelToken = 0;
+
+function lessonVideoLessons() { return ALL_LESSONS.filter(l => l.sections && l.sections.length); }
+
+function lessonVideoSteps(l) {
+  const steps = [{ type: 'title', title: l.title }];
+  (l.sections || []).forEach(sec => {
+    steps.push({ type: 'section', title: sec.title, intro: sec.intro });
+    (sec.points || []).forEach(p => steps.push({ type: 'point', en: p.en, kr: p.kr, note: p.note }));
+  });
+  if (l.examples && l.examples.length) {
+    steps.push({ type: 'examplesTitle' });
+    l.examples.forEach(ex => steps.push({ type: 'example', en: ex.en, kr: ex.kr }));
+  }
+  steps.push({ type: 'end' });
+  return steps;
+}
+
+function startLessonVideo(lessonId) {
+  const l = ALL_LESSONS.find(x => x.id === lessonId) || lessonVideoLessons()[0];
+  if (!l) { toast('설명 영상을 만들 수 있는 레슨이 없어요.'); return; }
+  lvState = { lesson: l, steps: lessonVideoSteps(l), idx: 0, playing: true, lastPlayedIdx: -1 };
+  gotoLearn('lessonvideo');
+}
+function quitLessonVideo() {
+  lvCancelToken++;
+  try { window.speechSynthesis.cancel(); } catch (e) {}
+  lvState = null;
+  backToFeatures();
+}
+
+/* 일반 멘트(한국어 설명 등)를 말하고 끝나면 resolve — tts()와 같은 보이스/감정 로직이지만 Promise로 순서 제어 */
+function speakAsync(text, lang, rate = 0.95) {
+  return new Promise(resolve => {
+    const synth = window.speechSynthesis;
+    const clean = cleanForSpeech(text);
+    if (!synth || !clean) { resolve(); return; }
+    synth.cancel();
+    setTimeout(() => {
+      const emo = emotionProsody(clean);
+      const u = new SpeechSynthesisUtterance(clean);
+      u.lang = lang;
+      u.rate = rate * emo.rateMul;
+      u.pitch = 1.06 * emo.pitchMul;
+      u.volume = emo.volume;
+      const v = pickVoice(lang);
+      if (v) u.voice = v;
+      u.onend = u.onerror = () => resolve();
+      try { synth.resume(); } catch (e) {}
+      synth.speak(u);
+    }, 60);
+  });
+}
+
+/* playSync()와 동일한 단어 하이라이트지만 끝나면 resolve — 영상 단계 진행에 쓴다 */
+function speakHighlightedAsync(lineEl) {
+  return new Promise(resolve => {
+    if (!lineEl || !window.speechSynthesis) { resolve(); return; }
+    window.speechSynthesis.cancel();
+    const text = lineEl.dataset.text || '';
+    const spans = [...lineEl.querySelectorAll('.sync-word')];
+    spans.forEach(s => s.classList.remove('on'));
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US';
+    u.rate = 0.88;
+    u.pitch = 1.05;
+    const v = pickVoice('en-US');
+    if (v) u.voice = v;
+    u.onboundary = (e) => {
+      if (e.name && e.name !== 'word') return;
+      let best = null;
+      spans.forEach(s => { if (+s.dataset.char <= e.charIndex) best = s; });
+      spans.forEach(s => s.classList.remove('on'));
+      if (best) best.classList.add('on');
+    };
+    u.onend = u.onerror = () => { spans.forEach(s => s.classList.remove('on')); resolve(); };
+    try { window.speechSynthesis.resume(); } catch (e) {}
+    window.speechSynthesis.speak(u);
+  });
+}
+
+async function lvPlayCurrentStep() {
+  const token = ++lvCancelToken;
+  const st = lvState;
+  if (!st) return;
+  const step = st.steps[st.idx];
+  const stillCurrent = () => lvCancelToken === token && lvState === st;
+  try {
+    if (step.type === 'title') {
+      await speakAsync(`${step.title}. 레슨 설명 영상을 시작합니다.`, 'ko-KR');
+    } else if (step.type === 'section') {
+      await speakAsync(step.title, 'ko-KR');
+      if (!stillCurrent()) return;
+      if (step.intro) await speakAsync(step.intro, 'ko-KR');
+    } else if (step.type === 'point' || step.type === 'example') {
+      const lineEl = document.getElementById('lv-en-line');
+      if (lineEl) await speakHighlightedAsync(lineEl);
+      if (!stillCurrent()) return;
+      const tail = step.note ? '. ' + cleanForSpeech(step.note).replace(/\n/g, '. ') : '';
+      await speakAsync((step.kr || '') + tail, 'ko-KR');
+    } else if (step.type === 'examplesTitle') {
+      await speakAsync('이제 예문으로 연습해볼게요.', 'ko-KR');
+    } else if (step.type === 'end') {
+      await speakAsync('레슨 설명 영상이 끝났어요. 수고하셨습니다!', 'ko-KR');
+    }
+  } catch (e) { /* 음성 합성 오류는 무시하고 다음 단계로 진행 */ }
+  if (!stillCurrent() || !lvState.playing) return;
+  lvAutoAdvance();
+}
+function lvAutoAdvance() {
+  if (!lvState) return;
+  if (lvState.idx >= lvState.steps.length - 1) { lvState.playing = false; renderLessonVideo(document.getElementById('learn-content')); return; }
+  lvState.idx++;
+  renderLessonVideo(document.getElementById('learn-content'));
+}
+function lvGoto(newIdx) {
+  if (!lvState) return;
+  lvCancelToken++;
+  try { window.speechSynthesis.cancel(); } catch (e) {}
+  lvState.idx = Math.max(0, Math.min(lvState.steps.length - 1, newIdx));
+  renderLessonVideo(document.getElementById('learn-content'));
+}
+function lvPrev() { lvGoto(lvState.idx - 1); }
+function lvNext() { lvGoto(lvState.idx + 1); }
+function lvTogglePlay() {
+  if (!lvState) return;
+  lvState.playing = !lvState.playing;
+  if (!lvState.playing) { lvCancelToken++; try { window.speechSynthesis.cancel(); } catch (e) {} }
+  renderLessonVideo(document.getElementById('learn-content'));
+}
+
+function renderLessonVideo(el) {
+  if (!lvState) {
+    const opts = lessonVideoLessons();
+    let html = learnHeader('🎬', '레슨 설명 영상', '음성 내레이션과 단어 하이라이트로 보는 문법 설명');
+    html += `<div style="font-size:0.82rem;color:var(--text-muted);line-height:1.7;margin-bottom:14px">레슨의 문법 설명이 자동 재생되는 음성 슬라이드로 펼쳐져요. 영어 문장은 말하는 단어가 실시간으로 하이라이트되어 마치 자막 영상을 보듯 따라갈 수 있어요.</div>`;
+    if (!opts.length) html += `<div class="empty-note">아직 설명 영상을 만들 수 있는 레슨이 없어요.</div>`;
+    opts.forEach(l => { html += `<button class="start-drill-btn" style="margin-bottom:8px" onclick="startLessonVideo(${l.id})">▶ ${esc(lessonLabel(l))} · ${esc(l.title)}</button>`; });
+    el.innerHTML = html;
+    return;
+  }
+  const st = lvState;
+  const step = st.steps[st.idx];
+  const progress = Math.round((st.idx / Math.max(1, st.steps.length - 1)) * 100);
+  let html = learnHeader('🎬', '레슨 설명 영상', st.lesson.title);
+  html += `<div class="bar" style="margin-bottom:12px"><div class="fill" style="width:${progress}%"></div></div>`;
+  html += `<div style="background:var(--surface);border:1px solid var(--primary);border-radius:16px;padding:28px 20px;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px">`;
+  if (step.type === 'title') {
+    html += `<div style="font-size:2rem">🎬</div><div style="font-size:1.2rem;font-weight:800">${esc(st.lesson.title)}</div>`;
+  } else if (step.type === 'section') {
+    html += `<div style="font-size:1.05rem;font-weight:800;color:var(--primary-light)">${esc(step.title)}</div>`;
+    if (step.intro) html += `<div style="font-size:0.88rem;color:var(--text-muted);line-height:1.7">${esc(step.intro)}</div>`;
+  } else if (step.type === 'point' || step.type === 'example') {
+    html += `<div id="lv-en-line" class="sync-line" data-text="${jsAttr(step.en)}" data-loop="0" style="font-size:1.2rem;font-weight:800;line-height:1.6">${syncWords(step.en)}</div>`;
+    if (step.kr) html += `<div style="font-size:0.95rem;color:var(--text-muted)">${esc(step.kr)}</div>`;
+    if (step.note) html += `<div style="font-size:0.8rem;color:var(--text-muted);line-height:1.7;text-align:left;background:var(--surface2);border-radius:10px;padding:10px 14px;margin-top:6px">${noteHtml(step.note)}</div>`;
+  } else if (step.type === 'examplesTitle') {
+    html += `<div style="font-size:1.4rem">📝</div><div style="font-size:1rem;font-weight:800">예문으로 연습해볼까요?</div>`;
+  } else if (step.type === 'end') {
+    html += `<div style="font-size:2rem">🎉</div><div style="font-size:1.1rem;font-weight:800">레슨 설명 영상이 끝났어요!</div>`;
+  }
+  html += `</div>`;
+  html += `<div style="display:flex;justify-content:center;gap:10px;margin-top:16px">
+    <button class="btn" onclick="lvPrev()" ${st.idx === 0 ? 'disabled' : ''}>⏮</button>
+    <button class="btn primary" style="min-width:64px" onclick="lvTogglePlay()">${st.playing ? '⏸' : '▶'}</button>
+    <button class="btn" onclick="lvNext()" ${st.idx === st.steps.length - 1 ? 'disabled' : ''}>⏭</button>
+  </div>`;
+  html += `<div style="text-align:center;font-size:0.74rem;color:var(--text-muted);margin-top:8px">${st.idx + 1} / ${st.steps.length}</div>`;
+  html += `<button class="btn" style="width:100%;margin-top:14px" onclick="quitLessonVideo()">← 그만보기</button>`;
+  el.innerHTML = html;
+  if (st.playing && st.lastPlayedIdx !== st.idx) {
+    st.lastPlayedIdx = st.idx;
+    lvPlayCurrentStep();
+  }
 }
 
 function renderMaster() {
