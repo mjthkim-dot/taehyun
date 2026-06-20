@@ -5,11 +5,14 @@ Gemma4 (Ollama) ↔ Web Browser
 """
 
 import http.server
+import importlib.util
 import json
 import os
 import re
 import socket
 import sys
+import tempfile
+import threading
 import webbrowser
 from pathlib import Path
 
@@ -119,6 +122,88 @@ def analyze_caf(transcript, cefr="A2", duration_sec=None, model=None):
     return result
 
 
+# ═══════════════════════════════════════════════════════════
+# 🗣️  로컬 오픈소스 TTS (MeloTTS · MIT)
+# 한국어 음성을 외부 API(Azure 등) 없이 로컬에서 합성한다.
+# 의존성(torch, melotts)이 없으면 조용히 비활성 → 프런트가 브라우저 음성으로 폴백한다.
+# 모델은 첫 요청 때 lazy-load 하고 메모리에 캐시(ThreadingHTTPServer라 lock으로 보호).
+# ═══════════════════════════════════════════════════════════
+TTS_ENABLED = os.environ.get("LOCAL_TTS", "1") != "0"
+# MeloTTS 언어 코드: ko→KR, en→EN (그 외는 KR로 폴백)
+_TTS_LANG_CODE = {"ko": "KR", "en": "EN"}
+# 언어별 기본 화자(자연스러운 음색을 위해 고정) — 모델에 없으면 첫 화자로 폴백
+_TTS_PREFERRED_SPK = {"KR": "KR", "EN": "EN-US"}
+
+_tts_lock = threading.Lock()
+_tts_models = {}          # "KR"/"EN" → (model, default_speaker_id)
+_tts_import_failed = False
+
+
+def _tts_available():
+    """MeloTTS가 설치돼 있어(=import 가능) 로컬 TTS를 쓸 수 있는지."""
+    if not TTS_ENABLED or _tts_import_failed:
+        return False
+    return importlib.util.find_spec("melo") is not None
+
+
+def _load_tts(code):
+    """MeloTTS 모델을 lazy-load(스레드 안전). 실패하면 None을 돌려 폴백을 유도."""
+    global _tts_import_failed
+    if not TTS_ENABLED or _tts_import_failed:
+        return None
+    with _tts_lock:
+        if code in _tts_models:
+            return _tts_models[code]
+        try:
+            from melo.api import TTS  # noqa: PLC0415 (의도적 lazy import)
+        except Exception as e:  # noqa: BLE001
+            _tts_import_failed = True
+            print(f"  ℹ️  로컬 TTS 비활성 (melotts 미설치 — bash voice-assistant/tts-setup.sh): {e}")
+            return None
+        try:
+            model = TTS(language=code, device="cpu")
+            spk_map = model.hps.data.spk2id
+            spk_id = spk_map.get(_TTS_PREFERRED_SPK.get(code, ""), next(iter(spk_map.values()), 0))
+            _tts_models[code] = (model, spk_id)
+            print(f"  ✅ 로컬 TTS 모델 로드됨 ({code})")
+            return _tts_models[code]
+        except Exception as e:  # noqa: BLE001
+            print(f"  ⚠️  로컬 TTS 모델 로드 실패 ({code}): {e}")
+            return None
+
+
+def synth_tts(text, lang="ko", speed=1.0):
+    """텍스트 → WAV bytes. 모델이 없거나 실패하면 None(호출부에서 503 폴백)."""
+    text = (text or "").strip()
+    if not text:
+        return None
+    code = _TTS_LANG_CODE.get((lang or "ko")[:2], "KR")
+    loaded = _load_tts(code)
+    if loaded is None:
+        return None
+    model, spk_id = loaded
+    speed = max(0.5, min(2.0, float(speed or 1.0)))
+    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    tmp.close()
+    try:
+        # 동일 모델로 동시 합성 시 내부 상태 충돌을 막기 위해 직렬화
+        with _tts_lock:
+            model.tts_to_file(text, spk_id, tmp.name, speed=speed)
+        with open(tmp.name, "rb") as f:
+            return f.read()
+    finally:
+        try:
+            os.remove(tmp.name)
+        except OSError:
+            pass
+
+
+def warm_tts():
+    """백그라운드로 한국어 모델을 미리 로드해 첫 합성 지연을 줄인다(데몬 스레드)."""
+    if _tts_available():
+        threading.Thread(target=lambda: _load_tts("KR"), daemon=True).start()
+
+
 def get_lan_ip():
     """모바일에서 접속할 수 있는 이 컴퓨터의 로컬 네트워크 IP를 찾는다."""
     try:
@@ -171,6 +256,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(payload)
 
+        elif self.path == "/api/tts/status":
+            # 프런트가 로컬 오픈소스 TTS 사용 가능 여부를 판단하는 데 쓴다.
+            self._send_json(200, {
+                "available": _tts_available(),
+                "ready": "KR" in _tts_models,
+                "engine": "melotts",
+            })
+
         elif self.path in STATIC_FILES:
             self._serve_static(APP_DIR / self.path.lstrip("/"))
 
@@ -218,6 +311,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._send_json(503, {"error": "Ollama에 연결할 수 없습니다."})
             except requests.exceptions.Timeout:
                 self._send_json(503, {"error": "모델 응답이 지연되고 있습니다. 대형 모델은 처음 로딩에 시간이 걸려요. 잠시 후 다시 시도하세요."})
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"error": str(e)})
+            return
+
+        # 🆕 로컬 오픈소스 TTS (MeloTTS) — 한국어 자연 음성 합성
+        if self.path == "/api/tts":
+            try:
+                req = json.loads(body or b"{}")
+                wav = synth_tts(req.get("text", ""), req.get("lang", "ko"), req.get("speed", 1.0))
+                if wav is None:
+                    self._send_json(503, {"error": "로컬 TTS를 사용할 수 없습니다 (모델 미설치/로드 실패)."})
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "audio/wav")
+                self.send_header("Content-Length", str(len(wav)))
+                self.send_header("Cache-Control", "no-store")
+                self._cors()
+                self.end_headers()
+                self.wfile.write(wav)
             except Exception as e:  # noqa: BLE001
                 self._send_json(500, {"error": str(e)})
             return
@@ -289,6 +401,11 @@ if __name__ == "__main__":
     print("  🎓  PREPLY AI 스피킹 코치")
     print("  ─────────────────────────────")
     check_ollama()
+    if _tts_available():
+        print("  🗣️  로컬 한국어 음성(MeloTTS) 활성 — 백그라운드 로딩 중...")
+        warm_tts()
+    else:
+        print("  ℹ️  로컬 한국어 음성 비활성 (자연 음성 원하면: bash voice-assistant/tts-setup.sh)")
     print(f"\n  🖥  PC 브라우저:    http://localhost:{PORT}")
     lan_ip = get_lan_ip()
     if lan_ip:
