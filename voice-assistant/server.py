@@ -22,8 +22,22 @@ except ImportError:
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 PORT = int(os.environ.get("PORT", "3777"))
 HOST = os.environ.get("HOST", "0.0.0.0")  # 0.0.0.0 = 같은 Wi-Fi의 모바일에서도 접속 가능
-HTML_FILE = Path(__file__).parent / "index.html"
+APP_DIR = Path(__file__).parent
+HTML_FILE = APP_DIR / "index.html"
 CAF_MODEL = os.environ.get("CAF_MODEL", "gemma3:27b")
+
+# PWA(서비스워커/매니페스트)가 동작하려면 sw.js·manifest.webmanifest를 정적으로 서빙해야 한다.
+# 같은 디렉터리(voice-assistant/) 내부 파일만 허용 — 경로 순회(path traversal) 차단.
+STATIC_FILES = {"/sw.js", "/manifest.webmanifest"}
+CONTENT_TYPES = {
+    ".js": "text/javascript; charset=utf-8",
+    ".webmanifest": "application/manifest+json",
+    ".json": "application/json",
+    ".png": "image/png",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+}
+
 
 # CEFR → 한 단계 위 (paraphrase 목표 레벨)
 CEFR_NEXT = {"A1": "A2", "A2": "B1", "B1": "B2", "B2": "C1", "C1": "C2", "C2": "C2"}
@@ -157,8 +171,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(payload)
 
+        elif self.path in STATIC_FILES:
+            self._serve_static(APP_DIR / self.path.lstrip("/"))
+
         else:
             self.send_error(404)
+
+    # ── PWA 정적 파일(sw.js, manifest.webmanifest) 서빙 ───
+    def _serve_static(self, path: Path):
+        try:
+            data = path.read_bytes()
+        except OSError:
+            self.send_error(404)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", CONTENT_TYPES.get(path.suffix, "application/octet-stream"))
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store, must-revalidate")
+        self._cors()
+        self.end_headers()
+        self.wfile.write(data)
 
     def _send_json(self, code, obj):
         payload = json.dumps(obj, ensure_ascii=False).encode("utf-8")
