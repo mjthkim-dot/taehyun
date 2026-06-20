@@ -569,7 +569,7 @@
 <div class="panel" id="panel-master"><div class="panel-inner" id="master-content"></div></div>
 
 <script>
-const APP_VERSION = 'v4.63';
+const APP_VERSION = 'v4.64';
 
 /* ═══════════════════════════════════════════════════
    PREPLY 레슨 데이터 (Notion 레슨노트 기반)
@@ -7188,12 +7188,12 @@ function _speakSegmentWeb(text, lang) {
     u.lang = isKo ? 'ko-KR' : lang;
     const emo = emotionProsody(text);
     if (isKo) {
-      // 한국어 원어민 톤: 살짝 느긋하고 따뜻하게 (또박또박, 기계적 흔들림 없음) + 감정 보정
-      u.rate = 0.97 * emo.rateMul;
+      // 한국어 원어민 톤: 느긋하고 따뜻하게 (또박또박, 기계적 흔들림 없음) + 감정 보정
+      u.rate = 0.88 * emo.rateMul;
       u.pitch = 1.0 * emo.pitchMul;
     } else {
-      // 영어 원어민 톤: 자연스러운 속도, 문장마다 미세한 변화로 단조로움 완화 + 감정 보정
-      u.rate = (1.0 + (Math.random() * 0.05 - 0.02)) * emo.rateMul;
+      // 영어 원어민 톤: 너무 빠르고 기계적으로 들리지 않게 살짝 느긋한 속도 + 문장마다 미세한 변화로 단조로움 완화 + 감정 보정
+      u.rate = (0.88 + (Math.random() * 0.05 - 0.02)) * emo.rateMul;
       u.pitch = (1.02 + (Math.random() * 0.05 - 0.025)) * emo.pitchMul;
     }
     u.volume = emo.volume;
@@ -7222,13 +7222,21 @@ document.addEventListener('touchend', _unlockGroqAudio, { once: true, capture: t
 
 let _groqTtsWarned = false;   // play() 차단 경고 토스트는 세션당 한 번만
 
+/* Orpheus는 합성음을 원어민 평균보다 빠르게 내놓아 "AI스럽고 빠르다"는 인상을 준다.
+   오디오 파일 자체의 속도를 조절(playbackRate)해 사람 튜터처럼 여유 있게 들리도록 늦춘다.
+   브라우저는 기본적으로 재생 속도를 늦춰도 피치를 보존(anti-chipmunk)하므로 음높이는 그대로다. */
+const GROQ_TTS_RATE = 0.84;
+
 /* Groq Orpheus TTS로 한 구간을 발화(영어 전용) — play()가 차단되면 경고 후 Web Speech로 폴백 */
 function _speakSegmentGroq(text, voice) {
   const tag = emotionDirectionTag(text);
   const input = tag ? `${tag} ${text}` : text;
+  const emo = emotionProsody(text);
   return groqTTS(input, voice).then((url) => new Promise((resolve) => {
     const audio = _groqAudioEl || (_groqAudioEl = new Audio());
     _activeGroqAudio = audio;
+    try { audio.preservesPitch = true; audio.mozPreservesPitch = true; audio.webkitPreservesPitch = true; } catch (e) {}
+    audio.playbackRate = GROQ_TTS_RATE * emo.rateMul;
     let settled = false;
     const done = () => {
       if (settled) return;
