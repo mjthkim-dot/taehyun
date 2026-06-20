@@ -1,0 +1,188 @@
+'use client';
+
+/**
+ * 레슨(학습) 화면 — 기존 voice-assistant/index.html 의 renderStudy() 를 React로 포팅.
+ * 섹션/포인트/예문/대화문/프리토킹/숙제를 원본과 동일한 순서로 보여준다.
+ * TTS(말하기) 연동은 다음 단계 작업 — 지금은 콘텐츠 표시 + 레슨 선택에 집중한다.
+ */
+import { useMemo } from 'react';
+import {
+  ALL_LESSONS,
+  LESSONS,
+  MASTER_LESSONS,
+  SCENARIO_LIBRARY,
+  lessonLabel,
+  cefrOf,
+  scaffoldFor,
+  type Lesson,
+} from '../lib/lessons';
+import Note from './Note';
+import SpeakButton from './SpeakButton';
+
+interface StudyScreenProps {
+  lessonId: number;
+  onSelectLesson: (id: number) => void;
+}
+
+export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenProps) {
+  const lesson = useMemo(
+    () => ALL_LESSONS.find((l) => l.id === lessonId) ?? LESSONS[LESSONS.length - 1],
+    [lessonId]
+  );
+
+  const scaffold = scaffoldFor(cefrOf(lesson));
+  const scaffoldPct = Math.round(scaffold * 100);
+
+  return (
+    <div className="study-screen">
+      <LessonPicker selectedId={lesson.id} onSelect={onSelectLesson} />
+
+      {scaffold < 1 && (
+        <div className="scaffold-note">
+          🪜 <b>스캐폴딩 {scaffoldPct}%</b> — CEFR {cefrOf(lesson)} 단계라 한글 번역 의존을 줄여
+          스스로 의미를 잡는 훈련입니다.
+        </div>
+      )}
+
+      {lesson.preview && (
+        <div className="study-card preview-card">
+          <h3>🔮 선행학습 — 다음 수업 미리 준비하기</h3>
+          <p className="muted">
+            아직 PREPLY에서 배우지 않은 내용입니다. 표준 A2 커리큘럼에서 지금 진도의 바로 다음
+            단계예요. 미리 익혀두면 실제 수업에서 훨씬 빠르게 흡수됩니다.
+          </p>
+        </div>
+      )}
+      {!lesson.preview && lesson.master && (
+        <div className="study-card master-card">
+          <h3>🗺 마스터 코스 — CEFR {lesson.master}</h3>
+          <p className="muted">
+            ① 핵심 포인트와 예문을 소리 내어 익히고 → ② 드릴에서 입에 붙인 뒤 → ③ 회화에서
+            AI 코치와 실전 연습하세요.
+          </p>
+        </div>
+      )}
+
+      {(lesson.sections ?? []).map((sec, i) => (
+        <div className="study-card" key={i}>
+          <h3>{sec.title}</h3>
+          {sec.intro && <div className="sec-intro">{sec.intro}</div>}
+          {sec.points.map((p, j) => (
+            <div className="point" key={j}>
+              <div className="en">{p.en}</div>
+              {p.kr && <div className="kr">{p.kr}</div>}
+              {p.note && (
+                <div className="note">
+                  <Note text={p.note} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ))}
+
+      {!!lesson.examples?.length && (
+        <div className="study-card">
+          <h3>예문 — 🔊 듣고 따라 말하기</h3>
+          {lesson.examples.map((e, i) => (
+            <div className="example-row" key={i}>
+              <div className="txt">
+                <div className="en">{e.en}</div>
+                <div className="kr muted">{e.kr}</div>
+              </div>
+              <SpeakButton text={e.en} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {lesson.dialogue && (
+        <div className="study-card">
+          <h3>💬 실전 대화문 — {lesson.dialogue.title}</h3>
+          {lesson.dialogue.lines.map((ln, i) => (
+            <div className="example-row" key={i}>
+              <div className="txt">
+                <div className="en">
+                  <span className={ln.sp === 'A' ? 'sp-a' : 'sp-b'}>{ln.sp}</span> {ln.en}
+                </div>
+                <div className="kr muted">{ln.kr}</div>
+              </div>
+              <SpeakButton text={ln.en} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {lesson.freeTalk && (
+        <div className="study-card freetalk-card">
+          <h3>🗣 진옥쌤과 프리토킹 — 내 이야기로 말하기</h3>
+          {lesson.freeTalk.intro && <div className="sec-intro">{lesson.freeTalk.intro}</div>}
+          {lesson.freeTalk.topics.map((t, i) => (
+            <div className="point" key={i}>
+              <div className="topic-label">🗣 {t.topic}</div>
+              <div className="kr strong">{t.kr}</div>
+              <div className="en">
+                {t.en} <SpeakButton text={t.en} />
+              </div>
+              {t.tip && (
+                <div className="note">
+                  💡 <Note text={t.tip} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {lesson.homework && (
+        <div className="hw-box">
+          📌 <b>{lesson.preview ? '예습 과제' : '숙제'}</b>
+          <br />
+          {lesson.homework}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LessonPicker({
+  selectedId,
+  onSelect,
+}: {
+  selectedId: number;
+  onSelect: (id: number) => void;
+}) {
+  return (
+    <select
+      className="lesson-picker"
+      value={selectedId}
+      onChange={(e) => onSelect(Number(e.target.value))}
+    >
+      <optgroup label="회차">
+        {LESSONS.map((l) => (
+          <option key={l.id} value={l.id}>
+            {lessonLabel(l)} · {l.title}
+          </option>
+        ))}
+      </optgroup>
+      <optgroup label="마스터 코스">
+        {MASTER_LESSONS.map((l) => (
+          <option key={l.id} value={l.id}>
+            {lessonLabel(l)} · {l.title}
+          </option>
+        ))}
+      </optgroup>
+      <optgroup label="시나리오">
+        {SCENARIO_LIBRARY.map((l) => (
+          <option key={l.id} value={l.id}>
+            {lessonLabel(l)} · {l.dialogue?.title ?? ''}
+          </option>
+        ))}
+      </optgroup>
+    </select>
+  );
+}
+
+export function defaultLesson(): Lesson {
+  return LESSONS.filter((l) => !l.preview).slice(-1)[0] ?? LESSONS[0];
+}
