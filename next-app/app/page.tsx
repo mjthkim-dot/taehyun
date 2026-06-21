@@ -8,6 +8,8 @@ import { useState } from 'react';
 import NavBar, { type Mode } from '../components/NavBar';
 import StudyScreen, { defaultLesson } from '../components/StudyScreen';
 import DrillScreen from '../components/DrillScreen';
+import ReviewScreen from '../components/ReviewScreen';
+import ProgressScreen from '../components/ProgressScreen';
 import ComingSoon from '../components/ComingSoon';
 
 const TAB_TITLE: Record<Mode, string> = {
@@ -34,7 +36,11 @@ export default function Page() {
       <div className="app-content">
         {mode === 'study' && <StudyScreen lessonId={lessonId} onSelectLesson={setLessonId} />}
         {mode === 'drill' && <DrillScreen lessonId={lessonId} />}
-        {mode !== 'study' && mode !== 'drill' && <ComingSoon label={TAB_TITLE[mode]} />}
+        {mode === 'review' && <ReviewScreen />}
+        {mode === 'progress' && <ProgressScreen />}
+        {mode !== 'study' && mode !== 'drill' && mode !== 'review' && mode !== 'progress' && (
+          <ComingSoon label={TAB_TITLE[mode]} />
+        )}
       </div>
 
       <NavBar mode={mode} onChange={setMode} />
