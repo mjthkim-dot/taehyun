@@ -1,0 +1,618 @@
+'use client';
+
+/**
+ * 회화(talk) 화면 — voice-assistant/index.html 의 sendMessage()/buildSystemPrompt()/
+ * maybeBackgroundCorrect()/analyzeCaf() 등을 포팅. 모델은 Groq 고정(WebLLM/Ollama 제외),
+ * 음성 입출력은 브라우저 내장 Web Speech API만 사용한다(Whisper 로컬 모델 다운로드 제외).
+ * 🎲 새 주제 생성·🔧 음성진단·미션 체크리스트는 관련 데이터가 아직 없어 이번 단계에서는 제외했다.
+ */
+import { useEffect, useRef, useState } from 'react';
+import { ALL_LESSONS, LESSONS, CEFR_NEXT, cefrOf, type Lesson } from '../lib/lessons';
+import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, store } from '../lib/state';
+import { groqStream, groqComplete, GroqError } from '../lib/groq';
+import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, parseAiText } from '../lib/talkPrompts';
+
+interface Correction {
+  is_correct: boolean;
+  corrected_sentence: string;
+  native_expression: string;
+  korean_feedback: string;
+}
+
+interface CafResult {
+  complexity: number;
+  accuracy: number;
+  fluency: number;
+  errors: { wrong: string; right: string; type: string; why_ko: string }[];
+  paraphrases: { original: string; upgraded: string; note_ko: string }[];
+  summary_ko: string;
+  metrics: { word_count: number; wpm: number | null };
+}
+
+type ChatMsg =
+  | { id: number; kind: 'intro'; scenario: { title: string; desc: string }; examples: { en: string; kr: string }[] }
+  | { id: number; kind: 'user'; text: string; time: string; correction?: 'pending' | Correction | null }
+  | { id: number; kind: 'ai'; text: string; time: string; streaming?: boolean; translation?: string | null; translating?: boolean }
+  | { id: number; kind: 'system'; text: string }
+  | { id: number; kind: 'caf'; cefr: string; result: CafResult };
+
+const TALK_STARTERS = [
+  'Could you repeat that?',
+  'What do you mean?',
+  'Let me think for a second.',
+  "That's a good question.",
+  'How about you?',
+  "I'm not sure how to say it.",
+];
+
+function getSpeechRecognition(): typeof SpeechRecognition | null {
+  if (typeof window === 'undefined') return null;
+  return (
+    window.SpeechRecognition ||
+    (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition ||
+    null
+  );
+}
+
+function speak(text: string, onend?: () => void) {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const clean = text.replace(/\[HEARD:[^\]]*\]/g, '').replace(/\[EXPLAIN:[^\]]*\]/g, '');
+  const u = new SpeechSynthesisUtterance(clean);
+  u.lang = 'en-US';
+  if (onend) u.onend = onend;
+  window.speechSynthesis.speak(u);
+}
+
+export default function TalkScreen({ lessonId }: { lessonId: number }) {
+  const [ready, setReady] = useState(false);
+  const [keyInput, setKeyInput] = useState('');
+  const [hasKey, setHasKey] = useState(false);
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [input, setInput] = useState('');
+  const [interim, setInterim] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [micOn, setMicOn] = useState(false);
+  const [bgCorrectOn, setBgCorrectOn] = useState(true);
+  const [cafBusy, setCafBusy] = useState(false);
+
+  const lesson = ALL_LESSONS.find((l) => l.id === lessonId) ?? LESSONS[LESSONS.length - 1];
+  const historyRef = useRef<{ role: string; content: string }[]>([]);
+  const talkStampsRef = useRef<number[]>([]);
+  const idRef = useRef(0);
+  const recogRef = useRef<SpeechRecognition | null>(null);
+  const micOnRef = useRef(false);
+  const chatBoxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setReady(true);
+    setHasKey(!!groqKey());
+    setBgCorrectOn(load('va_bgcorrect', true));
+  }, []);
+
+  // 레슨이 바뀌면 대화를 리셋하고 시나리오 인트로 카드를 다시 보여준다.
+  useEffect(() => {
+    if (!ready) return;
+    historyRef.current = [];
+    talkStampsRef.current = [];
+    if (lesson.scenario) {
+      setMessages([
+        {
+          id: ++idRef.current,
+          kind: 'intro',
+          scenario: lesson.scenario,
+          examples: (lesson.examples || []).slice(0, 3),
+        },
+      ]);
+    } else {
+      setMessages([]);
+    }
+  }, [lessonId, ready]);
+
+  useEffect(() => {
+    chatBoxRef.current?.scrollTo({ top: chatBoxRef.current.scrollHeight });
+  }, [messages]);
+
+  if (!ready) return null;
+
+  function nextId() {
+    return ++idRef.current;
+  }
+
+  function timeStr() {
+    return new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function updateMsg(id: number, patch: Partial<ChatMsg>) {
+    setMessages((prev) => prev.map((m) => (m.id === id ? ({ ...m, ...patch } as ChatMsg) : m)));
+  }
+
+  function prevLessons(): Lesson[] {
+    const regular = LESSONS.filter((l) => !l.preview);
+    const idx = regular.findIndex((l) => l.id === lesson.id);
+    return idx > 0 ? regular.slice(Math.max(0, idx - 2), idx) : [];
+  }
+
+  async function maybeBackgroundCorrect(text: string, userId: number) {
+    if (!bgCorrectOn || !groqKey()) return;
+    const latinWords = text.match(/[A-Za-z]+/g) || [];
+    if (latinWords.length < 2) return;
+    updateMsg(userId, { correction: 'pending' });
+    try {
+      const input = JSON.stringify({
+        task_type: 'correction',
+        target_grammar: lessonTargetGrammar(lesson),
+        scenario: lesson.scenario ? `${lesson.scenario.title} — ${lesson.scenario.desc}` : '',
+        user_input: text,
+      });
+      const raw = await groqComplete(
+        [{ role: 'system', content: BG_CORRECT_SYS }, { role: 'user', content: input }],
+        { json: true, maxTokens: 420, temperature: 0.2 }
+      );
+      const parsed = JSON.parse(raw) as Correction;
+      updateMsg(userId, { correction: parsed });
+    } catch {
+      updateMsg(userId, { correction: null });
+    }
+  }
+
+  function maybeResumeHandsFree() {
+    if (micOnRef.current) startListening();
+  }
+
+  async function handleSend(text: string, hidden = false) {
+    if (!text || isProcessing) return;
+    if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+    let userId = -1;
+    if (!hidden) {
+      userId = nextId();
+      setMessages((prev) => [...prev, { id: userId, kind: 'user', text, time: timeStr() }]);
+      markPracticedToday();
+      talkStampsRef.current.push(Date.now());
+      maybeBackgroundCorrect(text, userId);
+    }
+    historyRef.current.push({ role: 'user', content: text });
+
+    const sysMsg = { role: 'system', content: buildSystemPrompt(lesson, null, prevLessons()) };
+    const msgs = [sysMsg, ...historyRef.current.slice(-8)];
+
+    setIsProcessing(true);
+    const aiId = nextId();
+    setMessages((prev) => [...prev, { id: aiId, kind: 'ai', text: '', time: timeStr(), streaming: true }]);
+
+    try {
+      let fullText = '';
+      for await (const delta of groqStream(msgs, { temperature: 0.7, maxTokens: 220 })) {
+        fullText += delta;
+        updateMsg(aiId, { text: fullText });
+      }
+      historyRef.current.push({ role: 'assistant', content: fullText });
+      updateMsg(aiId, { streaming: false });
+      speak(fullText, maybeResumeHandsFree);
+    } catch (err) {
+      setMessages((prev) => prev.filter((m) => m.id !== aiId));
+      const e = err as Error;
+      if (e instanceof GroqError && e.message === 'NO_GROQ_KEY') {
+        setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: '⚡ AI 강사 연결이 필요해요. 위에서 무료 Groq 키를 등록하면 바로 대화가 됩니다.' }]);
+        setHasKey(false);
+      } else {
+        setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: `❌ 오류: ${e.message}` }]);
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
+  function startListening() {
+    const SR = getSpeechRecognition();
+    if (!SR) return;
+    const recog = new SR();
+    recog.lang = 'en-US';
+    recog.continuous = false;
+    recog.interimResults = true;
+    recog.maxAlternatives = 1;
+    recog.onresult = (e: SpeechRecognitionEvent) => {
+      let interimTxt = '';
+      let finalTxt = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finalTxt += r[0].transcript;
+        else interimTxt += r[0].transcript;
+      }
+      setInterim(interimTxt);
+      if (finalTxt.trim()) {
+        setInterim('');
+        handleSend(finalTxt.trim());
+      }
+    };
+    recog.onend = () => {
+      setInterim('');
+      recogRef.current = null;
+    };
+    recogRef.current = recog;
+    recog.start();
+  }
+
+  function toggleMic() {
+    const next = !micOn;
+    setMicOn(next);
+    micOnRef.current = next;
+    if (next) {
+      startListening();
+    } else {
+      recogRef.current?.stop();
+      window.speechSynthesis?.cancel();
+    }
+  }
+
+  function sendText() {
+    const text = input.trim();
+    if (!text) return;
+    setInput('');
+    handleSend(text);
+  }
+
+  function sendChip(text: string) {
+    if (isProcessing) return;
+    handleSend(text);
+  }
+
+  function askForSuggestions() {
+    if (isProcessing) return;
+    const cefr = cefrOf(lesson);
+    setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: '💡 코치가 답변 예시를 준비 중...' }]);
+    handleSend(
+      `(도움 요청) 방금 네 질문/말에 내가 어떻게 답하면 좋을지 ${cefr} 수준의 짧고 자연스러운 영어 문장 3개를 제안해줘. 각 줄을 "- "로 시작하고, 각 문장 끝에 [EXPLAIN: 한국어 뜻]을 붙여줘.`,
+      true
+    );
+  }
+
+  function requestSummary() {
+    if (historyRef.current.length < 2) {
+      setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: '아직 대화가 충분하지 않습니다. 먼저 영어로 대화해 보세요!' }]);
+      return;
+    }
+    setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: '📋 AI 코치가 오늘 연습을 평가 중...' }]);
+    handleSend('지금까지의 대화를 평가해주세요. 한국어로: 1) 잘한 점 2) 자주 틀린 패턴 3) 복습할 표현 3개를 [EXPLAIN: ] 형식으로 정리해주세요.', true);
+  }
+
+  function toggleBgCorrect() {
+    const on = !bgCorrectOn;
+    setBgCorrectOn(on);
+    store('va_bgcorrect', on);
+  }
+
+  async function translate(id: number, text: string) {
+    const msg = messages.find((m) => m.id === id);
+    if (msg && msg.kind === 'ai' && msg.translation) {
+      updateMsg(id, { translation: null });
+      return;
+    }
+    updateMsg(id, { translating: true });
+    try {
+      const ko = await groqComplete(
+        [{ role: 'user', content: `다음 영어를 자연스러운 한국어로 번역만 해줘. 설명·따옴표·영어 원문 없이 한국어 번역문만 출력:\n\n${text}` }],
+        { temperature: 0.2, maxTokens: 260 }
+      );
+      updateMsg(id, { translation: ko.trim(), translating: false });
+    } catch {
+      updateMsg(id, { translating: false });
+    }
+  }
+
+  async function analyzeCaf() {
+    const utterances = historyRef.current.filter((h) => h.role === 'user').map((h) => h.content);
+    const transcript = utterances.join(' ');
+    if (transcript.split(/\s+/).filter(Boolean).length < 3) {
+      setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: 'CAF 분석은 먼저 영어로 몇 문장 말한 뒤에 가능합니다.' }]);
+      return;
+    }
+    setCafBusy(true);
+    const cefr = cefrOf(lesson);
+    const next = CEFR_NEXT[cefr];
+    const stamps = talkStampsRef.current;
+    const duration = stamps.length >= 2 ? (stamps[stamps.length - 1] - stamps[0]) / 1000 : null;
+    const words = transcript.match(/[A-Za-z']+/g) || [];
+    const wpm = duration && duration > 0 ? words.length / (duration / 60) : null;
+    try {
+      const raw = JSON.parse((await groqComplete([{ role: 'user', content: buildCafPrompt(transcript, cefr, next, wpm) }], { temperature: 0.3, maxTokens: 800, json: true })) || '{}');
+      const clamp = (v: unknown, lo = 0, hi = 10) => Math.max(lo, Math.min(hi, parseFloat(String(v)) || 0));
+      const fillers = (transcript.match(/\b(um+|uh+|er+|like|you know|i mean|kind of|sort of|well)\b/gi) || []).length;
+      const fillerRatio = words.length ? fillers / words.length : 0;
+      const result: CafResult = {
+        complexity: Math.round(clamp(raw.complexity) * 10) / 10,
+        accuracy: Math.round(clamp(raw.accuracy) * 10) / 10,
+        fluency: Math.round(Math.max(0, clamp(raw.fluency) - (fillerRatio > 0.1 ? fillerRatio * 10 : 0)) * 10) / 10,
+        errors: (raw.errors || []).slice(0, 3),
+        paraphrases: (raw.paraphrases || []).slice(0, 3),
+        summary_ko: String(raw.summary_ko || '').trim(),
+        metrics: { word_count: words.length, wpm: wpm ? Math.round(wpm * 10) / 10 : null },
+      };
+      setMessages((prev) => [...prev, { id: nextId(), kind: 'caf', cefr, result }]);
+      const band = { A1: [10, 22], A2: [22, 36], B1: [36, 52], B2: [52, 64], C1: [64, 76], C2: [76, 90] }[cefr];
+      const avg = (result.complexity + result.accuracy + result.fluency) / 3;
+      const sessionGse = Math.round(band[0] + (avg / 10) * (band[1] - band[0]));
+      bumpSkill('speaking', sessionGse);
+      const sessions = load<{ date: string; lessonId: number; cefr: string; caf: unknown; wpm: number | null; gse: number }[]>('va_sessions', []);
+      sessions.push({ date: new Date().toISOString(), lessonId: lesson.id, cefr, caf: { complexity: result.complexity, accuracy: result.accuracy, fluency: result.fluency }, wpm: result.metrics.wpm, gse: sessionGse });
+      store('va_sessions', sessions.slice(-50));
+    } catch (err) {
+      const e = err as Error;
+      if (e instanceof GroqError && e.message === 'NO_GROQ_KEY') {
+        setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: '⚡ CAF 분석을 위해 무료 Groq 키를 등록하세요.' }]);
+        setHasKey(false);
+      } else {
+        setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: `❌ CAF 분석 실패: ${e.message}` }]);
+      }
+    } finally {
+      setCafBusy(false);
+    }
+  }
+
+  function savePhrase(text: string) {
+    addPhrase({ en: text, kr: '', lesson: lesson.id });
+  }
+
+  function saveKey() {
+    if (!keyInput.trim()) return;
+    saveGroqKey(keyInput.trim());
+    setHasKey(true);
+    setKeyInput('');
+  }
+
+  const helperChips = [...new Set([...(lesson.examples || []).slice(0, 2).map((e) => e.en), ...TALK_STARTERS])].slice(0, 6);
+
+  return (
+    <div className="talk-screen">
+      {!hasKey && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 14, margin: '0 0 10px' }}>
+          <div style={{ fontSize: '0.86rem', fontWeight: 800, marginBottom: 6 }}>🔑 무료 Groq API 키가 필요해요</div>
+          <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.6 }}>
+            console.groq.com 에서 무료로 발급받은 키를 붙여넣으면 AI 회화·교정·CAF 분석이 모두 활성화됩니다.
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              className="text-input"
+              type="password"
+              placeholder="gsk_..."
+              value={keyInput}
+              onChange={(e) => setKeyInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && saveKey()}
+            />
+            <button className="btn primary" style={{ flex: '0 0 auto' }} onClick={saveKey}>
+              등록
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="chat-box" ref={chatBoxRef}>
+        {messages.map((m) => {
+          if (m.kind === 'intro') {
+            return (
+              <div className="msg" key={m.id}>
+                <div className="talk-intro">
+                  <div className="ti-head">🎬 {m.scenario.title}</div>
+                  <div className="ti-desc">{m.scenario.desc}</div>
+                  {m.examples.length > 0 && (
+                    <>
+                      <div className="ti-sec">💬 이렇게 말해보세요</div>
+                      <div className="ti-ex">
+                        {m.examples.map((e, i) => (
+                          <div key={i}>
+                            · {e.en} <span className="k">— {e.kr}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  <div className="ti-go">🎙️ 또는 입력창으로 영어 대화를 시작해 보세요!</div>
+                </div>
+              </div>
+            );
+          }
+          if (m.kind === 'system') {
+            return (
+              <div className="msg system" key={m.id}>
+                <div className="bubble">{m.text}</div>
+              </div>
+            );
+          }
+          if (m.kind === 'caf') {
+            return <CafCard key={m.id} cefr={m.cefr} result={m.result} onSave={savePhrase} />;
+          }
+          if (m.kind === 'user') {
+            return (
+              <div className="msg user" key={m.id}>
+                <div className="bubble">{m.text}</div>
+                <div className="msg-meta">{m.time}</div>
+                {m.correction === 'pending' && <div className="bg-correct" style={{ alignSelf: 'flex-end' }}><div className="bgc-head">✏️ 분석 중...</div></div>}
+                {m.correction && m.correction !== 'pending' && <CorrectionNote c={m.correction} onSave={savePhrase} />}
+              </div>
+            );
+          }
+          // ai
+          const parsed = parseAiText(m.text);
+          return (
+            <div className="msg ai" key={m.id}>
+              <div className={`bubble${m.streaming ? ' typing' : ''}`}>
+                {parsed.plain || (m.streaming ? <TypingDots /> : '')}
+                {parsed.heard.map((h, i) => (
+                  <div className="correction-box" key={i}>
+                    <div className="label">🎧 발음 피드백</div>
+                    내가 들은 말: <span className="wrong">{h.heard}</span> → 네 의도: <span className="right">{h.intent}</span>
+                    <br />
+                    <span style={{ opacity: 0.85, fontSize: '0.78rem' }}>{h.note}</span>
+                  </div>
+                ))}
+                {parsed.explain.map((ex, i) => (
+                  <div className="explain-box" key={i}>
+                    <div className="label">💡 코치 설명</div>
+                    {ex}
+                  </div>
+                ))}
+              </div>
+              {!m.streaming && parsed.plain && (
+                <div className="msg-meta">
+                  {m.time}
+                  <button className="tr-btn" disabled={m.translating} onClick={() => translate(m.id, parsed.plain)}>
+                    {m.translating ? '⏳ 번역중' : m.translation ? '🇰🇷 숨기기' : '🇰🇷 번역'}
+                  </button>
+                  <button className="tr-btn" onClick={() => savePhrase(parsed.plain)}>
+                    📌 저장
+                  </button>
+                </div>
+              )}
+              {m.translation && <div className="tr-box">🇰🇷 {m.translation}</div>}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="input-area">
+        <div className="helper-chips">
+          <button className="helper-chip hint" onClick={askForSuggestions} title="AI가 지금 상황에 맞는 영어 답변 예시를 제안해줍니다">
+            💡 뭐라고 답하지?
+          </button>
+          {helperChips.map((c) => (
+            <button className="helper-chip" key={c} onClick={() => sendChip(c)} title="탭하면 이 문장으로 답합니다">
+              {c}
+            </button>
+          ))}
+        </div>
+        {interim && <div className="interim">{interim}</div>}
+        <div className="mini-actions">
+          <button className="mini-btn" onClick={toggleBgCorrect}>
+            ✏️ 교정 {bgCorrectOn ? 'ON' : 'OFF'}
+          </button>
+          <button className="mini-btn" onClick={requestSummary}>
+            📋 요약
+          </button>
+          <button className="mini-btn" onClick={analyzeCaf} disabled={cafBusy}>
+            {cafBusy ? '⏳ 분석중' : '🎯 CAF'}
+          </button>
+        </div>
+        <div className="controls">
+          <input
+            className="text-input"
+            placeholder="영어로 입력하거나 🎙️로 말하세요"
+            maxLength={500}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendText();
+              }
+            }}
+          />
+          <button className={`round-btn${micOn ? ' listening' : ''}`} onClick={toggleMic} title="마이크로 말하기 (자동 전송)">
+            🎙️
+          </button>
+          <button className={`round-btn send${isProcessing ? ' processing' : ''}`} onClick={sendText} disabled={isProcessing} title="전송">
+            ➤
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TypingDots() {
+  return (
+    <>
+      <div className="typing-dot" />
+      <div className="typing-dot" />
+      <div className="typing-dot" />
+    </>
+  );
+}
+
+function CorrectionNote({ c, onSave }: { c: Correction; onSave: (text: string) => void }) {
+  const [open, setOpen] = useState(!c.is_correct);
+  return (
+    <div className={`bg-correct${open ? ' open' : ''}`} style={{ alignSelf: 'flex-end' }}>
+      <div className={`bgc-head ${c.is_correct ? 'ok' : 'warn'}`} onClick={() => setOpen((v) => !v)}>
+        {c.is_correct ? '✏️ 문법 좋아요 ✓' : '✏️ 이렇게 고치면 더 좋아요'}
+        <span className="bgc-toggle">{open ? '접기' : '자세히'}</span>
+      </div>
+      <div className="bgc-body">
+        {!c.is_correct && c.corrected_sentence && (
+          <div className="bgc-row">
+            ✅ <b style={{ color: 'var(--green-dk)' }}>{c.corrected_sentence}</b>{' '}
+            <button className="speak-mini" onClick={() => speak(c.corrected_sentence)}>🔊</button>{' '}
+            <button className="speak-mini" onClick={() => onSave(c.corrected_sentence)}>📌</button>
+          </div>
+        )}
+        {c.native_expression && (
+          <div className="bgc-row">
+            💬 자연스럽게: <b>{c.native_expression}</b>{' '}
+            <button className="speak-mini" onClick={() => speak(c.native_expression)}>🔊</button>{' '}
+            <button className="speak-mini" onClick={() => onSave(c.native_expression)}>📌</button>
+          </div>
+        )}
+        {c.korean_feedback && <div className="bgc-fb">{c.korean_feedback}</div>}
+      </div>
+    </div>
+  );
+}
+
+function CafCard({ cefr, result, onSave }: { cefr: string; result: CafResult; onSave: (text: string) => void }) {
+  const next = CEFR_NEXT[cefr as keyof typeof CEFR_NEXT];
+  return (
+    <div className="msg system" style={{ maxWidth: '100%', width: '100%' }}>
+      <div className="caf-wrap" style={{ textAlign: 'left', maxWidth: '100%' }}>
+        <h3>🎯 CAF 분석 · 현재 {cefr}</h3>
+        <div className="caf-sub">{result.summary_ko}</div>
+        <div className="caf-bars">
+          <CafBar name="복잡도" val={result.complexity} color="var(--primary)" />
+          <CafBar name="정확도" val={result.accuracy} color="var(--green)" />
+          <CafBar name="유창성" val={result.fluency} color="var(--yellow)" />
+        </div>
+        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 6 }}>
+          {result.metrics.wpm ? `🗣 ${result.metrics.wpm} WPM · ` : ''}🔤 {result.metrics.word_count}단어
+        </div>
+        {result.errors.length > 0 && (
+          <>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, margin: '10px 0 4px' }}>📝 핵심 교정</div>
+            {result.errors.map((e, i) => (
+              <div className="para-card" key={i} style={{ background: 'rgba(194,117,12,0.08)', borderColor: 'rgba(194,117,12,0.3)' }}>
+                <span className="or">{e.wrong}</span> → <span style={{ color: 'var(--yellow)', fontWeight: 700 }}>{e.right}</span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}> ({e.type})</span>
+                <br />
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{e.why_ko}</span>
+              </div>
+            ))}
+          </>
+        )}
+        {result.paraphrases.length > 0 && (
+          <>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, margin: '10px 0 4px' }}>✨ {next} 레벨 세련된 표현</div>
+            {result.paraphrases.map((p, i) => (
+              <div className="para-card" key={i}>
+                <span className="or">{p.original}</span>
+                <br />
+                <span className="up">{p.upgraded}</span>{' '}
+                <button className="speak-mini" onClick={() => speak(p.upgraded)}>🔊</button>{' '}
+                <button className="speak-mini" onClick={() => onSave(p.upgraded)}>📌</button>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 3 }}>{p.note_ko}</div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CafBar({ name, val, color }: { name: string; val: number; color: string }) {
+  return (
+    <div className="caf-bar-row">
+      <span className="name">{name}</span>
+      <span className="track">
+        <span className="fl" style={{ width: `${val * 10}%`, background: color }} />
+      </span>
+      <span className="val">{val.toFixed(1)}</span>
+    </div>
+  );
+}

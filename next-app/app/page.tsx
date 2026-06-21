@@ -10,6 +10,7 @@ import NavBar, { type Mode } from '../components/NavBar';
 import MasterScreen from '../components/MasterScreen';
 import StudyScreen, { defaultLesson } from '../components/StudyScreen';
 import DrillScreen from '../components/DrillScreen';
+import TalkScreen from '../components/TalkScreen';
 import ReviewScreen from '../components/ReviewScreen';
 import ProgressScreen from '../components/ProgressScreen';
 import ComingSoon from '../components/ComingSoon';
@@ -56,11 +57,15 @@ export default function Page() {
         )}
         {mode === 'study' && <StudyScreen lessonId={lessonId} onSelectLesson={setLessonId} />}
         {mode === 'drill' && <DrillScreen lessonId={lessonId} />}
+        {mode === 'talk' && <TalkScreen lessonId={lessonId} />}
         {mode === 'review' && <ReviewScreen />}
         {mode === 'progress' && <ProgressScreen />}
-        {mode !== 'master' && mode !== 'study' && mode !== 'drill' && mode !== 'review' && mode !== 'progress' && (
-          <ComingSoon label={TAB_TITLE[mode]} />
-        )}
+        {mode !== 'master' &&
+          mode !== 'study' &&
+          mode !== 'drill' &&
+          mode !== 'talk' &&
+          mode !== 'review' &&
+          mode !== 'progress' && <ComingSoon label={TAB_TITLE[mode]} />}
       </div>
 
       <NavBar mode={mode} onChange={setMode} />
