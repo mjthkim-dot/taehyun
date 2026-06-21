@@ -7,6 +7,7 @@
  */
 import { useEffect, useState } from 'react';
 import NavBar, { type Mode } from '../components/NavBar';
+import MasterScreen from '../components/MasterScreen';
 import StudyScreen, { defaultLesson } from '../components/StudyScreen';
 import DrillScreen from '../components/DrillScreen';
 import ReviewScreen from '../components/ReviewScreen';
@@ -47,11 +48,17 @@ export default function Page() {
       </header>
 
       <div className="app-content" key={mode}>
+        {mode === 'master' && (
+          <MasterScreen
+            onSelectLesson={setLessonId}
+            onNavigate={setMode}
+          />
+        )}
         {mode === 'study' && <StudyScreen lessonId={lessonId} onSelectLesson={setLessonId} />}
         {mode === 'drill' && <DrillScreen lessonId={lessonId} />}
         {mode === 'review' && <ReviewScreen />}
         {mode === 'progress' && <ProgressScreen />}
-        {mode !== 'study' && mode !== 'drill' && mode !== 'review' && mode !== 'progress' && (
+        {mode !== 'master' && mode !== 'study' && mode !== 'drill' && mode !== 'review' && mode !== 'progress' && (
           <ComingSoon label={TAB_TITLE[mode]} />
         )}
       </div>
