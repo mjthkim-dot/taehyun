@@ -48,15 +48,52 @@ button {
 }
 
 .app-header {
-  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.app-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-header-brand {
+  font-size: 1.05rem;
 }
 
 .app-header h1 {
   font-size: 1.05rem;
   font-weight: 800;
   letter-spacing: -0.01em;
+}
+
+.streak-chip {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 5px 11px;
+  flex-shrink: 0;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .app-content {
@@ -66,6 +103,7 @@ button {
   padding-bottom: 28px;
   max-width: 760px;
   width: 100%;
+  animation: fade-up 0.22s ease-out;
   margin: 0 auto;
 }
 
@@ -840,4 +878,37 @@ button {
   font-size: 0.76rem;
   color: #b91c1c;
   line-height: 1.5;
+}
+
+/* ── 더보기 시트 (하단 네비 4번째 외 탭) ── */
+.more-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 17, 43, 0.35);
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fade-up 0.18s ease-out;
+}
+
+.more-sheet {
+  width: 100%;
+  max-width: 760px;
+  background: var(--surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 10px 16px calc(env(safe-area-inset-bottom, 0px) + 18px);
+  box-shadow: 0 -20px 40px -20px rgba(15, 17, 43, 0.3);
+}
+
+.more-sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  margin: 6px auto 14px;
+}
+
+.more-sheet .feat-card {
+  width: 100%;
 }
