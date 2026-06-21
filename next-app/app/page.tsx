@@ -13,6 +13,7 @@ import DrillScreen from '../components/DrillScreen';
 import TalkScreen from '../components/TalkScreen';
 import ReviewScreen from '../components/ReviewScreen';
 import ProgressScreen from '../components/ProgressScreen';
+import FeaturesScreen from '../components/FeaturesScreen';
 import ComingSoon from '../components/ComingSoon';
 import { calcStreak } from '../lib/state';
 
@@ -60,12 +61,14 @@ export default function Page() {
         {mode === 'talk' && <TalkScreen lessonId={lessonId} />}
         {mode === 'review' && <ReviewScreen />}
         {mode === 'progress' && <ProgressScreen />}
+        {mode === 'features' && <FeaturesScreen onNavigate={setMode} />}
         {mode !== 'master' &&
           mode !== 'study' &&
           mode !== 'drill' &&
           mode !== 'talk' &&
           mode !== 'review' &&
-          mode !== 'progress' && <ComingSoon label={TAB_TITLE[mode]} />}
+          mode !== 'progress' &&
+          mode !== 'features' && <ComingSoon label={TAB_TITLE[mode]} />}
       </div>
 
       <NavBar mode={mode} onChange={setMode} />
