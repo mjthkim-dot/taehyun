@@ -1,25 +1,25 @@
-/* 모던 라이트 테마 — Duolingo/Linear풍의 깔끔한 학습 앱 UI.
-   기존 voice-assistant 다크 테마를 그대로 옮기는 대신 톤을 새로 잡았다. */
+/* Speak(usespeak.com) 스타일 — 따뜻한 크림 배경 + 강렬한 코랄 액센트, 두꺼운 볼드 타이포,
+   필(pill) 모양 버튼이 특징인 프리미엄/친근한 톤. */
 :root {
-  --bg: #f7f7fb;
+  --bg: #fdf8f1;
   --surface: #ffffff;
-  --surface2: #f0f1f7;
-  --border: #e5e7f0;
-  --primary: #5b5bf6;
-  --primary-light: #5b5bf6;
-  --primary-dk: #4040c9;
-  --primary-soft: #eef0ff;
-  --green: #16a34a;
-  --green-soft: #ecfdf3;
-  --yellow: #d97706;
-  --red: #e11d48;
-  --text: #15172b;
-  --text-muted: #6b7088;
-  --radius: 18px;
-  --radius-sm: 12px;
-  --radius-lg: 24px;
-  --shadow-card: 0 1px 2px rgba(20, 20, 50, 0.04), 0 8px 20px -10px rgba(20, 20, 50, 0.1);
-  --grad-primary: linear-gradient(135deg, #6e6bff, #5b5bf6 60%, #4c46e0);
+  --surface2: #faf1e6;
+  --border: #efe2d2;
+  --primary: #ff5a36;
+  --primary-light: #ff6e45;
+  --primary-dk: #d6431f;
+  --primary-soft: #ffe9e0;
+  --green: #1a8f5c;
+  --green-soft: #e9f8ef;
+  --yellow: #c2750c;
+  --red: #e0383a;
+  --text: #1c1410;
+  --text-muted: #8a7b6e;
+  --radius: 20px;
+  --radius-sm: 14px;
+  --radius-lg: 28px;
+  --shadow-card: 0 1px 2px rgba(28, 20, 16, 0.04), 0 10px 22px -10px rgba(28, 20, 16, 0.12);
+  --grad-primary: linear-gradient(135deg, #ff7a4d, #ff5a36 60%, #e8441f);
 }
 
 * {
@@ -154,13 +154,13 @@ button {
 .lesson-picker {
   width: 100%;
   margin-bottom: 12px;
-  padding: 11px 12px;
+  padding: 12px 14px;
   border-radius: var(--radius-sm);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 2px solid var(--border);
   color: var(--text);
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .study-card {
@@ -424,14 +424,14 @@ button {
 /* ── 공용 버튼 ── */
 .btn {
   flex: 1;
-  padding: 12px;
-  border-radius: var(--radius-sm);
+  padding: 13px;
+  border-radius: 999px;
   font-size: 0.88rem;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
   background: var(--surface);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 2px solid var(--border);
   transition: transform 0.1s, background 0.15s;
 }
 .btn.primary {
@@ -455,15 +455,15 @@ button {
 }
 .start-drill-btn {
   width: 100%;
-  padding: 14px;
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
+  padding: 15px;
+  border-radius: 999px;
+  font-size: 0.92rem;
   font-weight: 800;
   cursor: pointer;
   background: var(--grad-primary);
   color: white;
   border: none;
-  box-shadow: 0 6px 16px -8px rgba(91, 91, 246, 0.6);
+  box-shadow: 0 8px 18px -8px rgba(255, 90, 54, 0.55);
   transition: transform 0.1s, filter 0.15s;
 }
 .start-drill-btn:hover {
@@ -778,7 +778,7 @@ button {
   margin: -16px -16px 18px;
   background: var(--grad-primary);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  box-shadow: 0 12px 28px -16px rgba(91, 91, 246, 0.55);
+  box-shadow: 0 12px 28px -16px rgba(255, 90, 54, 0.55);
   position: relative;
   overflow: hidden;
 }
