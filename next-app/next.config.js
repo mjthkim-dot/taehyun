@@ -45,6 +45,9 @@ const withPWA = require('next-pwa')({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // 메인 도메인(voice-assistant)의 /app 하위 경로로 rewrite 프록시되므로,
+  // 이 앱이 생성하는 모든 정적 자원/링크 경로 앞에 /app 을 붙인다.
+  basePath: '/app',
 };
 
 module.exports = withPWA(nextConfig);
