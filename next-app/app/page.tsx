@@ -14,6 +14,7 @@ import TalkScreen from '../components/TalkScreen';
 import ReviewScreen from '../components/ReviewScreen';
 import ProgressScreen from '../components/ProgressScreen';
 import FeaturesScreen from '../components/FeaturesScreen';
+import VideoScreen from '../components/VideoScreen';
 import ComingSoon from '../components/ComingSoon';
 import { calcStreak } from '../lib/state';
 
@@ -62,13 +63,15 @@ export default function Page() {
         {mode === 'review' && <ReviewScreen />}
         {mode === 'progress' && <ProgressScreen />}
         {mode === 'features' && <FeaturesScreen onNavigate={setMode} />}
+        {mode === 'video' && <VideoScreen />}
         {mode !== 'master' &&
           mode !== 'study' &&
           mode !== 'drill' &&
           mode !== 'talk' &&
           mode !== 'review' &&
           mode !== 'progress' &&
-          mode !== 'features' && <ComingSoon label={TAB_TITLE[mode]} />}
+          mode !== 'features' &&
+          mode !== 'video' && <ComingSoon label={TAB_TITLE[mode]} />}
       </div>
 
       <NavBar mode={mode} onChange={setMode} />

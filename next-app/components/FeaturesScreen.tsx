@@ -64,7 +64,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
     },
     {
       title: '🎬 콘텐츠로 배우기',
-      cards: [{ icon: '🎬', label: '영상 학습', sub: '곧 추가됩니다', action: { kind: 'soon' } }],
+      cards: [{ icon: '🎬', label: '영상 학습', sub: '유튜브로 듣기 연습 + 자막 번역', action: { kind: 'nav', mode: 'video' } }],
     },
     {
       title: '📈 학습 관리',
