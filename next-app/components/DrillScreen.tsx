@@ -1,14 +1,20 @@
 'use client';
 
 /**
- * 드릴(말하기 연습) 화면 — v1.
- * 원본 앱의 전체 드릴 시스템(쉐도잉/미니멀 페어 등)은 아직 포팅 전이며,
- * 우선 레슨 예문을 순서대로 큐에 넣어 SpeakingPractice(STT+정확도 평가)로 연습하는
- * 기본 플로우만 제공한다.
+ * 드릴(말하기 연습) 화면 — 레슨 예문을 순서대로 큐에 넣어 SpeakingPractice(STT+단어별
+ * 정확도 평가)로 연습한다. 끝까지 돌면 평균 정확도를 말하기 스킬에 반영하고,
+ * 정확도가 낮았던 문장은 간격 반복 복습(SRS) 큐에 추가한다.
+ * AI 발음 코칭은 사용자가 직접 눌렀을 때만 1회 호출되는 옵트인 기능 — 평소 흐름에서는
+ * Groq API를 전혀 쓰지 않는다(무료 한도 보호).
  */
-import { useMemo, useState } from 'react';
-import { ALL_LESSONS, LESSONS } from '../lib/lessons';
+import { useEffect, useMemo, useState } from 'react';
+import { ALL_LESSONS, LESSONS, CEFR_GSE, cefrOf } from '../lib/lessons';
+import { addWeakItem, bumpSkill, groqKey, markPracticedToday } from '../lib/state';
+import { groqComplete, GroqError } from '../lib/groq';
+import { useLessonStore } from '../store/useLessonStore';
 import SpeakingPractice from './SpeakingPractice';
+
+const LOW_SCORE_THRESHOLD = 70;
 
 export default function DrillScreen({ lessonId }: { lessonId: number }) {
   const lesson = useMemo(
@@ -17,11 +23,127 @@ export default function DrillScreen({ lessonId }: { lessonId: number }) {
   );
   const items = lesson.examples ?? [];
   const [idx, setIdx] = useState(0);
+  const [scores, setScores] = useState<number[]>([]);
+  const [finished, setFinished] = useState(false);
+  const [coachTip, setCoachTip] = useState<string | null>(null);
+  const [coachLoading, setCoachLoading] = useState(false);
+  const [coachError, setCoachError] = useState<string | null>(null);
+
+  const accuracyScore = useLessonStore((s) => s.accuracyScore);
+  const missedWords = useLessonStore((s) => s.missedWords);
+
+  useEffect(() => {
+    setIdx(0);
+    setScores([]);
+    setFinished(false);
+    setCoachTip(null);
+    setCoachError(null);
+  }, [lessonId]);
 
   if (!items.length) {
     return (
       <div className="study-card">
         <p className="muted">이 레슨에는 드릴용 예문이 없어요. 다른 레슨을 선택해주세요.</p>
+      </div>
+    );
+  }
+
+  function commitScore(): number[] {
+    const next = scores.slice();
+    if (accuracyScore > 0) {
+      next[idx] = accuracyScore;
+      if (accuracyScore < LOW_SCORE_THRESHOLD) {
+        const item = items[idx];
+        addWeakItem({ en: item.en, kr: item.kr, lesson: lessonId, cat: 'speaking' });
+      }
+    }
+    setScores(next);
+    return next;
+  }
+
+  function goNext() {
+    const next = commitScore();
+    if (idx >= items.length - 1) {
+      const recorded = next.filter((s) => typeof s === 'number');
+      const avg = recorded.length ? Math.round(recorded.reduce((a, b) => a + b, 0) / recorded.length) : 0;
+      const cefr = cefrOf(lesson);
+      const band = CEFR_GSE[cefr];
+      const gse = Math.round(band.min + (band.max - band.min) * (avg / 100));
+      bumpSkill('speaking', gse);
+      markPracticedToday();
+      setFinished(true);
+    } else {
+      setIdx((i) => i + 1);
+    }
+  }
+
+  function restart() {
+    setIdx(0);
+    setScores([]);
+    setFinished(false);
+    setCoachTip(null);
+    setCoachError(null);
+  }
+
+  async function getAiTip() {
+    if (!groqKey()) {
+      setCoachError('NO_KEY');
+      return;
+    }
+    setCoachLoading(true);
+    setCoachError(null);
+    try {
+      const weakSentences = items
+        .map((it, i) => ({ en: it.en, score: scores[i] }))
+        .filter((s) => typeof s.score === 'number' && s.score < LOW_SCORE_THRESHOLD);
+      const sys = 'You are an English pronunciation coach for a Korean learner. Output ONLY JSON.';
+      const user = `The learner practiced shadowing these sentences and a speech-recognizer scored each one (0-100, lower = likely mispronounced or missed words):
+${JSON.stringify(weakSentences)}
+Return JSON: {"tips":["2-3 specific Korean-language tips about likely pronunciation issues (e.g. consonant clusters, word stress, linking sounds) based on these sentences",...]}`;
+      const raw = await groqComplete([{ role: 'system', content: sys }, { role: 'user', content: user }], { json: true, maxTokens: 400, temperature: 0.4 });
+      const data = JSON.parse(raw);
+      setCoachTip((data.tips || []).join('\n'));
+    } catch (e) {
+      setCoachError(e instanceof GroqError ? e.message : String(e));
+    } finally {
+      setCoachLoading(false);
+    }
+  }
+
+  if (finished) {
+    const recorded = scores.filter((s) => typeof s === 'number');
+    const avg = recorded.length ? Math.round(recorded.reduce((a, b) => a + b, 0) / recorded.length) : 0;
+    const lowCount = recorded.filter((s) => s < LOW_SCORE_THRESHOLD).length;
+    return (
+      <div className="drill-screen">
+        <div className="study-card" style={{ textAlign: 'center', border: '1px solid var(--primary)', padding: 20 }}>
+          <div className="muted" style={{ fontSize: '0.8rem' }}>드릴 평균 정확도</div>
+          <div style={{ fontSize: '2.2rem', fontWeight: 900, color: 'var(--primary-light)', margin: '4px 0' }}>{avg}%</div>
+          <div className="muted" style={{ fontSize: '0.8rem' }}>말하기 스킬에 반영됐어요</div>
+          {lowCount > 0 && (
+            <div className="muted" style={{ fontSize: '0.78rem', marginTop: 6 }}>
+              정확도 {LOW_SCORE_THRESHOLD}% 미만 {lowCount}문장은 간격 반복 복습(암기 카드)에 추가됐어요.
+            </div>
+          )}
+          <button className="start-drill-btn" style={{ marginTop: 14 }} onClick={restart}>↻ 다시 (처음부터)</button>
+
+          {!coachTip && (
+            <button className="btn" style={{ marginTop: 10 }} disabled={coachLoading || lowCount === 0} onClick={getAiTip}>
+              {coachLoading ? '🤖 분석 중...' : lowCount === 0 ? '🎉 모든 문장 정확해요' : '🤖 AI 발음 코칭 받기'}
+            </button>
+          )}
+          {coachError === 'NO_KEY' && (
+            <p style={{ fontSize: '0.78rem', color: 'var(--yellow)', marginTop: 10 }}>🤖 AI 발음 코칭은 Groq 키 연결 후 사용할 수 있어요.</p>
+          )}
+          {coachError && coachError !== 'NO_KEY' && (
+            <p style={{ fontSize: '0.78rem', color: 'var(--red)', marginTop: 10 }}>{coachError}</p>
+          )}
+          {coachTip && (
+            <div style={{ textAlign: 'left', background: 'var(--surface2)', borderRadius: 10, padding: 12, marginTop: 12, fontSize: '0.82rem', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
+              {coachTip}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -32,6 +154,7 @@ export default function DrillScreen({ lessonId }: { lessonId: number }) {
     <div className="drill-screen">
       <div className="drill-progress muted">
         {idx + 1} / {items.length}
+        {typeof scores[idx] === 'number' && ` · 이번 정확도 ${scores[idx]}%`}
       </div>
       <SpeakingPractice key={idx} sentence={cur.en} />
       <div className="kr muted" style={{ marginTop: 8 }}>
@@ -41,13 +164,12 @@ export default function DrillScreen({ lessonId }: { lessonId: number }) {
         <button type="button" disabled={idx === 0} onClick={() => setIdx((i) => i - 1)}>
           ← 이전
         </button>
-        <button
-          type="button"
-          disabled={idx >= items.length - 1}
-          onClick={() => setIdx((i) => i + 1)}
-        >
-          다음 →
+        <button type="button" onClick={goNext}>
+          {idx >= items.length - 1 ? '완료' : '다음 →'}
         </button>
+      </div>
+      <div className="muted" style={{ fontSize: '0.72rem', marginTop: 4 }}>
+        {missedWords.length > 0 && accuracyScore > 0 ? `놓친 단어: ${missedWords.join(', ')}` : ''}
       </div>
     </div>
   );
