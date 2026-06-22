@@ -94,18 +94,26 @@ function speakWithBrowser(text: string, lang: string, rate: number, onend?: () =
 /* ── Groq 신경망 음성 ── */
 const ttsCache = new Map<string, string>(); // `${voice}:${text}` -> objectURL
 
-/** Groq에서 음성을 받아 objectURL을 돌려준다(캐시). 실패 시 null. */
+// 네트워크가 느리거나 응답이 없을 때 무한정 멈춰 있지 않도록 — 이 시간 안에 응답이
+// 없으면 포기하고 브라우저 음성으로 폴백한다(전체 재생이 "1번째 줄에서 멈춘 것처럼"
+// 보이는 또 다른 원인이었다 — fetch에 타임아웃이 없어 응답이 없으면 영원히 대기했음).
+const TTS_TIMEOUT_MS = 8000;
+
+/** Groq에서 음성을 받아 objectURL을 돌려준다(캐시). 실패·타임아웃 시 null. */
 export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE): Promise<string | null> {
   const key = groqKey();
   if (!key) return null;
   const cacheKey = `${voice}:${text}`;
   const cached = ttsCache.get(cacheKey);
   if (cached) return cached;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TTS_TIMEOUT_MS);
   try {
     const resp = await fetch('/app/api/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, voice, key: key === SERVER_GROQ_SENTINEL ? undefined : key }),
+      signal: controller.signal,
     });
     if (!resp.ok) return null;
     const blob = await resp.blob();
@@ -114,6 +122,8 @@ export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE): Promis
     return url;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
