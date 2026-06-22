@@ -5,33 +5,7 @@ import { useState } from 'react';
 import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/lessons';
 import { bumpSkill, getProfile, groqKey, markPracticedToday } from '../lib/state';
 import { groqComplete, GroqError } from '../lib/groq';
-
-const WRITE_PROMPTS: Record<Cefr, { p: string; min: number }[]> = {
-  A1: [
-    { p: 'Introduce yourself in 3–4 sentences (name, age, job/school, hobby).', min: 25 },
-    { p: 'Describe your family in a few simple sentences.', min: 25 },
-  ],
-  A2: [
-    { p: 'Write about what you did last weekend (4–6 sentences, past tense).', min: 40 },
-    { p: 'Describe your daily routine.', min: 40 },
-  ],
-  B1: [
-    { p: 'Do you prefer living in a city or the countryside? Give reasons.', min: 70 },
-    { p: 'Write an email to a friend inviting them to your birthday party.', min: 70 },
-  ],
-  B2: [
-    { p: 'Some people think social media does more harm than good. Discuss both views and give your opinion.', min: 120 },
-    { p: 'Describe a challenge you overcame and what you learned.', min: 120 },
-  ],
-  C1: [
-    { p: '"Remote work will eventually replace the traditional office." To what extent do you agree?', min: 160 },
-    { p: 'Analyse the impact of artificial intelligence on creative professions.', min: 160 },
-  ],
-  C2: [
-    { p: '"Economic growth and environmental protection are fundamentally incompatible." Critically evaluate this claim.', min: 200 },
-    { p: 'Discuss whether objective truth is attainable in journalism.', min: 200 },
-  ],
-};
+import { WRITE_PROMPTS } from '../lib/contentBanks';
 
 interface Feedback {
   cefr?: string;

@@ -4,16 +4,8 @@
 import { useState } from 'react';
 import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/lessons';
 import { addWeakItem, bumpSkill, getProfile, markPracticedToday } from '../lib/state';
+import { LISTEN_BANK } from '../lib/contentBanks';
 import { speakText } from './SpeakButton';
-
-const LISTEN_BANK: Record<Cefr, string[]> = {
-  A1: ['I have two brothers.', 'She is reading a book.', 'We go to school by bus.', "It's very cold today.", 'My favorite color is blue.', 'They are playing soccer.'],
-  A2: ['I went to the beach last weekend.', 'He is taller than his brother.', 'We are going to visit Seoul next month.', 'She has lived here for three years.', 'Can you help me with my homework?', 'I usually wake up at seven.'],
-  B1: ['I have already finished my report.', 'If I were you, I would take the job.', "She's been studying English since 2020.", 'The train was delayed because of the snow.', 'You should have called me earlier.', 'We need to cut down on plastic waste.'],
-  B2: ['Had I known earlier, I would have acted differently.', 'The committee postponed the decision until further notice.', 'Despite the rain, the event went ahead as planned.', 'He tends to underestimate how long tasks take.', 'The proposal was met with considerable skepticism.', 'They managed to resolve the issue without escalating it.'],
-  C1: ['Her unwavering commitment ultimately paid off.', 'The findings call into question our basic assumptions.', 'He has a tendency to overcomplicate simple matters.', 'Such measures, though controversial, proved effective.', 'The negotiations reached an impasse late last night.', 'We must weigh the benefits against the potential risks.'],
-  C2: ['The verdict set an unprecedented legal precedent.', 'His prose is at once elegant and remarkably economical.', 'They were inclined to dismiss the anomaly as negligible.', 'The reform was, in hindsight, woefully inadequate.', "Her argument hinges on a rather tenuous assumption.", 'The phenomenon defies any straightforward explanation.'],
-};
 
 function shuffled<T>(arr: T[]): T[] {
   const a = arr.slice();
