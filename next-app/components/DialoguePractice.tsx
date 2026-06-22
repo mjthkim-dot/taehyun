@@ -10,26 +10,66 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dialogue } from '../lib/lessons';
 import { computeAccuracy, type WordDiff } from '../store/useLessonStore';
-import { addWeakItem, markPracticedToday } from '../lib/state';
-import { speakText, stopSpeaking } from './SpeakButton';
+import { addWeakItem, groqKey, markPracticedToday } from '../lib/state';
+import { speakText, stopSpeaking, primeAudio, fetchGroqTTS, playUrl, SPEAKER_GROQ_VOICE, GROQ_TTS_VOICE } from './SpeakButton';
 
-/** 화자별 Groq PlayAI 보이스 — A는 남성, B는 여성으로 몰입감을 준다(키 없으면 브라우저 음성으로 폴백). */
-const SPEAKER_VOICE: Record<string, string> = { A: 'Fritz-PlayAI', B: 'Celeste-PlayAI' };
 const ROLEPLAY_PASS = 60; // 이 점수 미만이면 SRS 복습 항목으로 등록
 
 function voiceFor(sp: string) {
-  return SPEAKER_VOICE[sp] || 'Fritz-PlayAI';
+  return SPEAKER_GROQ_VOICE[sp] || GROQ_TTS_VOICE;
+}
+
+interface StopRef {
+  stopped: boolean;
+  cleanup?: () => void;
+}
+
+/** 폴백: 브라우저 speechSynthesis 큐로 fromIdx부터 끝까지 한 번에 등록해 재생한다. */
+function playViaBrowserQueue(
+  dialogue: Dialogue,
+  rate: number,
+  onLineStart: ((i: number) => void) | undefined,
+  onDone: (() => void) | undefined,
+  fromIdx: number,
+  ref: StopRef
+) {
+  if (typeof window === 'undefined' || !window.speechSynthesis) {
+    onDone?.();
+    return;
+  }
+  const synth = window.speechSynthesis;
+  synth.cancel();
+  const enVoices = synth.getVoices().filter((v) => v.lang.toLowerCase().startsWith('en'));
+  const voiceA = enVoices[0];
+  const voiceB = enVoices[1] || enVoices[0];
+  const last = dialogue.lines.length - 1;
+  // Chrome/모바일에서 긴 재생이 ~15초 후 멈추는 버그 방지 keep-alive.
+  const keepAlive = setInterval(() => {
+    if (ref.stopped || !synth.speaking) return;
+    synth.resume();
+  }, 10000);
+  ref.cleanup = () => clearInterval(keepAlive);
+  for (let i = fromIdx; i <= last; i++) {
+    const line = dialogue.lines[i];
+    const u = new SpeechSynthesisUtterance(line.en);
+    u.lang = 'en-US';
+    u.rate = rate;
+    const v = line.sp === 'A' ? voiceA : voiceB;
+    if (v) u.voice = v;
+    u.onstart = () => { if (!ref.stopped) onLineStart?.(i); };
+    u.onend = () => { if (i === last && !ref.stopped) { clearInterval(keepAlive); onDone?.(); } };
+    u.onerror = () => { if (i === last) clearInterval(keepAlive); };
+    synth.speak(u);
+  }
 }
 
 /**
  * 대화문 전체를 순차 재생한다 — 듣기 탭과 숙제/레슨 화면의 "전체 재생" 버튼에서 재사용한다.
  * 반환값은 재생을 중단하는 함수.
  *
- * 중요(모바일 호환): onend 콜백으로 다음 줄을 재귀 재생하면 iOS 사파리가 사용자 제스처를
- * 벗어난 재생으로 보고 차단·누락시킨다. 그래서 클릭 핸들러 안에서 모든 문장을
- * speechSynthesis 큐에 한 번에 동기적으로 넣는다(검증된 안정 패턴). 14줄 대화문을 매번
- * Groq로 합성하면 무료 한도도 빨리 소모되므로, 전체 재생은 브라우저 음성을 쓴다.
- * (줄별 🔊 단일 재생은 직접 제스처라 SpeakButton에서 Groq 자연 음성을 그대로 쓴다.)
+ * Groq 키가 있으면 화자별 신경망 음성(실제 사람에 가까운 목소리)으로 한 줄씩 재생하고
+ * 다음 줄을 미리 받아 끊김을 줄인다. 클릭 순간 primeAudio()로 오디오를 언락하므로 iOS에서도
+ * 비동기 재생이 막히지 않는다. 키가 없거나 합성에 실패하면 브라우저 음성 큐로 폴백한다.
  */
 export function playDialogueAudio(
   dialogue: Dialogue,
@@ -37,45 +77,45 @@ export function playDialogueAudio(
   onLineStart?: (i: number) => void,
   onDone?: () => void
 ): () => void {
-  if (typeof window === 'undefined' || !window.speechSynthesis || !dialogue.lines.length) {
+  if (typeof window === 'undefined' || !dialogue.lines.length) {
     onDone?.();
     return () => {};
   }
-  const synth = window.speechSynthesis;
-  synth.cancel();
-
-  // 화자별로 다른 브라우저 음성을 골라 몰입감을 준다(있을 때만).
-  const enVoices = synth.getVoices().filter((v) => v.lang.toLowerCase().startsWith('en'));
-  const voiceA = enVoices[0];
-  const voiceB = enVoices[1] || enVoices[0];
-
-  let stopped = false;
-  const last = dialogue.lines.length - 1;
-
-  // Chrome/모바일에서 긴 재생이 ~15초 후 멈추는 알려진 버그를 막는 keep-alive.
-  const keepAlive = setInterval(() => {
-    if (stopped || !synth.speaking) return;
-    synth.resume();
-  }, 10000);
-  const cleanup = () => clearInterval(keepAlive);
-
-  dialogue.lines.forEach((line, i) => {
-    const u = new SpeechSynthesisUtterance(line.en);
-    u.lang = 'en-US';
-    u.rate = rate;
-    const v = line.sp === 'A' ? voiceA : voiceB;
-    if (v) u.voice = v;
-    u.onstart = () => { if (!stopped) onLineStart?.(i); };
-    u.onend = () => { if (i === last && !stopped) { cleanup(); onDone?.(); } };
-    u.onerror = () => { if (i === last) cleanup(); };
-    synth.speak(u);
-  });
-
-  return () => {
-    stopped = true;
-    cleanup();
-    synth.cancel();
+  primeAudio(); // 사용자 제스처 안에서 동기 언락
+  const ref: StopRef = { stopped: false };
+  const stop = () => {
+    ref.stopped = true;
+    ref.cleanup?.();
+    stopSpeaking();
   };
+
+  if (!groqKey()) {
+    playViaBrowserQueue(dialogue, rate, onLineStart, onDone, 0, ref);
+    return stop;
+  }
+
+  const last = dialogue.lines.length - 1;
+  const playFrom = async (i: number) => {
+    if (ref.stopped) return;
+    if (i > last) { onDone?.(); return; }
+    const line = dialogue.lines[i];
+    const url = await fetchGroqTTS(line.en, voiceFor(line.sp));
+    if (ref.stopped) return;
+    if (!url) { playViaBrowserQueue(dialogue, rate, onLineStart, onDone, i, ref); return; }
+    onLineStart?.(i);
+    if (i + 1 <= last) {
+      const n = dialogue.lines[i + 1];
+      fetchGroqTTS(n.en, voiceFor(n.sp)); // 다음 줄 미리 받기
+    }
+    try {
+      await playUrl(url, rate, () => playFrom(i + 1));
+    } catch {
+      if (!ref.stopped) playViaBrowserQueue(dialogue, rate, onLineStart, onDone, i, ref);
+    }
+  };
+  onLineStart?.(0); // 첫 음성을 받는 동안 즉시 UI 반영(중복 클릭 방지)
+  playFrom(0);
+  return stop;
 }
 
 function getSpeechRecognition(): typeof SpeechRecognition | null {
