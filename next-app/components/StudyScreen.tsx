@@ -5,7 +5,7 @@
  * 섹션/포인트/예문/대화문/프리토킹/숙제를 원본과 동일한 순서로 보여준다.
  * TTS(말하기) 연동은 다음 단계 작업 — 지금은 콘텐츠 표시 + 레슨 선택에 집중한다.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ALL_LESSONS,
   LESSONS,
@@ -15,9 +15,11 @@ import {
   cefrOf,
   scaffoldFor,
   type Lesson,
+  type Dialogue,
 } from '../lib/lessons';
 import Note from './Note';
-import SpeakButton from './SpeakButton';
+import SpeakButton, { stopSpeaking } from './SpeakButton';
+import { playDialogueAudio } from './DialoguePractice';
 import { addPhrase } from '../lib/state';
 
 interface StudyScreenProps {
@@ -97,22 +99,7 @@ export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenPro
         </div>
       )}
 
-      {lesson.dialogue && (
-        <div className="study-card">
-          <h3>💬 실전 대화문 — {lesson.dialogue.title}</h3>
-          {lesson.dialogue.lines.map((ln, i) => (
-            <div className="example-row" key={i}>
-              <div className="txt">
-                <div className="en">
-                  <span className={ln.sp === 'A' ? 'sp-a' : 'sp-b'}>{ln.sp}</span> {ln.en}
-                </div>
-                <div className="kr muted">{ln.kr}</div>
-              </div>
-              <SpeakButton text={ln.en} />
-            </div>
-          ))}
-        </div>
-      )}
+      {lesson.dialogue && <DialogueCard dialogue={lesson.dialogue} />}
 
       {lesson.freeTalk && (
         <div className="study-card freetalk-card">
@@ -142,6 +129,54 @@ export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenPro
           {lesson.homework}
         </div>
       )}
+    </div>
+  );
+}
+
+/** 레슨 화면의 대화문 카드 — 줄별 듣기에 더해 화자별 목소리로 전체를 순차 재생한다. */
+function DialogueCard({ dialogue }: { dialogue: Dialogue }) {
+  const [slow, setSlow] = useState(false);
+  const [playingIdx, setPlayingIdx] = useState<number | null>(null);
+  const stopRef = useRef<(() => void) | null>(null);
+  const playing = playingIdx !== null;
+
+  function stopAll() {
+    stopRef.current?.();
+    stopRef.current = null;
+    setPlayingIdx(null);
+  }
+  function playAll() {
+    stopRef.current?.();
+    stopRef.current = playDialogueAudio(dialogue, slow ? 0.7 : 1, setPlayingIdx, () => setPlayingIdx(null));
+  }
+  useEffect(() => () => { stopRef.current?.(); stopSpeaking(); }, []);
+
+  return (
+    <div className="study-card">
+      <h3>💬 실전 대화문 — {dialogue.title}</h3>
+      <div style={{ display: 'flex', gap: 8, margin: '4px 0 12px' }}>
+        <button className="btn primary" style={{ flex: 1 }} onClick={playing ? stopAll : playAll}>
+          {playing ? `⏹ 멈추기 (${(playingIdx ?? 0) + 1}/${dialogue.lines.length})` : '▶ 전체 음성 재생'}
+        </button>
+        <button className="btn" style={{ flex: '0 0 auto' }} onClick={() => setSlow((v) => !v)}>
+          {slow ? '🐢 천천히' : '🔊 보통 속도'}
+        </button>
+      </div>
+      {dialogue.lines.map((ln, i) => (
+        <div
+          className="example-row"
+          key={i}
+          style={playingIdx === i ? { background: 'rgba(255,90,54,0.12)', borderRadius: 8 } : undefined}
+        >
+          <div className="txt">
+            <div className="en">
+              <span className={ln.sp === 'A' ? 'sp-a' : 'sp-b'}>{ln.sp}</span> {ln.en}
+            </div>
+            <div className="kr muted">{ln.kr}</div>
+          </div>
+          <SpeakButton text={ln.en} />
+        </div>
+      ))}
     </div>
   );
 }
