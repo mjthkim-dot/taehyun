@@ -48,6 +48,12 @@ const nextConfig = {
   // 메인 도메인(voice-assistant)의 /app 하위 경로로 rewrite 프록시되므로,
   // 이 앱이 생성하는 모든 정적 자원/링크 경로 앞에 /app 을 붙인다.
   basePath: '/app',
+  // No-key UX (Phase 3): 서버 환경변수 GROQ_API_KEY가 설정돼 있으면 빌드 시점에
+  // 이 사실만(키 값 자체는 절대 노출하지 않음) 클라이언트 번들에 굽는다.
+  // 이렇게 하면 태현 본인 배포에서는 앱이 Groq 키 등록 UI를 아예 보여주지 않는다.
+  env: {
+    NEXT_PUBLIC_GROQ_SERVER: process.env.GROQ_API_KEY ? '1' : '',
+  },
 };
 
 module.exports = withPWA(nextConfig);

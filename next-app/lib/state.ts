@@ -219,8 +219,19 @@ export function getLessonStats() {
 }
 
 /* ── Groq API 키 ── */
+/** 서버에 GROQ_API_KEY가 설정된 경우 groqKey()가 돌려주는 자리표시자 — 실제 키 값이 아니다. */
+export const SERVER_GROQ_SENTINEL = '__server__';
+
+/**
+ * 로컬에 저장된 키가 있으면 그걸 쓰고, 없으면 서버가 키를 갖고 있는지(Phase 3 No-key UX)
+ * 빌드 시점에 구워진 NEXT_PUBLIC_GROQ_SERVER 플래그로 판단한다.
+ * 기존 컴포넌트들의 `!groqKey()` 게이팅 로직을 그대로 재사용할 수 있도록
+ * "키가 있다/없다"라는 동일한 boolean 의미를 유지한다.
+ */
 export function groqKey(): string {
-  return load('va_groq_key', '').trim();
+  const local = load('va_groq_key', '').trim();
+  if (local) return local;
+  return process.env.NEXT_PUBLIC_GROQ_SERVER === '1' ? SERVER_GROQ_SENTINEL : '';
 }
 
 export function saveGroqKey(key: string) {
