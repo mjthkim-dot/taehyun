@@ -22,9 +22,14 @@ function voiceFor(sp: string) {
 }
 
 /**
- * 대화문 전체를 화자별 목소리로 순차 재생한다 — 듣기 탭뿐 아니라 숙제 화면 상단의
- * "전체 듣기" 버튼처럼 탭을 열지 않고도 바로 들을 수 있는 진입점에서 재사용한다.
+ * 대화문 전체를 순차 재생한다 — 듣기 탭과 숙제/레슨 화면의 "전체 재생" 버튼에서 재사용한다.
  * 반환값은 재생을 중단하는 함수.
+ *
+ * 중요(모바일 호환): onend 콜백으로 다음 줄을 재귀 재생하면 iOS 사파리가 사용자 제스처를
+ * 벗어난 재생으로 보고 차단·누락시킨다. 그래서 클릭 핸들러 안에서 모든 문장을
+ * speechSynthesis 큐에 한 번에 동기적으로 넣는다(검증된 안정 패턴). 14줄 대화문을 매번
+ * Groq로 합성하면 무료 한도도 빨리 소모되므로, 전체 재생은 브라우저 음성을 쓴다.
+ * (줄별 🔊 단일 재생은 직접 제스처라 SpeakButton에서 Groq 자연 음성을 그대로 쓴다.)
  */
 export function playDialogueAudio(
   dialogue: Dialogue,
@@ -32,20 +37,44 @@ export function playDialogueAudio(
   onLineStart?: (i: number) => void,
   onDone?: () => void
 ): () => void {
-  let stopped = false;
-  function step(i: number) {
-    if (stopped || i >= dialogue.lines.length) {
-      if (!stopped) onDone?.();
-      return;
-    }
-    onLineStart?.(i);
-    const line = dialogue.lines[i];
-    speakText(line.en, 'en-US', rate, () => step(i + 1), voiceFor(line.sp));
+  if (typeof window === 'undefined' || !window.speechSynthesis || !dialogue.lines.length) {
+    onDone?.();
+    return () => {};
   }
-  step(0);
+  const synth = window.speechSynthesis;
+  synth.cancel();
+
+  // 화자별로 다른 브라우저 음성을 골라 몰입감을 준다(있을 때만).
+  const enVoices = synth.getVoices().filter((v) => v.lang.toLowerCase().startsWith('en'));
+  const voiceA = enVoices[0];
+  const voiceB = enVoices[1] || enVoices[0];
+
+  let stopped = false;
+  const last = dialogue.lines.length - 1;
+
+  // Chrome/모바일에서 긴 재생이 ~15초 후 멈추는 알려진 버그를 막는 keep-alive.
+  const keepAlive = setInterval(() => {
+    if (stopped || !synth.speaking) return;
+    synth.resume();
+  }, 10000);
+  const cleanup = () => clearInterval(keepAlive);
+
+  dialogue.lines.forEach((line, i) => {
+    const u = new SpeechSynthesisUtterance(line.en);
+    u.lang = 'en-US';
+    u.rate = rate;
+    const v = line.sp === 'A' ? voiceA : voiceB;
+    if (v) u.voice = v;
+    u.onstart = () => { if (!stopped) onLineStart?.(i); };
+    u.onend = () => { if (i === last && !stopped) { cleanup(); onDone?.(); } };
+    u.onerror = () => { if (i === last) cleanup(); };
+    synth.speak(u);
+  });
+
   return () => {
     stopped = true;
-    stopSpeaking();
+    cleanup();
+    synth.cancel();
   };
 }
 
