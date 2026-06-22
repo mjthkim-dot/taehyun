@@ -38,29 +38,38 @@ function playViaBrowserQueue(
     return;
   }
   const synth = window.speechSynthesis;
-  synth.cancel();
-  const enVoices = synth.getVoices().filter((v) => v.lang.toLowerCase().startsWith('en'));
-  const voiceA = enVoices[0];
-  const voiceB = enVoices[1] || enVoices[0];
-  const last = dialogue.lines.length - 1;
-  // Chrome/모바일에서 긴 재생이 ~15초 후 멈추는 버그 방지 keep-alive.
-  const keepAlive = setInterval(() => {
-    if (ref.stopped || !synth.speaking) return;
-    synth.resume();
-  }, 10000);
-  ref.cleanup = () => clearInterval(keepAlive);
-  for (let i = fromIdx; i <= last; i++) {
-    const line = dialogue.lines[i];
-    const u = new SpeechSynthesisUtterance(line.en);
-    u.lang = 'en-US';
-    u.rate = rate;
-    const v = line.sp === 'A' ? voiceA : voiceB;
-    if (v) u.voice = v;
-    u.onstart = () => { if (!ref.stopped) onLineStart?.(i); };
-    u.onend = () => { if (i === last && !ref.stopped) { clearInterval(keepAlive); onDone?.(); } };
-    u.onerror = () => { if (i === last) clearInterval(keepAlive); };
-    synth.speak(u);
-  }
+  const wasActive = synth.speaking || synth.pending;
+  if (wasActive) synth.cancel();
+
+  const enqueue = () => {
+    if (ref.stopped) return;
+    const enVoices = synth.getVoices().filter((v) => v.lang.toLowerCase().startsWith('en'));
+    const voiceA = enVoices[0];
+    const voiceB = enVoices[1] || enVoices[0];
+    const last = dialogue.lines.length - 1;
+    // Chrome/모바일에서 긴 재생이 ~15초 후 멈추는 버그 방지 keep-alive.
+    const keepAlive = setInterval(() => {
+      if (ref.stopped || !synth.speaking) return;
+      synth.resume();
+    }, 10000);
+    ref.cleanup = () => clearInterval(keepAlive);
+    for (let i = fromIdx; i <= last; i++) {
+      const line = dialogue.lines[i];
+      const u = new SpeechSynthesisUtterance(line.en);
+      u.lang = 'en-US';
+      u.rate = rate;
+      const v = line.sp === 'A' ? voiceA : voiceB;
+      if (v) u.voice = v;
+      u.onstart = () => { if (!ref.stopped) onLineStart?.(i); };
+      u.onend = () => { if (i === last && !ref.stopped) { clearInterval(keepAlive); onDone?.(); } };
+      u.onerror = () => { if (i === last) clearInterval(keepAlive); };
+      synth.speak(u);
+    }
+  };
+  // iOS/WebKit 버그: cancel() 직후 같은 틱에서 speak()를 큐에 넣으면 새로 넣은
+  // 발화까지 같이 지워져 아무 소리도 안 날 수 있다. 취소 효과가 반영될 시간을 준다.
+  if (wasActive) setTimeout(enqueue, 60);
+  else enqueue();
 }
 
 /**
