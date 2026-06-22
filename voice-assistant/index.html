@@ -7702,8 +7702,6 @@ function speakDialogueLine(text, speaker) {
    Groq 키가 있으면 Orpheus 두 음성(실제 감정 표현), 없으면 Web Speech 음성쌍으로 폴백. */
 function playDialogue() {
   if (!currentLesson.dialogue) return;
-  const synth = window.speechSynthesis;
-  const wasActive = !!(synth && (synth.speaking || synth.pending));
   stopSpeaking();
   const useGroq = !!groqKey();
   let A, B;
@@ -7728,11 +7726,12 @@ function playDialogue() {
       : _speakDialogueLineWeb(ln.en, ln.sp === 'B' ? B : A);
     job.then(() => setTimeout(next, gapMs)).catch(() => setTimeout(next, gapMs));
   };
-  // iOS/WebKit 버그: speechSynthesis.cancel() 직후 같은 틱에서 speak()를 큐에 넣으면
-  // 새로 넣은 발화까지 같이 지워져 대화 전체 재생이 무음으로 끝날 수 있다.
-  // Web Speech 폴백 경로에서 취소할 게 있었을 때만 취소 효과가 반영될 시간을 준다.
-  if (wasActive && !useGroq) setTimeout(next, 60);
-  else next();
+  // Chrome/iOS-WebKit 버그: speechSynthesis.cancel() 직후 같은 틱에서 speak()를 큐에
+  // 넣으면 새로 넣은 발화까지 같이 씹혀 무음으로 끝날 수 있다(이전에 말하던 게 없어도
+  // 발생할 수 있는 것으로 확인됨). Web Speech 경로는 항상 한 틱 늦춰 안전하게 재생한다 —
+  // tts()의 검증된 패턴과 동일.
+  if (useGroq) next();
+  else setTimeout(next, 60);
 }
 
 /* ── 스트리밍 TTS: 응답 전체를 기다리지 않고, 문장이 완성되는 즉시 읽기 ──
