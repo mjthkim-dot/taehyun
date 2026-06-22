@@ -1,15 +1,16 @@
 {
-  "builds": [
-    { "src": "next-app/package.json", "use": "@vercel/next" },
-    { "src": "api/transcript.js", "use": "@vercel/node", "config": { "maxDuration": 60 } },
-    { "src": "voice-assistant/**", "use": "@vercel/static" },
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "manifest.webmanifest", "use": "@vercel/static" },
-    { "src": "sw.js", "use": "@vercel/static" }
+  "functions": {
+    "api/transcript.js": { "maxDuration": 60 }
+  },
+  "rewrites": [
+    { "source": "/((?!voice-assistant/|api/|sw\\.js|manifest\\.webmanifest).*)", "destination": "/voice-assistant/index.html" }
   ],
-  "routes": [
-    { "src": "/(.*)", "headers": { "Cache-Control": "no-store, must-revalidate" }, "continue": true },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/voice-assistant/index.html" }
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, must-revalidate" }
+      ]
+    }
   ]
 }
