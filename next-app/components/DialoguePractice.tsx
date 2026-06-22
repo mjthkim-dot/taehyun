@@ -21,6 +21,34 @@ function voiceFor(sp: string) {
   return SPEAKER_VOICE[sp] || 'Fritz-PlayAI';
 }
 
+/**
+ * 대화문 전체를 화자별 목소리로 순차 재생한다 — 듣기 탭뿐 아니라 숙제 화면 상단의
+ * "전체 듣기" 버튼처럼 탭을 열지 않고도 바로 들을 수 있는 진입점에서 재사용한다.
+ * 반환값은 재생을 중단하는 함수.
+ */
+export function playDialogueAudio(
+  dialogue: Dialogue,
+  rate = 1,
+  onLineStart?: (i: number) => void,
+  onDone?: () => void
+): () => void {
+  let stopped = false;
+  function step(i: number) {
+    if (stopped || i >= dialogue.lines.length) {
+      if (!stopped) onDone?.();
+      return;
+    }
+    onLineStart?.(i);
+    const line = dialogue.lines[i];
+    speakText(line.en, 'en-US', rate, () => step(i + 1), voiceFor(line.sp));
+  }
+  step(0);
+  return () => {
+    stopped = true;
+    stopSpeaking();
+  };
+}
+
 function getSpeechRecognition(): typeof SpeechRecognition | null {
   if (typeof window === 'undefined') return null;
   return (
@@ -37,11 +65,29 @@ export default function DialoguePractice({ dialogue, lessonId }: { dialogue: Dia
   const [slow, setSlow] = useState(false);
   const rate = slow ? 0.7 : 1;
 
-  // 탭을 바꾸거나 컴포넌트가 사라질 때 진행 중인 음성을 멈춘다.
-  useEffect(() => () => stopSpeaking(), []);
+  // 전체 재생 상태를 부모에서 관리해 상단 버튼과 듣기 탭 버튼이 같은 상태를 공유한다.
+  const [playingIdx, setPlayingIdx] = useState<number | null>(null);
+  const stopRef = useRef<(() => void) | null>(null);
+
+  const stopAll = useCallback(() => {
+    stopRef.current?.();
+    stopRef.current = null;
+    setPlayingIdx(null);
+  }, []);
+
+  const playAll = useCallback(() => {
+    stopRef.current?.();
+    stopRef.current = playDialogueAudio(dialogue, slow ? 0.7 : 1, setPlayingIdx, () => setPlayingIdx(null));
+  }, [dialogue, slow]);
+
+  // 컴포넌트가 사라질 때 정리.
+  useEffect(() => () => { stopRef.current?.(); stopSpeaking(); }, []);
+  // 탭을 바꾸면 진행 중인 전체 재생을 멈춘다.
   useEffect(() => {
-    stopSpeaking();
-  }, [tab]);
+    stopAll();
+  }, [tab, stopAll]);
+
+  const playing = playingIdx !== null;
 
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 14, padding: 16, marginBottom: 14 }}>
@@ -49,6 +95,16 @@ export default function DialoguePractice({ dialogue, lessonId }: { dialogue: Dia
       <p className="muted" style={{ fontSize: '0.74rem', marginBottom: 12, lineHeight: 1.5 }}>
         이 회차 대화문을 듣고 · 역할로 말하고 · 외워보세요. 영어회화 앱들의 핵심 학습법을 담았어요.
       </p>
+
+      {/* 상단 전체 음성 재생 — 탭에 들어가지 않고도 대화문 전체를 바로 들을 수 있다. */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <button className="btn primary" style={{ flex: 1 }} onClick={playing ? stopAll : playAll}>
+          {playing ? `⏹ 멈추기 (${(playingIdx ?? 0) + 1}/${dialogue.lines.length})` : '▶ 전체 음성 재생'}
+        </button>
+        <button className="btn" style={{ flex: '0 0 auto' }} onClick={() => setSlow((v) => !v)}>
+          {slow ? '🐢 천천히' : '🔊 보통 속도'}
+        </button>
+      </div>
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
         {([
@@ -76,7 +132,15 @@ export default function DialoguePractice({ dialogue, lessonId }: { dialogue: Dia
         ))}
       </div>
 
-      {tab === 'listen' && <ListenMode dialogue={dialogue} rate={rate} slow={slow} onToggleSlow={() => setSlow((v) => !v)} />}
+      {tab === 'listen' && (
+        <ListenMode
+          dialogue={dialogue}
+          rate={rate}
+          playingIdx={playingIdx}
+          onPlayAll={playAll}
+          onStopAll={stopAll}
+        />
+      )}
       {tab === 'roleplay' && <RolePlayMode key="roleplay" dialogue={dialogue} lessonId={lessonId} rate={rate} />}
       {tab === 'memorize' && <MemorizeMode key="memorize" dialogue={dialogue} lessonId={lessonId} rate={rate} />}
     </div>
@@ -87,52 +151,25 @@ export default function DialoguePractice({ dialogue, lessonId }: { dialogue: Dia
 function ListenMode({
   dialogue,
   rate,
-  slow,
-  onToggleSlow,
+  playingIdx,
+  onPlayAll,
+  onStopAll,
 }: {
   dialogue: Dialogue;
   rate: number;
-  slow: boolean;
-  onToggleSlow: () => void;
+  playingIdx: number | null;
+  onPlayAll: () => void;
+  onStopAll: () => void;
 }) {
-  const [playingIdx, setPlayingIdx] = useState<number | null>(null);
-  const playingRef = useRef(false);
-
-  const stopAll = useCallback(() => {
-    playingRef.current = false;
-    setPlayingIdx(null);
-    stopSpeaking();
-  }, []);
-
-  useEffect(() => () => { playingRef.current = false; }, []);
-
-  function playFrom(i: number) {
-    if (!playingRef.current || i >= dialogue.lines.length) {
-      stopAll();
-      return;
-    }
-    setPlayingIdx(i);
-    const line = dialogue.lines[i];
-    speakText(line.en, 'en-US', rate, () => {
-      if (playingRef.current) playFrom(i + 1);
-    }, voiceFor(line.sp));
-  }
-
-  function playAll() {
-    playingRef.current = true;
-    playFrom(0);
-  }
-
   return (
     <div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-        <button className="btn primary" style={{ flex: 1 }} onClick={playingIdx !== null ? stopAll : playAll}>
-          {playingIdx !== null ? '⏹ 멈추기' : '▶ 전체 재생'}
-        </button>
-        <button className="btn" style={{ flex: '0 0 auto' }} onClick={onToggleSlow}>
-          {slow ? '🐢 천천히' : '🔊 보통 속도'}
-        </button>
-      </div>
+      <button
+        className="btn primary"
+        style={{ width: '100%', marginBottom: 10 }}
+        onClick={playingIdx !== null ? onStopAll : onPlayAll}
+      >
+        {playingIdx !== null ? '⏹ 멈추기' : '▶ 처음부터 전체 재생'}
+      </button>
 
       {dialogue.lines.map((line, i) => (
         <div
