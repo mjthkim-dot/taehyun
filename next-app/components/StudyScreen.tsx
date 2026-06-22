@@ -5,7 +5,7 @@
  * 섹션/포인트/예문/대화문/프리토킹/숙제를 원본과 동일한 순서로 보여준다.
  * TTS(말하기) 연동은 다음 단계 작업 — 지금은 콘텐츠 표시 + 레슨 선택에 집중한다.
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ALL_LESSONS,
   LESSONS,
@@ -18,6 +18,7 @@ import {
 } from '../lib/lessons';
 import Note from './Note';
 import SpeakButton from './SpeakButton';
+import { addPhrase } from '../lib/state';
 
 interface StudyScreenProps {
   lessonId: number;
@@ -122,7 +123,7 @@ export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenPro
               <div className="topic-label">🗣 {t.topic}</div>
               <div className="kr strong">{t.kr}</div>
               <div className="en">
-                {t.en} <SpeakButton text={t.en} />
+                {t.en} <SpeakButton text={t.en} /> <SpeakButton text={t.en} slow /> <SaveBtn en={t.en} kr={t.kr} />
               </div>
               {t.tip && (
                 <div className="note">
@@ -142,6 +143,23 @@ export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenPro
         </div>
       )}
     </div>
+  );
+}
+
+function SaveBtn({ en, kr }: { en: string; kr: string }) {
+  const [saved, setSaved] = useState(false);
+  return (
+    <button
+      type="button"
+      className="speak-mini"
+      title="내 표현장에 저장"
+      onClick={() => {
+        addPhrase({ en, kr, lesson: undefined });
+        setSaved(true);
+      }}
+    >
+      {saved ? '✅' : '📌'}
+    </button>
   );
 }
 

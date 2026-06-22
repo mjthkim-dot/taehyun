@@ -136,7 +136,7 @@ export const SRS_LEECH_THRESHOLD = 4;
 export interface WeakItem {
   kr: string;
   en: string;
-  lesson?: number;
+  lesson?: number | string;
   cat?: string;
   box: number;
   lapses: number;
@@ -163,6 +163,40 @@ export function dueWeak() {
 export function pendingWeakCount() {
   const now = Date.now();
   return load<WeakItem[]>('va_weak', []).filter((w) => w.due != null && w.due > now).length;
+}
+
+export type FlashGrade = 'again' | 'hard' | 'good' | 'easy';
+
+/** 4단계 자가채점(다시/어려움/알맞음/쉬움) → SRS 박스/복습일 갱신 (Anki 근사). */
+export function gradeWeakItem(en: string, grade: FlashGrade) {
+  const weak = load<WeakItem[]>('va_weak', []);
+  const w = weak.find((x) => x.en === en);
+  if (!w) return;
+  const box = w.box || 0;
+  if (grade === 'again') {
+    if (box > 0) w.lapses = (w.lapses || 0) + 1;
+    w.box = 0;
+    w.due = srsDue(0);
+  } else if (grade === 'hard') {
+    w.box = Math.max(1, box);
+    w.due = srsDue(w.box);
+  } else if (grade === 'good') {
+    w.box = Math.min(box + 1, SRS_MAX_BOX);
+    w.due = srsDue(w.box);
+  } else if (grade === 'easy') {
+    w.box = Math.min(box + 2, SRS_MAX_BOX);
+    w.due = srsDue(w.box);
+  }
+  store('va_weak', weak);
+}
+
+/** 약점 노트(va_weak)에 새 항목을 추가한다 — 이미 있으면 건너뛴다. */
+export function addWeakItem(item: { en: string; kr?: string; lesson?: number | string; cat?: string }) {
+  const weak = load<WeakItem[]>('va_weak', []);
+  if (weak.some((w) => w.en === item.en)) return weak;
+  weak.push({ kr: item.kr || '', en: item.en, lesson: item.lesson, cat: item.cat, box: 0, lapses: 0, due: srsDue(0) });
+  store('va_weak', weak);
+  return weak;
 }
 
 /* ── 레슨별 드릴 정확도 통계 ── */
@@ -208,6 +242,12 @@ export function addPhrase(p: SavedPhrase) {
   const phrases = getPhrases();
   if (phrases.some((x) => x.en === p.en)) return phrases;
   phrases.push(p);
+  store('va_phrases', phrases);
+  return phrases;
+}
+
+export function removePhrase(en: string) {
+  const phrases = getPhrases().filter((p) => p.en !== en);
   store('va_phrases', phrases);
   return phrases;
 }

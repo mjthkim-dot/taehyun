@@ -2,7 +2,22 @@
 
 import { useState } from 'react';
 
-export type Mode = 'master' | 'study' | 'drill' | 'talk' | 'video' | 'review' | 'progress' | 'features';
+export type Mode =
+  | 'master'
+  | 'study'
+  | 'drill'
+  | 'talk'
+  | 'video'
+  | 'review'
+  | 'progress'
+  | 'features'
+  | 'flashcards'
+  | 'placement'
+  | 'listening'
+  | 'reading'
+  | 'writing'
+  | 'homework'
+  | 'phrasebook';
 
 const PRIMARY_TABS: { mode: Mode; icon: string; label: string }[] = [
   { mode: 'master', icon: '🏠', label: '홈' },

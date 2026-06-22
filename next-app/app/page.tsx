@@ -15,6 +15,13 @@ import ReviewScreen from '../components/ReviewScreen';
 import ProgressScreen from '../components/ProgressScreen';
 import FeaturesScreen from '../components/FeaturesScreen';
 import VideoScreen from '../components/VideoScreen';
+import FlashcardsScreen from '../components/FlashcardsScreen';
+import HomeworkScreen from '../components/HomeworkScreen';
+import PlacementScreen from '../components/PlacementScreen';
+import PhrasebookScreen from '../components/PhrasebookScreen';
+import ListeningScreen from '../components/ListeningScreen';
+import ReadingScreen from '../components/ReadingScreen';
+import WritingScreen from '../components/WritingScreen';
 import ComingSoon from '../components/ComingSoon';
 import { calcStreak } from '../lib/state';
 
@@ -27,6 +34,13 @@ const TAB_TITLE: Record<Mode, string> = {
   review: '복습',
   progress: '진도',
   features: '기능',
+  flashcards: '암기 카드',
+  placement: 'CEFR 배치고사',
+  listening: '듣기',
+  reading: '읽기',
+  writing: '쓰기',
+  homework: '숙제 도우미',
+  phrasebook: '내 표현장',
 };
 
 export default function Page() {
@@ -64,6 +78,13 @@ export default function Page() {
         {mode === 'progress' && <ProgressScreen />}
         {mode === 'features' && <FeaturesScreen onNavigate={setMode} />}
         {mode === 'video' && <VideoScreen />}
+        {mode === 'flashcards' && <FlashcardsScreen onExit={() => setMode('review')} />}
+        {mode === 'homework' && <HomeworkScreen lessonId={lessonId} />}
+        {mode === 'placement' && <PlacementScreen onDone={() => setMode('master')} />}
+        {mode === 'phrasebook' && <PhrasebookScreen />}
+        {mode === 'listening' && <ListeningScreen />}
+        {mode === 'reading' && <ReadingScreen />}
+        {mode === 'writing' && <WritingScreen />}
         {mode !== 'master' &&
           mode !== 'study' &&
           mode !== 'drill' &&
@@ -71,7 +92,14 @@ export default function Page() {
           mode !== 'review' &&
           mode !== 'progress' &&
           mode !== 'features' &&
-          mode !== 'video' && <ComingSoon label={TAB_TITLE[mode]} />}
+          mode !== 'video' &&
+          mode !== 'flashcards' &&
+          mode !== 'homework' &&
+          mode !== 'placement' &&
+          mode !== 'phrasebook' &&
+          mode !== 'listening' &&
+          mode !== 'reading' &&
+          mode !== 'writing' && <ComingSoon label={TAB_TITLE[mode]} />}
       </div>
 
       <NavBar mode={mode} onChange={setMode} />
