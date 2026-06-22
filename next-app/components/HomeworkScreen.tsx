@@ -70,12 +70,14 @@ export default function HomeworkScreen({ lessonId }: { lessonId: number }) {
   const [followInput, setFollowInput] = useState('');
   const [followLoading, setFollowLoading] = useState(false);
   const [followError, setFollowError] = useState<string | null>(null);
+  const [followItem, setFollowItem] = useState<number | 'all'>('all');
 
   useEffect(() => {
     setDone(lesson ? isHomeworkDone(lesson.id) : false);
     setGrades(null);
     setAttempts({});
     setFollowUps([]);
+    setFollowItem('all');
   }, [lesson]);
 
   async function solve() {
@@ -94,6 +96,7 @@ export default function HomeworkScreen({ lessonId }: { lessonId: number }) {
     setGrades(null);
     setAttempts({});
     setFollowUps([]);
+    setFollowItem('all');
     setDone(lesson ? isHomeworkDone(lesson.id) : false);
     const modeRule =
       mode === 'hint'
@@ -175,6 +178,8 @@ Return JSON: {"results":[{"idx":0,"correct":true,"feedback":"Korean feedback","c
     }
   }
 
+  /** 후속 질문 — 이전 질문/답변을 대화 기록으로 함께 보내 맥락을 이어가고,
+   * 특정 문항을 골랐으면 그 문항에 한정해 답하도록 안내한다. */
   async function askFollowUp() {
     const q = followInput.trim();
     if (!q || !result) return;
@@ -186,9 +191,24 @@ Return JSON: {"results":[{"idx":0,"correct":true,"feedback":"Korean feedback","c
     setFollowInput('');
     setFollowLoading(true);
     try {
-      const sys = 'You are a warm, patient Korean tutor. The student already got help with their English homework and now has a follow-up question. Answer in Korean (English only for example sentences). Output plain text, not JSON.';
-      const context = `Original homework summary: ${result.detected || ''}\nKey points already given: ${(result.keyPoints || []).join('; ')}`;
-      const a = await groqComplete([{ role: 'system', content: sys }, { role: 'user', content: `${context}\n\nFollow-up question: ${q}` }], { maxTokens: 400, temperature: 0.4 });
+      const sys = 'You are a warm, patient Korean tutor. The student already got help with their English homework and now has follow-up questions, possibly several in a row. Answer in Korean (English only for example sentences). Keep answers concise and focused. Output plain text, not JSON.';
+      const items = (result.items || []).map((it, i) => `${i + 1}. ${it.question || ''}`).join(' / ');
+      const context = `Original homework: ${result.detected || ''}\nItems: ${items}\nKey points already given: ${(result.keyPoints || []).join('; ')}`;
+      const targetNote =
+        followItem !== 'all' && result.items?.[followItem]
+          ? `The student is asking specifically about item ${followItem + 1}: "${result.items[followItem].question || ''}".`
+          : '';
+      const history = followUps.flatMap((f) => [
+        { role: 'user' as const, content: f.q },
+        { role: 'assistant' as const, content: f.a },
+      ]);
+      const messages = [
+        { role: 'system' as const, content: sys },
+        { role: 'user' as const, content: context },
+        ...history,
+        { role: 'user' as const, content: targetNote ? `${targetNote}\n${q}` : q },
+      ];
+      const a = await groqComplete(messages, { maxTokens: 400, temperature: 0.4 });
       setFollowUps((prev) => [...prev, { q, a: a.trim() }]);
     } catch (e) {
       setFollowUps((prev) => [...prev, { q, a: `❌ ${e instanceof GroqError ? e.message : String(e)}` }]);
@@ -417,6 +437,29 @@ Return JSON: {"results":[{"idx":0,"correct":true,"feedback":"Korean feedback","c
                   <div className="muted" style={{ fontSize: '0.8rem', lineHeight: 1.6, marginTop: 2 }}>{f.a}</div>
                 </div>
               ))}
+              {!!result.items?.length && (
+                <select
+                  value={followItem}
+                  onChange={(e) => setFollowItem(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                  style={{
+                    width: '100%',
+                    background: 'var(--surface2)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    padding: '6px 8px',
+                    fontSize: '0.78rem',
+                    marginBottom: 6,
+                  }}
+                >
+                  <option value="all">전체 숙제에 대해 질문</option>
+                  {result.items.map((it, i) => (
+                    <option key={i} value={i}>
+                      {i + 1}번 문항에 대해 질문{it.question ? ` — ${it.question.slice(0, 24)}${it.question.length > 24 ? '…' : ''}` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
               <div style={{ display: 'flex', gap: 8 }}>
                 <input
                   type="text"
