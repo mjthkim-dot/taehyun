@@ -1,13 +1,14 @@
 'use client';
 
 /**
- * 숙제 도우미 — voice-assistant/index.html 의 renderHomework()/solveHomework() 포팅.
+ * 숙제 도우미 v2 — voice-assistant/index.html 의 renderHomework()/solveHomework() 포팅에
+ * 1) 힌트 모드에서 직접 풀어본 답 채점, 2) 완료 체크 트래킹, 3) 후속 질문(이어서 질문하기)을 더했다.
  * 음성 입력(Groq Whisper + VAD)은 이번 단계에서 제외하고 텍스트 입력만 지원한다.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ALL_LESSONS, LESSONS, lessonLabel, type Lesson } from '../lib/lessons';
 import { groqComplete, GroqError } from '../lib/groq';
-import { addPhrase, addWeakItem, groqKey, markPracticedToday } from '../lib/state';
+import { addPhrase, addWeakItem, groqKey, isHomeworkDone, markHomeworkDone, markPracticedToday } from '../lib/state';
 import SpeakButton from './SpeakButton';
 
 type HwMode = 'full' | 'hint';
@@ -24,6 +25,17 @@ interface HwResult {
   keyPoints?: string[];
   saveItems?: { en: string; kr?: string }[];
   practice?: { q?: string; a?: string };
+}
+
+interface GradeItem {
+  correct: boolean;
+  feedback: string;
+  correctAnswer: string;
+}
+
+interface FollowUp {
+  q: string;
+  a: string;
 }
 
 function hwLessonContext(lesson: Lesson | null) {
@@ -47,6 +59,24 @@ export default function HomeworkScreen({ lessonId }: { lessonId: number }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
+  const [done, setDone] = useState(false);
+
+  const [attempts, setAttempts] = useState<Record<number, string>>({});
+  const [grades, setGrades] = useState<Record<number, GradeItem> | null>(null);
+  const [gradeLoading, setGradeLoading] = useState(false);
+  const [gradeError, setGradeError] = useState<string | null>(null);
+
+  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
+  const [followInput, setFollowInput] = useState('');
+  const [followLoading, setFollowLoading] = useState(false);
+  const [followError, setFollowError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDone(lesson ? isHomeworkDone(lesson.id) : false);
+    setGrades(null);
+    setAttempts({});
+    setFollowUps([]);
+  }, [lesson]);
 
   async function solve() {
     const t = text.trim();
@@ -61,6 +91,10 @@ export default function HomeworkScreen({ lessonId }: { lessonId: number }) {
     setError(null);
     setLoading(true);
     setResult(null);
+    setGrades(null);
+    setAttempts({});
+    setFollowUps([]);
+    setDone(lesson ? isHomeworkDone(lesson.id) : false);
     const modeRule =
       mode === 'hint'
         ? `MODE: HINT-ONLY. Do NOT reveal final answers. For each item, write a guiding "hint" in Korean (what to look at, which rule applies, how to start) and leave "answer" and "explanation" as empty strings.`
@@ -98,6 +132,71 @@ export default function HomeworkScreen({ lessonId }: { lessonId: number }) {
     setSavedCount(items.length);
   }
 
+  function markDone() {
+    if (!lesson) return;
+    markHomeworkDone(lesson.id);
+    setDone(true);
+  }
+
+  /** 힌트 모드에서 직접 풀어본 답을 한 번에 채점받는다 — 사용자가 버튼을 눌렀을 때만 1회 호출. */
+  async function gradeAttempts() {
+    if (!result?.items?.length) return;
+    if (!groqKey()) {
+      setGradeError('NO_KEY');
+      return;
+    }
+    setGradeError(null);
+    setGradeLoading(true);
+    try {
+      const payload = result.items.map((it, i) => ({
+        idx: i,
+        question: it.question || '',
+        hint: it.hint || '',
+        studentAnswer: attempts[i] || '',
+      }));
+      const sys = 'You are a warm Korean English tutor checking a student\'s own attempted answers. Output ONLY JSON.';
+      const user = `For each item below, decide if the student's answer is correct, give short Korean feedback (why right/wrong), and state the correct English answer.
+Items: ${JSON.stringify(payload)}
+Return JSON: {"results":[{"idx":0,"correct":true,"feedback":"Korean feedback","correctAnswer":"English answer"},...]}`;
+      const raw = await groqComplete([{ role: 'system', content: sys }, { role: 'user', content: user }], { json: true, maxTokens: 900, temperature: 0.3 });
+      const data = JSON.parse(raw) as { results?: { idx: number; correct: boolean; feedback: string; correctAnswer: string }[] };
+      const map: Record<number, GradeItem> = {};
+      (data.results || []).forEach((r) => {
+        map[r.idx] = { correct: r.correct, feedback: r.feedback, correctAnswer: r.correctAnswer };
+        if (!r.correct && r.correctAnswer) {
+          addWeakItem({ en: r.correctAnswer, kr: '', lesson: lesson?.id ?? 'homework', cat: 'homework' });
+        }
+      });
+      setGrades(map);
+    } catch (e) {
+      setGradeError(e instanceof GroqError ? e.message : String(e));
+    } finally {
+      setGradeLoading(false);
+    }
+  }
+
+  async function askFollowUp() {
+    const q = followInput.trim();
+    if (!q || !result) return;
+    if (!groqKey()) {
+      setFollowError('NO_KEY');
+      return;
+    }
+    setFollowError(null);
+    setFollowInput('');
+    setFollowLoading(true);
+    try {
+      const sys = 'You are a warm, patient Korean tutor. The student already got help with their English homework and now has a follow-up question. Answer in Korean (English only for example sentences). Output plain text, not JSON.';
+      const context = `Original homework summary: ${result.detected || ''}\nKey points already given: ${(result.keyPoints || []).join('; ')}`;
+      const a = await groqComplete([{ role: 'system', content: sys }, { role: 'user', content: `${context}\n\nFollow-up question: ${q}` }], { maxTokens: 400, temperature: 0.4 });
+      setFollowUps((prev) => [...prev, { q, a: a.trim() }]);
+    } catch (e) {
+      setFollowUps((prev) => [...prev, { q, a: `❌ ${e instanceof GroqError ? e.message : String(e)}` }]);
+    } finally {
+      setFollowLoading(false);
+    }
+  }
+
   return (
     <div className="study-screen">
       <div className="study-card">
@@ -117,6 +216,7 @@ export default function HomeworkScreen({ lessonId }: { lessonId: number }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <span style={{ fontSize: '0.74rem', fontWeight: 800, color: 'var(--green)' }}>
                 📋 {lesson.preview ? '예습 과제' : '이번 회차 숙제'}
+                {done && <span style={{ marginLeft: 6, color: 'var(--primary-light)' }}>✅ 완료함</span>}
               </span>
               {sessions.length > 1 ? (
                 <select
@@ -231,7 +331,39 @@ export default function HomeworkScreen({ lessonId }: { lessonId: number }) {
                   </div>
                 )}
                 {mode === 'hint'
-                  ? it.hint && <div style={{ fontSize: '0.82rem', color: 'var(--yellow)', lineHeight: 1.6 }}>💡 {it.hint}</div>
+                  ? (
+                    <>
+                      {it.hint && <div style={{ fontSize: '0.82rem', color: 'var(--yellow)', lineHeight: 1.6, marginBottom: 8 }}>💡 {it.hint}</div>}
+                      <input
+                        type="text"
+                        value={attempts[i] || ''}
+                        onChange={(e) => setAttempts((a) => ({ ...a, [i]: e.target.value }))}
+                        placeholder="내가 풀어본 답을 적어보세요"
+                        style={{
+                          width: '100%',
+                          background: 'var(--surface)',
+                          color: 'var(--text)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 8,
+                          padding: '7px 10px',
+                          fontSize: '0.84rem',
+                        }}
+                      />
+                      {grades?.[i] && (
+                        <div
+                          style={{
+                            marginTop: 6,
+                            fontSize: '0.8rem',
+                            lineHeight: 1.6,
+                            color: grades[i].correct ? 'var(--green)' : 'var(--red)',
+                          }}
+                        >
+                          {grades[i].correct ? '✅ 정답이에요!' : `❌ 정답: ${grades[i].correctAnswer}`}
+                          <div className="muted" style={{ color: 'var(--text-muted)' }}>{grades[i].feedback}</div>
+                        </div>
+                      )}
+                    </>
+                  )
                   : (
                     <>
                       {it.answer && (
@@ -244,6 +376,19 @@ export default function HomeworkScreen({ lessonId }: { lessonId: number }) {
                   )}
               </div>
             ))}
+            {mode === 'hint' && !!result.items?.length && (
+              <>
+                <button className="btn primary" style={{ width: '100%', marginBottom: 10 }} disabled={gradeLoading} onClick={gradeAttempts}>
+                  {gradeLoading ? '🤖 채점 중...' : '✍️ 내 답 채점받기'}
+                </button>
+                {gradeError === 'NO_KEY' && (
+                  <p style={{ fontSize: '0.76rem', color: 'var(--yellow)', marginBottom: 10 }}>🤖 Groq 키 연결 후 채점받을 수 있어요.</p>
+                )}
+                {gradeError && gradeError !== 'NO_KEY' && (
+                  <p style={{ fontSize: '0.76rem', color: 'var(--red)', marginBottom: 10 }}>채점 실패: {gradeError}</p>
+                )}
+              </>
+            )}
             {!!result.keyPoints?.length && (
               <>
                 <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--primary-light)', margin: '10px 0 4px' }}>🔑 핵심 포인트</div>
@@ -258,6 +403,45 @@ export default function HomeworkScreen({ lessonId }: { lessonId: number }) {
                 {savedCount ? `✅ ${savedCount}개 저장 완료` : `💾 핵심 표현 ${result.saveItems.filter((x) => x?.en).length}개 암기카드에 추가`}
               </button>
             )}
+            {lesson?.homework && (
+              <button className="btn" style={{ width: '100%', marginTop: 8 }} disabled={done} onClick={markDone}>
+                {done ? '✅ 완료로 표시했어요' : '☑️ 이 숙제 완료로 표시'}
+              </button>
+            )}
+
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--primary-light)', margin: '4px 0 6px' }}>❓ 더 궁금한 점이 있나요?</div>
+              {followUps.map((f, i) => (
+                <div key={i} style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 700 }}>Q. {f.q}</div>
+                  <div className="muted" style={{ fontSize: '0.8rem', lineHeight: 1.6, marginTop: 2 }}>{f.a}</div>
+                </div>
+              ))}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  value={followInput}
+                  onChange={(e) => setFollowInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && askFollowUp()}
+                  placeholder="이해 안 되는 부분을 다시 물어보세요"
+                  style={{
+                    flex: 1,
+                    background: 'var(--surface2)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    padding: '7px 10px',
+                    fontSize: '0.84rem',
+                  }}
+                />
+                <button className="btn primary" style={{ flex: '0 0 auto' }} disabled={followLoading || !followInput.trim()} onClick={askFollowUp}>
+                  {followLoading ? '...' : '질문'}
+                </button>
+              </div>
+              {followError === 'NO_KEY' && (
+                <p style={{ fontSize: '0.76rem', color: 'var(--yellow)', marginTop: 6 }}>🤖 Groq 키 연결 후 질문할 수 있어요.</p>
+              )}
+            </div>
           </div>
         )}
       </div>

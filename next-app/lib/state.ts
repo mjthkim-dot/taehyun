@@ -205,6 +205,24 @@ export interface LessonStat {
   correct: number;
 }
 
+/* ── 숙제 완료 체크 ── */
+export function getDoneHomework(): number[] {
+  return load<number[]>('va_hw_done', []);
+}
+
+export function markHomeworkDone(lessonId: number) {
+  const done = getDoneHomework();
+  if (!done.includes(lessonId)) {
+    done.push(lessonId);
+    store('va_hw_done', done);
+  }
+  return done;
+}
+
+export function isHomeworkDone(lessonId: number) {
+  return getDoneHomework().includes(lessonId);
+}
+
 export function recordDrillStat(lessonId: number, correct: boolean) {
   const stats = load<Record<number, LessonStat>>('va_stats', {});
   const s = stats[lessonId] || { attempts: 0, correct: 0 };
