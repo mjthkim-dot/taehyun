@@ -70,14 +70,25 @@ function pickVoice(lang: string): SpeechSynthesisVoice | undefined {
 
 function speakWithBrowser(text: string, lang: string, rate: number, onend?: () => void) {
   if (typeof window === 'undefined' || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = lang;
-  u.rate = rate;
-  const voice = pickVoice(lang);
-  if (voice) u.voice = voice;
-  if (onend) u.onend = onend;
-  window.speechSynthesis.speak(u);
+  const synth = window.speechSynthesis;
+  const fire = () => {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = lang;
+    u.rate = rate;
+    const voice = pickVoice(lang);
+    if (voice) u.voice = voice;
+    if (onend) u.onend = onend;
+    synth.speak(u);
+  };
+  // iOS/WebKit 버그: cancel() 직후 같은 틱에서 speak()하면 새 발화까지 같이 지워져
+  // 아무 소리도 안 날 수 있다. 재생 중이던 게 있을 때만 취소하고, 취소 효과가
+  // 반영될 시간을 살짝 준 뒤에 새 발화를 큐에 넣는다.
+  if (synth.speaking || synth.pending) {
+    synth.cancel();
+    setTimeout(fire, 60);
+  } else {
+    fire();
+  }
 }
 
 /* ── Groq 신경망 음성 ── */
