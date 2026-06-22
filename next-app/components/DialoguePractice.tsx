@@ -41,35 +41,42 @@ function playViaBrowserQueue(
   const wasActive = synth.speaking || synth.pending;
   if (wasActive) synth.cancel();
 
-  const enqueue = () => {
+  const last = dialogue.lines.length - 1;
+  // Chrome/모바일에서 한 발화가 ~15초를 넘기면 합성기가 조용히 멈추는 버그 방지.
+  const keepAlive = setInterval(() => {
+    if (ref.stopped || !synth.speaking) return;
+    synth.resume();
+  }, 10000);
+  ref.cleanup = () => clearInterval(keepAlive);
+
+  // 한 줄이 끝난 뒤(onend) 다음 줄을 큐에 넣는다 — 여러 발화를 한꺼번에 speak()하면
+  // Chrome/Safari가 첫 줄만 말하고 나머지를 조용히 버려 "1번째 줄에서 멈춘 것처럼"
+  // 보이는 버그가 있다. 한 번에 하나씩만 큐에 넣어 이 버그를 피한다.
+  const speakOne = (i: number) => {
     if (ref.stopped) return;
+    if (i > last) {
+      clearInterval(keepAlive);
+      onDone?.();
+      return;
+    }
     const enVoices = synth.getVoices().filter((v) => v.lang.toLowerCase().startsWith('en'));
     const voiceA = enVoices[0];
     const voiceB = enVoices[1] || enVoices[0];
-    const last = dialogue.lines.length - 1;
-    // Chrome/모바일에서 긴 재생이 ~15초 후 멈추는 버그 방지 keep-alive.
-    const keepAlive = setInterval(() => {
-      if (ref.stopped || !synth.speaking) return;
-      synth.resume();
-    }, 10000);
-    ref.cleanup = () => clearInterval(keepAlive);
-    for (let i = fromIdx; i <= last; i++) {
-      const line = dialogue.lines[i];
-      const u = new SpeechSynthesisUtterance(line.en);
-      u.lang = 'en-US';
-      u.rate = rate;
-      const v = line.sp === 'A' ? voiceA : voiceB;
-      if (v) u.voice = v;
-      u.onstart = () => { if (!ref.stopped) onLineStart?.(i); };
-      u.onend = () => { if (i === last && !ref.stopped) { clearInterval(keepAlive); onDone?.(); } };
-      u.onerror = () => { if (i === last) clearInterval(keepAlive); };
-      synth.speak(u);
-    }
+    const line = dialogue.lines[i];
+    const u = new SpeechSynthesisUtterance(line.en);
+    u.lang = 'en-US';
+    u.rate = rate;
+    const v = line.sp === 'A' ? voiceA : voiceB;
+    if (v) u.voice = v;
+    u.onstart = () => { if (!ref.stopped) onLineStart?.(i); };
+    u.onend = () => speakOne(i + 1);
+    u.onerror = () => speakOne(i + 1);
+    synth.speak(u);
   };
   // iOS/WebKit 버그: cancel() 직후 같은 틱에서 speak()를 큐에 넣으면 새로 넣은
   // 발화까지 같이 지워져 아무 소리도 안 날 수 있다. 취소 효과가 반영될 시간을 준다.
-  if (wasActive) setTimeout(enqueue, 60);
-  else enqueue();
+  if (wasActive) setTimeout(() => speakOne(fromIdx), 60);
+  else speakOne(fromIdx);
 }
 
 /**
