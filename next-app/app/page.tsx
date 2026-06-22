@@ -7,10 +7,14 @@
  */
 import { useEffect, useState } from 'react';
 import NavBar, { type Mode } from '../components/NavBar';
+import MasterScreen from '../components/MasterScreen';
 import StudyScreen, { defaultLesson } from '../components/StudyScreen';
 import DrillScreen from '../components/DrillScreen';
+import TalkScreen from '../components/TalkScreen';
 import ReviewScreen from '../components/ReviewScreen';
 import ProgressScreen from '../components/ProgressScreen';
+import FeaturesScreen from '../components/FeaturesScreen';
+import VideoScreen from '../components/VideoScreen';
 import ComingSoon from '../components/ComingSoon';
 import { calcStreak } from '../lib/state';
 
@@ -47,13 +51,27 @@ export default function Page() {
       </header>
 
       <div className="app-content" key={mode}>
+        {mode === 'master' && (
+          <MasterScreen
+            onSelectLesson={setLessonId}
+            onNavigate={setMode}
+          />
+        )}
         {mode === 'study' && <StudyScreen lessonId={lessonId} onSelectLesson={setLessonId} />}
         {mode === 'drill' && <DrillScreen lessonId={lessonId} />}
+        {mode === 'talk' && <TalkScreen lessonId={lessonId} />}
         {mode === 'review' && <ReviewScreen />}
         {mode === 'progress' && <ProgressScreen />}
-        {mode !== 'study' && mode !== 'drill' && mode !== 'review' && mode !== 'progress' && (
-          <ComingSoon label={TAB_TITLE[mode]} />
-        )}
+        {mode === 'features' && <FeaturesScreen onNavigate={setMode} />}
+        {mode === 'video' && <VideoScreen />}
+        {mode !== 'master' &&
+          mode !== 'study' &&
+          mode !== 'drill' &&
+          mode !== 'talk' &&
+          mode !== 'review' &&
+          mode !== 'progress' &&
+          mode !== 'features' &&
+          mode !== 'video' && <ComingSoon label={TAB_TITLE[mode]} />}
       </div>
 
       <NavBar mode={mode} onChange={setMode} />

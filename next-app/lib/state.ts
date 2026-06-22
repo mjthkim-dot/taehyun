@@ -184,4 +184,37 @@ export function getLessonStats() {
   return load<Record<number, LessonStat>>('va_stats', {});
 }
 
+/* ── Groq API 키 ── */
+export function groqKey(): string {
+  return load('va_groq_key', '').trim();
+}
+
+export function saveGroqKey(key: string) {
+  store('va_groq_key', key.trim());
+}
+
+/* ── 표현장(저장한 문장) ── */
+export interface SavedPhrase {
+  en: string;
+  kr: string;
+  lesson?: number;
+}
+
+export function getPhrases() {
+  return load<SavedPhrase[]>('va_phrases', []);
+}
+
+export function addPhrase(p: SavedPhrase) {
+  const phrases = getPhrases();
+  if (phrases.some((x) => x.en === p.en)) return phrases;
+  phrases.push(p);
+  store('va_phrases', phrases);
+  return phrases;
+}
+
+/* ── 배치고사 결과 ── */
+export function isPlaced() {
+  return !!load('va_placed', null);
+}
+
 export { CEFR_GSE, CEFR_ORDER, gseMid, gseToCefr, scaffoldFor };
