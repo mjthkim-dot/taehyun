@@ -10,6 +10,7 @@ import { ALL_LESSONS, LESSONS, lessonLabel, type Lesson } from '../lib/lessons';
 import { groqComplete, GroqError } from '../lib/groq';
 import { addPhrase, addWeakItem, groqKey, isHomeworkDone, markHomeworkDone, markPracticedToday } from '../lib/state';
 import SpeakButton from './SpeakButton';
+import DialoguePractice from './DialoguePractice';
 
 type HwMode = 'full' | 'hint';
 
@@ -265,6 +266,14 @@ Return JSON: {"results":[{"idx":0,"correct":true,"feedback":"Korean feedback","c
             <div style={{ fontSize: '0.88rem', fontWeight: 700, lineHeight: 1.5 }}>{lesson.homework}</div>
           </div>
         )}
+
+        {lesson?.dialogue && lesson.dialogue.lines.length > 0 && (
+          <DialoguePractice dialogue={lesson.dialogue} lessonId={lesson.id} />
+        )}
+
+        <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', margin: '4px 0 8px' }}>
+          ✏️ 그 외 숙제 문제는 아래에 붙여넣어 AI 도움을 받으세요
+        </div>
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
           <button
