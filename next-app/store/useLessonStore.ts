@@ -12,10 +12,18 @@
  */
 import { create } from 'zustand';
 
+export interface WordDiff {
+  w: string;
+  ok: boolean;
+}
+
 export interface LessonState {
   currentSentence: string;
   userSpeech: string;
   accuracyScore: number;
+  wordDiff: WordDiff[];
+  missedWords: string[];
+  attempts: number;
   isListening: boolean;
 
   // actions
@@ -25,27 +33,34 @@ export interface LessonState {
   setListening: (v: boolean) => void;
   /** 발화 텍스트로 정확도를 계산해 함께 반영한다. */
   evaluateSpeech: (text: string) => void;
+  /** 같은 문장을 다시 시도할 때 — 시도 횟수는 유지하고 결과만 지운다. */
+  clearAttempt: () => void;
   reset: () => void;
 }
 
+function normWords(s: string) {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9\s']/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
 /**
- * 목표 문장 대비 발화 정확도(0~100).
- * 단어 토큰 단위로 정규화(소문자·문장부호 제거) 후
- * 순서를 고려한 LCS(최장 공통 부분 수열) 비율로 측정한다.
+ * 목표 문장 대비 발화 정확도(0~100)와 단어별 일치 여부.
+ * 순서를 고려한 LCS(최장 공통 부분 수열)로 측정 — 빠뜨린/잘못 발음한 단어를
+ * 목표 문장 순서 그대로 색깔로 보여줄 수 있도록 단어별 매칭 정보도 함께 반환한다.
  */
-export function computeAccuracy(target: string, spoken: string): number {
-  const norm = (s: string) =>
-    s
-      .toLowerCase()
-      .replace(/[^a-z0-9\s']/g, ' ')
-      .split(/\s+/)
-      .filter(Boolean);
+export function computeAccuracy(
+  target: string,
+  spoken: string
+): { score: number; diff: WordDiff[]; missed: string[] } {
+  const a = normWords(target);
+  const b = normWords(spoken);
+  if (!a.length || !b.length) {
+    return { score: 0, diff: a.map((w) => ({ w, ok: false })), missed: a };
+  }
 
-  const a = norm(target);
-  const b = norm(spoken);
-  if (!a.length || !b.length) return 0;
-
-  // LCS 길이 (DP)
   const dp: number[][] = Array.from({ length: a.length + 1 }, () =>
     new Array(b.length + 1).fill(0)
   );
@@ -57,31 +72,54 @@ export function computeAccuracy(target: string, spoken: string): number {
           : Math.max(dp[i - 1][j], dp[i][j - 1]);
     }
   }
+
+  // dp 테이블을 거슬러 올라가며 어느 목표 단어가 발화에서 실제로 매칭됐는지 표시
+  const matched = new Array(a.length).fill(false);
+  let i = a.length;
+  let j = b.length;
+  while (i > 0 && j > 0) {
+    if (a[i - 1] === b[j - 1]) {
+      matched[i - 1] = true;
+      i--;
+      j--;
+    } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+      i--;
+    } else {
+      j--;
+    }
+  }
+
   const lcs = dp[a.length][b.length];
-  // 목표 문장 기준 재현율과 발화 기준 정밀도의 조화평균(F1) → 100점 환산
   const recall = lcs / a.length;
   const precision = lcs / b.length;
   const f1 = (2 * recall * precision) / (recall + precision || 1);
-  return Math.round(f1 * 100);
+  const diff = a.map((w, idx) => ({ w, ok: matched[idx] }));
+  const missed = a.filter((_, idx) => !matched[idx]);
+  return { score: Math.round(f1 * 100), diff, missed };
 }
 
 export const useLessonStore = create<LessonState>((set) => ({
   currentSentence: '',
   userSpeech: '',
   accuracyScore: 0,
+  wordDiff: [],
+  missedWords: [],
+  attempts: 0,
   isListening: false,
 
   setCurrentSentence: (sentence) =>
-    set({ currentSentence: sentence, userSpeech: '', accuracyScore: 0 }),
+    set({ currentSentence: sentence, userSpeech: '', accuracyScore: 0, wordDiff: [], missedWords: [], attempts: 0 }),
   setUserSpeech: (text) => set({ userSpeech: text }),
   setAccuracyScore: (score) => set({ accuracyScore: score }),
   setListening: (v) => set({ isListening: v }),
 
   evaluateSpeech: (text) =>
-    set((state) => ({
-      userSpeech: text,
-      accuracyScore: computeAccuracy(state.currentSentence, text),
-    })),
+    set((state) => {
+      const { score, diff, missed } = computeAccuracy(state.currentSentence, text);
+      return { userSpeech: text, accuracyScore: score, wordDiff: diff, missedWords: missed, attempts: state.attempts + 1 };
+    }),
 
-  reset: () => set({ userSpeech: '', accuracyScore: 0, isListening: false }),
+  clearAttempt: () => set({ userSpeech: '', accuracyScore: 0, wordDiff: [], missedWords: [] }),
+
+  reset: () => set({ userSpeech: '', accuracyScore: 0, wordDiff: [], missedWords: [], attempts: 0, isListening: false }),
 }));

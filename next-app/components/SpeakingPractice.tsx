@@ -11,6 +11,7 @@
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { useLessonStore } from '../store/useLessonStore';
+import { speakText } from './SpeakButton';
 
 // 벤더 프리픽스 대응
 function getSpeechRecognition(): typeof SpeechRecognition | null {
@@ -36,11 +37,14 @@ export default function SpeakingPractice({
   const currentSentence = useLessonStore((s) => s.currentSentence);
   const userSpeech = useLessonStore((s) => s.userSpeech);
   const accuracyScore = useLessonStore((s) => s.accuracyScore);
+  const wordDiff = useLessonStore((s) => s.wordDiff);
+  const attempts = useLessonStore((s) => s.attempts);
   const isListening = useLessonStore((s) => s.isListening);
   const setCurrentSentence = useLessonStore((s) => s.setCurrentSentence);
   const setUserSpeech = useLessonStore((s) => s.setUserSpeech);
   const evaluateSpeech = useLessonStore((s) => s.evaluateSpeech);
   const setListening = useLessonStore((s) => s.setListening);
+  const clearAttempt = useLessonStore((s) => s.clearAttempt);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const finalRef = useRef('');
@@ -107,14 +111,14 @@ export default function SpeakingPractice({
     const recog = recognitionRef.current;
     if (!recog || isListening) return;
     finalRef.current = '';
-    setUserSpeech('');
+    clearAttempt();
     try {
       recog.start();
       setListening(true);
     } catch {
       /* 이미 시작된 경우 무시 */
     }
-  }, [isListening, setUserSpeech, setListening]);
+  }, [isListening, clearAttempt, setListening]);
 
   const stop = useCallback(() => {
     recognitionRef.current?.stop();
@@ -124,7 +128,15 @@ export default function SpeakingPractice({
 
   return (
     <div className="speaking-practice">
-      <p className="target">🎯 {currentSentence || '문장을 선택하세요'}</p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <p className="target" style={{ flex: 1, margin: 0 }}>🎯 {currentSentence || '문장을 선택하세요'}</p>
+        {currentSentence && (
+          <>
+            <button type="button" className="speak-mini" title="듣기" onClick={() => speakText(currentSentence, lang)}>🔊</button>
+            <button type="button" className="speak-mini" title="느리게 듣기" onClick={() => speakText(currentSentence, lang, 0.6)}>🐢</button>
+          </>
+        )}
+      </div>
 
       {!supported && (
         <p className="warn">
@@ -138,7 +150,7 @@ export default function SpeakingPractice({
         disabled={!supported || !currentSentence}
         className={isListening ? 'mic listening' : 'mic'}
       >
-        {isListening ? '⏹ 멈추기' : '🎤 말하기'}
+        {isListening ? '⏹ 멈추기' : attempts > 0 ? '🎤 다시 말하기' : '🎤 말하기'}
       </button>
 
       <div className="transcript">
@@ -147,14 +159,37 @@ export default function SpeakingPractice({
       </div>
 
       {accuracyScore > 0 && (
-        <div
-          className="score"
-          data-tier={
-            accuracyScore >= 80 ? 'high' : accuracyScore >= 50 ? 'mid' : 'low'
-          }
-        >
-          정확도 {accuracyScore}점
-        </div>
+        <>
+          <div
+            className="score"
+            data-tier={
+              accuracyScore >= 80 ? 'high' : accuracyScore >= 50 ? 'mid' : 'low'
+            }
+          >
+            정확도 {accuracyScore}점{attempts > 1 ? ` · ${attempts}번째 시도` : ''}
+          </div>
+          {wordDiff.length > 0 && (
+            <div className="word-diff" style={{ fontSize: '0.88rem', lineHeight: 1.7, marginTop: 6 }}>
+              {wordDiff.map((d, i) => (
+                <span
+                  key={i}
+                  style={{
+                    color: d.ok ? 'var(--green)' : 'var(--red)',
+                    textDecoration: d.ok ? 'none' : 'underline',
+                    marginRight: 5,
+                  }}
+                >
+                  {d.w}
+                </span>
+              ))}
+            </div>
+          )}
+          {accuracyScore < 80 && (
+            <p className="muted" style={{ fontSize: '0.76rem', marginTop: 6 }}>
+              🔴 빨간 단어를 다시 듣고 발음해 보세요 — 🐢 느리게 듣기로 정확한 발음을 확인할 수 있어요.
+            </p>
+          )}
+        </>
       )}
     </div>
   );

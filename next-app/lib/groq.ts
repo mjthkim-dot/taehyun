@@ -1,8 +1,12 @@
 /**
  * Groq Chat Completions 클라이언트 — voice-assistant/index.html 의 _groqFetch/groqStream/groqComplete 포팅.
  * 모델 선택 드롭다운(WebLLM/Ollama 등)은 이번 단계에서 제외하고 Groq 고정 모델만 사용한다.
+ *
+ * Phase 3(No-key UX): 브라우저에서 api.groq.com을 직접 호출하지 않고 항상 우리 서버
+ * 프록시(/app/api/groq)를 거친다. 서버에 GROQ_API_KEY가 설정돼 있으면 그 키를 쓰고,
+ * 없으면 로컬에 저장된 사용자 키를 fallback으로 함께 보낸다.
  */
-import { groqKey } from './state';
+import { groqKey, SERVER_GROQ_SENTINEL } from './state';
 
 export const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
@@ -14,16 +18,17 @@ async function groqFetch(
 ) {
   const key = groqKey();
   if (!key) throw new GroqError('NO_GROQ_KEY');
-  const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+  const localKey = key === SERVER_GROQ_SENTINEL ? undefined : key;
+  const resp = await fetch('/app/api/groq', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: GROQ_MODEL,
       messages,
       stream: opts.stream ?? false,
       temperature: opts.temperature ?? 0.7,
-      max_tokens: opts.maxTokens ?? 400,
-      ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
+      maxTokens: opts.maxTokens ?? 400,
+      json: opts.json ?? false,
+      key: localKey,
     }),
   }).catch((err) => {
     throw new GroqError(`NETWORK: ${err.message || err}`);
@@ -36,7 +41,6 @@ async function groqFetch(
     } catch {
       /* ignore */
     }
-    if (resp.status === 401) detail = 'API 키가 올바르지 않습니다. 키를 다시 확인하세요.';
     throw new GroqError(detail);
   }
   return resp;

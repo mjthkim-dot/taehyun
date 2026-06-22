@@ -11,6 +11,7 @@ import { ALL_LESSONS, LESSONS, CEFR_NEXT, cefrOf, type Lesson } from '../lib/les
 import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, store } from '../lib/state';
 import { groqStream, groqComplete, GroqError } from '../lib/groq';
 import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, parseAiText } from '../lib/talkPrompts';
+import { speakText, stopSpeaking } from './SpeakButton';
 
 interface Correction {
   is_correct: boolean;
@@ -55,13 +56,8 @@ function getSpeechRecognition(): typeof SpeechRecognition | null {
 }
 
 function speak(text: string, onend?: () => void) {
-  if (typeof window === 'undefined' || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
   const clean = text.replace(/\[HEARD:[^\]]*\]/g, '').replace(/\[EXPLAIN:[^\]]*\]/g, '');
-  const u = new SpeechSynthesisUtterance(clean);
-  u.lang = 'en-US';
-  if (onend) u.onend = onend;
-  window.speechSynthesis.speak(u);
+  speakText(clean, 'en-US', 1, onend);
 }
 
 export default function TalkScreen({ lessonId }: { lessonId: number }) {
@@ -162,7 +158,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
 
   async function handleSend(text: string, hidden = false) {
     if (!text || isProcessing) return;
-    if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+    stopSpeaking();
     let userId = -1;
     if (!hidden) {
       userId = nextId();
@@ -241,7 +237,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       startListening();
     } else {
       recogRef.current?.stop();
-      window.speechSynthesis?.cancel();
+      stopSpeaking();
     }
   }
 

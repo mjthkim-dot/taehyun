@@ -136,7 +136,7 @@ export const SRS_LEECH_THRESHOLD = 4;
 export interface WeakItem {
   kr: string;
   en: string;
-  lesson?: number;
+  lesson?: number | string;
   cat?: string;
   box: number;
   lapses: number;
@@ -165,10 +165,62 @@ export function pendingWeakCount() {
   return load<WeakItem[]>('va_weak', []).filter((w) => w.due != null && w.due > now).length;
 }
 
+export type FlashGrade = 'again' | 'hard' | 'good' | 'easy';
+
+/** 4단계 자가채점(다시/어려움/알맞음/쉬움) → SRS 박스/복습일 갱신 (Anki 근사). */
+export function gradeWeakItem(en: string, grade: FlashGrade) {
+  const weak = load<WeakItem[]>('va_weak', []);
+  const w = weak.find((x) => x.en === en);
+  if (!w) return;
+  const box = w.box || 0;
+  if (grade === 'again') {
+    if (box > 0) w.lapses = (w.lapses || 0) + 1;
+    w.box = 0;
+    w.due = srsDue(0);
+  } else if (grade === 'hard') {
+    w.box = Math.max(1, box);
+    w.due = srsDue(w.box);
+  } else if (grade === 'good') {
+    w.box = Math.min(box + 1, SRS_MAX_BOX);
+    w.due = srsDue(w.box);
+  } else if (grade === 'easy') {
+    w.box = Math.min(box + 2, SRS_MAX_BOX);
+    w.due = srsDue(w.box);
+  }
+  store('va_weak', weak);
+}
+
+/** 약점 노트(va_weak)에 새 항목을 추가한다 — 이미 있으면 건너뛴다. */
+export function addWeakItem(item: { en: string; kr?: string; lesson?: number | string; cat?: string }) {
+  const weak = load<WeakItem[]>('va_weak', []);
+  if (weak.some((w) => w.en === item.en)) return weak;
+  weak.push({ kr: item.kr || '', en: item.en, lesson: item.lesson, cat: item.cat, box: 0, lapses: 0, due: srsDue(0) });
+  store('va_weak', weak);
+  return weak;
+}
+
 /* ── 레슨별 드릴 정확도 통계 ── */
 export interface LessonStat {
   attempts: number;
   correct: number;
+}
+
+/* ── 숙제 완료 체크 ── */
+export function getDoneHomework(): number[] {
+  return load<number[]>('va_hw_done', []);
+}
+
+export function markHomeworkDone(lessonId: number) {
+  const done = getDoneHomework();
+  if (!done.includes(lessonId)) {
+    done.push(lessonId);
+    store('va_hw_done', done);
+  }
+  return done;
+}
+
+export function isHomeworkDone(lessonId: number) {
+  return getDoneHomework().includes(lessonId);
 }
 
 export function recordDrillStat(lessonId: number, correct: boolean) {
@@ -185,8 +237,19 @@ export function getLessonStats() {
 }
 
 /* ── Groq API 키 ── */
+/** 서버에 GROQ_API_KEY가 설정된 경우 groqKey()가 돌려주는 자리표시자 — 실제 키 값이 아니다. */
+export const SERVER_GROQ_SENTINEL = '__server__';
+
+/**
+ * 로컬에 저장된 키가 있으면 그걸 쓰고, 없으면 서버가 키를 갖고 있는지(Phase 3 No-key UX)
+ * 빌드 시점에 구워진 NEXT_PUBLIC_GROQ_SERVER 플래그로 판단한다.
+ * 기존 컴포넌트들의 `!groqKey()` 게이팅 로직을 그대로 재사용할 수 있도록
+ * "키가 있다/없다"라는 동일한 boolean 의미를 유지한다.
+ */
 export function groqKey(): string {
-  return load('va_groq_key', '').trim();
+  const local = load('va_groq_key', '').trim();
+  if (local) return local;
+  return process.env.NEXT_PUBLIC_GROQ_SERVER === '1' ? SERVER_GROQ_SENTINEL : '';
 }
 
 export function saveGroqKey(key: string) {
@@ -208,6 +271,12 @@ export function addPhrase(p: SavedPhrase) {
   const phrases = getPhrases();
   if (phrases.some((x) => x.en === p.en)) return phrases;
   phrases.push(p);
+  store('va_phrases', phrases);
+  return phrases;
+}
+
+export function removePhrase(en: string) {
+  const phrases = getPhrases().filter((p) => p.en !== en);
   store('va_phrases', phrases);
   return phrases;
 }

@@ -40,7 +40,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
           icon: '🧭',
           label: 'CEFR 배치고사',
           sub: placed ? '진단 완료 · 다시 보기' : '18문항 · 아직 안 봄',
-          action: { kind: 'soon' },
+          action: { kind: 'nav', mode: 'placement' },
         },
       ],
     },
@@ -49,17 +49,17 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
       cards: [
         { icon: '🗣', label: '말하기', sub: 'AI 코치와 실전 대화 · CAF 분석', action: { kind: 'nav', mode: 'talk' } },
         { icon: '🔁', label: '드릴', sub: '오늘의 문장 훈련', action: { kind: 'nav', mode: 'drill' } },
-        { icon: '🎧', label: '듣기', sub: '곧 추가됩니다', action: { kind: 'soon' } },
-        { icon: '📖', label: '읽기', sub: '곧 추가됩니다', action: { kind: 'soon' } },
-        { icon: '✍️', label: '쓰기', sub: '곧 추가됩니다', action: { kind: 'soon' } },
+        { icon: '🎧', label: '듣기', sub: '딕테이션 6문항', action: { kind: 'nav', mode: 'listening' } },
+        { icon: '📖', label: '읽기', sub: '레벨별 지문 + 이해 문제', action: { kind: 'nav', mode: 'reading' } },
+        { icon: '✍️', label: '쓰기', sub: 'AI 첨삭', action: { kind: 'nav', mode: 'writing' } },
       ],
     },
     {
       title: '📚 숙제 & 암기',
       cards: [
-        { icon: '📚', label: '숙제 도우미', sub: '곧 추가됩니다', action: { kind: 'soon' } },
-        { icon: '🃏', label: '암기 카드', sub: dueCount ? `오늘 ${dueCount}개 대기` : '곧 추가됩니다', action: { kind: 'soon' } },
-        { icon: '📌', label: '내 표현장', sub: `저장한 표현 ${phraseCount}개 · 곧 추가됩니다`, action: { kind: 'soon' } },
+        { icon: '📚', label: '숙제 도우미', sub: 'AI와 함께 풀이', action: { kind: 'nav', mode: 'homework' } },
+        { icon: '🃏', label: '암기 카드', sub: dueCount ? `오늘 ${dueCount}개 대기` : '카드 외우기', action: { kind: 'nav', mode: 'flashcards' } },
+        { icon: '📌', label: '내 표현장', sub: `저장한 표현 ${phraseCount}개`, action: { kind: 'nav', mode: 'phrasebook' } },
       ],
     },
     {
