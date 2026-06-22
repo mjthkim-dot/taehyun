@@ -53,12 +53,13 @@ const ttsCache = new Map<string, Blob>();
 let currentAudio: HTMLAudioElement | null = null;
 
 /** Groq PlayAI TTS는 현재 영어 음성만 지원한다 — 한국어 등은 항상 브라우저 음성으로 폴백. */
-async function speakWithGroq(text: string, lang: string, rate: number, onend?: () => void): Promise<boolean> {
+async function speakWithGroq(text: string, lang: string, rate: number, onend?: () => void, voice?: string): Promise<boolean> {
   if (!lang.startsWith('en')) return false;
   const key = groqKey();
   if (!key) return false;
 
-  const cacheKey = `${GROQ_TTS_VOICE}:${text}`;
+  const voiceName = voice || GROQ_TTS_VOICE;
+  const cacheKey = `${voiceName}:${text}`;
   try {
     let blob = ttsCache.get(cacheKey);
     if (!blob) {
@@ -67,7 +68,7 @@ async function speakWithGroq(text: string, lang: string, rate: number, onend?: (
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text,
-          voice: GROQ_TTS_VOICE,
+          voice: voiceName,
           key: key === SERVER_GROQ_SENTINEL ? undefined : key,
         }),
       });
@@ -93,8 +94,9 @@ async function speakWithGroq(text: string, lang: string, rate: number, onend?: (
   }
 }
 
-export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => void) {
-  speakWithGroq(text, lang, rate, onend).then((ok) => {
+/** voice: Groq PlayAI 보이스 이름(예: 'Celeste-PlayAI'). 대화문 역할별로 다른 목소리를 줄 때 쓴다. */
+export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => void, voice?: string) {
+  speakWithGroq(text, lang, rate, onend, voice).then((ok) => {
     if (!ok) speakWithBrowser(text, lang, rate, onend);
   });
 }
