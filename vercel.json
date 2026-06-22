@@ -3,7 +3,9 @@
     "api/transcript.js": { "maxDuration": 60 }
   },
   "rewrites": [
-    { "source": "/((?!voice-assistant/|api/|sw\\.js|manifest\\.webmanifest).*)", "destination": "/voice-assistant/index.html" }
+    { "source": "/app", "destination": "https://taehyun-app.vercel.app/app" },
+    { "source": "/app/:path*", "destination": "https://taehyun-app.vercel.app/app/:path*" },
+    { "source": "/((?!voice-assistant/|api/|app|app/|sw\\.js|manifest\\.webmanifest).*)", "destination": "/voice-assistant/index.html" }
   ],
   "headers": [
     {
