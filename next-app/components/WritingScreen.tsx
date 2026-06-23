@@ -6,6 +6,7 @@ import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/lessons';
 import { bumpSkill, getProfile, groqKey, markPracticedToday } from '../lib/state';
 import { groqComplete, GroqError } from '../lib/groq';
 import { WRITE_PROMPTS } from '../lib/contentBanks';
+import { Skeleton } from './Skeleton';
 
 interface Feedback {
   cefr?: string;
@@ -139,6 +140,15 @@ Return JSON: {"cefr":"estimated CEFR like B1","score":0-100,"summary":"1-2 sente
           </p>
         )}
         {error && error !== 'NO_KEY' && <p style={{ fontSize: '0.84rem', color: 'var(--red)', marginTop: 10 }}>{error}</p>}
+
+        {loading && !feedback && (
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 16, marginTop: 14 }}>
+            <Skeleton width={64} height={26} style={{ marginBottom: 12 }} />
+            <Skeleton width="100%" height={12} style={{ marginBottom: 8 }} />
+            <Skeleton width="90%" height={12} style={{ marginBottom: 8 }} />
+            <Skeleton width="75%" height={12} />
+          </div>
+        )}
 
         {feedback && (
           <div style={{ background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 14, padding: 16, marginTop: 14 }}>

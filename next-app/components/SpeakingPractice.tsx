@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useLessonStore } from '../store/useLessonStore';
 import { speakText } from './SpeakButton';
+import { haptic } from '../lib/haptics';
 
 // 벤더 프리픽스 대응
 function getSpeechRecognition(): typeof SpeechRecognition | null {
@@ -48,6 +49,15 @@ export default function SpeakingPractice({
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const finalRef = useRef('');
+
+  // 채점 결과가 나오면 점수대별 햅틱 — 높으면 성공, 낮으면 오답 진동
+  const scoreFxRef = useRef(0);
+  useEffect(() => {
+    if (accuracyScore > 0 && accuracyScore !== scoreFxRef.current) {
+      scoreFxRef.current = accuracyScore;
+      haptic(accuracyScore >= 80 ? 'success' : accuracyScore >= 50 ? 'light' : 'error');
+    }
+  }, [accuracyScore]);
 
   // 목표 문장 주입
   useEffect(() => {
@@ -112,6 +122,7 @@ export default function SpeakingPractice({
     if (!recog || isListening) return;
     finalRef.current = '';
     clearAttempt();
+    haptic('tap');
     try {
       recog.start();
       setListening(true);
@@ -161,12 +172,13 @@ export default function SpeakingPractice({
       {accuracyScore > 0 && (
         <>
           <div
-            className="score"
+            key={attempts}
+            className={`score ${accuracyScore >= 50 ? 'score-pop' : 'score-shake'}`}
             data-tier={
               accuracyScore >= 80 ? 'high' : accuracyScore >= 50 ? 'mid' : 'low'
             }
           >
-            정확도 {accuracyScore}점{attempts > 1 ? ` · ${attempts}번째 시도` : ''}
+            {accuracyScore >= 80 ? '🎉 ' : ''}정확도 {accuracyScore}점{attempts > 1 ? ` · ${attempts}번째 시도` : ''}
           </div>
           {wordDiff.length > 0 && (
             <div className="word-diff" style={{ fontSize: '0.88rem', lineHeight: 1.7, marginTop: 6 }}>

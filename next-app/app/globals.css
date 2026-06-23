@@ -586,6 +586,28 @@ button {
   margin-top: 8px;
   font-weight: 800;
 }
+/* 채점 피드백 — 잘하면 통통 튀고, 낮으면 좌우로 흔들어 즉각적인 신호를 준다 */
+.score-pop {
+  animation: score-pop 0.5s var(--ease-out-back) both;
+}
+.score-shake {
+  animation: score-shake 0.45s ease both;
+}
+@keyframes score-pop {
+  0% { transform: scale(0.7); opacity: 0; }
+  60% { transform: scale(1.12); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes score-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .score-pop, .score-shake { animation: none; }
+}
 
 .speaking-practice .score[data-tier='high'] {
   color: var(--green);
@@ -1514,6 +1536,85 @@ button {
 /* 숙제 박스 좌측 액센트 */
 .hw-box {
   border-left: 4px solid #f59e0b;
+}
+
+/* ── 버튼 프레스 리플 ── 누르는 순간 중심에서 퍼지는 광택으로 촉각적 반응을 준다 */
+.btn,
+.start-drill-btn,
+.unit-go {
+  position: relative;
+  overflow: hidden;
+}
+.btn::after,
+.start-drill-btn::after,
+.unit-go::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  pointer-events: none;
+}
+.btn:active::after,
+.start-drill-btn:active::after,
+.unit-go:active::after {
+  animation: ripple 0.5s ease-out;
+}
+/* 흰 글자(아웃라인) 버튼은 코랄 리플이 더 잘 보인다 */
+.btn:not(.primary)::after {
+  background: rgba(255, 90, 54, 0.28);
+}
+@keyframes ripple {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 0.7; }
+  100% { transform: translate(-50%, -50%) scale(26); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn:active::after,
+  .start-drill-btn:active::after,
+  .unit-go:active::after { animation: none; }
+}
+
+/* ── 스켈레톤 로딩 ── 비동기 화면이 뜨기 전 자리표시 셔머 */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface2);
+  border-radius: 10px;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 80%
+  );
+  transform: translateX(-100%);
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+[data-theme='dark'] .skeleton::after {
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.08) 50%, transparent 80%);
+}
+@keyframes skeleton-shimmer {
+  100% { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; }
+}
+.skeleton-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-card);
 }
 
 /* ── 헤더 우측 액션(스트릭 칩 + 테마 토글) ── */
