@@ -123,10 +123,24 @@ export function playDialogueAudio(
       const n = dialogue.lines[i + 1];
       fetchGroqTTS(n.en, voiceFor(n.sp)); // 다음 줄 미리 받기
     }
+    // 한 줄당 한 번만 다음으로 진행 — onended/onerror/워치독 중 무엇이 먼저 와도 안전.
+    let advanced = false;
+    let watchdog: ReturnType<typeof setTimeout> | undefined;
+    const advance = () => {
+      if (advanced || ref.stopped) return;
+      advanced = true;
+      if (watchdog) clearTimeout(watchdog);
+      playFrom(i + 1);
+    };
+    // 안전망: 어떤 이유로든(이벤트 미발생 등) 한 줄에서 멈추면 넉넉한 시간 뒤 다음으로
+    // 넘어간다. 정상 재생은 onended가 먼저 와서 워치독은 발동하지 않는다(여유 있게 잡음).
+    watchdog = setTimeout(advance, 12000 + line.en.length * 220);
+    ref.cleanup = () => { if (watchdog) clearTimeout(watchdog); };
     try {
       // 속도는 재생 단계에서 음높이 유지(preservesPitch)하며 조절 — 느려도 자연스럽다.
-      await playUrl(url, rate, () => playFrom(i + 1));
+      await playUrl(url, rate, advance);
     } catch {
+      if (watchdog) clearTimeout(watchdog);
       if (!ref.stopped) playViaBrowserQueue(dialogue, rate, onLineStart, onDone, i, ref);
     }
   };

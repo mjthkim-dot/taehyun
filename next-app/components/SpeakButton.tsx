@@ -117,6 +117,7 @@ function speakWithBrowser(text: string, lang: string, rate: number, onend?: () =
 
 /* ── Groq 신경망 음성 ── */
 const ttsCache = new Map<string, string>(); // `${voice}:${text}` -> objectURL
+const ttsInflight = new Map<string, Promise<string | null>>(); // 진행 중인 요청(중복 합치기)
 
 // 네트워크가 느리거나 응답이 없을 때 무한정 멈춰 있지 않도록 — 이 시간 안에 응답이
 // 없으면 포기하고 브라우저 음성으로 폴백한다(전체 재생이 "1번째 줄에서 멈춘 것처럼"
@@ -135,26 +136,42 @@ export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE): Promis
   const cacheKey = `${voice}:${text}`;
   const cached = ttsCache.get(cacheKey);
   if (cached) return cached;
+  // 같은 문장을 동시에(미리받기 + 실제재생) 두 번 요청하면 호출이 두 배가 돼 rate-limit에
+  // 걸리고, 그러면 그 줄에서 폴백/멈춤이 난다. 진행 중인 요청이 있으면 그걸 함께 기다린다.
+  const pending = ttsInflight.get(cacheKey);
+  if (pending) return pending;
+
   const tag = emotionDirectionTag(text);
   const input = tag ? `${tag} ${text}` : text;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TTS_TIMEOUT_MS);
+  const job = (async (): Promise<string | null> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TTS_TIMEOUT_MS);
+    try {
+      const resp = await fetch('/app/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: input, voice, key: key === SERVER_GROQ_SENTINEL ? undefined : key }),
+        signal: controller.signal,
+      });
+      if (!resp.ok) return null;
+      const blob = await resp.blob();
+      // 빈/손상 응답(예: rate-limit 직전의 잘린 본문)을 캐싱하면 재생 시 onended가 오지
+      // 않아 그 줄에서 영영 멈춘다 — 유효한 오디오만 캐싱한다.
+      if (!blob || blob.size < 256) return null;
+      const url = URL.createObjectURL(blob);
+      ttsCache.set(cacheKey, url);
+      return url;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  })();
+  ttsInflight.set(cacheKey, job);
   try {
-    const resp = await fetch('/app/api/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: input, voice, key: key === SERVER_GROQ_SENTINEL ? undefined : key }),
-      signal: controller.signal,
-    });
-    if (!resp.ok) return null;
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    ttsCache.set(cacheKey, url);
-    return url;
-  } catch {
-    return null;
+    return await job;
   } finally {
-    clearTimeout(timer);
+    ttsInflight.delete(cacheKey);
   }
 }
 
@@ -173,7 +190,16 @@ export function playUrl(url: string, rate: number, onended?: () => void): Promis
   const pa = a as PitchAudio;
   try { pa.preservesPitch = true; pa.mozPreservesPitch = true; pa.webkitPreservesPitch = true; } catch { /* ignore */ }
   a.playbackRate = GROQ_TTS_RATE * rate;
-  a.onended = onended ? () => onended() : null;
+  // onended뿐 아니라 onerror에서도 다음으로 진행 — 한 줄의 오디오가 깨졌어도
+  // 그 줄에서 영영 멈추지 않게 한다(한 번만 호출되도록 핸들러를 즉시 해제).
+  if (onended) {
+    const advance = () => { a.onended = null; a.onerror = null; onended(); };
+    a.onended = advance;
+    a.onerror = advance;
+  } else {
+    a.onended = null;
+    a.onerror = null;
+  }
   const p = a.play();
   return p && typeof p.then === 'function' ? p : Promise.resolve();
 }
