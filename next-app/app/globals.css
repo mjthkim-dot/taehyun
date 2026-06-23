@@ -52,9 +52,22 @@ html,
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, 'Inter', 'Pretendard', system-ui, sans-serif;
+  /* Pretendard(자체 호스팅 가변 폰트) 우선, 미로드 시 시스템 폰트로 폴백 */
+  font-family: var(--font-pretendard), -apple-system, 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  letter-spacing: -0.011em; /* Pretendard는 살짝 조이면 더 단단하게 읽힌다 */
+  font-feature-settings: 'ss03', 'cv03'; /* 둥근 따옴표·숫자 등 가독 변형 */
+}
+
+/* 숫자가 흔들리지 않게 — 통계·진도·타이머 등 표 형태 정렬 */
+.num,
+.stat-card .num,
+.streak-chip,
+.app-version,
+.drill-progress {
+  font-variant-numeric: tabular-nums;
 }
 
 /* 오로라 배경 — 화면 뒤에 은은한 코랄/그린 색 블룸을 깔아 흰 카드가 떠 보이게 한다.
