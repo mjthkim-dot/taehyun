@@ -115,16 +115,17 @@ export function playDialogueAudio(
     if (ref.stopped) return;
     if (i > last) { onDone?.(); return; }
     const line = dialogue.lines[i];
-    const url = await fetchGroqTTS(line.en, voiceFor(line.sp));
+    // 속도는 합성(speed)에 반영하고 재생은 1배속 — 느린 발화도 음높이 왜곡 없이 자연스럽다.
+    const url = await fetchGroqTTS(line.en, voiceFor(line.sp), rate);
     if (ref.stopped) return;
     if (!url) { playViaBrowserQueue(dialogue, rate, onLineStart, onDone, i, ref); return; }
     onLineStart?.(i);
     if (i + 1 <= last) {
       const n = dialogue.lines[i + 1];
-      fetchGroqTTS(n.en, voiceFor(n.sp)); // 다음 줄 미리 받기
+      fetchGroqTTS(n.en, voiceFor(n.sp), rate); // 다음 줄 미리 받기(같은 속도로 캐싱)
     }
     try {
-      await playUrl(url, rate, () => playFrom(i + 1));
+      await playUrl(url, 1, () => playFrom(i + 1));
     } catch {
       if (!ref.stopped) playViaBrowserQueue(dialogue, rate, onLineStart, onDone, i, ref);
     }

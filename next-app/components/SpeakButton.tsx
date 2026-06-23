@@ -99,11 +99,15 @@ const ttsCache = new Map<string, string>(); // `${voice}:${text}` -> objectURL
 // 보이는 또 다른 원인이었다 — fetch에 타임아웃이 없어 응답이 없으면 영원히 대기했음).
 const TTS_TIMEOUT_MS = 8000;
 
-/** Groq에서 음성을 받아 objectURL을 돌려준다(캐시). 실패·타임아웃 시 null. */
-export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE): Promise<string | null> {
+/**
+ * Groq에서 음성을 받아 objectURL을 돌려준다(캐시). 실패·타임아웃 시 null.
+ * speed는 합성 단계에서 모델이 반영하므로(playbackRate로 늘리지 않음) 느린 발화도
+ * 음높이 왜곡 없이 사람이 천천히 말하듯 자연스럽다. 속도별로 따로 캐싱한다.
+ */
+export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE, speed = 1): Promise<string | null> {
   const key = groqKey();
   if (!key) return null;
-  const cacheKey = `${voice}:${text}`;
+  const cacheKey = `${voice}:${speed}:${text}`;
   const cached = ttsCache.get(cacheKey);
   if (cached) return cached;
   const controller = new AbortController();
@@ -112,7 +116,7 @@ export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE): Promis
     const resp = await fetch('/app/api/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice, key: key === SERVER_GROQ_SENTINEL ? undefined : key }),
+      body: JSON.stringify({ text, voice, speed, key: key === SERVER_GROQ_SENTINEL ? undefined : key }),
       signal: controller.signal,
     });
     if (!resp.ok) return null;
@@ -149,9 +153,10 @@ export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => 
     speakWithBrowser(text, lang, rate, onend);
     return;
   }
-  fetchGroqTTS(text, voice || GROQ_TTS_VOICE).then((url) => {
+  // 속도를 합성 단계(speed)에 반영하고 재생은 1배속(playbackRate=1)으로 — 음높이 왜곡 방지.
+  fetchGroqTTS(text, voice || GROQ_TTS_VOICE, rate).then((url) => {
     if (url) {
-      playUrl(url, rate, onend).catch(() => speakWithBrowser(text, lang, rate, onend));
+      playUrl(url, 1, onend).catch(() => speakWithBrowser(text, lang, rate, onend));
     } else {
       speakWithBrowser(text, lang, rate, onend);
     }

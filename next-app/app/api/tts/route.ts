@@ -8,7 +8,7 @@ const TTS_MODEL = 'playai-tts';
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { text, voice, key } = body || {};
+  const { text, voice, key, speed } = body || {};
   const apiKey = process.env.GROQ_API_KEY || key;
   if (!apiKey) {
     return Response.json({ error: { message: 'NO_GROQ_KEY' } }, { status: 401 });
@@ -16,6 +16,11 @@ export async function POST(req: NextRequest) {
   if (!text || typeof text !== 'string') {
     return Response.json({ error: { message: 'text가 필요합니다.' } }, { status: 400 });
   }
+
+  // 느린 발화는 오디오를 늘려 재생(playbackRate)하면 음높이가 낮아져 뭉개진다.
+  // Groq playai-tts의 네이티브 speed(0.5~5.0)로 합성하면 모델이 사람이 천천히
+  // 말하듯 자연스러운 억양으로 직접 생성한다.
+  const sp = typeof speed === 'number' && isFinite(speed) ? Math.min(5, Math.max(0.5, speed)) : 1;
 
   const resp = await fetch('https://api.groq.com/openai/v1/audio/speech', {
     method: 'POST',
@@ -25,6 +30,7 @@ export async function POST(req: NextRequest) {
       voice: voice || 'Fritz-PlayAI',
       input: text,
       response_format: 'wav',
+      ...(sp !== 1 ? { speed: sp } : {}),
     }),
   }).catch(() => null);
 
