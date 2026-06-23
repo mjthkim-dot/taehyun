@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Icon, { type IconName } from './Icon';
+import { haptic } from '../lib/haptics';
 
 export type Mode =
   | 'master'
@@ -69,7 +70,10 @@ export default function NavBar({ mode, onChange }: { mode: Mode; onChange: (m: M
           <button
             key={t.mode}
             className={`mode-tab${mode === t.mode ? ' active' : ''}`}
-            onClick={() => onChange(t.mode)}
+            onClick={() => {
+              haptic('tap');
+              onChange(t.mode);
+            }}
           >
             <span className="ic">
               <Icon name={t.icon} />
