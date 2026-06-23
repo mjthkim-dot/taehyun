@@ -249,8 +249,15 @@ button {
 .mode-tab .ic {
   font-size: 1.25rem;
   line-height: 1;
-  filter: grayscale(0.5) opacity(0.7);
-  transition: filter 0.2s, transform 0.25s var(--ease-out-back);
+  display: grid;
+  place-items: center;
+  opacity: 0.65;
+  transition: opacity 0.2s, transform 0.25s var(--ease-out-back);
+}
+.mode-tab .ic svg {
+  width: 23px;
+  height: 23px;
+  display: block;
 }
 
 .mode-tab.active {
@@ -260,7 +267,7 @@ button {
 }
 
 .mode-tab.active .ic {
-  filter: none;
+  opacity: 1;
   transform: translateY(-1px) scale(1.08);
 }
 
@@ -776,6 +783,41 @@ button {
   line-height: 1.7;
 }
 
+/* 빈 상태 일러스트 */
+.empty-state {
+  text-align: center;
+  padding: 30px 18px 36px;
+}
+.empty-art {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 14px;
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, var(--primary-soft), transparent 72%);
+  animation: empty-float 4s ease-in-out infinite;
+}
+@keyframes empty-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .empty-art { animation: none; }
+}
+.empty-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.empty-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.65;
+  margin-top: 6px;
+}
+
 /* ── CAF 대시보드 ── */
 .caf-wrap {
   background: var(--surface);
@@ -1123,10 +1165,20 @@ button {
   transform: scale(0.96);
 }
 .feat-card .ic {
-  font-size: 1.7rem;
-  margin-bottom: 7px;
-  display: inline-block;
+  font-size: 1.5rem;
+  width: 50px;
+  height: 50px;
+  margin: 0 auto 9px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  /* 코랄 틴트 타일 — 이모지의 친근함은 살리고 "앱 아이콘" 같은 정돈된 틀을 준다 */
+  background: linear-gradient(160deg, var(--primary-soft), rgba(255, 90, 54, 0.05));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 4px 10px -6px rgba(255, 90, 54, 0.4);
   transition: transform 0.25s var(--ease-out-back);
+}
+[data-theme='dark'] .feat-card .ic {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 10px -6px rgba(0, 0, 0, 0.5);
 }
 .feat-card .lbl {
   font-size: 0.79rem;

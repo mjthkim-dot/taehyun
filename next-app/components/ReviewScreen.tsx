@@ -12,6 +12,7 @@ import {
   type WeakItem,
 } from '../lib/state';
 import SpeakButton from './SpeakButton';
+import EmptyState from './EmptyState';
 
 export default function ReviewScreen() {
   const [ready, setReady] = useState(false);
@@ -23,13 +24,11 @@ export default function ReviewScreen() {
   if (!weak.length) {
     return (
       <div className="study-screen">
-        <div className="empty-note">
-          🎉 복습할 문장이 없습니다!
-          <br />
+        <EmptyState art="review" title="🎉 복습할 문장이 없습니다!">
           드릴·청해·어휘에서 틀린 항목이 자동으로 여기에 쌓입니다.
           <br />
           맞힐수록 복습 간격이 1→3→7→16→35일로 늘어나며 장기기억에 정착합니다.
-        </div>
+        </EmptyState>
       </div>
     );
   }
@@ -105,11 +104,9 @@ export default function ReviewScreen() {
       </div>
 
       {!due.length && (
-        <div className="empty-note">
-          ✅ 오늘 복습할 문장을 모두 끝냈어요!
-          <br />
+        <EmptyState art="review" title="✅ 오늘 복습을 모두 끝냈어요!">
           대기 중인 {pending}개는 복습일이 되면 다시 나타납니다.
-        </div>
+        </EmptyState>
       )}
     </div>
   );
