@@ -140,6 +140,11 @@ function DialogueCard({ dialogue }: { dialogue: Dialogue }) {
   const stopRef = useRef<(() => void) | null>(null);
   const playing = playingIdx !== null;
 
+  // 연속재생(반복) — ref로 두어 재생 중에 켜고 꺼도 즉시 반영된다.
+  const [loop, setLoop] = useState(false);
+  const loopRef = useRef(false);
+  loopRef.current = loop;
+
   function stopAll() {
     stopRef.current?.();
     stopRef.current = null;
@@ -147,7 +152,13 @@ function DialogueCard({ dialogue }: { dialogue: Dialogue }) {
   }
   function playAll() {
     stopRef.current?.();
-    stopRef.current = playDialogueAudio(dialogue, slow ? 0.7 : 1, setPlayingIdx, () => setPlayingIdx(null));
+    stopRef.current = playDialogueAudio(
+      dialogue,
+      slow ? 0.7 : 1,
+      setPlayingIdx,
+      () => setPlayingIdx(null),
+      () => loopRef.current
+    );
   }
   useEffect(() => () => { stopRef.current?.(); stopSpeaking(); }, []);
 
@@ -160,6 +171,14 @@ function DialogueCard({ dialogue }: { dialogue: Dialogue }) {
         </button>
         <button className="btn" style={{ flex: '0 0 auto' }} onClick={() => setSlow((v) => !v)}>
           {slow ? '🐢 천천히' : '🔊 보통 속도'}
+        </button>
+        <button
+          className={loop ? 'btn primary' : 'btn'}
+          style={{ flex: '0 0 auto' }}
+          onClick={() => setLoop((v) => !v)}
+          title="끝까지 재생 후 처음부터 자동 반복"
+        >
+          {loop ? '🔁 반복 켜짐' : '🔁 반복'}
         </button>
       </div>
       {dialogue.lines.map((ln, i) => (
