@@ -45,7 +45,10 @@ button {
 }
 
 .app-shell {
-  min-height: 100dvh;
+  /* 고정 뷰포트 높이 — 콘텐츠 영역만 내부 스크롤되고 헤더(상단)·탭(하단)은 항상 고정.
+     min-height면 콘텐츠가 길 때 페이지 전체가 스크롤돼 하단 탭이 화면 밖으로 밀려난다. */
+  height: 100dvh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -70,6 +73,18 @@ button {
 
 .app-header-brand {
   font-size: 1.05rem;
+}
+
+.app-version {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 7px;
+  align-self: center;
+  letter-spacing: 0.01em;
 }
 
 .app-header h1 {
@@ -101,7 +116,9 @@ button {
 
 .app-content {
   flex: 1;
+  min-height: 0; /* flex 자식이 내부 스크롤되려면 필수 — 없으면 콘텐츠가 셸을 밀어낸다 */
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 16px;
   padding-bottom: 28px;
   max-width: 760px;

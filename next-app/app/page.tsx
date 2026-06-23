@@ -24,6 +24,7 @@ import ReadingScreen from '../components/ReadingScreen';
 import WritingScreen from '../components/WritingScreen';
 import ComingSoon from '../components/ComingSoon';
 import { calcStreak } from '../lib/state';
+import { APP_VERSION } from '../lib/version';
 
 const TAB_TITLE: Record<Mode, string> = {
   master: '홈',
@@ -56,6 +57,9 @@ export default function Page() {
         <div className="app-header-title">
           <span className="app-header-brand">🗣️</span>
           <h1>{TAB_TITLE[mode]}</h1>
+          <span className="app-version" title="앱 버전 (배포 갱신 확인용)">
+            v{APP_VERSION}
+          </span>
         </div>
         {streak !== null && (
           <div className="streak-chip" title="연속 학습일">
