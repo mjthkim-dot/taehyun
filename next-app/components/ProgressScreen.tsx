@@ -21,6 +21,7 @@ import {
   SKILLS,
   type WeakItem,
 } from '../lib/state';
+import { CountUp, RadarChart, GaugeRing } from './Charts';
 
 interface CafSession {
   date: number;
@@ -53,15 +54,15 @@ export default function ProgressScreen() {
     <div className="study-screen">
       <div className="stat-grid">
         <div className="stat-card">
-          <div className="num">{calcStreak()}</div>
+          <div className="num"><CountUp value={calcStreak()} /></div>
           <div className="lbl">연속 학습일 🔥</div>
         </div>
         <div className="stat-card">
-          <div className="num">{totalAttempts ? Math.round((totalCorrect / totalAttempts) * 100) : 0}%</div>
+          <div className="num"><CountUp value={totalAttempts ? Math.round((totalCorrect / totalAttempts) * 100) : 0} suffix="%" /></div>
           <div className="lbl">드릴 정확도</div>
         </div>
         <div className="stat-card">
-          <div className="num">{weak.length}</div>
+          <div className="num"><CountUp value={weak.length} /></div>
           <div className="lbl">복습 대기 문장</div>
         </div>
       </div>
@@ -73,12 +74,22 @@ export default function ProgressScreen() {
           <b style={{ color: 'var(--text)' }}>{profile.gse}</b> ({band.min}–{band.max}) · 스캐폴딩{' '}
           {Math.round(scaffoldFor(profile.cefr) * 100)}%
         </div>
-        <div className="bar" style={{ margin: '8px 0 4px' }}>
-          <div className="fill" style={{ width: `${Math.round(((profile.gse - 10) / 80) * 100)}%` }} />
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.66rem', color: 'var(--text-muted)' }}>
-          <span>GSE 10 · A1</span>
-          <span>GSE 90 · C2</span>
+        <div className="gauge-row">
+          <GaugeRing pct={Math.round(((profile.gse - 10) / 80) * 100)} label={`CEFR ${profile.cefr}`}>
+            <CountUp value={profile.gse} />
+          </GaugeRing>
+          <div className="gauge-aside">
+            <div className="bar" style={{ margin: '0 0 6px' }}>
+              <div className="fill" style={{ width: `${Math.round(((profile.gse - 10) / 80) * 100)}%` }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.66rem', color: 'var(--text-muted)' }}>
+              <span>GSE 10 · A1</span>
+              <span>GSE 90 · C2</span>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 8, lineHeight: 1.5 }}>
+              전체 GSE 구간(10–90)에서 현재 위치예요. 드릴·회화를 이어가면 게이지가 채워집니다.
+            </div>
+          </div>
         </div>
       </div>
 
@@ -96,7 +107,7 @@ export default function ProgressScreen() {
               <div className="skill-card2" key={sk.key}>
                 <div className="sk-name">{sk.label}</div>
                 <div className="sk-gse">
-                  {s.gse}
+                  <CountUp value={s.gse} />
                   <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}> GSE</span>
                 </div>
                 <div className="sk-cefr">
@@ -115,10 +126,19 @@ export default function ProgressScreen() {
           <div className="caf-sub">
             {new Date(lastSession.date).toLocaleDateString('ko-KR')} · {lastSession.cefr} 세션
           </div>
-          <div className="caf-bars">
-            <CafBar name="복잡도" val={lastSession.caf.complexity} color="var(--primary)" />
-            <CafBar name="정확도" val={lastSession.caf.accuracy} color="var(--green)" />
-            <CafBar name="유창성" val={lastSession.caf.fluency} color="var(--yellow)" />
+          <div className="caf-radar-row">
+            <RadarChart
+              values={[
+                { label: '복잡도', value: lastSession.caf.complexity, color: 'var(--primary)' },
+                { label: '정확도', value: lastSession.caf.accuracy, color: 'var(--green)' },
+                { label: '유창성', value: lastSession.caf.fluency, color: 'var(--yellow)' },
+              ]}
+            />
+            <div className="caf-bars" style={{ flex: 1 }}>
+              <CafBar name="복잡도" val={lastSession.caf.complexity} color="var(--primary)" />
+              <CafBar name="정확도" val={lastSession.caf.accuracy} color="var(--green)" />
+              <CafBar name="유창성" val={lastSession.caf.fluency} color="var(--yellow)" />
+            </div>
           </div>
         </div>
       ) : (
