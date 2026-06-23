@@ -25,9 +25,19 @@ export const viewport: Viewport = {
   themeColor: '#ff5a36',
 };
 
+/**
+ * FOUC 방지 — 저장된(또는 시스템) 테마를 첫 페인트 전에 <html>에 반영하고
+ * 상태바 색(meta theme-color)까지 맞춘다. React 하이드레이션 전에 실행돼야 하므로
+ * 인라인 동기 스크립트로 둔다.
+ */
+const NO_FLASH = `(function(){try{var t=localStorage.getItem('theme');if(t!=='dark'&&t!=='light'){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);var m=document.querySelector('meta[name="theme-color"]');if(!m){m=document.createElement('meta');m.setAttribute('name','theme-color');document.head.appendChild(m);}m.setAttribute('content',t==='dark'?'#15110e':'#ff5a36');}catch(e){}})();`;
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ko" className={pretendard.variable}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: NO_FLASH }} />
+      </head>
       <body>{children}</body>
     </html>
   );
