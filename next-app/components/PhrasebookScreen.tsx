@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { getPhrases, removePhrase } from '../lib/state';
 import SpeakButton from './SpeakButton';
+import EmptyState from './EmptyState';
 
 export default function PhrasebookScreen() {
   const [phrases, setPhrases] = useState(() => getPhrases().slice().reverse());
@@ -17,11 +18,9 @@ export default function PhrasebookScreen() {
       <div className="study-card">
         <h3>📌 내 표현장</h3>
         {!phrases.length ? (
-          <div className="empty-note">
-            아직 저장한 표현이 없어요.
-            <br />
+          <EmptyState art="phrasebook" title="아직 저장한 표현이 없어요">
             회화·레슨에서 📌 버튼을 눌러 마음에 든 표현을 모아보세요.
-          </div>
+          </EmptyState>
         ) : (
           phrases.map((p) => (
             <div className="point" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }} key={p.en}>

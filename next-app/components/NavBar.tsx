@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Icon, { type IconName } from './Icon';
 
 export type Mode =
   | 'master'
@@ -19,11 +20,11 @@ export type Mode =
   | 'homework'
   | 'phrasebook';
 
-const PRIMARY_TABS: { mode: Mode; icon: string; label: string }[] = [
-  { mode: 'master', icon: '🏠', label: '홈' },
-  { mode: 'study', icon: '📖', label: '레슨' },
-  { mode: 'drill', icon: '🔁', label: '드릴' },
-  { mode: 'talk', icon: '🗣', label: '회화' },
+const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [
+  { mode: 'master', icon: 'home', label: '홈' },
+  { mode: 'study', icon: 'lesson', label: '레슨' },
+  { mode: 'drill', icon: 'drill', label: '드릴' },
+  { mode: 'talk', icon: 'talk', label: '회화' },
 ];
 
 const MORE_TABS: { mode: Mode; icon: string; label: string; desc: string }[] = [
@@ -70,7 +71,9 @@ export default function NavBar({ mode, onChange }: { mode: Mode; onChange: (m: M
             className={`mode-tab${mode === t.mode ? ' active' : ''}`}
             onClick={() => onChange(t.mode)}
           >
-            <span className="ic">{t.icon}</span>
+            <span className="ic">
+              <Icon name={t.icon} />
+            </span>
             {t.label}
           </button>
         ))}
@@ -78,7 +81,9 @@ export default function NavBar({ mode, onChange }: { mode: Mode; onChange: (m: M
           className={`mode-tab${moreActive ? ' active' : ''}`}
           onClick={() => setMoreOpen((v) => !v)}
         >
-          <span className="ic">{moreActive ? MORE_TABS.find((t) => t.mode === mode)?.icon : '⋯'}</span>
+          <span className="ic">
+            <Icon name="more" />
+          </span>
           더보기
         </button>
       </nav>
