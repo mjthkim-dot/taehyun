@@ -1405,3 +1405,148 @@ button {
 .hw-box {
   border-left: 4px solid #f59e0b;
 }
+
+/* ── 헤더 우측 액션(스트릭 칩 + 테마 토글) ── */
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.theme-toggle {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.14s var(--ease-out-back), border-color 0.15s, background 0.18s;
+}
+.theme-toggle:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.theme-toggle:active {
+  transform: scale(0.88) rotate(-12deg);
+}
+
+/* ═══════════════ 다크 모드 ═══════════════
+   라이트의 모든 색 토큰을 [data-theme='dark']에서 덮어쓴다. 클래스 구조는 그대로라
+   토큰만 바뀌면 전 화면이 함께 전환된다. 토큰으로 안 잡히는 하드코딩 색(숙제/예습/
+   마스터/프리토킹 카드 등)만 추가로 개별 오버라이드한다. */
+:root {
+  color-scheme: light;
+}
+/* 테마 전환 시 부드럽게 — 자체 transition이 없는 큰 면들에만 적용(기존 transition 보존) */
+body,
+.app-header,
+.mode-tabs,
+.app-version,
+.theme-toggle {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #15110e;
+  --surface: #1f1915;
+  --surface2: #29211b;
+  --border: #382d25;
+  --border-strong: #4a3c31;
+  --primary: #ff6b47;
+  --primary-light: #ff8763;
+  --primary-dk: #ff8763; /* 다크에선 강조 텍스트도 밝게 */
+  --primary-soft: #3a241c;
+  --green: #34d399;
+  --green-soft: #16271e;
+  --green-dk: #6ee7b7;
+  --yellow: #e0a34e;
+  --red: #f06a6c;
+  --text: #f4ece3;
+  --text-muted: #a59685;
+  /* 어두운 배경에선 그림자가 잘 안 보이므로 더 짙게 + 코랄 글로우 강조 */
+  --shadow-card:
+    0 1px 1px rgba(0, 0, 0, 0.35),
+    0 4px 10px -4px rgba(0, 0, 0, 0.5),
+    0 16px 34px -16px rgba(0, 0, 0, 0.66);
+  --shadow-card-hover:
+    0 2px 6px rgba(0, 0, 0, 0.4),
+    0 12px 24px -8px rgba(0, 0, 0, 0.55),
+    0 30px 52px -20px rgba(255, 107, 71, 0.28);
+  --shadow-press: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-float:
+    0 6px 16px -6px rgba(0, 0, 0, 0.5),
+    0 22px 46px -22px rgba(0, 0, 0, 0.7);
+  --glow-primary: 0 0 0 4px rgba(255, 107, 71, 0.22);
+}
+
+/* 오로라 배경 — 다크에선 살짝 더 또렷하게 살려 무드를 준다 */
+[data-theme='dark'] body::before {
+  background:
+    radial-gradient(46% 38% at 14% 8%, rgba(255, 122, 77, 0.16), transparent 70%),
+    radial-gradient(40% 34% at 92% 12%, rgba(255, 140, 70, 0.12), transparent 72%),
+    radial-gradient(50% 40% at 82% 96%, rgba(52, 211, 153, 0.08), transparent 74%),
+    radial-gradient(46% 40% at 6% 92%, rgba(255, 90, 54, 0.1), transparent 76%);
+}
+
+/* 글래스 헤더·하단 네비 — 다크 표면색 기반으로 */
+[data-theme='dark'] .app-header {
+  background: linear-gradient(180deg, rgba(31, 25, 21, 0.92), rgba(31, 25, 21, 0.76));
+  border-bottom-color: rgba(56, 45, 37, 0.85);
+}
+[data-theme='dark'] .mode-tabs {
+  background: linear-gradient(180deg, rgba(31, 25, 21, 0.85), rgba(21, 17, 14, 0.96));
+  border-top-color: rgba(56, 45, 37, 0.9);
+}
+[data-theme='dark'] .mode-tab.active {
+  background: linear-gradient(180deg, #2e1d16, var(--primary-soft));
+  color: var(--primary-light);
+}
+
+/* 칩·배지 */
+[data-theme='dark'] .streak-chip {
+  background: linear-gradient(135deg, #3a241c, #2e1d16);
+  border-color: rgba(255, 107, 71, 0.28);
+  color: var(--primary-light);
+}
+
+/* 테마별 컬러 카드(하드코딩 라이트 색 → 다크) */
+[data-theme='dark'] .preview-card {
+  background: linear-gradient(180deg, #211c30, #1b1730);
+  border-color: #3c3270;
+}
+[data-theme='dark'] .preview-card h3 {
+  color: #bcacff;
+}
+[data-theme='dark'] .master-card {
+  background: linear-gradient(180deg, #2a201a, var(--primary-soft));
+  border-color: #5c3b2c;
+}
+[data-theme='dark'] .freetalk-card {
+  background: linear-gradient(180deg, #15251d, var(--green-soft));
+  border-color: #2c5a44;
+}
+
+/* 숙제·리치(누적 오답) 배너 */
+[data-theme='dark'] .hw-box {
+  background: #2a2113;
+  border-color: #4d3b16;
+  border-left-color: #f59e0b;
+  color: #ecca84;
+}
+[data-theme='dark'] .leech-banner {
+  background: #2a1717;
+  border-color: #5c2c2c;
+  color: #f3a3a3;
+}
+
+/* 회화 교정 카드 — 하드코딩 갈색 텍스트만 가독 색으로 */
+[data-theme='dark'] .correction-box {
+  color: #e8c071;
+}

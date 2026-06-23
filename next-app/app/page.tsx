@@ -23,6 +23,7 @@ import ListeningScreen from '../components/ListeningScreen';
 import ReadingScreen from '../components/ReadingScreen';
 import WritingScreen from '../components/WritingScreen';
 import ComingSoon from '../components/ComingSoon';
+import ThemeToggle from '../components/ThemeToggle';
 import { calcStreak } from '../lib/state';
 import { APP_VERSION } from '../lib/version';
 
@@ -61,11 +62,14 @@ export default function Page() {
             v{APP_VERSION}
           </span>
         </div>
-        {streak !== null && (
-          <div className="streak-chip" title="연속 학습일">
-            🔥 {streak}
-          </div>
-        )}
+        <div className="app-header-actions">
+          {streak !== null && (
+            <div className="streak-chip" title="연속 학습일">
+              🔥 {streak}
+            </div>
+          )}
+          <ThemeToggle />
+        </div>
       </header>
 
       <div className="app-content" key={mode}>
