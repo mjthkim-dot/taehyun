@@ -31,7 +31,8 @@ function playViaBrowserQueue(
   onLineStart: ((i: number) => void) | undefined,
   onDone: (() => void) | undefined,
   fromIdx: number,
-  ref: StopRef
+  ref: StopRef,
+  shouldLoop?: () => boolean
 ) {
   if (typeof window === 'undefined' || !window.speechSynthesis) {
     onDone?.();
@@ -55,6 +56,12 @@ function playViaBrowserQueue(
   const speakOne = (i: number) => {
     if (ref.stopped) return;
     if (i > last) {
+      // 연속재생: 끝까지 읽었으면 잠시 쉬었다가 처음부터 다시(keepAlive는 유지).
+      if (shouldLoop?.() && !ref.stopped) {
+        const t = setTimeout(() => { if (!ref.stopped) speakOne(0); }, 800);
+        ref.cleanup = () => { clearInterval(keepAlive); clearTimeout(t); };
+        return;
+      }
       clearInterval(keepAlive);
       onDone?.();
       return;
@@ -91,7 +98,8 @@ export function playDialogueAudio(
   dialogue: Dialogue,
   rate = 1,
   onLineStart?: (i: number) => void,
-  onDone?: () => void
+  onDone?: () => void,
+  shouldLoop?: () => boolean
 ): () => void {
   if (typeof window === 'undefined' || !dialogue.lines.length) {
     onDone?.();
@@ -106,18 +114,27 @@ export function playDialogueAudio(
   };
 
   if (!groqKey()) {
-    playViaBrowserQueue(dialogue, rate, onLineStart, onDone, 0, ref);
+    playViaBrowserQueue(dialogue, rate, onLineStart, onDone, 0, ref, shouldLoop);
     return stop;
   }
 
   const last = dialogue.lines.length - 1;
   const playFrom = async (i: number) => {
     if (ref.stopped) return;
-    if (i > last) { onDone?.(); return; }
+    if (i > last) {
+      // 연속재생: 끝까지 재생했으면 잠시 쉬었다가 처음부터 다시.
+      if (shouldLoop?.() && !ref.stopped) {
+        const t = setTimeout(() => { if (!ref.stopped) playFrom(0); }, 800);
+        ref.cleanup = () => clearTimeout(t);
+        return;
+      }
+      onDone?.();
+      return;
+    }
     const line = dialogue.lines[i];
     const url = await fetchGroqTTS(line.en, voiceFor(line.sp));
     if (ref.stopped) return;
-    if (!url) { playViaBrowserQueue(dialogue, rate, onLineStart, onDone, i, ref); return; }
+    if (!url) { playViaBrowserQueue(dialogue, rate, onLineStart, onDone, i, ref, shouldLoop); return; }
     onLineStart?.(i);
     if (i + 1 <= last) {
       const n = dialogue.lines[i + 1];
@@ -141,7 +158,7 @@ export function playDialogueAudio(
       await playUrl(url, rate, advance);
     } catch {
       if (watchdog) clearTimeout(watchdog);
-      if (!ref.stopped) playViaBrowserQueue(dialogue, rate, onLineStart, onDone, i, ref);
+      if (!ref.stopped) playViaBrowserQueue(dialogue, rate, onLineStart, onDone, i, ref, shouldLoop);
     }
   };
   onLineStart?.(0); // 첫 음성을 받는 동안 즉시 UI 반영(중복 클릭 방지)
@@ -169,6 +186,11 @@ export default function DialoguePractice({ dialogue, lessonId }: { dialogue: Dia
   const [playingIdx, setPlayingIdx] = useState<number | null>(null);
   const stopRef = useRef<(() => void) | null>(null);
 
+  // 연속재생(반복) — ref로 두어 재생 중에 켜고 꺼도 즉시 반영된다.
+  const [loop, setLoop] = useState(false);
+  const loopRef = useRef(false);
+  loopRef.current = loop;
+
   const stopAll = useCallback(() => {
     stopRef.current?.();
     stopRef.current = null;
@@ -177,7 +199,13 @@ export default function DialoguePractice({ dialogue, lessonId }: { dialogue: Dia
 
   const playAll = useCallback(() => {
     stopRef.current?.();
-    stopRef.current = playDialogueAudio(dialogue, slow ? 0.7 : 1, setPlayingIdx, () => setPlayingIdx(null));
+    stopRef.current = playDialogueAudio(
+      dialogue,
+      slow ? 0.7 : 1,
+      setPlayingIdx,
+      () => setPlayingIdx(null),
+      () => loopRef.current
+    );
   }, [dialogue, slow]);
 
   // 컴포넌트가 사라질 때 정리.
@@ -203,6 +231,14 @@ export default function DialoguePractice({ dialogue, lessonId }: { dialogue: Dia
         </button>
         <button className="btn" style={{ flex: '0 0 auto' }} onClick={() => setSlow((v) => !v)}>
           {slow ? '🐢 천천히' : '🔊 보통 속도'}
+        </button>
+        <button
+          className={loop ? 'btn primary' : 'btn'}
+          style={{ flex: '0 0 auto' }}
+          onClick={() => setLoop((v) => !v)}
+          title="끝까지 재생 후 처음부터 자동 반복"
+        >
+          {loop ? '🔁 반복 켜짐' : '🔁 반복'}
         </button>
       </div>
 
