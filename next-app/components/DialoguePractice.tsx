@@ -124,6 +124,7 @@ export function playDialogueAudio(
       fetchGroqTTS(n.en, voiceFor(n.sp)); // 다음 줄 미리 받기
     }
     try {
+      // 속도는 재생 단계에서 음높이 유지(preservesPitch)하며 조절 — 느려도 자연스럽다.
       await playUrl(url, rate, () => playFrom(i + 1));
     } catch {
       if (!ref.stopped) playViaBrowserQueue(dialogue, rate, onLineStart, onDone, i, ref);

@@ -1,7 +1,9 @@
 'use client';
 
 /**
- * TTS 재생 — Groq PlayAI 신경망 음성(실제 사람에 가까운 목소리)을 1순위로 쓴다.
+ * TTS 재생 — Groq Orpheus(Canopy Labs) 신경망 음성을 1순위로 쓴다. React 전 버전에서
+ * 가장 자연스럽게(사람처럼) 들렸던 모델로, [cheerful]/[curious] 같은 보컬 디렉션 태그를
+ * 문장 앞에 붙이면 진짜 감정 억양으로 발화한다(emotionDirectionTag).
  *
  * iOS 사파리 대응: 오디오 재생은 사용자 제스처(클릭) 안에서 시작돼야 한다. 그런데 Groq
  * 음성은 네트워크로 받아오므로(비동기) 제스처 컨텍스트를 벗어나 차단된다. 그래서 클릭 순간
@@ -14,9 +16,31 @@
  */
 import { groqKey, SERVER_GROQ_SENTINEL } from '../lib/state';
 
-export const GROQ_TTS_VOICE = 'Fritz-PlayAI';
-/** 화자별 Groq 보이스 — A 남성 / B 여성으로 대화 몰입감을 준다. */
-export const SPEAKER_GROQ_VOICE: Record<string, string> = { A: 'Fritz-PlayAI', B: 'Celeste-PlayAI' };
+/** AI 내레이터 기본 보이스(Orpheus). */
+export const GROQ_TTS_VOICE = 'austin';
+/** 화자별 Orpheus 보이스 — 대화문을 두 사람 목소리로 들려준다. */
+export const SPEAKER_GROQ_VOICE: Record<string, string> = { A: 'hannah', B: 'daniel' };
+
+/**
+ * Orpheus는 약간 빠르게 말하는 편이라, 살짝 늦춰 재생하면(음높이 유지) 더 또박또박
+ * 사람이 말하듯 들린다. React 전 버전에서 검증된 값.
+ */
+const GROQ_TTS_RATE = 0.84;
+
+/**
+ * 문장의 어조를 Orpheus 보컬 디렉션 태그로 변환한다 — 모델이 pitch/rate 흉내가 아니라
+ * 실제 감정 표현으로 발화하게 한다. React 전 버전(voice-assistant)의 판정 기준을 그대로 옮겼다.
+ */
+function emotionDirectionTag(text: string): string {
+  const t = String(text || '').trim();
+  if (/\b(wow|whoa|oh my|oh my gosh|no way|amazing!|really\?!|seriously\?!)\b/i.test(t)) return '[excited]';
+  if (/!/.test(t) || /\b(great|awesome|amazing|excellent|perfect|wonderful|fantastic|congrat(ulation)?s?|well done|good job|nice job|bravo|love it|so (fun|good|cute))\b/i.test(t)) return '[cheerful]';
+  if (/\b(actually|the correct (way|form)|instead of|should be|let'?s fix|one small (thing|note))\b/i.test(t)) return '[serious]';
+  if (/\b(sorry|unfortunately|mistake|oops|no worries|don'?t worry|that'?s okay|it'?s okay|i understand)\b/i.test(t)) return '[sympathetic]';
+  if (/\.\.\.|\bhmm+\b|\bwell,/i.test(t)) return '[hesitant]';
+  if (/\?\s*$/.test(t)) return '[curious]';
+  return '';
+}
 
 // iOS 오디오 언락용 무음 WAV(8kHz·mono·0샘플).
 const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
@@ -99,20 +123,27 @@ const ttsCache = new Map<string, string>(); // `${voice}:${text}` -> objectURL
 // 보이는 또 다른 원인이었다 — fetch에 타임아웃이 없어 응답이 없으면 영원히 대기했음).
 const TTS_TIMEOUT_MS = 8000;
 
-/** Groq에서 음성을 받아 objectURL을 돌려준다(캐시). 실패·타임아웃 시 null. */
+/**
+ * Groq에서 음성을 받아 objectURL을 돌려준다(캐시). 실패·타임아웃 시 null.
+ * 문장 앞에 감정 디렉션 태그를 붙여 Orpheus가 사람처럼 감정을 실어 발화하게 한다.
+ * 속도는 재생 단계에서 음높이를 유지한 채(preservesPitch) 조절하므로 여기선 속도 무관하게
+ * 한 번만 합성해 캐싱한다.
+ */
 export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE): Promise<string | null> {
   const key = groqKey();
   if (!key) return null;
   const cacheKey = `${voice}:${text}`;
   const cached = ttsCache.get(cacheKey);
   if (cached) return cached;
+  const tag = emotionDirectionTag(text);
+  const input = tag ? `${tag} ${text}` : text;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TTS_TIMEOUT_MS);
   try {
     const resp = await fetch('/app/api/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice, key: key === SERVER_GROQ_SENTINEL ? undefined : key }),
+      body: JSON.stringify({ text: input, voice, key: key === SERVER_GROQ_SENTINEL ? undefined : key }),
       signal: controller.signal,
     });
     if (!resp.ok) return null;
@@ -127,13 +158,21 @@ export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE): Promis
   }
 }
 
-/** 공용 엘리먼트로 objectURL을 재생한다. Promise는 play() 결과. */
+/**
+ * 공용 엘리먼트로 objectURL(Orpheus 음성)을 재생한다. Promise는 play() 결과.
+ * 기본 0.84배속에 rate(느리게 듣기 등)를 곱하되 preservesPitch로 음높이를 유지해,
+ * 느려져도 음이 낮아지거나 뭉개지지 않고 사람이 천천히 또박또박 말하듯 들린다.
+ */
 export function playUrl(url: string, rate: number, onended?: () => void): Promise<void> {
   const a = audioEl();
   window.speechSynthesis?.cancel();
   a.pause();
   a.src = url;
-  a.playbackRate = rate;
+  // 일부 브라우저는 벤더 프리픽스가 필요 — 셋 다 시도해 음높이 보존을 보장한다.
+  type PitchAudio = HTMLAudioElement & { mozPreservesPitch?: boolean; webkitPreservesPitch?: boolean };
+  const pa = a as PitchAudio;
+  try { pa.preservesPitch = true; pa.mozPreservesPitch = true; pa.webkitPreservesPitch = true; } catch { /* ignore */ }
+  a.playbackRate = GROQ_TTS_RATE * rate;
   a.onended = onended ? () => onended() : null;
   const p = a.play();
   return p && typeof p.then === 'function' ? p : Promise.resolve();
@@ -149,6 +188,7 @@ export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => 
     speakWithBrowser(text, lang, rate, onend);
     return;
   }
+  // 한 번 합성한 음성을 재생 단계에서 rate로 조절(음높이 유지) — 느리게 들어도 자연스럽다.
   fetchGroqTTS(text, voice || GROQ_TTS_VOICE).then((url) => {
     if (url) {
       playUrl(url, rate, onend).catch(() => speakWithBrowser(text, lang, rate, onend));

@@ -1,10 +1,17 @@
 import { NextRequest } from 'next/server';
 
 /**
- * Groq PlayAI TTS 프록시 — /api/groq와 동일한 "No-key UX" 패턴(서버 키 우선, 로컬 키 fallback).
+ * Groq TTS 프록시 — /api/groq와 동일한 "No-key UX" 패턴(서버 키 우선, 로컬 키 fallback).
  * 합성 음성을 그대로 audio/wav로 돌려준다.
+ *
+ * 모델은 Canopy Labs Orpheus v1 English — React 전 버전(voice-assistant)에서 쓰던,
+ * 실제 사람에 가장 가깝게 들렸던 모델이다. playai-tts와 달리 [cheerful]/[curious] 같은
+ * 보컬 디렉션 태그로 진짜 감정 억양을 낸다(태그는 클라이언트에서 문장 앞에 붙여 보낸다).
+ * Orpheus는 현재 wav만 지원하고 네이티브 speed 파라미터가 없어, 속도는 클라이언트에서
+ * preservesPitch로 음높이를 유지한 채 조절한다.
  */
-const TTS_MODEL = 'playai-tts';
+const TTS_MODEL = 'canopylabs/orpheus-v1-english';
+const DEFAULT_VOICE = 'austin';
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -22,9 +29,9 @@ export async function POST(req: NextRequest) {
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model: TTS_MODEL,
-      voice: voice || 'Fritz-PlayAI',
+      voice: voice || DEFAULT_VOICE,
       input: text,
-      response_format: 'wav',
+      response_format: 'wav', // Orpheus는 현재 wav만 지원 (mp3 요청 시 오류)
     }),
   }).catch(() => null);
 
