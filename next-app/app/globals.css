@@ -1,10 +1,13 @@
 /* Speak(usespeak.com) 스타일 — 따뜻한 크림 배경 + 강렬한 코랄 액센트, 두꺼운 볼드 타이포,
-   필(pill) 모양 버튼이 특징인 프리미엄/친근한 톤. */
+   필(pill) 모양 버튼이 특징인 프리미엄/친근한 톤.
+   디자인 강화판: 멀티레이어 그림자, 오로라 배경, 글래스 헤더/네비, 카드 호버 리프트,
+   스태거 진입 애니메이션 — 클래스명/구조는 그대로 두어 기능은 동일하게 유지한다. */
 :root {
   --bg: #fdf8f1;
   --surface: #ffffff;
   --surface2: #faf1e6;
   --border: #efe2d2;
+  --border-strong: #e3d2bd;
   --primary: #ff5a36;
   --primary-light: #ff6e45;
   --primary-dk: #d6431f;
@@ -18,11 +21,24 @@
   --radius: 20px;
   --radius-sm: 14px;
   --radius-lg: 28px;
-  --shadow-card: 0 1px 2px rgba(28, 20, 16, 0.04), 0 10px 22px -10px rgba(28, 20, 16, 0.12);
+  /* 멀티레이어 그림자 — 가까운 면 + 멀리 퍼지는 면을 겹쳐 입체감을 키운다 */
+  --shadow-card:
+    0 1px 1px rgba(28, 20, 16, 0.04),
+    0 4px 8px -4px rgba(28, 20, 16, 0.08),
+    0 16px 32px -16px rgba(28, 20, 16, 0.16);
+  --shadow-card-hover:
+    0 2px 4px rgba(28, 20, 16, 0.05),
+    0 10px 20px -8px rgba(28, 20, 16, 0.12),
+    0 28px 50px -20px rgba(214, 67, 31, 0.22);
   --shadow-press: 0 1px 2px rgba(28, 20, 16, 0.06);
+  --shadow-float:
+    0 6px 14px -6px rgba(28, 20, 16, 0.14),
+    0 20px 44px -22px rgba(28, 20, 16, 0.28);
   --glow-primary: 0 0 0 4px rgba(255, 90, 54, 0.16);
   --green-dk: #0f6b44;
-  --grad-primary: linear-gradient(135deg, #ff7a4d, #ff5a36 60%, #e8441f);
+  --grad-primary: linear-gradient(135deg, #ff7a4d, #ff5a36 58%, #e8441f);
+  --grad-primary-sheen: linear-gradient(135deg, #ff8a5d, #ff5a36 55%, #de3f1c);
+  --ease-out-back: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 * {
@@ -38,6 +54,22 @@ body {
   color: var(--text);
   font-family: -apple-system, 'Inter', 'Pretendard', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 오로라 배경 — 화면 뒤에 은은한 코랄/그린 색 블룸을 깔아 흰 카드가 떠 보이게 한다.
+   고정 레이어라 스크롤해도 따라오지 않고, 콘텐츠 뒤(z-index:-1)에 머문다. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(46% 38% at 14% 8%, rgba(255, 122, 77, 0.14), transparent 70%),
+    radial-gradient(40% 34% at 92% 12%, rgba(255, 160, 90, 0.12), transparent 72%),
+    radial-gradient(50% 40% at 82% 96%, rgba(26, 143, 92, 0.08), transparent 74%),
+    radial-gradient(46% 40% at 6% 92%, rgba(255, 90, 54, 0.07), transparent 76%);
 }
 
 button {
@@ -58,8 +90,11 @@ button {
   align-items: center;
   justify-content: space-between;
   padding: 14px 18px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  /* 반투명 글래스 — 오로라 배경이 살짝 비쳐 프리미엄 톤을 낸다 */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.78));
+  -webkit-backdrop-filter: saturate(1.5) blur(14px);
+  backdrop-filter: saturate(1.5) blur(14px);
+  border-bottom: 1px solid rgba(239, 226, 210, 0.8);
   position: sticky;
   top: 0;
   z-index: 5;
@@ -68,11 +103,19 @@ button {
 .app-header-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
 }
 
 .app-header-brand {
-  font-size: 1.05rem;
+  font-size: 1.1rem;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--grad-primary);
+  box-shadow: 0 4px 10px -4px rgba(255, 90, 54, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .app-version {
@@ -88,25 +131,27 @@ button {
 }
 
 .app-header h1 {
-  font-size: 1.05rem;
+  font-size: 1.08rem;
   font-weight: 800;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .streak-chip {
   font-size: 0.78rem;
   font-weight: 800;
   color: var(--primary-dk);
-  background: var(--primary-soft);
+  background: linear-gradient(135deg, #fff1ea, var(--primary-soft));
+  border: 1px solid rgba(255, 90, 54, 0.18);
   border-radius: 999px;
-  padding: 5px 11px;
+  padding: 5px 12px;
   flex-shrink: 0;
+  box-shadow: 0 2px 6px -3px rgba(255, 90, 54, 0.4);
 }
 
 @keyframes fade-up {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -123,64 +168,126 @@ button {
   padding-bottom: 28px;
   max-width: 760px;
   width: 100%;
-  animation: fade-up 0.22s ease-out;
+  animation: fade-up 0.3s var(--ease-out-back);
   margin: 0 auto;
 }
 
-/* ── 하단 네비게이션 ── */
+/* 콘텐츠 직속 카드가 순차적으로 떠오르는 스태거 진입 — 화면 전환마다 생동감을 준다.
+   key={mode} 로 콘텐츠가 리마운트되므로 탭을 바꿀 때마다 다시 재생된다. */
+.app-content > * {
+  animation: fade-up 0.42s var(--ease-out-back) both;
+}
+.app-content > *:nth-child(1) { animation-delay: 0.02s; }
+.app-content > *:nth-child(2) { animation-delay: 0.07s; }
+.app-content > *:nth-child(3) { animation-delay: 0.12s; }
+.app-content > *:nth-child(4) { animation-delay: 0.17s; }
+.app-content > *:nth-child(5) { animation-delay: 0.22s; }
+.app-content > *:nth-child(n + 6) { animation-delay: 0.26s; }
+
+/* 채팅(회화)처럼 자체 내부 스크롤·레이아웃을 가진 화면은 스태거에서 제외해
+   입력창/스크롤 동작이 흔들리지 않게 한다. */
+.app-content > .talk-screen {
+  animation: fade-up 0.3s var(--ease-out-back);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-content,
+  .app-content > * {
+    animation: none !important;
+  }
+}
+
+/* ── 하단 네비게이션 (플로팅 글래스 바) ── */
 .mode-tabs {
   display: flex;
   gap: 2px;
   flex-shrink: 0;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  padding: 6px 2px calc(env(safe-area-inset-bottom, 0px) + 6px);
-  box-shadow: 0 -8px 20px -16px rgba(20, 20, 50, 0.18);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.95));
+  -webkit-backdrop-filter: saturate(1.6) blur(16px);
+  backdrop-filter: saturate(1.6) blur(16px);
+  border-top: 1px solid rgba(239, 226, 210, 0.9);
+  padding: 7px 8px calc(env(safe-area-inset-bottom, 0px) + 7px);
+  box-shadow: 0 -10px 30px -20px rgba(28, 20, 16, 0.35);
 }
 
 .mode-tab {
   flex: 1 1 auto;
   min-width: 42px;
-  padding: 7px 2px 5px;
+  padding: 8px 2px 6px;
   background: none;
   border: none;
   color: var(--text-muted);
   font-size: 0.62rem;
   font-weight: 700;
   cursor: pointer;
-  border-radius: 14px;
+  border-radius: 15px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
+  position: relative;
+  transition: color 0.2s, background 0.25s, transform 0.18s var(--ease-out-back);
+}
+
+.mode-tab:active {
+  transform: scale(0.92);
 }
 
 .mode-tab .ic {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   line-height: 1;
   filter: grayscale(0.5) opacity(0.7);
+  transition: filter 0.2s, transform 0.25s var(--ease-out-back);
 }
 
 .mode-tab.active {
-  color: var(--primary);
-  background: var(--primary-soft);
+  color: var(--primary-dk);
+  background: linear-gradient(180deg, #fff1ea, var(--primary-soft));
+  box-shadow: inset 0 0 0 1px rgba(255, 90, 54, 0.16), 0 4px 10px -6px rgba(255, 90, 54, 0.5);
 }
 
 .mode-tab.active .ic {
   filter: none;
+  transform: translateY(-1px) scale(1.08);
+}
+
+/* 활성 탭 상단의 코랄 인디케이터 도트 */
+.mode-tab.active::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  width: 18px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--grad-primary);
 }
 
 /* ── 레슨 학습 화면 ── */
 .lesson-picker {
   width: 100%;
   margin-bottom: 12px;
-  padding: 12px 14px;
+  padding: 13px 40px 13px 16px;
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background-color: var(--surface);
+  /* 커스텀 코랄 화살표 */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23ff5a36' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 15px center;
   border: 2px solid var(--border);
   color: var(--text);
-  font-size: 0.85rem;
+  font-size: 0.86rem;
   font-weight: 700;
+  box-shadow: var(--shadow-card);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+.lesson-picker:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--glow-primary);
 }
 
 .study-card {
@@ -190,29 +297,57 @@ button {
   padding: 18px;
   margin-bottom: 12px;
   box-shadow: var(--shadow-card);
+  transition: transform 0.25s var(--ease-out-back), box-shadow 0.25s, border-color 0.25s;
+}
+
+@media (hover: hover) {
+  .study-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card-hover);
+    border-color: var(--border-strong);
+  }
 }
 
 .study-card h3 {
-  font-size: 0.92rem;
+  font-size: 0.94rem;
   font-weight: 800;
   color: var(--primary);
   margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  letter-spacing: -0.01em;
+}
+
+/* 카드 제목 앞 코랄 액센트 바 */
+.study-card h3::before {
+  content: '';
+  width: 4px;
+  align-self: stretch;
+  min-height: 1.05em;
+  border-radius: 999px;
+  background: var(--grad-primary);
+  flex-shrink: 0;
 }
 
 .preview-card {
   border-color: #c4b5fd;
-  background: #f8f6ff;
+  background: linear-gradient(180deg, #faf8ff, #f3f0ff);
 }
+.preview-card h3 { color: #7c3aed; }
+.preview-card h3::before { background: linear-gradient(135deg, #a78bfa, #7c3aed); }
 
 .master-card {
-  border-color: #c7d2fe;
-  background: var(--primary-soft);
+  border-color: #fbcab8;
+  background: linear-gradient(180deg, #fff4ee, var(--primary-soft));
 }
 
 .freetalk-card {
   border-color: #bbf7d0;
-  background: var(--green-soft);
+  background: linear-gradient(180deg, #f0fbf4, var(--green-soft));
 }
+.freetalk-card h3 { color: var(--green-dk); }
+.freetalk-card h3::before { background: linear-gradient(135deg, #34d399, var(--green)); }
 
 .point {
   padding: 10px 0;
@@ -270,12 +405,21 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 0;
+  padding: 10px 8px;
+  margin: 0 -8px;
+  border-radius: 12px;
   border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
 }
 
 .example-row:last-child {
   border-bottom: none;
+}
+
+@media (hover: hover) {
+  .example-row:hover {
+    background: var(--surface2);
+  }
 }
 
 .example-row .txt {
@@ -285,17 +429,22 @@ button {
 .speak-mini {
   background: var(--surface2);
   border: 1px solid var(--border);
-  border-radius: 9px;
-  padding: 5px 10px;
+  border-radius: 10px;
+  padding: 6px 11px;
   cursor: pointer;
   font-size: 0.85rem;
   flex-shrink: 0;
   color: var(--text);
+  transition: transform 0.14s var(--ease-out-back), border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
 .speak-mini:hover {
   border-color: var(--primary);
   background: var(--primary-soft);
+  box-shadow: 0 3px 8px -4px rgba(255, 90, 54, 0.5);
+}
+.speak-mini:active {
+  transform: scale(0.9);
 }
 
 .sp-a {
@@ -452,21 +601,25 @@ button {
   background: var(--surface);
   color: var(--text);
   border: 2px solid var(--border);
-  transition: transform 0.1s, background 0.15s;
+  transition: transform 0.12s var(--ease-out-back), background 0.15s, box-shadow 0.2s, border-color 0.15s;
 }
 .btn.primary {
   background: var(--grad-primary);
   color: white;
   border: 1px solid var(--primary-dk);
+  /* 위쪽 하이라이트 + 코랄 글로우로 입체감 */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 18px -8px rgba(255, 90, 54, 0.6);
 }
 .btn:hover {
   background: var(--surface2);
+  border-color: var(--border-strong);
 }
 .btn.primary:hover {
-  filter: brightness(1.06);
+  filter: brightness(1.05);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 12px 24px -8px rgba(255, 90, 54, 0.7);
 }
 .btn:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 .btn:disabled {
   opacity: 0.4;
@@ -512,10 +665,22 @@ button {
   padding: 16px;
   text-align: center;
   box-shadow: var(--shadow-card);
+  transition: transform 0.22s var(--ease-out-back), box-shadow 0.22s;
+}
+@media (hover: hover) {
+  .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card-hover);
+  }
 }
 .stat-card .num {
-  font-size: 1.7rem;
+  font-size: 1.8rem;
   font-weight: 800;
+  /* 숫자에 코랄 그라데이션 텍스트 */
+  background: var(--grad-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
   color: var(--primary);
 }
 .stat-card .lbl {
@@ -531,6 +696,13 @@ button {
   padding: 14px 16px;
   margin-bottom: 8px;
   box-shadow: var(--shadow-card);
+  transition: transform 0.22s var(--ease-out-back), box-shadow 0.22s;
+}
+@media (hover: hover) {
+  .lesson-progress-row:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card-hover);
+  }
 }
 .lesson-progress-row .top {
   display: flex;
@@ -543,16 +715,40 @@ button {
   color: var(--primary);
 }
 .bar {
-  height: 7px;
+  height: 8px;
   background: var(--surface2);
-  border-radius: 4px;
+  border-radius: 999px;
   overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(28, 20, 16, 0.08);
 }
 .bar .fill {
   height: 100%;
   background: var(--grad-primary);
-  border-radius: 4px;
-  transition: width 0.4s;
+  border-radius: 999px;
+  transition: width 0.6s var(--ease-out-back);
+  position: relative;
+  overflow: hidden;
+}
+/* 진행 바 위를 지나가는 광택 — 살아있는 느낌 */
+.bar .fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 80%
+  );
+  transform: translateX(-100%);
+  animation: bar-shimmer 2.4s ease-in-out infinite;
+}
+@keyframes bar-shimmer {
+  0% { transform: translateX(-100%); }
+  60%, 100% { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bar .fill::after { animation: none; opacity: 0; }
 }
 .mission-history {
   font-size: 0.74rem;
@@ -695,7 +891,16 @@ button {
 }
 .level-card.current {
   border-left-color: var(--primary);
-  box-shadow: 0 0 0 2px var(--primary-soft), var(--shadow-card);
+  box-shadow: 0 0 0 2px var(--primary-soft), var(--shadow-card-hover);
+}
+@media (hover: hover) {
+  .level-card:not(.locked):hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card-hover);
+  }
+}
+.level-card {
+  transition: transform 0.22s var(--ease-out-back), box-shadow 0.22s;
 }
 .level-card.locked {
   opacity: 0.65;
@@ -794,24 +999,57 @@ button {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 20px 18px;
+  padding: 22px 18px;
   margin: -16px -16px 18px;
   background: var(--grad-primary);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  box-shadow: 0 12px 28px -16px rgba(255, 90, 54, 0.55);
+  box-shadow: 0 16px 34px -18px rgba(255, 90, 54, 0.7);
   position: relative;
   overflow: hidden;
+  isolation: isolate;
+}
+/* 떠다니는 글로우 오브 — 배너에 깊이와 생동감을 준다 */
+.home-hero::before,
+.home-hero::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  z-index: -1;
+  pointer-events: none;
+  filter: blur(2px);
+}
+.home-hero::before {
+  width: 180px;
+  height: 180px;
+  top: -90px;
+  right: -40px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.4), transparent 65%);
+  animation: hero-float 7s ease-in-out infinite;
+}
+.home-hero::after {
+  width: 140px;
+  height: 140px;
+  bottom: -80px;
+  left: 30%;
+  background: radial-gradient(circle, rgba(255, 200, 120, 0.45), transparent 68%);
+  animation: hero-float 9s ease-in-out infinite reverse;
+}
+@keyframes hero-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-14px, 12px) scale(1.12); }
 }
 .home-hero-avatar {
-  width: 54px;
-  height: 54px;
+  width: 56px;
+  height: 56px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.7rem;
+  font-size: 1.75rem;
 }
 .home-hero-title {
   font-size: 1.05rem;
@@ -852,21 +1090,30 @@ button {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px 12px;
+  padding: 18px 12px;
   text-align: center;
   cursor: pointer;
   box-shadow: var(--shadow-card);
-  transition: transform 0.1s;
+  transition: transform 0.22s var(--ease-out-back), box-shadow 0.22s, border-color 0.22s, background 0.2s;
 }
-.feat-card:hover {
-  background: var(--surface2);
+@media (hover: hover) {
+  .feat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-card-hover);
+    border-color: rgba(255, 90, 54, 0.35);
+  }
+  .feat-card:hover .ic {
+    transform: scale(1.14) rotate(-4deg);
+  }
 }
 .feat-card:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
 }
 .feat-card .ic {
-  font-size: 1.6rem;
-  margin-bottom: 6px;
+  font-size: 1.7rem;
+  margin-bottom: 7px;
+  display: inline-block;
+  transition: transform 0.25s var(--ease-out-back);
 }
 .feat-card .lbl {
   font-size: 0.79rem;
@@ -904,12 +1151,18 @@ button {
 .more-sheet-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 17, 43, 0.35);
+  background: rgba(15, 17, 43, 0.34);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
   z-index: 20;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  animation: fade-up 0.18s ease-out;
+  animation: overlay-in 0.22s ease-out;
+}
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .more-sheet {
@@ -918,7 +1171,12 @@ button {
   background: var(--surface);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: 10px 16px calc(env(safe-area-inset-bottom, 0px) + 18px);
-  box-shadow: 0 -20px 40px -20px rgba(15, 17, 43, 0.3);
+  box-shadow: 0 -24px 50px -20px rgba(15, 17, 43, 0.4);
+  animation: sheet-up 0.32s var(--ease-out-back);
+}
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 
 .more-sheet-handle {
@@ -956,6 +1214,14 @@ button {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  animation: msg-in 0.34s var(--ease-out-back) both;
+}
+@keyframes msg-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .msg { animation: none; }
 }
 .msg.user { align-self: flex-end; align-items: flex-end; }
 .msg.ai { align-self: flex-start; align-items: flex-start; }
@@ -1075,3 +1341,54 @@ button {
 .para-card { background: rgba(26,143,92,0.08); border: 1px solid rgba(26,143,92,0.28); border-radius: 10px; padding: 10px 13px; margin-top: 8px; font-size: 0.82rem; line-height: 1.55; }
 .para-card .up { color: var(--green-dk); font-weight: 700; }
 .para-card .or { color: var(--text-muted); text-decoration: line-through; opacity: 0.7; }
+
+/* ── 마감 디테일 ── */
+/* 사용자 입력창 포커스 글로우 */
+.text-input:focus { box-shadow: var(--glow-primary); }
+
+/* 메시지 버블 호버 살짝 띄우기 */
+@media (hover: hover) {
+  .bubble { transition: transform 0.18s var(--ease-out-back); }
+  .msg.ai .bubble:hover,
+  .msg.user .bubble:hover { transform: translateY(-1px); }
+}
+
+/* 헬퍼 칩 / 미니 버튼 누름 반응 */
+.helper-chip:active,
+.mini-btn:active { transform: scale(0.94); }
+.helper-chip,
+.mini-btn { transition: transform 0.14s var(--ease-out-back), border-color 0.15s, color 0.15s, background 0.15s; }
+
+/* 단어 선택 색 — 브랜드 코랄 톤 */
+::selection {
+  background: rgba(255, 90, 54, 0.22);
+  color: var(--text);
+}
+
+/* 콘텐츠 스크롤바 — 얇고 은은하게 */
+.app-content {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(214, 67, 31, 0.3) transparent;
+}
+.app-content::-webkit-scrollbar { width: 8px; }
+.app-content::-webkit-scrollbar-track { background: transparent; }
+.app-content::-webkit-scrollbar-thumb {
+  background: rgba(214, 67, 31, 0.25);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.app-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(214, 67, 31, 0.45);
+  background-clip: padding-box;
+}
+
+/* 더보기 시트 핸들 — 코랄 톤으로 살짝 강조 */
+.more-sheet-handle {
+  background: linear-gradient(90deg, var(--border-strong), #d9b9a0);
+}
+
+/* 숙제 박스 좌측 액센트 */
+.hw-box {
+  border-left: 4px solid #f59e0b;
+}
