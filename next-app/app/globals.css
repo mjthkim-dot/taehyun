@@ -1372,6 +1372,28 @@ button {
 .msg.ai { align-self: flex-start; align-items: flex-start; }
 .msg.system { align-self: center; max-width: 100%; align-items: center; }
 
+/* AI 메시지 — 아바타 + 본문 칼럼을 가로로 배치 */
+.msg.ai { flex-direction: row; gap: 8px; }
+.ai-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  background: linear-gradient(160deg, var(--primary-soft), rgba(255, 90, 54, 0.06));
+  border: 1px solid rgba(255, 90, 54, 0.18);
+  box-shadow: 0 2px 6px -3px rgba(255, 90, 54, 0.4);
+  margin-bottom: 2px;
+}
+.msg-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
 .bubble {
   padding: 11px 15px;
   border-radius: var(--radius);
@@ -1380,9 +1402,71 @@ button {
   word-break: break-word;
   box-shadow: var(--shadow-press);
 }
-.msg.user .bubble { background: var(--grad-primary); color: white; border-bottom-right-radius: 4px; box-shadow: var(--shadow-press), var(--glow-primary); }
-.msg.ai .bubble { background: var(--surface2); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+.msg.user .bubble { position: relative; background: var(--grad-primary); color: white; border-bottom-right-radius: 4px; box-shadow: var(--shadow-press), var(--glow-primary); }
+.msg.ai .bubble { position: relative; background: var(--surface2); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
 .msg.system .bubble { background: transparent; color: var(--text-muted); font-size: 0.76rem; text-align: center; }
+
+/* 말풍선 꼬리 — 화자 쪽 아래 모서리에 작은 삼각형 */
+.msg.user .bubble::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  bottom: 0;
+  width: 12px;
+  height: 12px;
+  background: #e8441f;
+  clip-path: polygon(0 0, 0 100%, 100% 100%);
+}
+.msg.ai .bubble::after {
+  content: '';
+  position: absolute;
+  left: -6px;
+  bottom: 0;
+  width: 12px;
+  height: 12px;
+  background: var(--surface2);
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  clip-path: polygon(0 100%, 100% 0, 100% 100%);
+}
+
+/* 녹음 중 음성 파형 */
+.voice-wave-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 4px 6px;
+}
+.voice-wave {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.voice-wave span {
+  width: 4px;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--grad-primary);
+  animation: voice-bar 0.9s ease-in-out infinite;
+  transform-origin: center;
+}
+@keyframes voice-bar {
+  0%, 100% { transform: scaleY(0.3); opacity: 0.7; }
+  50% { transform: scaleY(1); opacity: 1; }
+}
+.voice-wave-txt {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (prefers-reduced-motion: reduce) {
+  .voice-wave span { animation: none; transform: scaleY(0.6); }
+}
 
 .talk-intro {
   align-self: stretch;

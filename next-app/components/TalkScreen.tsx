@@ -431,35 +431,38 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
           const parsed = parseAiText(m.text);
           return (
             <div className="msg ai" key={m.id}>
-              <div className={`bubble${m.streaming ? ' typing' : ''}`}>
-                {parsed.plain || (m.streaming ? <TypingDots /> : '')}
-                {parsed.heard.map((h, i) => (
-                  <div className="correction-box" key={i}>
-                    <div className="label">🎧 발음 피드백</div>
-                    내가 들은 말: <span className="wrong">{h.heard}</span> → 네 의도: <span className="right">{h.intent}</span>
-                    <br />
-                    <span style={{ opacity: 0.85, fontSize: '0.78rem' }}>{h.note}</span>
-                  </div>
-                ))}
-                {parsed.explain.map((ex, i) => (
-                  <div className="explain-box" key={i}>
-                    <div className="label">💡 코치 설명</div>
-                    {ex}
-                  </div>
-                ))}
-              </div>
-              {!m.streaming && parsed.plain && (
-                <div className="msg-meta">
-                  {m.time}
-                  <button className="tr-btn" disabled={m.translating} onClick={() => translate(m.id, parsed.plain)}>
-                    {m.translating ? '⏳ 번역중' : m.translation ? '🇰🇷 숨기기' : '🇰🇷 번역'}
-                  </button>
-                  <button className="tr-btn" onClick={() => savePhrase(parsed.plain)}>
-                    📌 저장
-                  </button>
+              <div className="ai-avatar" aria-hidden="true">🗣️</div>
+              <div className="msg-col">
+                <div className={`bubble${m.streaming ? ' typing' : ''}`}>
+                  {parsed.plain || (m.streaming ? <TypingDots /> : '')}
+                  {parsed.heard.map((h, i) => (
+                    <div className="correction-box" key={i}>
+                      <div className="label">🎧 발음 피드백</div>
+                      내가 들은 말: <span className="wrong">{h.heard}</span> → 네 의도: <span className="right">{h.intent}</span>
+                      <br />
+                      <span style={{ opacity: 0.85, fontSize: '0.78rem' }}>{h.note}</span>
+                    </div>
+                  ))}
+                  {parsed.explain.map((ex, i) => (
+                    <div className="explain-box" key={i}>
+                      <div className="label">💡 코치 설명</div>
+                      {ex}
+                    </div>
+                  ))}
                 </div>
-              )}
-              {m.translation && <div className="tr-box">🇰🇷 {m.translation}</div>}
+                {!m.streaming && parsed.plain && (
+                  <div className="msg-meta">
+                    {m.time}
+                    <button className="tr-btn" disabled={m.translating} onClick={() => translate(m.id, parsed.plain)}>
+                      {m.translating ? '⏳ 번역중' : m.translation ? '🇰🇷 숨기기' : '🇰🇷 번역'}
+                    </button>
+                    <button className="tr-btn" onClick={() => savePhrase(parsed.plain)}>
+                      📌 저장
+                    </button>
+                  </div>
+                )}
+                {m.translation && <div className="tr-box">🇰🇷 {m.translation}</div>}
+              </div>
             </div>
           );
         })}
@@ -476,7 +479,14 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
             </button>
           ))}
         </div>
-        {interim && <div className="interim">{interim}</div>}
+        {micOn ? (
+          <div className="voice-wave-row">
+            <VoiceWave />
+            <span className="voice-wave-txt">{interim || '듣고 있어요…'}</span>
+          </div>
+        ) : (
+          interim && <div className="interim">{interim}</div>
+        )}
         <div className="mini-actions">
           <button className="mini-btn" onClick={toggleBgCorrect}>
             ✏️ 교정 {bgCorrectOn ? 'ON' : 'OFF'}
@@ -521,6 +531,17 @@ function TypingDots() {
       <div className="typing-dot" />
       <div className="typing-dot" />
     </>
+  );
+}
+
+/** 녹음 중 음성 파형 — 막대 5개가 들쑥날쑥 뛰며 "듣는 중"을 시각적으로 보여준다. */
+function VoiceWave() {
+  return (
+    <div className="voice-wave" aria-hidden="true">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <span key={i} style={{ animationDelay: `${i * 0.12}s` }} />
+      ))}
+    </div>
   );
 }
 
