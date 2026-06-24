@@ -48,6 +48,19 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenario]);
 
+  useEffect(() => {
+    return () => {
+      playAllRef.current = false;
+      stopSpeaking();
+    };
+  }, []);
+
+  if (!ready) return null;
+
+  const busy = phase !== '';
+  // 음성 낭독·하이라이트용으로 모든 영어 줄을 평탄화한다.
+  const audioLines: string[] = lesson ? lesson.doc.sections.flatMap((s) => s.lines.map((l) => l.en)) : [];
+
   async function loadExamples(s: ScenarioType) {
     setExamplesLoading(true);
     setActiveExample(null);
@@ -65,19 +78,6 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
       setExamplesLoading(false);
     }
   }
-
-  useEffect(() => {
-    return () => {
-      playAllRef.current = false;
-      stopSpeaking();
-    };
-  }, []);
-
-  if (!ready) return null;
-
-  const busy = phase !== '';
-  // 음성 낭독·하이라이트용으로 모든 영어 줄을 평탄화한다.
-  const audioLines: string[] = lesson ? lesson.doc.sections.flatMap((s) => s.lines.map((l) => l.en)) : [];
 
   async function generate(text: string) {
     const trimmed = text.trim();

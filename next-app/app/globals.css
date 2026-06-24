@@ -1599,33 +1599,6 @@ button {
 .biz-ex-card .sub { font-size: 0.7rem; color: var(--text-muted); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .biz-ex-skel { grid-column: 1 / -1; min-height: 64px; background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2, rgba(0,0,0,0.04)) 50%, var(--surface) 75%); background-size: 200% 100%; animation: biz-ex-shimmer 1.2s infinite; cursor: default; }
 @keyframes biz-ex-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-
-/* ── 새 버전 알림 토스트 ── */
-.update-toast {
-  position: fixed;
-  left: 50%;
-  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
-  z-index: 1200;
-  border: none;
-  background: var(--primary);
-  color: #fff;
-  font-weight: 800;
-  font-size: 0.8rem;
-  padding: 11px 18px;
-  border-radius: 999px;
-  box-shadow: 0 6px 20px rgba(255,90,54,0.4);
-  cursor: pointer;
-  animation: update-toast-in 0.3s ease;
-}
-@keyframes update-toast-in {
-  from { opacity: 0; transform: translate(-50%, 12px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .update-toast { animation: none; }
-}
-
 /* ── 새 버전 알림 토스트 ── */
 .update-toast {
   position: fixed;
