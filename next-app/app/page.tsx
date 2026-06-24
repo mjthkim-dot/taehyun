@@ -22,6 +22,7 @@ import PhrasebookScreen from '../components/PhrasebookScreen';
 import ListeningScreen from '../components/ListeningScreen';
 import ReadingScreen from '../components/ReadingScreen';
 import WritingScreen from '../components/WritingScreen';
+import BusinessScreen from '../components/BusinessScreen';
 import ComingSoon from '../components/ComingSoon';
 import ThemeToggle from '../components/ThemeToggle';
 import { calcStreak } from '../lib/state';
@@ -43,6 +44,7 @@ const TAB_TITLE: Record<Mode, string> = {
   writing: '쓰기',
   homework: '숙제 도우미',
   phrasebook: '내 표현장',
+  business: '비즈니스',
 };
 
 export default function Page() {
@@ -93,6 +95,14 @@ export default function Page() {
         {mode === 'listening' && <ListeningScreen />}
         {mode === 'reading' && <ReadingScreen />}
         {mode === 'writing' && <WritingScreen />}
+        {mode === 'business' && (
+          <BusinessScreen
+            onStartTalk={(id) => {
+              setLessonId(id);
+              setMode('talk');
+            }}
+          />
+        )}
         {mode !== 'master' &&
           mode !== 'study' &&
           mode !== 'drill' &&
@@ -107,7 +117,8 @@ export default function Page() {
           mode !== 'phrasebook' &&
           mode !== 'listening' &&
           mode !== 'reading' &&
-          mode !== 'writing' && <ComingSoon label={TAB_TITLE[mode]} />}
+          mode !== 'writing' &&
+          mode !== 'business' && <ComingSoon label={TAB_TITLE[mode]} />}
       </div>
 
       <NavBar mode={mode} onChange={setMode} />

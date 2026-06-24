@@ -19,7 +19,8 @@ export type Mode =
   | 'reading'
   | 'writing'
   | 'homework'
-  | 'phrasebook';
+  | 'phrasebook'
+  | 'business';
 
 const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [
   { mode: 'master', icon: 'home', label: '홈' },
@@ -33,6 +34,7 @@ const MORE_TABS: { mode: Mode; icon: string; label: string; desc: string }[] = [
   { mode: 'review', icon: '📝', label: '복습', desc: '틀린 문장 간격 반복' },
   { mode: 'progress', icon: '📊', label: '진도', desc: 'CEFR · GSE 학습 현황' },
   { mode: 'features', icon: '🧰', label: '기능', desc: '학습 도구 모음' },
+  { mode: 'business', icon: '💼', label: '비즈니스', desc: '내 챗으로 회의록 학습 · 비즈니스 회화' },
 ];
 
 export default function NavBar({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {

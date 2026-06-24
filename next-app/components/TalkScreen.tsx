@@ -8,7 +8,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { ALL_LESSONS, LESSONS, CEFR_NEXT, cefrOf, type Lesson } from '../lib/lessons';
-import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, store } from '../lib/state';
+import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, store, saveChatLog } from '../lib/state';
 import { groqStream, groqComplete, GroqError } from '../lib/groq';
 import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, parseAiText } from '../lib/talkPrompts';
 import { speakText, stopSpeaking } from './SpeakButton';
@@ -75,6 +75,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   const lesson = ALL_LESSONS.find((l) => l.id === lessonId) ?? LESSONS[LESSONS.length - 1];
   const historyRef = useRef<{ role: string; content: string }[]>([]);
   const talkStampsRef = useRef<number[]>([]);
+  const sessionIdRef = useRef('');
   const idRef = useRef(0);
   const recogRef = useRef<SpeechRecognition | null>(null);
   const micOnRef = useRef(false);
@@ -91,6 +92,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     if (!ready) return;
     historyRef.current = [];
     talkStampsRef.current = [];
+    sessionIdRef.current = `${lesson.id}-${Date.now()}`;
     if (lesson.scenario) {
       setMessages([
         {
@@ -185,6 +187,13 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       historyRef.current.push({ role: 'assistant', content: fullText });
       updateMsg(aiId, { streaming: false });
       speak(fullText, maybeResumeHandsFree);
+      saveChatLog({
+        id: sessionIdRef.current,
+        date: new Date().toISOString(),
+        lessonId: lesson.id,
+        lessonTitle: lesson.title || lesson.scenario?.title || '회화',
+        transcript: historyRef.current.slice(-40),
+      });
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== aiId));
       const e = err as Error;
