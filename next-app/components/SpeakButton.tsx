@@ -48,8 +48,66 @@ const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAE
 /* ── 공용 오디오 엘리먼트(언락 상태 공유) ── */
 let sharedAudio: HTMLAudioElement | null = null;
 function audioEl(): HTMLAudioElement {
-  if (!sharedAudio) sharedAudio = new Audio();
+  if (!sharedAudio) {
+    sharedAudio = new Audio();
+    // iOS 인라인/백그라운드 재생: 잠금화면에서도 오디오가 끊기지 않게 한다.
+    sharedAudio.setAttribute('playsinline', '');
+    sharedAudio.setAttribute('webkit-playsinline', '');
+    sharedAudio.preload = 'auto';
+  }
   return sharedAudio;
+}
+
+/* ── Media Session(잠금화면 재생 유지 + 잠금화면 컨트롤) ──
+ * iOS는 단순 <audio> 재생을 화면이 꺼지면 곧 중단시키지만, Media Session 메타데이터와
+ * 액션 핸들러가 등록돼 있으면 "지금 재생 중인 미디어"로 취급해 오디오 세션을 살려두고,
+ * 잠금화면에 재생/일시정지 컨트롤을 띄운다. 그래서 화면을 꺼도 AI 음성이 계속 들린다.
+ * (단, 브라우저 내장 합성 음성은 잠금 시 OS가 멈추므로 Groq 신경망 음성 경로에서만 유효하다.) */
+function mediaSession(): MediaSession | null {
+  if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return null;
+  return navigator.mediaSession;
+}
+
+let mediaHandlersBound = false;
+function activateMediaSession() {
+  const ms = mediaSession();
+  if (!ms) return;
+  try {
+    if (typeof MediaMetadata !== 'undefined' && !ms.metadata) {
+      ms.metadata = new MediaMetadata({
+        title: 'AI 영어 회화',
+        artist: 'Preply 영어 코치',
+        album: '회화 연습',
+      });
+    }
+    if (!mediaHandlersBound) {
+      ms.setActionHandler('play', () => {
+        const a = audioEl();
+        a.play().catch(() => {});
+        ms.playbackState = 'playing';
+      });
+      ms.setActionHandler('pause', () => {
+        audioEl().pause();
+        ms.playbackState = 'paused';
+      });
+      ms.setActionHandler('stop', () => stopSpeaking());
+      mediaHandlersBound = true;
+    }
+    ms.playbackState = 'playing';
+  } catch {
+    /* 일부 핸들러 미지원 — 무시 */
+  }
+}
+
+function markMediaPaused() {
+  const ms = mediaSession();
+  if (ms) {
+    try {
+      ms.playbackState = 'paused';
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 /** 반드시 사용자 제스처(클릭) 안에서 동기적으로 호출 — iOS 오디오 재생을 언락한다. */
@@ -192,15 +250,18 @@ export function playUrl(url: string, rate: number, onended?: () => void): Promis
   a.playbackRate = GROQ_TTS_RATE * rate;
   // onended뿐 아니라 onerror에서도 다음으로 진행 — 한 줄의 오디오가 깨졌어도
   // 그 줄에서 영영 멈추지 않게 한다(한 번만 호출되도록 핸들러를 즉시 해제).
+  const finish = () => { a.onended = null; a.onerror = null; markMediaPaused(); };
   if (onended) {
-    const advance = () => { a.onended = null; a.onerror = null; onended(); };
+    const advance = () => { finish(); onended(); };
     a.onended = advance;
     a.onerror = advance;
   } else {
-    a.onended = null;
-    a.onerror = null;
+    a.onended = finish;
+    a.onerror = finish;
   }
   const p = a.play();
+  // 잠금화면에서도 계속 재생되도록 "재생 중" 미디어 세션을 활성화한다.
+  activateMediaSession();
   return p && typeof p.then === 'function' ? p : Promise.resolve();
 }
 
@@ -228,6 +289,7 @@ export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => 
 export function stopSpeaking() {
   sharedAudio?.pause();
   if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+  markMediaPaused();
 }
 
 export default function SpeakButton({ text, lang = 'en-US', slow = false }: { text: string; lang?: string; slow?: boolean }) {
