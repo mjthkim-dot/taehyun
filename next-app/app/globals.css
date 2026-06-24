@@ -1616,6 +1616,32 @@ button {
   .update-toast { animation: none; }
 }
 
+/* ── 새 버전 알림 토스트 ── */
+.update-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 1200;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.8rem;
+  padding: 11px 18px;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(255,90,54,0.4);
+  cursor: pointer;
+  animation: update-toast-in 0.3s ease;
+}
+@keyframes update-toast-in {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-toast { animation: none; }
+}
+
 /* ── 마감 디테일 ── */
 /* 사용자 입력창 포커스 글로우 */
 .text-input:focus { box-shadow: var(--glow-primary); }
