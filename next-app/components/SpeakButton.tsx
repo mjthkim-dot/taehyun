@@ -188,10 +188,10 @@ const TTS_TIMEOUT_MS = 8000;
  * 속도는 재생 단계에서 음높이를 유지한 채(preservesPitch) 조절하므로 여기선 속도 무관하게
  * 한 번만 합성해 캐싱한다.
  */
-export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE): Promise<string | null> {
+export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE, opts?: { tagless?: boolean }): Promise<string | null> {
   const key = groqKey();
   if (!key) return null;
-  const cacheKey = `${voice}:${text}`;
+  const cacheKey = `${voice}:${opts?.tagless ? 'flat:' : ''}${text}`;
   const cached = ttsCache.get(cacheKey);
   if (cached) return cached;
   // 같은 문장을 동시에(미리받기 + 실제재생) 두 번 요청하면 호출이 두 배가 돼 rate-limit에
@@ -199,7 +199,9 @@ export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE): Promis
   const pending = ttsInflight.get(cacheKey);
   if (pending) return pending;
 
-  const tag = emotionDirectionTag(text);
+  // 회의록/이메일 같은 격식체 문서는 잡담용 감정 디렉션 태그([cheerful]/[curious] 등)를
+  // 붙이면 오히려 부자연스럽게 들린다 — tagless 옵션으로 끌 수 있게 한다.
+  const tag = opts?.tagless ? '' : emotionDirectionTag(text);
   const input = tag ? `${tag} ${text}` : text;
   const job = (async (): Promise<string | null> => {
     const controller = new AbortController();
@@ -269,14 +271,14 @@ export function playUrl(url: string, rate: number, onended?: () => void): Promis
  * 한 문장 재생. voice: Groq 보이스 이름(대화문 화자별로 다르게 줄 때).
  * 키가 있으면 Groq 신경망 음성, 없거나 실패하면 브라우저 음성.
  */
-export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => void, voice?: string) {
+export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => void, voice?: string, opts?: { tagless?: boolean }) {
   primeAudio(); // 제스처 안에서 동기 언락
   if (!lang.startsWith('en') || !groqKey()) {
     speakWithBrowser(text, lang, rate, onend);
     return;
   }
   // 한 번 합성한 음성을 재생 단계에서 rate로 조절(음높이 유지) — 느리게 들어도 자연스럽다.
-  fetchGroqTTS(text, voice || GROQ_TTS_VOICE).then((url) => {
+  fetchGroqTTS(text, voice || GROQ_TTS_VOICE, opts).then((url) => {
     if (url) {
       playUrl(url, rate, onend).catch(() => speakWithBrowser(text, lang, rate, onend));
     } else {
