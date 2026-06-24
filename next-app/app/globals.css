@@ -1845,3 +1845,74 @@ body,
 [data-theme='dark'] .correction-box {
   color: #e8c071;
 }
+
+/* ═══════════════ Phase 7 — 반응형 & 접근성 ═══════════════ */
+
+/* 키보드 포커스 링 — 마우스 클릭엔 안 뜨고 Tab 이동 시에만 또렷하게(focus-visible).
+   접근성(키보드 내비게이션)을 위해 전역으로 보장한다. */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.btn:focus-visible,
+.start-drill-btn:focus-visible,
+.mode-tab:focus-visible,
+.feat-card:focus-visible,
+.round-btn:focus-visible,
+.theme-toggle:focus-visible,
+.text-input:focus-visible,
+.lesson-picker:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+/* 입력창은 링 + 글로우를 함께 */
+.text-input:focus-visible {
+  box-shadow: var(--glow-primary);
+}
+
+/* 태블릿/데스크탑 — 모바일 앱 컬럼을 가운데로 모으고 좌우는 오로라 배경이 채운다.
+   전체를 4K로 늘리지 않고 "프레임된 앱"으로 보여주는 흔한 프리미엄 처리. */
+@media (min-width: 860px) {
+  .app-shell {
+    max-width: 840px;
+    margin: 0 auto;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    box-shadow: 0 0 80px -24px rgba(28, 20, 16, 0.22);
+  }
+  /* 하단 네비도 셸 폭에 맞춰지므로 그대로 정렬됨 */
+  .app-content {
+    padding: 22px 24px 30px;
+  }
+  /* 데스크탑에선 카드 사이 여백을 살짝 키워 숨통을 틔운다 */
+  .study-card,
+  .caf-wrap,
+  .stat-card {
+    padding: 20px;
+  }
+}
+[data-theme='dark'] .app-shell {
+  box-shadow: 0 0 90px -24px rgba(0, 0, 0, 0.7);
+}
+
+/* 넓은 화면에선 기능 허브를 3열로 — 카드가 과하게 넓어지지 않게 */
+@media (min-width: 720px) {
+  .feat-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .skill-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* 고대비 선호 사용자 — 경계선을 또렷하게 */
+@media (prefers-contrast: more) {
+  :root {
+    --border: #d8c4ab;
+    --text-muted: #6f6052;
+  }
+  [data-theme='dark'] {
+    --border: #5a4a3c;
+    --text-muted: #c2b3a3;
+  }
+}
