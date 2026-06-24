@@ -1584,6 +1584,32 @@ button {
 .biz-doc-line.playing { background: rgba(255,90,54,0.16); box-shadow: inset 3px 0 0 var(--primary); font-weight: 600; }
 .biz-doc-ko { margin-top: 8px; padding: 10px 13px; background: rgba(26,143,92,0.07); border: 1px solid rgba(26,143,92,0.22); border-radius: 10px; font-size: 0.8rem; line-height: 1.6; white-space: pre-line; color: var(--text-muted); }
 
+/* ── 새 버전 알림 토스트 ── */
+.update-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 1200;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.8rem;
+  padding: 11px 18px;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(255,90,54,0.4);
+  cursor: pointer;
+  animation: update-toast-in 0.3s ease;
+}
+@keyframes update-toast-in {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-toast { animation: none; }
+}
+
 /* ── 마감 디테일 ── */
 /* 사용자 입력창 포커스 글로우 */
 .text-input:focus { box-shadow: var(--glow-primary); }

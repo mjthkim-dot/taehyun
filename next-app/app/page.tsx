@@ -25,6 +25,7 @@ import WritingScreen from '../components/WritingScreen';
 import BusinessScreen from '../components/BusinessScreen';
 import ComingSoon from '../components/ComingSoon';
 import ThemeToggle from '../components/ThemeToggle';
+import UpdatePrompt from '../components/UpdatePrompt';
 import { calcStreak } from '../lib/state';
 import { APP_VERSION } from '../lib/version';
 
@@ -122,6 +123,7 @@ export default function Page() {
       </div>
 
       <NavBar mode={mode} onChange={setMode} />
+      <UpdatePrompt />
     </main>
   );
 }
