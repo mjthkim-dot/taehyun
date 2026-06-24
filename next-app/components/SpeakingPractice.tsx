@@ -49,6 +49,8 @@ export default function SpeakingPractice({
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const finalRef = useRef('');
+  const langRef = useRef(lang);
+  langRef.current = lang;
 
   // 채점 결과가 나오면 점수대별 햅틱 — 높으면 성공, 낮으면 오답 진동
   const scoreFxRef = useRef(0);
@@ -66,13 +68,15 @@ export default function SpeakingPractice({
     }
   }, [sentence, currentSentence, setCurrentSentence]);
 
-  // SpeechRecognition 인스턴스 1회 생성
-  useEffect(() => {
+  // 발화 1회마다 새 SpeechRecognition 인스턴스를 만든다.
+  // iOS Safari 등 webkit 기반 브라우저는 onend 이후 같은 인스턴스를 재사용해
+  // start()를 호출하면 내부 상태가 멈춰 다시 인식되지 않는 문제가 있다.
+  const createRecognition = useCallback(() => {
     const SR = getSpeechRecognition();
-    if (!SR) return;
+    if (!SR) return null;
 
     const recog = new SR();
-    recog.lang = lang;
+    recog.lang = langRef.current;
     recog.continuous = true;
     recog.interimResults = true;
     recog.maxAlternatives = 1;
@@ -104,8 +108,14 @@ export default function SpeakingPractice({
       setListening(false);
     };
 
-    recognitionRef.current = recog;
+    return recog;
+  }, [setUserSpeech, setListening, evaluateSpeech]);
+
+  // 컴포넌트가 사라질 때 진행 중인 인식을 정리
+  useEffect(() => {
     return () => {
+      const recog = recognitionRef.current;
+      if (!recog) return;
       recog.onresult = null;
       recog.onend = null;
       recog.onerror = null;
@@ -115,11 +125,25 @@ export default function SpeakingPractice({
         /* noop */
       }
     };
-  }, [lang, setUserSpeech, setListening, evaluateSpeech]);
+  }, []);
 
   const start = useCallback(() => {
-    const recog = recognitionRef.current;
-    if (!recog || isListening) return;
+    if (isListening) return;
+    // 이전 인스턴스가 남아있다면 핸들러를 떼고 정리한 뒤 새로 만든다.
+    const prev = recognitionRef.current;
+    if (prev) {
+      prev.onresult = null;
+      prev.onend = null;
+      prev.onerror = null;
+      try {
+        prev.abort();
+      } catch {
+        /* noop */
+      }
+    }
+    const recog = createRecognition();
+    if (!recog) return;
+    recognitionRef.current = recog;
     finalRef.current = '';
     clearAttempt();
     haptic('tap');
@@ -129,7 +153,7 @@ export default function SpeakingPractice({
     } catch {
       /* 이미 시작된 경우 무시 */
     }
-  }, [isListening, clearAttempt, setListening]);
+  }, [isListening, clearAttempt, setListening, createRecognition]);
 
   const stop = useCallback(() => {
     recognitionRef.current?.stop();
