@@ -1571,6 +1571,19 @@ button {
 .para-card .up { color: var(--green-dk); font-weight: 700; }
 .para-card .or { color: var(--text-muted); text-decoration: line-through; opacity: 0.7; }
 
+/* ── 비즈니스 레슨 ── */
+.biz-seg { display: flex; gap: 6px; background: var(--surface-2, rgba(0,0,0,0.04)); border: 1px solid var(--border); border-radius: 12px; padding: 4px; margin-bottom: 14px; }
+.biz-seg-btn { flex: 1; border: none; background: transparent; color: var(--text-muted); font-weight: 700; font-size: 0.84rem; padding: 9px 0; border-radius: 9px; cursor: pointer; transition: background 0.15s, color 0.15s; }
+.biz-seg-btn.active { background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(255,90,54,0.28); }
+.biz-doc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.82rem; font-weight: 800; margin: 6px 0 6px; }
+.biz-doc-actions { display: inline-flex; gap: 6px; }
+.biz-doc { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+.biz-doc-line { margin: 0; padding: 3px 6px; border-radius: 6px; font-size: 0.84rem; line-height: 1.6; cursor: pointer; transition: background 0.15s; }
+.biz-doc-line:empty { display: none; }
+.biz-doc-line:hover { background: rgba(255,90,54,0.07); }
+.biz-doc-line.playing { background: rgba(255,90,54,0.16); box-shadow: inset 3px 0 0 var(--primary); font-weight: 600; }
+.biz-doc-ko { margin-top: 8px; padding: 10px 13px; background: rgba(26,143,92,0.07); border: 1px solid rgba(26,143,92,0.22); border-radius: 10px; font-size: 0.8rem; line-height: 1.6; white-space: pre-line; color: var(--text-muted); }
+
 /* ── 마감 디테일 ── */
 /* 사용자 입력창 포커스 글로우 */
 .text-input:focus { box-shadow: var(--glow-primary); }
