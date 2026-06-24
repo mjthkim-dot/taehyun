@@ -286,4 +286,28 @@ export function isPlaced() {
   return !!load('va_placed', null);
 }
 
+/* ── 회화 챗 로그(비즈니스 회의록 학습용) ── */
+export interface ChatLogEntry {
+  id: string;
+  date: string;
+  lessonId: number;
+  lessonTitle: string;
+  transcript: { role: string; content: string }[];
+}
+
+const CHAT_LOG_MAX = 30;
+
+export function getChatLogs(): ChatLogEntry[] {
+  return load<ChatLogEntry[]>('va_chat_logs', []);
+}
+
+/** 진행 중인 대화 1세션을 id 기준으로 갱신 저장한다(매 턴마다 덮어써서 최신 상태 유지). */
+export function saveChatLog(entry: ChatLogEntry) {
+  const logs = getChatLogs();
+  const idx = logs.findIndex((l) => l.id === entry.id);
+  if (idx >= 0) logs[idx] = entry;
+  else logs.push(entry);
+  store('va_chat_logs', logs.slice(-CHAT_LOG_MAX));
+}
+
 export { CEFR_GSE, CEFR_ORDER, gseMid, gseToCefr, scaffoldFor };
