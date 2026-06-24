@@ -20,7 +20,7 @@ import {
   type ScenarioType,
   type ExampleScenario,
 } from '../lib/businessPrompts';
-import { speakText, stopSpeaking } from './SpeakButton';
+import { speakText, stopSpeaking, fetchGroqTTS } from './SpeakButton';
 
 export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId: number) => void }) {
   const [ready, setReady] = useState(false);
@@ -58,8 +58,11 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
   if (!ready) return null;
 
   const busy = phase !== '';
-  // 음성 낭독·하이라이트용으로 모든 영어 줄을 평탄화한다.
-  const audioLines: string[] = lesson ? lesson.doc.sections.flatMap((s) => s.lines.map((l) => l.en)) : [];
+  // 음성 낭독·하이라이트용으로 제목 + 모든 영어 줄을 평탄화한다(제목도 같이 읽도록 포함).
+  const hasTitleAudio = !!lesson?.doc.title_en;
+  const audioLines: string[] = lesson
+    ? [...(hasTitleAudio ? [lesson.doc.title_en] : []), ...lesson.doc.sections.flatMap((s) => s.lines.map((l) => l.en))]
+    : [];
 
   async function loadExamples(s: ScenarioType) {
     setExamplesLoading(true);
@@ -138,7 +141,9 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
     generate(ex.situation);
   }
 
-  /** 문서 전체를 처음부터 끝까지 순차 낭독. */
+  /** 문서 전체를 처음부터 끝까지 순차 낭독.
+   * 회의록/이메일 같은 격식체 문서라 잡담용 감정 톤 태그는 끄고(tagless),
+   * 다음 줄 오디오를 현재 줄 재생 중에 미리 받아둬(prefetch) 줄 사이 끊김을 없앤다. */
   function playAll(start = 0) {
     if (!audioLines.length) return;
     playAllRef.current = true;
@@ -149,7 +154,10 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
         return;
       }
       setPlayingIdx(i);
-      speakText(audioLines[i], 'en-US', 1, () => step(i + 1));
+      if (i + 1 < audioLines.length) {
+        fetchGroqTTS(audioLines[i + 1], undefined, { tagless: true }).catch(() => {});
+      }
+      speakText(audioLines[i], 'en-US', 1, () => step(i + 1), undefined, { tagless: true });
     };
     step(start);
   }
@@ -162,8 +170,8 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
 
   const isPlaying = playingIdx !== null;
   const samples = logs.slice(0, 4);
-  // 렌더 시 줄마다 전역 인덱스를 부여하기 위한 카운터.
-  let lineCursor = -1;
+  // 렌더 시 줄마다 전역 인덱스를 부여하기 위한 카운터. 제목도 audioLines에 포함되면 0번을 차지한다.
+  let lineCursor = hasTitleAudio ? 0 : -1;
 
   return (
     <div className="study-screen">
@@ -278,7 +286,11 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
 
           <div className="biz-doc">
             {lesson.doc.title_en && (
-              <div className="biz-doc-title">
+              <div
+                className={`biz-doc-title${playingIdx === 0 ? ' playing' : ''}`}
+                onClick={() => playAll(0)}
+                title="제목부터 듣기"
+              >
                 {lesson.doc.title_en}
                 {showKo && lesson.doc.title_ko && <span className="biz-doc-title-ko">{lesson.doc.title_ko}</span>}
               </div>
@@ -317,7 +329,7 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
                 <div className="para-card" key={i}>
                   <div style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 700, marginBottom: 3 }}>{ex.purpose_ko}</div>
                   <span className="up">{ex.en}</span>{' '}
-                  <button className="speak-mini" onClick={() => { stopAll(); speakText(ex.en, 'en-US', 1); }}>🔊</button>
+                  <button className="speak-mini" onClick={() => { stopAll(); speakText(ex.en, 'en-US', 1, undefined, undefined, { tagless: true }); }}>🔊</button>
                   <div style={{ fontSize: '0.76rem', marginTop: 2 }}>{ex.kr}</div>
                   {ex.tip_ko && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 3 }}>💡 {ex.tip_ko}</div>}
                 </div>
@@ -331,7 +343,7 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
               {lesson.key_phrases.map((p, i) => (
                 <div className="para-card" key={i}>
                   <span className="up">{p.en}</span>{' '}
-                  <button className="speak-mini" onClick={() => { stopAll(); speakText(p.en, 'en-US', 1); }}>🔊</button>
+                  <button className="speak-mini" onClick={() => { stopAll(); speakText(p.en, 'en-US', 1, undefined, undefined, { tagless: true }); }}>🔊</button>
                   <div style={{ fontSize: '0.76rem', marginTop: 2 }}>{p.kr}</div>
                 </div>
               ))}

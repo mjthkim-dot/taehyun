@@ -1578,7 +1578,9 @@ button {
 .biz-doc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.82rem; font-weight: 800; margin: 6px 0 6px; }
 .biz-doc-actions { display: inline-flex; gap: 6px; }
 .biz-doc { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
-.biz-doc-title { font-size: 0.96rem; font-weight: 800; line-height: 1.4; padding-bottom: 10px; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
+.biz-doc-title { font-size: 0.96rem; font-weight: 800; line-height: 1.4; padding-bottom: 10px; margin-bottom: 8px; border-bottom: 1px solid var(--border); cursor: pointer; border-radius: 7px; transition: background 0.15s; }
+.biz-doc-title:hover { background: rgba(255,90,54,0.07); }
+.biz-doc-title.playing { background: rgba(255,90,54,0.16); box-shadow: inset 3px 0 0 var(--primary); }
 .biz-doc-title-ko { display: block; font-size: 0.76rem; font-weight: 600; color: var(--text-muted); margin-top: 3px; }
 .biz-doc-sec { margin-top: 12px; }
 .biz-doc-sec:first-of-type { margin-top: 0; }
