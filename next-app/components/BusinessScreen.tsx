@@ -13,10 +13,12 @@ import { groqComplete, GroqError } from '../lib/groq';
 import {
   buildNativeDocPrompt,
   buildLessonExtractPrompt,
+  buildExampleScenariosPrompt,
   docToText,
   type BusinessLesson,
   type NativeDoc,
   type ScenarioType,
+  type ExampleScenario,
 } from '../lib/businessPrompts';
 import { speakText, stopSpeaking } from './SpeakButton';
 
@@ -30,6 +32,9 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
   const [lesson, setLesson] = useState<BusinessLesson | null>(null);
   const [showKo, setShowKo] = useState(false);
   const [playingIdx, setPlayingIdx] = useState<number | null>(null);
+  const [examples, setExamples] = useState<ExampleScenario[]>([]);
+  const [examplesLoading, setExamplesLoading] = useState(false);
+  const [activeExample, setActiveExample] = useState<number | null>(null);
 
   const playAllRef = useRef(false);
 
@@ -37,6 +42,11 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
     setLogs(getChatLogs().filter((l) => l.transcript.length >= 2).slice().reverse());
     setReady(true);
   }, []);
+
+  useEffect(() => {
+    loadExamples(scenario);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scenario]);
 
   useEffect(() => {
     return () => {
@@ -50,6 +60,24 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
   const busy = phase !== '';
   // 음성 낭독·하이라이트용으로 모든 영어 줄을 평탄화한다.
   const audioLines: string[] = lesson ? lesson.doc.sections.flatMap((s) => s.lines.map((l) => l.en)) : [];
+
+  async function loadExamples(s: ScenarioType) {
+    setExamplesLoading(true);
+    setActiveExample(null);
+    try {
+      const raw = await groqComplete([{ role: 'user', content: buildExampleScenariosPrompt(s) }], {
+        temperature: 0.8,
+        maxTokens: 700,
+        json: true,
+      });
+      const parsed = JSON.parse(raw) as { examples?: ExampleScenario[] };
+      setExamples((parsed.examples || []).filter((e) => e && e.situation));
+    } catch {
+      setExamples([]);
+    } finally {
+      setExamplesLoading(false);
+    }
+  }
 
   async function generate(text: string) {
     const trimmed = text.trim();
@@ -102,6 +130,14 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
     }
   }
 
+  function pickExample(i: number) {
+    const ex = examples[i];
+    if (!ex || busy) return;
+    setActiveExample(i);
+    setSituation(ex.situation);
+    generate(ex.situation);
+  }
+
   /** 문서 전체를 처음부터 끝까지 순차 낭독. */
   function playAll(start = 0) {
     if (!audioLines.length) return;
@@ -141,8 +177,36 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
         </button>
       </div>
 
+      {/* AI 예시 상황 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <div style={{ fontSize: '0.82rem', fontWeight: 800 }}>✨ AI가 만든 예시 상황</div>
+        <button className="mini-btn" disabled={busy || examplesLoading} onClick={() => loadExamples(scenario)}>
+          {examplesLoading ? '⏳ 생성 중...' : '🔄 다른 예시'}
+        </button>
+      </div>
+      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.5 }}>
+        카드를 누르면 바로 그 상황으로 레슨이 만들어져요.
+      </div>
+      <div className="biz-ex-grid" style={{ marginBottom: 12 }}>
+        {examplesLoading && examples.length === 0 ? (
+          <div className="biz-ex-card biz-ex-skel" />
+        ) : (
+          examples.map((ex, i) => (
+            <button
+              key={i}
+              className={`biz-ex-card${activeExample === i ? ' active' : ''}`}
+              disabled={busy}
+              onClick={() => pickExample(i)}
+            >
+              <div className="lbl">{ex.label_ko}</div>
+              <div className="sub">{ex.situation}</div>
+            </button>
+          ))
+        )}
+      </div>
+
       {/* 상황 입력 */}
-      <div style={{ marginBottom: 6, fontSize: '0.82rem', fontWeight: 800 }}>내 상황을 알려주세요</div>
+      <div style={{ marginBottom: 6, fontSize: '0.82rem', fontWeight: 800 }}>또는 직접 입력</div>
       <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.5 }}>
         {scenario === 'meeting'
           ? '예: 신제품 출시 일정을 정하는 팀 회의, 해외 거래처와 가격 협상 미팅... (또는 실제 회의록을 붙여넣어도 됩니다)'
@@ -154,7 +218,10 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
         placeholder="상황을 한국어 또는 영어로 적거나, 실제 회의록·메일 내용을 붙여넣으세요"
         maxLength={2000}
         value={situation}
-        onChange={(e) => setSituation(e.target.value)}
+        onChange={(e) => {
+          setActiveExample(null);
+          setSituation(e.target.value);
+        }}
       />
       <button className="btn primary" style={{ width: '100%', marginBottom: 8 }} disabled={busy || !situation.trim()} onClick={() => generate(situation)}>
         {phase === 'doc' ? '⏳ 원어민 문서 작성 중...' : phase === 'extract' ? '⏳ 핵심 표현 정리 중...' : '✨ 원어민 표현 레슨 만들기'}

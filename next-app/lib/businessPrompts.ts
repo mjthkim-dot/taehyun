@@ -38,8 +38,30 @@ export interface BusinessLesson {
   key_phrases: { en: string; kr: string }[];
 }
 
+export interface ExampleScenario {
+  label_ko: string;
+  situation: string;
+}
+
 function kindLabel(scenario: ScenarioType) {
   return scenario === 'meeting' ? '비즈니스 미팅 회의록(meeting minutes)' : '비즈니스 이메일(business email)';
+}
+
+/** 학습자가 빈 칸에서 막막하지 않도록, 클릭 한 번으로 쓸 수 있는 예시 상황 4개를 생성. */
+export function buildExampleScenariosPrompt(scenario: ScenarioType) {
+  const kind = kindLabel(scenario);
+  return `당신은 한국 직장인을 위한 비즈니스 영어 코치입니다. 학습자가 ${kind} 학습 상황을 직접 입력하기 막막해할 때 보여줄 예시 상황 4개를 만들어주세요.
+
+요구사항:
+- 실제 한국 회사(IT/제조/스타트업/무역 등 업종을 다양하게)에서 흔히 벌어지는, 구체적이고 현실적인 상황으로 만들 것. "회의를 한다" 같은 추상적 문장 금지.
+- 4개는 서로 다른 업종·목적(예: 일정 조율, 가격 협상, 진행 상황 보고, 문제 해결/사과 등)을 다루도록 다양화할 것.
+- label_ko는 카드에 표시할 5~10자 내외의 짧은 제목.
+- situation은 이 학습자가 바로 레슨 생성에 쓸 수 있도록, 한국어로 2~3문장 정도의 구체적 상황 설명(누가, 무엇을, 왜).
+
+오직 JSON만 (마크다운·설명 없이):
+{ "examples": [ { "label_ko": "짧은 제목", "situation": "구체적 상황 설명 2~3문장" } ] }
+
+examples는 정확히 4개.`;
 }
 
 /** 1단계 — 원어민 수준의 실무 문서를 섹션 구조(제목+줄별 en/ko)로 작성. */
