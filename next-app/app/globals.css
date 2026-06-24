@@ -1577,12 +1577,18 @@ button {
 .biz-seg-btn.active { background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(255,90,54,0.28); }
 .biz-doc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.82rem; font-weight: 800; margin: 6px 0 6px; }
 .biz-doc-actions { display: inline-flex; gap: 6px; }
-.biz-doc { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
-.biz-doc-line { margin: 0; padding: 3px 6px; border-radius: 6px; font-size: 0.84rem; line-height: 1.6; cursor: pointer; transition: background 0.15s; }
+.biz-doc { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.biz-doc-title { font-size: 0.96rem; font-weight: 800; line-height: 1.4; padding-bottom: 10px; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
+.biz-doc-title-ko { display: block; font-size: 0.76rem; font-weight: 600; color: var(--text-muted); margin-top: 3px; }
+.biz-doc-sec { margin-top: 12px; }
+.biz-doc-sec:first-of-type { margin-top: 0; }
+.biz-doc-h { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--primary); margin-bottom: 4px; }
+.biz-doc-h-ko { font-weight: 600; color: var(--text-muted); text-transform: none; letter-spacing: 0; }
+.biz-doc-line { margin: 0; padding: 4px 8px; border-radius: 7px; font-size: 0.86rem; line-height: 1.6; cursor: pointer; transition: background 0.15s; }
 .biz-doc-line:empty { display: none; }
 .biz-doc-line:hover { background: rgba(255,90,54,0.07); }
 .biz-doc-line.playing { background: rgba(255,90,54,0.16); box-shadow: inset 3px 0 0 var(--primary); font-weight: 600; }
-.biz-doc-ko { margin-top: 8px; padding: 10px 13px; background: rgba(26,143,92,0.07); border: 1px solid rgba(26,143,92,0.22); border-radius: 10px; font-size: 0.8rem; line-height: 1.6; white-space: pre-line; color: var(--text-muted); }
+.biz-doc-line-ko { display: block; font-size: 0.74rem; color: var(--text-muted); margin-top: 1px; }
 
 /* ── 새 버전 알림 토스트 ── */
 .update-toast {
