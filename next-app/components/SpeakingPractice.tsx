@@ -9,7 +9,7 @@
  *
  * 타입: npm i -D @types/dom-speech-recognition
  */
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLessonStore } from '../store/useLessonStore';
 import { speakText } from './SpeakButton';
 import { haptic } from '../lib/haptics';
@@ -29,11 +29,18 @@ interface SpeakingPracticeProps {
   /** 연습할 목표 문장. 전달하면 마운트 시 스토어에 세팅한다. */
   sentence?: string;
   lang?: string;
+  /** 한국어 뜻 — hideTarget 모드에서 문제로 보여준다(한국어 보고 영어로 말하기). */
+  prompt?: string;
+  /** true면 영어 목표 문장을 숨기고 한국어(prompt)를 문제로 낸다. 발화하거나
+   * "영어 보기"를 누르면 영어가 드러나 발음을 확인할 수 있다. */
+  hideTarget?: boolean;
 }
 
 export default function SpeakingPractice({
   sentence,
   lang = 'en-US',
+  prompt,
+  hideTarget = false,
 }: SpeakingPracticeProps) {
   const currentSentence = useLessonStore((s) => s.currentSentence);
   const userSpeech = useLessonStore((s) => s.userSpeech);
@@ -51,6 +58,12 @@ export default function SpeakingPractice({
   const finalRef = useRef('');
   const langRef = useRef(lang);
   langRef.current = lang;
+
+  // hideTarget 모드에서 영어 정답을 드러냈는지. 문장이 바뀌면 다시 숨긴다.
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    setRevealed(false);
+  }, [sentence]);
 
   // 채점 결과가 나오면 점수대별 햅틱 — 높으면 성공, 낮으면 오답 진동
   const scoreFxRef = useRef(0);
@@ -114,18 +127,22 @@ export default function SpeakingPractice({
   // 컴포넌트가 사라질 때 진행 중인 인식을 정리
   useEffect(() => {
     return () => {
+      // isListening은 전역 스토어 값이라, 듣는 중에 다음 문장으로 넘어가면(언마운트)
+      // 여기서 false로 되돌리지 않으면 true로 고착돼 다음 문장의 새 컴포넌트가
+      // start()를 막아버린다(드릴에서 첫 문장만 인식되던 원인) — 반드시 풀어준다.
+      setListening(false);
       const recog = recognitionRef.current;
       if (!recog) return;
       recog.onresult = null;
       recog.onend = null;
       recog.onerror = null;
       try {
-        recog.stop();
+        recog.abort();
       } catch {
         /* noop */
       }
     };
-  }, []);
+  }, [setListening]);
 
   const start = useCallback(() => {
     if (isListening) return;
@@ -161,17 +178,31 @@ export default function SpeakingPractice({
 
   const supported = getSpeechRecognition() !== null;
 
+  // hideTarget 모드: 발화해서 점수가 나오거나(accuracyScore>0) "영어 보기"를 누르기
+  // 전까지는 영어 정답·듣기 버튼을 숨겨, 한국어만 보고 영어로 말하게 한다.
+  const showTarget = !hideTarget || revealed || accuracyScore > 0;
+
   return (
     <div className="speaking-practice">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <p className="target" style={{ flex: 1, margin: 0 }}>🎯 {currentSentence || '문장을 선택하세요'}</p>
-        {currentSentence && (
+        {showTarget ? (
+          <p className="target" style={{ flex: 1, margin: 0 }}>🎯 {currentSentence || '문장을 선택하세요'}</p>
+        ) : (
+          <p className="target" style={{ flex: 1, margin: 0 }}>🇰🇷 {prompt || '뜻을 보고 영어로 말해보세요'}</p>
+        )}
+        {currentSentence && showTarget && (
           <>
             <button type="button" className="speak-mini" title="듣기" onClick={() => speakText(currentSentence, lang)}>🔊</button>
             <button type="button" className="speak-mini" title="느리게 듣기" onClick={() => speakText(currentSentence, lang, 0.6)}>🐢</button>
           </>
         )}
+        {!showTarget && (
+          <button type="button" className="speak-mini" title="영어 정답 보기" onClick={() => setRevealed(true)}>👀</button>
+        )}
       </div>
+      {showTarget && hideTarget && prompt && (
+        <div className="muted" style={{ fontSize: '0.82rem', marginTop: 2 }}>🇰🇷 {prompt}</div>
+      )}
 
       {!supported && (
         <p className="warn">
