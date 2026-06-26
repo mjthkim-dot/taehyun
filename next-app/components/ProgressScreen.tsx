@@ -13,13 +13,13 @@ import {
   getSkillStats,
   getLessonStats,
   calcStreak,
+  dueWeak,
   weeklyCounts,
   scaffoldFor,
   CEFR_GSE,
   DAILY_GOAL,
   load,
   SKILLS,
-  type WeakItem,
 } from '../lib/state';
 import { CountUp, RadarChart, GaugeRing } from './Charts';
 
@@ -36,7 +36,6 @@ export default function ProgressScreen() {
   if (!ready) return null;
 
   const stats = getLessonStats();
-  const weak = load<WeakItem[]>('va_weak', []);
   const totalAttempts = Object.values(stats).reduce((s, v) => s + v.attempts, 0);
   const totalCorrect = Object.values(stats).reduce((s, v) => s + v.correct, 0);
 
@@ -62,8 +61,8 @@ export default function ProgressScreen() {
           <div className="lbl">드릴 정확도</div>
         </div>
         <div className="stat-card">
-          <div className="num"><CountUp value={weak.length} /></div>
-          <div className="lbl">복습 대기 문장</div>
+          <div className="num"><CountUp value={dueWeak().length} /></div>
+          <div className="lbl">오늘 복습할 문장</div>
         </div>
       </div>
 

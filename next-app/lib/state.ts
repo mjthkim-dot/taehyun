@@ -190,6 +190,29 @@ export function gradeWeakItem(en: string, grade: FlashGrade) {
   store('va_weak', weak);
 }
 
+export interface DrillItem {
+  en: string;
+  kr: string;
+  /** 간격 반복 복습 항목에서 가져온 문장이면 true — 채점 시 SRS 박스를 갱신한다. */
+  fromWeak: boolean;
+}
+
+/**
+ * 홈 화면의 "⚡ 오늘의 훈련" 큐 — 오늘 복습할 간격 반복 문장(최대 5개, 박스가 낮은
+ * 것 우선)을 앞에 넣고, 남는 자리를 현재 레슨 예문으로 채운다. 복습 문장은 이미
+ * 같은 영어 문장이 레슨 예문에도 있으면 중복으로 넣지 않는다.
+ */
+export function buildTodayQueue(lessonExamples: { en: string; kr: string }[], max = 10): DrillItem[] {
+  const due = [...dueWeak()].sort((a, b) => (a.box || 0) - (b.box || 0)).slice(0, Math.min(5, max));
+  const dueEn = new Set(due.map((w) => w.en));
+  const review: DrillItem[] = due.map((w) => ({ en: w.en, kr: w.kr, fromWeak: true }));
+  const rest = lessonExamples
+    .filter((it) => !dueEn.has(it.en))
+    .slice(0, Math.max(0, max - review.length))
+    .map((it) => ({ en: it.en, kr: it.kr, fromWeak: false }));
+  return [...review, ...rest];
+}
+
 /** 약점 노트(va_weak)에 새 항목을 추가한다 — 이미 있으면 건너뛴다. */
 export function addWeakItem(item: { en: string; kr?: string; lesson?: number | string; cat?: string }) {
   const weak = load<WeakItem[]>('va_weak', []);
