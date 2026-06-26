@@ -11,7 +11,7 @@ import { ALL_LESSONS, LESSONS, CEFR_NEXT, cefrOf, type Lesson } from '../lib/les
 import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, store, saveChatLog } from '../lib/state';
 import { groqStream, groqComplete, GroqError } from '../lib/groq';
 import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, parseAiText } from '../lib/talkPrompts';
-import { speakText, stopSpeaking } from './SpeakButton';
+import { speakText, stopSpeaking, primeAudio, fetchGroqTTS } from './SpeakButton';
 
 interface Correction {
   is_correct: boolean;
@@ -55,9 +55,27 @@ function getSpeechRecognition(): typeof SpeechRecognition | null {
   );
 }
 
+/** 문장 단위로 끊어 순차 재생한다. 다음 문장 오디오를 현재 문장 재생 중에 미리
+ * 받아둬(prefetch) 한 번에 긴 글을 통째로 합성할 때보다 첫 소리가 훨씬 빨리
+ * 나오고, 문장 사이도 끊김 없이 자연스럽게 이어진다. */
 function speak(text: string, onend?: () => void) {
-  const clean = text.replace(/\[HEARD:[^\]]*\]/g, '').replace(/\[EXPLAIN:[^\]]*\]/g, '');
-  speakText(clean, 'en-US', 1, onend);
+  const clean = text.replace(/\[HEARD:[^\]]*\]/g, '').replace(/\[EXPLAIN:[^\]]*\]/g, '').trim();
+  const sentences = clean.split(/(?<=[.!?])\s+/).filter(Boolean);
+  if (!sentences.length) {
+    onend?.();
+    return;
+  }
+  let i = 0;
+  const step = () => {
+    if (i >= sentences.length) {
+      onend?.();
+      return;
+    }
+    const idx = i++;
+    if (idx + 1 < sentences.length) fetchGroqTTS(sentences[idx + 1]).catch(() => {});
+    speakText(sentences[idx], 'en-US', 1, step);
+  };
+  step();
 }
 
 export default function TalkScreen({ lessonId }: { lessonId: number }) {
@@ -79,6 +97,10 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   const idRef = useRef(0);
   const recogRef = useRef<SpeechRecognition | null>(null);
   const micOnRef = useRef(false);
+  // isProcessing state는 비동기로 갱신돼, 같은 틱에서 handleSend가 두 번 불리면
+  // 둘 다 갱신 전의 stale 값을 보고 재진입 가드를 통과해버린다(중복 발화의 원인).
+  // ref는 동기적으로 즉시 갱신되므로 진짜 재진입 가드로 쓴다.
+  const isProcessingRef = useRef(false);
   const chatBoxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -159,8 +181,13 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   }
 
   async function handleSend(text: string, hidden = false) {
-    if (!text || isProcessing) return;
+    if (!text || isProcessingRef.current) return;
+    isProcessingRef.current = true;
     stopSpeaking();
+    // 클릭/탭 같은 사용자 제스처 안에서 동기적으로 호출해야 iOS 등에서 오디오
+    // 언락이 되고, 스트리밍 응답이 끝난 뒤(비동기) 호출되는 speak()의 재생이
+    // 막히지 않는다 — 마이크 자동 발화 경로는 toggleMic에서 미리 언락해둔다.
+    primeAudio();
     let userId = -1;
     if (!hidden) {
       userId = nextId();
@@ -204,11 +231,28 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
         setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: `❌ 오류: ${e.message}` }]);
       }
     } finally {
+      isProcessingRef.current = false;
       setIsProcessing(false);
     }
   }
 
   function startListening() {
+    // 직전 인스턴스가 아직 살아있으면(예: stop() 호출 후 onend가 비동기로 아직
+    // 안 와서) 그대로 두고 또 시작하면 두 인스턴스가 동시에 같은 발화를 인식해
+    // handleSend가 중복 호출된다 — 항상 먼저 정리하고 시작한다.
+    if (recogRef.current) {
+      const prev = recogRef.current;
+      prev.onresult = null;
+      prev.onend = null;
+      prev.onerror = null;
+      try {
+        prev.abort();
+      } catch {
+        /* noop */
+      }
+      recogRef.current = null;
+    }
+
     const SR = getSpeechRecognition();
     if (!SR) return;
     const recog = new SR();
@@ -217,6 +261,9 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     recog.interimResults = true;
     recog.maxAlternatives = 1;
     recog.onresult = (e: SpeechRecognitionEvent) => {
+      // 이 인스턴스가 더 이상 현재 활성 인스턴스가 아니면(이미 정리됐으면) 무시 —
+      // 그래야 같은 발화가 두 번 전송되는 일이 없다.
+      if (recogRef.current !== recog) return;
       let interimTxt = '';
       let finalTxt = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -232,7 +279,10 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     };
     recog.onend = () => {
       setInterim('');
-      recogRef.current = null;
+      // onend는 비동기로 도착하므로, 그 사이 startListening()이 다시 불려 이미
+      // 새 인스턴스로 교체됐다면(recogRef.current !== recog) 그 새 인스턴스를
+      // 실수로 지우지 않는다.
+      if (recogRef.current === recog) recogRef.current = null;
     };
     recogRef.current = recog;
     recog.start();
@@ -243,6 +293,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     setMicOn(next);
     micOnRef.current = next;
     if (next) {
+      primeAudio(); // 마이크를 켜는 클릭(제스처) 안에서 미리 오디오를 언락해둔다
       startListening();
     } else {
       recogRef.current?.stop();
