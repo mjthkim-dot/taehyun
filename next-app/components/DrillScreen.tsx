@@ -28,6 +28,8 @@ export default function DrillScreen({ lessonId }: { lessonId: number }) {
   const [coachTip, setCoachTip] = useState<string | null>(null);
   const [coachLoading, setCoachLoading] = useState(false);
   const [coachError, setCoachError] = useState<string | null>(null);
+  // 한국어 뜻을 보고 영어로 말하기(영작) 모드 — 기본값. 끄면 영어를 보고 따라 읽기.
+  const [krMode, setKrMode] = useState(true);
 
   const accuracyScore = useLessonStore((s) => s.accuracyScore);
   const missedWords = useLessonStore((s) => s.missedWords);
@@ -152,14 +154,26 @@ Return JSON: {"tips":["2-3 specific Korean-language tips about likely pronunciat
 
   return (
     <div className="drill-screen">
-      <div className="drill-progress muted">
-        {idx + 1} / {items.length}
-        {typeof scores[idx] === 'number' && ` · 이번 정확도 ${scores[idx]}%`}
+      <div className="drill-progress muted" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <span>
+          {idx + 1} / {items.length}
+          {typeof scores[idx] === 'number' && ` · 이번 정확도 ${scores[idx]}%`}
+        </span>
+        <button
+          type="button"
+          className="mini-btn"
+          onClick={() => setKrMode((v) => !v)}
+          title="한국어 뜻을 보고 영어로 말하기 / 영어를 보고 따라 읽기 전환"
+        >
+          {krMode ? '🇰🇷 뜻 보고 말하기' : '🇺🇸 영어 보고 따라하기'}
+        </button>
       </div>
-      <SpeakingPractice key={idx} sentence={cur.en} />
-      <div className="kr muted" style={{ marginTop: 8 }}>
-        {cur.kr}
-      </div>
+      <SpeakingPractice key={idx} sentence={cur.en} prompt={cur.kr} hideTarget={krMode} />
+      {!krMode && (
+        <div className="kr muted" style={{ marginTop: 8 }}>
+          {cur.kr}
+        </div>
+      )}
       <div className="drill-nav">
         <button type="button" disabled={idx === 0} onClick={() => setIdx((i) => i - 1)}>
           ← 이전

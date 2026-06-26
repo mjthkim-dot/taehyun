@@ -177,7 +177,12 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   }
 
   function maybeResumeHandsFree() {
-    if (micOnRef.current) startListening();
+    if (!micOnRef.current) return;
+    // 스피커 출력이 끝난 직후 곧바로 마이크를 켜면 일부 기기에서 출력↔입력 장치
+    // 전환이 안 끝난 상태로 start()가 걸려 인식이 실패한다 — 살짝 늦춰서 재시작.
+    setTimeout(() => {
+      if (micOnRef.current) startListening();
+    }, 250);
   }
 
   async function handleSend(text: string, hidden = false) {
@@ -230,6 +235,9 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       } else {
         setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: `❌ 오류: ${e.message}` }]);
       }
+      // 오류가 나면 speak()가 호출되지 않아 그 onend로 걸어둔 마이크 자동 재시작도
+      // 같이 사라진다 — 마이크가 켜진 상태였다면 여기서라도 다시 듣게 한다.
+      maybeResumeHandsFree();
     } finally {
       isProcessingRef.current = false;
       setIsProcessing(false);
@@ -284,8 +292,26 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       // 실수로 지우지 않는다.
       if (recogRef.current === recog) recogRef.current = null;
     };
+    // onerror가 없으면 두 번째 턴부터(자동 재시작 시) 권한/디바이스 오류가 나도
+    // 아무 처리 없이 조용히 멈춰버린다 — 화면은 계속 "듣고 있어요"로 보이지만
+    // 실제로는 인식이 죽어있는 상태가 된다. 여기서 정리하고, 권한 거부처럼
+    // 재시도해도 의미 없는 오류면 마이크를 꺼서 사용자가 다시 탭하게 한다.
+    recog.onerror = (e: SpeechRecognitionErrorEvent) => {
+      setInterim('');
+      if (recogRef.current === recog) recogRef.current = null;
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        micOnRef.current = false;
+        setMicOn(false);
+      }
+    };
     recogRef.current = recog;
-    recog.start();
+    try {
+      recog.start();
+    } catch {
+      // 일부 기기는 이전 인식이 디바이스를 막 반환한 직후 곧바로 start()하면
+      // 실패한다 — 조용히 죽지 않도록 정리해 다음 시도가 가능하게 한다.
+      recogRef.current = null;
+    }
   }
 
   function toggleMic() {
