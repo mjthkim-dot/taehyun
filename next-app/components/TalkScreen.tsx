@@ -315,6 +315,13 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   }
 
   function toggleMic() {
+    // 음성 인식 미지원 브라우저(예: 데스크탑 Firefox)에서는 getSpeechRecognition()이
+    // null이라 startListening()이 아무것도 안 하고 조용히 끝난다 — 그런데도 마이크를
+    // "듣는 중" 상태로 켜버리면 사용자는 영원히 응답 없는 화면만 보게 된다.
+    if (!micOn && !getSpeechRecognition()) {
+      setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: '🎙️ 이 브라우저는 음성 인식을 지원하지 않아요. Chrome/Edge를 사용하거나 입력창에 직접 타이핑해주세요.' }]);
+      return;
+    }
     const next = !micOn;
     setMicOn(next);
     micOnRef.current = next;
@@ -443,6 +450,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   }
 
   const helperChips = [...new Set([...(lesson.examples || []).slice(0, 2).map((e) => e.en), ...TALK_STARTERS])].slice(0, 6);
+  const micSupported = !!getSpeechRecognition();
 
   return (
     <div className="talk-screen">
@@ -598,7 +606,12 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
               }
             }}
           />
-          <button className={`round-btn${micOn ? ' listening' : ''}`} onClick={toggleMic} title="마이크로 말하기 (자동 전송)">
+          <button
+            className={`round-btn${micOn ? ' listening' : ''}`}
+            onClick={toggleMic}
+            disabled={!micSupported && !micOn}
+            title={micSupported ? '마이크로 말하기 (자동 전송)' : '이 브라우저는 음성 인식을 지원하지 않아요'}
+          >
             🎙️
           </button>
           <button className={`round-btn send${isProcessing ? ' processing' : ''}`} onClick={sendText} disabled={isProcessing} title="전송">
