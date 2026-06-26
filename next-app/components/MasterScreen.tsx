@@ -12,9 +12,11 @@ import type { Mode } from './NavBar';
 export default function MasterScreen({
   onSelectLesson,
   onNavigate,
+  onStartToday,
 }: {
   onSelectLesson: (lessonId: number) => void;
   onNavigate: (mode: Mode) => void;
+  onStartToday: () => void;
 }) {
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
@@ -122,7 +124,7 @@ export default function MasterScreen({
       )}
 
       <div style={{ marginBottom: 14 }}>
-        <button className="start-drill-btn" onClick={() => onNavigate('drill')}>
+        <button className="start-drill-btn" onClick={onStartToday}>
           ⚡ 오늘의 훈련 시작{dueCount ? ` — 복습 ${Math.min(dueCount, 5)}문항 포함` : ' (랜덤 10문항)'}
         </button>
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>

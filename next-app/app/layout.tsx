@@ -17,7 +17,7 @@ const pretendard = localFont({
 export const metadata: Metadata = {
   title: 'Preply English Coach',
   description: 'AI 영어 회화 코치 — 오프라인 학습 지원 PWA',
-  manifest: '/manifest.json',
+  manifest: 'manifest.json',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'EnglishCoach' },
 };
 
@@ -34,7 +34,7 @@ const NO_FLASH = `(function(){try{var t=localStorage.getItem('theme');if(t!=='da
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ko" className={pretendard.variable}>
+    <html lang="ko" className={pretendard.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH }} />
       </head>

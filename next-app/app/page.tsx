@@ -49,9 +49,21 @@ const TAB_TITLE: Record<Mode, string> = {
 };
 
 export default function Page() {
-  const [mode, setMode] = useState<Mode>('study');
+  const [mode, setModeRaw] = useState<Mode>('study');
   const [lessonId, setLessonId] = useState<number>(defaultLesson().id);
   const [streak, setStreak] = useState<number | null>(null);
+  // 홈의 "⚡ 오늘의 훈련"으로 들어왔을 때만 true — 드릴 큐에 오늘 복습할 SRS 문장을 섞는다.
+  const [autoDrill, setAutoDrill] = useState(false);
+
+  function setMode(m: Mode) {
+    setAutoDrill(false);
+    setModeRaw(m);
+  }
+
+  function startTodayDrill() {
+    setAutoDrill(true);
+    setModeRaw('drill');
+  }
 
   useEffect(() => setStreak(calcStreak()), [mode]);
 
@@ -80,10 +92,11 @@ export default function Page() {
           <MasterScreen
             onSelectLesson={setLessonId}
             onNavigate={setMode}
+            onStartToday={startTodayDrill}
           />
         )}
         {mode === 'study' && <StudyScreen lessonId={lessonId} onSelectLesson={setLessonId} />}
-        {mode === 'drill' && <DrillScreen lessonId={lessonId} />}
+        {mode === 'drill' && <DrillScreen lessonId={lessonId} auto={autoDrill} />}
         {mode === 'talk' && <TalkScreen lessonId={lessonId} />}
         {mode === 'review' && <ReviewScreen />}
         {mode === 'progress' && <ProgressScreen />}
