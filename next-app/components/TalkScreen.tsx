@@ -11,7 +11,7 @@ import { ALL_LESSONS, LESSONS, CEFR_NEXT, cefrOf, type Lesson } from '../lib/les
 import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, store, saveChatLog } from '../lib/state';
 import { groqStream, groqComplete, GroqError } from '../lib/groq';
 import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, parseAiText } from '../lib/talkPrompts';
-import { speakText, stopSpeaking } from './SpeakButton';
+import { speakText, stopSpeaking, primeAudio } from './SpeakButton';
 
 interface Correction {
   is_correct: boolean;
@@ -161,6 +161,10 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   async function handleSend(text: string, hidden = false) {
     if (!text || isProcessing) return;
     stopSpeaking();
+    // 클릭/탭 같은 사용자 제스처 안에서 동기적으로 호출해야 iOS 등에서 오디오
+    // 언락이 되고, 스트리밍 응답이 끝난 뒤(비동기) 호출되는 speak()의 재생이
+    // 막히지 않는다 — 마이크 자동 발화 경로는 toggleMic에서 미리 언락해둔다.
+    primeAudio();
     let userId = -1;
     if (!hidden) {
       userId = nextId();
@@ -243,6 +247,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     setMicOn(next);
     micOnRef.current = next;
     if (next) {
+      primeAudio(); // 마이크를 켜는 클릭(제스처) 안에서 미리 오디오를 언락해둔다
       startListening();
     } else {
       recogRef.current?.stop();
