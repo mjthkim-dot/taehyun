@@ -268,6 +268,11 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     recog.continuous = false;
     recog.interimResults = true;
     recog.maxAlternatives = 1;
+    // continuous=false라 말을 시작하기 전 잠깐 머뭇거리거나(무음 타임아웃, 보통
+    // 5~10초) 끝말이 애매하면 결과 없이 onend가 와버린다 — 그래도 마이크 UI는
+    // 계속 "듣고 있어요"로 남아있어 사용자는 자기 말이 전혀 인식되지 않는 것처럼
+    // 느낀다. 최종 결과를 보냈는지 여기 플래그로 추적해 분기한다.
+    let gotFinal = false;
     recog.onresult = (e: SpeechRecognitionEvent) => {
       // 이 인스턴스가 더 이상 현재 활성 인스턴스가 아니면(이미 정리됐으면) 무시 —
       // 그래야 같은 발화가 두 번 전송되는 일이 없다.
@@ -281,6 +286,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       }
       setInterim(interimTxt);
       if (finalTxt.trim()) {
+        gotFinal = true;
         setInterim('');
         handleSend(finalTxt.trim());
       }
@@ -291,11 +297,22 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       // 새 인스턴스로 교체됐다면(recogRef.current !== recog) 그 새 인스턴스를
       // 실수로 지우지 않는다.
       if (recogRef.current === recog) recogRef.current = null;
+      // 결과 없이 끝났고 사용자가 마이크를 직접 끈 게 아니라면(micOnRef true) —
+      // 곧바로 다시 듣기 시작해 "듣고 있어요" UI와 실제 인식 상태가 어긋나지
+      // 않게 한다. isProcessing 중(AI 응답 대기/말하는 중)이면 maybeResumeHandsFree가
+      // 알아서 재시작하므로 여기서는 건너뛴다.
+      if (!gotFinal && micOnRef.current && !isProcessingRef.current) {
+        setTimeout(() => {
+          if (micOnRef.current && !isProcessingRef.current) startListening();
+        }, 300);
+      }
     };
     // onerror가 없으면 두 번째 턴부터(자동 재시작 시) 권한/디바이스 오류가 나도
     // 아무 처리 없이 조용히 멈춰버린다 — 화면은 계속 "듣고 있어요"로 보이지만
     // 실제로는 인식이 죽어있는 상태가 된다. 여기서 정리하고, 권한 거부처럼
     // 재시도해도 의미 없는 오류면 마이크를 꺼서 사용자가 다시 탭하게 한다.
+    // no-speech 등 일시적 오류는 막지 않는다 — onend가 뒤따라 호출돼 위의
+    // 재시작 로직이 자동으로 다시 듣기를 시작한다.
     recog.onerror = (e: SpeechRecognitionErrorEvent) => {
       setInterim('');
       if (recogRef.current === recog) recogRef.current = null;
