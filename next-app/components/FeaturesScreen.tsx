@@ -50,6 +50,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
       title: '🎓 4대 영역 훈련',
       cards: [
         { icon: '🗣', label: '말하기', sub: 'AI 코치와 실전 대화 · CAF 분석', action: { kind: 'nav', mode: 'talk' } },
+        { icon: '🦜', label: '쉐도잉', sub: '따라 말하기 · 단어별 발음 채점', action: { kind: 'nav', mode: 'shadowing' } },
         { icon: '🔁', label: '드릴', sub: '오늘의 문장 훈련', action: { kind: 'nav', mode: 'drill' } },
         { icon: '🎧', label: '듣기', sub: '딕테이션 6문항', action: { kind: 'nav', mode: 'listening' } },
         { icon: '📖', label: '읽기', sub: '레벨별 지문 + 이해 문제', action: { kind: 'nav', mode: 'reading' } },
