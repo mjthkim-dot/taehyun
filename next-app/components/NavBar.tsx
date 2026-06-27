@@ -21,6 +21,7 @@ export type Mode =
   | 'homework'
   | 'phrasebook'
   | 'askhistory'
+  | 'shadowing'
   | 'business';
 
 const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [
