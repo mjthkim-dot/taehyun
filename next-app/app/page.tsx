@@ -26,6 +26,7 @@ import BusinessScreen from '../components/BusinessScreen';
 import ComingSoon from '../components/ComingSoon';
 import ThemeToggle from '../components/ThemeToggle';
 import UpdatePrompt from '../components/UpdatePrompt';
+import AskWidget from '../components/AskWidget';
 import { calcStreak } from '../lib/state';
 import { APP_VERSION } from '../lib/version';
 
@@ -137,6 +138,7 @@ export default function Page() {
 
       <NavBar mode={mode} onChange={setMode} />
       <UpdatePrompt />
+      <AskWidget />
     </main>
   );
 }
