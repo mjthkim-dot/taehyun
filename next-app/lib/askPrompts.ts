@@ -104,6 +104,8 @@ export interface AskHistoryEntry {
   phrase: string;
   mode: AskMode;
   answer_ko: string;
+  /** 복습 카드로 전환할 때 쓸 짧은 한국어 뜻(첫 예문의 뜻). */
+  gloss?: string;
   date: string;
 }
 
@@ -114,9 +116,20 @@ export function getAskHistory(): AskHistoryEntry[] {
   return load<AskHistoryEntry[]>(ASK_HISTORY_KEY, []);
 }
 
+/** 같은 표현은 한 번만 — 다시 물으면 기존 항목을 최신 답변으로 갱신해 맨 뒤로 옮긴다. */
 export function addAskHistory(entry: AskHistoryEntry) {
-  const list = getAskHistory();
+  const list = getAskHistory().filter((e) => e.phrase !== entry.phrase);
   list.push(entry);
   store(ASK_HISTORY_KEY, list.slice(-ASK_HISTORY_MAX));
   return list;
+}
+
+export function removeAskHistory(phrase: string) {
+  const list = getAskHistory().filter((e) => e.phrase !== phrase);
+  store(ASK_HISTORY_KEY, list);
+  return list;
+}
+
+export function clearAskHistory() {
+  store(ASK_HISTORY_KEY, []);
 }
