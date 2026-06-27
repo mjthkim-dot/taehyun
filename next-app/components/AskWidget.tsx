@@ -109,7 +109,7 @@ export default function AskWidget() {
           : [],
       };
       setAnswer(result);
-      addAskHistory({ phrase: p, mode: m, answer_ko: result.answer_ko, date: new Date().toISOString() });
+      addAskHistory({ phrase: p, mode: m, answer_ko: result.answer_ko, gloss: result.examples[0]?.ko, date: new Date().toISOString() });
     } catch (err) {
       const e = err as Error;
       if (e instanceof GroqError && e.message === 'NO_GROQ_KEY') {

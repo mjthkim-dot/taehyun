@@ -2214,3 +2214,61 @@ body,
   opacity: 0.6;
   cursor: default;
 }
+
+/* ── 내 질문 기록(AskHistoryScreen) ── */
+.ask-hist-item {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.ask-hist-item:last-child {
+  border-bottom: none;
+}
+.ask-hist-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ask-hist-badge {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+.ask-hist-phrase {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.ask-hist-answer {
+  font-size: 0.84rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+}
+.ask-hist-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.ask-hist-btn {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.ask-hist-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

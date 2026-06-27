@@ -8,6 +8,7 @@
  */
 import { useEffect, useState } from 'react';
 import { dueWeak, getPhrases, isPlaced } from '../lib/state';
+import { getAskHistory } from '../lib/askPrompts';
 import type { Mode } from './NavBar';
 
 interface FeatCard {
@@ -30,6 +31,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
 
   const dueCount = dueWeak().length;
   const phraseCount = getPhrases().length;
+  const askCount = getAskHistory().length;
   const placed = isPlaced();
 
   const sections: FeatSection[] = [
@@ -60,6 +62,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
         { icon: '📚', label: '숙제 도우미', sub: 'AI와 함께 풀이', action: { kind: 'nav', mode: 'homework' } },
         { icon: '🃏', label: '암기 카드', sub: dueCount ? `오늘 ${dueCount}개 대기` : '카드 외우기', action: { kind: 'nav', mode: 'flashcards' } },
         { icon: '📌', label: '내 표현장', sub: `저장한 표현 ${phraseCount}개`, action: { kind: 'nav', mode: 'phrasebook' } },
+        { icon: '🤔', label: '내 질문 기록', sub: askCount ? `물어본 표현 ${askCount}개` : '꾹 눌러 물어보기 기록', action: { kind: 'nav', mode: 'askhistory' } },
       ],
     },
     {

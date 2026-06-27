@@ -20,6 +20,7 @@ export type Mode =
   | 'writing'
   | 'homework'
   | 'phrasebook'
+  | 'askhistory'
   | 'business';
 
 const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [

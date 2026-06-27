@@ -19,6 +19,7 @@ import FlashcardsScreen from '../components/FlashcardsScreen';
 import HomeworkScreen from '../components/HomeworkScreen';
 import PlacementScreen from '../components/PlacementScreen';
 import PhrasebookScreen from '../components/PhrasebookScreen';
+import AskHistoryScreen from '../components/AskHistoryScreen';
 import ListeningScreen from '../components/ListeningScreen';
 import ReadingScreen from '../components/ReadingScreen';
 import WritingScreen from '../components/WritingScreen';
@@ -46,6 +47,7 @@ const TAB_TITLE: Record<Mode, string> = {
   writing: '쓰기',
   homework: '숙제 도우미',
   phrasebook: '내 표현장',
+  askhistory: '내 질문 기록',
   business: '비즈니스',
 };
 
@@ -107,6 +109,7 @@ export default function Page() {
         {mode === 'homework' && <HomeworkScreen lessonId={lessonId} />}
         {mode === 'placement' && <PlacementScreen onDone={() => setMode('master')} />}
         {mode === 'phrasebook' && <PhrasebookScreen />}
+        {mode === 'askhistory' && <AskHistoryScreen />}
         {mode === 'listening' && <ListeningScreen />}
         {mode === 'reading' && <ReadingScreen />}
         {mode === 'writing' && <WritingScreen />}
@@ -130,6 +133,7 @@ export default function Page() {
           mode !== 'homework' &&
           mode !== 'placement' &&
           mode !== 'phrasebook' &&
+          mode !== 'askhistory' &&
           mode !== 'listening' &&
           mode !== 'reading' &&
           mode !== 'writing' &&
