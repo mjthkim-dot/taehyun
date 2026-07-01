@@ -2368,3 +2368,112 @@ body,
   text-align: center;
   padding: 10px;
 }
+
+/* ── 복습 알림(RemindersScreen) ── */
+.rem-note {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.rem-note.warn {
+  color: var(--yellow);
+  background: rgba(194, 117, 12, 0.1);
+  border: 1px solid rgba(194, 117, 12, 0.35);
+}
+.rem-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.rem-row-main {
+  flex: 1;
+  min-width: 0;
+}
+.rem-row-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.rem-row-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.rem-disabled {
+  opacity: 0.5;
+}
+.rem-switch {
+  flex: 0 0 auto;
+  width: 50px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  border: none;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  padding: 0;
+}
+.rem-switch.on {
+  background: var(--primary);
+}
+.rem-switch:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.rem-switch-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: var(--shadow-press);
+  transition: transform 0.2s ease;
+}
+.rem-switch.on .rem-switch-knob {
+  transform: translateX(20px);
+}
+.rem-time {
+  flex: 0 0 auto;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+.rem-time:disabled {
+  opacity: 0.5;
+}
+.rem-test {
+  width: 100%;
+  margin: 16px 0 4px;
+}
+.rem-help {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+}
+.rem-help-title {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.rem-help ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.rem-help li {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
