@@ -22,6 +22,7 @@ export type Mode =
   | 'phrasebook'
   | 'askhistory'
   | 'shadowing'
+  | 'reminders'
   | 'business';
 
 const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [

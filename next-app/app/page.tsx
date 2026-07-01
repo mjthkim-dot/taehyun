@@ -21,6 +21,8 @@ import PlacementScreen from '../components/PlacementScreen';
 import PhrasebookScreen from '../components/PhrasebookScreen';
 import AskHistoryScreen from '../components/AskHistoryScreen';
 import ShadowingScreen from '../components/ShadowingScreen';
+import RemindersScreen from '../components/RemindersScreen';
+import ReminderScheduler from '../components/ReminderScheduler';
 import ListeningScreen from '../components/ListeningScreen';
 import ReadingScreen from '../components/ReadingScreen';
 import WritingScreen from '../components/WritingScreen';
@@ -50,6 +52,7 @@ const TAB_TITLE: Record<Mode, string> = {
   phrasebook: '내 표현장',
   askhistory: '내 질문 기록',
   shadowing: '쉐도잉',
+  reminders: '복습 알림',
   business: '비즈니스',
 };
 
@@ -113,6 +116,7 @@ export default function Page() {
         {mode === 'phrasebook' && <PhrasebookScreen />}
         {mode === 'askhistory' && <AskHistoryScreen />}
         {mode === 'shadowing' && <ShadowingScreen lessonId={lessonId} />}
+        {mode === 'reminders' && <RemindersScreen />}
         {mode === 'listening' && <ListeningScreen />}
         {mode === 'reading' && <ReadingScreen />}
         {mode === 'writing' && <WritingScreen />}
@@ -138,6 +142,7 @@ export default function Page() {
           mode !== 'phrasebook' &&
           mode !== 'askhistory' &&
           mode !== 'shadowing' &&
+          mode !== 'reminders' &&
           mode !== 'listening' &&
           mode !== 'reading' &&
           mode !== 'writing' &&
@@ -147,6 +152,7 @@ export default function Page() {
       <NavBar mode={mode} onChange={setMode} />
       <UpdatePrompt />
       <AskWidget />
+      <ReminderScheduler />
     </main>
   );
 }
