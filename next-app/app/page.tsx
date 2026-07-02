@@ -1,11 +1,14 @@
 'use client';
 
 /**
- * 앱 셸 — 기존 voice-assistant/index.html 의 8탭 하단 네비게이션을 React로 재구성.
- * 레이아웃 개편: 하단 탭을 4개 핵심 탭 + "더보기" 시트로 단순화하고,
- * 헤더는 화면별 타이틀 + 연속학습일 칩을 보여주는 동적 앱바로 바꿨다.
+ * 앱 셸 — 4개 핵심 탭 + "더보기" 시트 하단 네비게이션, 화면별 타이틀 헤더.
+ *
+ * 구조: 모든 화면을 SCREENS 레지스트리 한 곳에 등록한다(제목 + 렌더 함수).
+ * 새 화면 추가는 ① NavBar의 Mode에 이름 추가 ② 여기 SCREENS에 한 항목 추가 —
+ * 두 곳이면 끝난다. Record<Mode, …> 타입이라 Mode에만 추가하고 레지스트리에
+ * 빠뜨리면 컴파일 에러로 바로 잡힌다(예전의 18줄짜리 mode !== … 제외 체인 대체).
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import NavBar, { type Mode } from '../components/NavBar';
 import MasterScreen from '../components/MasterScreen';
 import StudyScreen, { defaultLesson } from '../components/StudyScreen';
@@ -23,37 +26,60 @@ import AskHistoryScreen from '../components/AskHistoryScreen';
 import ShadowingScreen from '../components/ShadowingScreen';
 import RemindersScreen from '../components/RemindersScreen';
 import ReminderScheduler from '../components/ReminderScheduler';
+import BackupScreen from '../components/BackupScreen';
 import ListeningScreen from '../components/ListeningScreen';
 import ReadingScreen from '../components/ReadingScreen';
 import WritingScreen from '../components/WritingScreen';
 import BusinessScreen from '../components/BusinessScreen';
-import ComingSoon from '../components/ComingSoon';
 import ThemeToggle from '../components/ThemeToggle';
 import UpdatePrompt from '../components/UpdatePrompt';
 import AskWidget from '../components/AskWidget';
 import { calcStreak } from '../lib/state';
 import { APP_VERSION } from '../lib/version';
 
-const TAB_TITLE: Record<Mode, string> = {
-  master: '홈',
-  study: '레슨',
-  drill: '드릴',
-  talk: '회화',
-  video: '영상',
-  review: '복습',
-  progress: '진도',
-  features: '기능',
-  flashcards: '암기 카드',
-  placement: 'CEFR 배치고사',
-  listening: '듣기',
-  reading: '읽기',
-  writing: '쓰기',
-  homework: '숙제 도우미',
-  phrasebook: '내 표현장',
-  askhistory: '내 질문 기록',
-  shadowing: '쉐도잉',
-  reminders: '복습 알림',
-  business: '비즈니스',
+/** 화면 렌더 함수가 받는 앱 셸 컨텍스트. */
+interface ScreenCtx {
+  lessonId: number;
+  autoDrill: boolean;
+  setLessonId: (id: number) => void;
+  setMode: (m: Mode) => void;
+  startTodayDrill: () => void;
+}
+
+const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode }> = {
+  master: {
+    title: '홈',
+    render: (c) => <MasterScreen onSelectLesson={c.setLessonId} onNavigate={c.setMode} onStartToday={c.startTodayDrill} />,
+  },
+  study: { title: '레슨', render: (c) => <StudyScreen lessonId={c.lessonId} onSelectLesson={c.setLessonId} /> },
+  drill: { title: '드릴', render: (c) => <DrillScreen lessonId={c.lessonId} auto={c.autoDrill} /> },
+  talk: { title: '회화', render: (c) => <TalkScreen lessonId={c.lessonId} /> },
+  review: { title: '복습', render: () => <ReviewScreen /> },
+  progress: { title: '진도', render: () => <ProgressScreen /> },
+  features: { title: '기능', render: (c) => <FeaturesScreen onNavigate={c.setMode} /> },
+  video: { title: '영상', render: () => <VideoScreen /> },
+  flashcards: { title: '암기 카드', render: (c) => <FlashcardsScreen onExit={() => c.setMode('review')} /> },
+  homework: { title: '숙제 도우미', render: (c) => <HomeworkScreen lessonId={c.lessonId} /> },
+  placement: { title: 'CEFR 배치고사', render: (c) => <PlacementScreen onDone={() => c.setMode('master')} /> },
+  phrasebook: { title: '내 표현장', render: () => <PhrasebookScreen /> },
+  askhistory: { title: '내 질문 기록', render: () => <AskHistoryScreen /> },
+  shadowing: { title: '쉐도잉', render: (c) => <ShadowingScreen lessonId={c.lessonId} /> },
+  reminders: { title: '복습 알림', render: () => <RemindersScreen /> },
+  backup: { title: '백업 · 복원', render: () => <BackupScreen /> },
+  listening: { title: '듣기', render: () => <ListeningScreen /> },
+  reading: { title: '읽기', render: () => <ReadingScreen /> },
+  writing: { title: '쓰기', render: () => <WritingScreen /> },
+  business: {
+    title: '비즈니스',
+    render: (c) => (
+      <BusinessScreen
+        onStartTalk={(id) => {
+          c.setLessonId(id);
+          c.setMode('talk');
+        }}
+      />
+    ),
+  },
 };
 
 export default function Page() {
@@ -75,12 +101,15 @@ export default function Page() {
 
   useEffect(() => setStreak(calcStreak()), [mode]);
 
+  const screen = SCREENS[mode];
+  const ctx: ScreenCtx = { lessonId, autoDrill, setLessonId, setMode, startTodayDrill };
+
   return (
     <main className="app-shell">
       <header className="app-header">
         <div className="app-header-title">
           <span className="app-header-brand">🗣️</span>
-          <h1>{TAB_TITLE[mode]}</h1>
+          <h1>{screen.title}</h1>
           <span className="app-version" title="앱 버전 (배포 갱신 확인용)">
             v{APP_VERSION}
           </span>
@@ -96,57 +125,7 @@ export default function Page() {
       </header>
 
       <div className="app-content" key={mode}>
-        {mode === 'master' && (
-          <MasterScreen
-            onSelectLesson={setLessonId}
-            onNavigate={setMode}
-            onStartToday={startTodayDrill}
-          />
-        )}
-        {mode === 'study' && <StudyScreen lessonId={lessonId} onSelectLesson={setLessonId} />}
-        {mode === 'drill' && <DrillScreen lessonId={lessonId} auto={autoDrill} />}
-        {mode === 'talk' && <TalkScreen lessonId={lessonId} />}
-        {mode === 'review' && <ReviewScreen />}
-        {mode === 'progress' && <ProgressScreen />}
-        {mode === 'features' && <FeaturesScreen onNavigate={setMode} />}
-        {mode === 'video' && <VideoScreen />}
-        {mode === 'flashcards' && <FlashcardsScreen onExit={() => setMode('review')} />}
-        {mode === 'homework' && <HomeworkScreen lessonId={lessonId} />}
-        {mode === 'placement' && <PlacementScreen onDone={() => setMode('master')} />}
-        {mode === 'phrasebook' && <PhrasebookScreen />}
-        {mode === 'askhistory' && <AskHistoryScreen />}
-        {mode === 'shadowing' && <ShadowingScreen lessonId={lessonId} />}
-        {mode === 'reminders' && <RemindersScreen />}
-        {mode === 'listening' && <ListeningScreen />}
-        {mode === 'reading' && <ReadingScreen />}
-        {mode === 'writing' && <WritingScreen />}
-        {mode === 'business' && (
-          <BusinessScreen
-            onStartTalk={(id) => {
-              setLessonId(id);
-              setMode('talk');
-            }}
-          />
-        )}
-        {mode !== 'master' &&
-          mode !== 'study' &&
-          mode !== 'drill' &&
-          mode !== 'talk' &&
-          mode !== 'review' &&
-          mode !== 'progress' &&
-          mode !== 'features' &&
-          mode !== 'video' &&
-          mode !== 'flashcards' &&
-          mode !== 'homework' &&
-          mode !== 'placement' &&
-          mode !== 'phrasebook' &&
-          mode !== 'askhistory' &&
-          mode !== 'shadowing' &&
-          mode !== 'reminders' &&
-          mode !== 'listening' &&
-          mode !== 'reading' &&
-          mode !== 'writing' &&
-          mode !== 'business' && <ComingSoon label={TAB_TITLE[mode]} />}
+        {screen.render(ctx)}
       </div>
 
       <NavBar mode={mode} onChange={setMode} />

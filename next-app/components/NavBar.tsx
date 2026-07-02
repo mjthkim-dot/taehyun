@@ -23,6 +23,7 @@ export type Mode =
   | 'askhistory'
   | 'shadowing'
   | 'reminders'
+  | 'backup'
   | 'business';
 
 const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [

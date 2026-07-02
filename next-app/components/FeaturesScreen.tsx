@@ -76,6 +76,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
         { icon: '📝', label: '간격 반복 복습', sub: `${dueCount}개 대기`, action: { kind: 'nav', mode: 'review' } },
         { icon: '📊', label: '진도 & 리포트', sub: 'CEFR·GSE 현황', action: { kind: 'nav', mode: 'progress' } },
         { icon: '🔔', label: '복습 알림', sub: '매일 복습 리마인더 설정', action: { kind: 'nav', mode: 'reminders' } },
+        { icon: '💾', label: '백업 · 복원', sub: '학습 데이터 내보내기/가져오기', action: { kind: 'nav', mode: 'backup' } },
       ],
     },
   ];

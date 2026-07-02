@@ -2477,3 +2477,67 @@ body,
   color: var(--text-muted);
   line-height: 1.7;
 }
+
+/* ── 백업 · 복원(BackupScreen) ── */
+.bk-desc {
+  font-size: 0.84rem;
+  line-height: 1.65;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+.bk-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.bk-stat {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 6px;
+  text-align: center;
+}
+.bk-stat-num {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.bk-stat-label {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.bk-msg {
+  font-size: 0.84rem;
+  line-height: 1.6;
+  color: var(--green-dk);
+  background: var(--green-soft);
+  border: 1px solid var(--green);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.bk-msg.err {
+  color: var(--red);
+  background: rgba(224, 56, 58, 0.08);
+  border-color: var(--red);
+}
+.bk-btn {
+  width: 100%;
+  margin-bottom: 8px;
+}
+.bk-btn-outline {
+  background: var(--surface);
+  border: 1.5px solid var(--border-strong);
+  color: var(--text);
+}
+.bk-note {
+  font-size: 0.76rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-top: 8px;
+}
