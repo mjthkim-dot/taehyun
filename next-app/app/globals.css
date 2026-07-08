@@ -2541,3 +2541,53 @@ body,
   padding: 10px 12px;
   margin-top: 8px;
 }
+
+/* ── 🎲 대화 변형 선택(DialogueVariantPicker) ── */
+.dlgv {
+  margin: 6px 0 10px;
+}
+.dlgv-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.dlgv-chip {
+  padding: 6px 12px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface2);
+  border: 1.5px solid var(--border-strong);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.dlgv-chip.active {
+  color: #fff;
+  background: var(--grad-primary);
+  border-color: transparent;
+}
+.dlgv-chip:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.dlgv-new {
+  border-style: dashed;
+  color: var(--primary-dk);
+}
+.dlgv-del {
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+.dlgv-error {
+  font-size: 0.78rem;
+  color: var(--red);
+  line-height: 1.5;
+  margin-top: 6px;
+}
+.dlgv-hint {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 6px;
+}

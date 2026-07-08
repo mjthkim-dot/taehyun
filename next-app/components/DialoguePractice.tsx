@@ -12,6 +12,7 @@ import type { Dialogue } from '../lib/lessons';
 import { computeAccuracy, type WordDiff } from '../store/useLessonStore';
 import { addWeakItem, groqKey, markPracticedToday } from '../lib/state';
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS, playUrl, SPEAKER_GROQ_VOICE, GROQ_TTS_VOICE } from './SpeakButton';
+import DialogueVariantPicker from './DialogueVariantPicker';
 
 const ROLEPLAY_PASS = 60; // 이 점수 미만이면 SRS 복습 항목으로 등록
 
@@ -177,10 +178,14 @@ function getSpeechRecognition(): typeof SpeechRecognition | null {
 
 type Tab = 'listen' | 'roleplay' | 'memorize';
 
-export default function DialoguePractice({ dialogue, lessonId }: { dialogue: Dialogue; lessonId: number }) {
+export default function DialoguePractice({ dialogue: original, lessonId }: { dialogue: Dialogue; lessonId: number }) {
   const [tab, setTab] = useState<Tab>('listen');
   const [slow, setSlow] = useState(false);
   const rate = slow ? 0.7 : 1;
+
+  // 활성 대화 — 원본 또는 🎲로 생성한 변형. 레슨이 바뀌면 원본으로 리셋.
+  const [dialogue, setDialogue] = useState<Dialogue>(original);
+  useEffect(() => setDialogue(original), [original]);
 
   // 전체 재생 상태를 부모에서 관리해 상단 버튼과 듣기 탭 버튼이 같은 상태를 공유한다.
   const [playingIdx, setPlayingIdx] = useState<number | null>(null);
@@ -220,9 +225,19 @@ export default function DialoguePractice({ dialogue, lessonId }: { dialogue: Dia
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 14, padding: 16, marginBottom: 14 }}>
       <div style={{ fontSize: '0.92rem', fontWeight: 800, marginBottom: 2 }}>💬 {dialogue.title}</div>
-      <p className="muted" style={{ fontSize: '0.74rem', marginBottom: 12, lineHeight: 1.5 }}>
-        이 회차 대화문을 듣고 · 역할로 말하고 · 외워보세요. 영어회화 앱들의 핵심 학습법을 담았어요.
+      <p className="muted" style={{ fontSize: '0.74rem', marginBottom: 8, lineHeight: 1.5 }}>
+        이 회차 대화문을 듣고 · 역할로 말하고 · 외워보세요. 🎲로 같은 상황의 새 대화를 만들어 폭넓게 들을 수 있어요.
       </p>
+
+      {/* 원본/변형 대화 전환 + 🎲 새 대화 생성 — 바꾸면 재생을 멈추고 교체한다. */}
+      <DialogueVariantPicker
+        lessonId={lessonId}
+        original={original}
+        onChange={(d) => {
+          stopAll();
+          setDialogue(d);
+        }}
+      />
 
       {/* 상단 전체 음성 재생 — 탭에 들어가지 않고도 대화문 전체를 바로 들을 수 있다. */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -277,8 +292,8 @@ export default function DialoguePractice({ dialogue, lessonId }: { dialogue: Dia
           onStopAll={stopAll}
         />
       )}
-      {tab === 'roleplay' && <RolePlayMode key="roleplay" dialogue={dialogue} lessonId={lessonId} rate={rate} />}
-      {tab === 'memorize' && <MemorizeMode key="memorize" dialogue={dialogue} lessonId={lessonId} rate={rate} />}
+      {tab === 'roleplay' && <RolePlayMode key={`roleplay:${dialogue.title}`} dialogue={dialogue} lessonId={lessonId} rate={rate} />}
+      {tab === 'memorize' && <MemorizeMode key={`memorize:${dialogue.title}`} dialogue={dialogue} lessonId={lessonId} rate={rate} />}
     </div>
   );
 }
