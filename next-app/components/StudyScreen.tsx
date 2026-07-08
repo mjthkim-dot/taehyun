@@ -20,6 +20,7 @@ import {
 import Note from './Note';
 import SpeakButton, { stopSpeaking } from './SpeakButton';
 import { playDialogueAudio } from './DialoguePractice';
+import DialogueVariantPicker from './DialogueVariantPicker';
 import { addPhrase } from '../lib/state';
 
 interface StudyScreenProps {
@@ -99,7 +100,7 @@ export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenPro
         </div>
       )}
 
-      {lesson.dialogue && <DialogueCard dialogue={lesson.dialogue} />}
+      {lesson.dialogue && <DialogueCard dialogue={lesson.dialogue} lessonId={lesson.id} />}
 
       {lesson.freeTalk && (
         <div className="study-card freetalk-card">
@@ -133,12 +134,16 @@ export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenPro
   );
 }
 
-/** 레슨 화면의 대화문 카드 — 줄별 듣기에 더해 화자별 목소리로 전체를 순차 재생한다. */
-function DialogueCard({ dialogue }: { dialogue: Dialogue }) {
+/** 레슨 화면의 대화문 카드 — 줄별 듣기 + 화자별 목소리 전체 재생 + 🎲 새 대화 생성. */
+function DialogueCard({ dialogue: original, lessonId }: { dialogue: Dialogue; lessonId: number }) {
   const [slow, setSlow] = useState(false);
   const [playingIdx, setPlayingIdx] = useState<number | null>(null);
   const stopRef = useRef<(() => void) | null>(null);
   const playing = playingIdx !== null;
+
+  // 활성 대화 — 원본 또는 🎲로 생성한 변형. 레슨이 바뀌면 원본으로 리셋.
+  const [dialogue, setDialogue] = useState<Dialogue>(original);
+  useEffect(() => setDialogue(original), [original]);
 
   // 연속재생(반복) — ref로 두어 재생 중에 켜고 꺼도 즉시 반영된다.
   const [loop, setLoop] = useState(false);
@@ -165,6 +170,14 @@ function DialogueCard({ dialogue }: { dialogue: Dialogue }) {
   return (
     <div className="study-card">
       <h3>💬 실전 대화문 — {dialogue.title}</h3>
+      <DialogueVariantPicker
+        lessonId={lessonId}
+        original={original}
+        onChange={(d) => {
+          stopAll();
+          setDialogue(d);
+        }}
+      />
       <div style={{ display: 'flex', gap: 8, margin: '4px 0 12px' }}>
         <button className="btn primary" style={{ flex: 1 }} onClick={playing ? stopAll : playAll}>
           {playing ? `⏹ 멈추기 (${(playingIdx ?? 0) + 1}/${dialogue.lines.length})` : '▶ 전체 음성 재생'}
