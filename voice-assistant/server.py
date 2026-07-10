@@ -36,7 +36,8 @@ CAF_MODEL = os.environ.get("CAF_MODEL", "gemma3:27b")
 
 # PWA(서비스워커/매니페스트)가 동작하려면 sw.js·manifest.webmanifest를 정적으로 서빙해야 한다.
 # 같은 디렉터리(voice-assistant/) 내부 파일만 허용 — 경로 순회(path traversal) 차단.
-STATIC_FILES = {"/sw.js", "/manifest.webmanifest", "/answer-set.html", "/interview.html"}
+STATIC_FILES = {"/sw.js", "/manifest.webmanifest", "/answer-set.html",
+                "/interview.html", "/interview.webmanifest"}
 CONTENT_TYPES = {
     ".js": "text/javascript; charset=utf-8",
     ".webmanifest": "application/manifest+json",

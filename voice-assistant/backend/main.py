@@ -71,6 +71,13 @@ def interview_page():
                         headers={"Cache-Control": "no-store, must-revalidate"})
 
 
+@app.get("/interview.webmanifest")
+def interview_manifest():
+    return FileResponse(INTERVIEW_HTML_FILE.parent / "interview.webmanifest",
+                        media_type="application/manifest+json",
+                        headers={"Cache-Control": "no-store, must-revalidate"})
+
+
 @app.get("/health")
 async def health():
     try:
