@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import urllib.error
 from pathlib import Path
 
 import httpx
@@ -29,10 +30,13 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from caf_pipeline import analyze_caf
+from rag_pipeline import ANSWER_MODEL, TRANSLATE_SYSTEM_PROMPT, generate_answer_set
+from rag_pipeline import index as rag_index
 from storage import store
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 HTML_FILE = Path(__file__).parent.parent / "index.html"
+ANSWER_SET_HTML_FILE = Path(__file__).parent.parent / "answer-set.html"
 
 app = FastAPI(title="TBLT LMS — AI Speech Pipeline", version="1.0")
 app.add_middleware(
@@ -49,6 +53,12 @@ def index():
 
 
 # ── /health (기존 호환) ────────────────────────────────────────
+@app.get("/answer-set.html")
+def answer_set_page():
+    return FileResponse(ANSWER_SET_HTML_FILE, media_type="text/html",
+                        headers={"Cache-Control": "no-store, must-revalidate"})
+
+
 @app.get("/health")
 async def health():
     try:
@@ -121,6 +131,83 @@ def save_session(req: SessionRequest):
 @app.get("/api/storage")
 def storage_status():
     return store.enabled
+
+
+# ── 🆕 /api/translate — 실시간 KR↔EN 번역 (NDJSON 스트리밍) ────
+# smoothai_kr 벤치마크: 방향(한→영/영→한) 자동 감지, 토큰 스트리밍으로
+# 대화 중 지연 없이 자막처럼 번역이 흘러나오도록 한다.
+class TranslateRequest(BaseModel):
+    text: str
+    model: str | None = None
+
+
+@app.post("/api/translate")
+async def translate(req: TranslateRequest):
+    body = json.dumps({
+        "model": req.model or ANSWER_MODEL,
+        "messages": [
+            {"role": "system", "content": TRANSLATE_SYSTEM_PROMPT},
+            {"role": "user", "content": req.text},
+        ],
+        "stream": True,
+    }).encode()
+
+    async def stream():
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0)) as c:
+                async with c.stream("POST", f"{OLLAMA_URL}/api/chat", content=body,
+                                    headers={"Content-Type": "application/json"}) as r:
+                    async for chunk in r.aiter_bytes():
+                        if chunk:
+                            yield chunk
+        except httpx.ConnectError:
+            yield json.dumps({"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."}).encode() + b"\n"
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+# ── 🆕 /api/answer-set — RAG 기반 영어 답변셋 생성 ─────────────
+# 한국어 상황/질문 → 레슨·시나리오 코퍼스에서 관련 문장 검색(RAG) →
+# CEFR 레벨별 영어 답변 후보 3개(격식 단계별)를 생성한다.
+class AnswerSetRequest(BaseModel):
+    situation_ko: str
+    cefr: str = "B1"
+    k: int = 5
+    category: str | None = None
+    model: str | None = None
+
+
+@app.post("/api/answer-set")
+def answer_set(req: AnswerSetRequest):
+    # rag_pipeline은 stdlib(urllib)로 Ollama를 호출하므로 httpx가 아닌 URLError를 던진다.
+    try:
+        return generate_answer_set(req.situation_ko, req.cefr, req.k, req.category, req.model)
+    except urllib.error.URLError:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."},
+        )
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# ── 🆕 /api/rag/status — RAG 인덱스 상태 (코퍼스 크기/임베딩 모델) ─
+@app.get("/api/rag/status")
+def rag_status():
+    return rag_index.status()
+
+
+@app.post("/api/rag/rebuild")
+def rag_rebuild():
+    try:
+        return rag_index.rebuild()
+    except urllib.error.URLError:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."},
+        )
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 # ── 🆕 /ws/audio — 실시간 오디오 스트리밍 ─────────────────────

@@ -13,6 +13,7 @@ import socket
 import sys
 import tempfile
 import threading
+import urllib.error
 import webbrowser
 from pathlib import Path
 
@@ -21,6 +22,9 @@ try:
 except ImportError:
     print("❌ requests 패키지가 필요합니다: pip3 install requests")
     sys.exit(1)
+
+sys.path.insert(0, str(Path(__file__).parent / "backend"))
+import rag_pipeline  # noqa: E402 (의존성 0 — stdlib만 사용, KR↔EN RAG 답변셋 + 번역 프롬프트)
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 PORT = int(os.environ.get("PORT", "3777"))
@@ -31,7 +35,7 @@ CAF_MODEL = os.environ.get("CAF_MODEL", "gemma3:27b")
 
 # PWA(서비스워커/매니페스트)가 동작하려면 sw.js·manifest.webmanifest를 정적으로 서빙해야 한다.
 # 같은 디렉터리(voice-assistant/) 내부 파일만 허용 — 경로 순회(path traversal) 차단.
-STATIC_FILES = {"/sw.js", "/manifest.webmanifest"}
+STATIC_FILES = {"/sw.js", "/manifest.webmanifest", "/answer-set.html"}
 CONTENT_TYPES = {
     ".js": "text/javascript; charset=utf-8",
     ".webmanifest": "application/manifest+json",
@@ -39,6 +43,7 @@ CONTENT_TYPES = {
     ".png": "image/png",
     ".svg": "image/svg+xml",
     ".ico": "image/x-icon",
+    ".html": "text/html; charset=utf-8",
 }
 
 
@@ -264,6 +269,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "engine": "melotts",
             })
 
+        elif self.path == "/api/rag/status":
+            # 🆕 RAG 인덱스 상태 (코퍼스 크기 / 임베딩·답변 모델)
+            self._send_json(200, rag_pipeline.index.status())
+
         elif self.path in STATIC_FILES:
             self._serve_static(APP_DIR / self.path.lstrip("/"))
 
@@ -330,6 +339,57 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._cors()
                 self.end_headers()
                 self.wfile.write(wav)
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"error": str(e)})
+            return
+
+        # 🆕 RAG 기반 영어 답변셋 — 한국어 상황/질문 → 관련 문장 검색 → 답변 후보 3개
+        if self.path == "/api/answer-set":
+            try:
+                req = json.loads(body or b"{}")
+                result = rag_pipeline.generate_answer_set(
+                    req.get("situation_ko", ""), req.get("cefr", "B1"),
+                    req.get("k", 5), req.get("category"), req.get("model"),
+                )
+                self._send_json(200, result)
+            except urllib.error.URLError:
+                self._send_json(503, {"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."})
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"error": str(e)})
+            return
+
+        if self.path == "/api/rag/rebuild":
+            try:
+                self._send_json(200, rag_pipeline.index.rebuild())
+            except urllib.error.URLError:
+                self._send_json(503, {"error": "Ollama에 연결할 수 없습니다."})
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"error": str(e)})
+            return
+
+        # 🆕 실시간 KR↔EN 번역 (NDJSON 스트리밍, /api/chat과 동일한 프록시 방식)
+        if self.path == "/api/translate":
+            try:
+                req = json.loads(body or b"{}")
+                payload = {
+                    "model": req.get("model") or CAF_MODEL,
+                    "messages": [
+                        {"role": "system", "content": rag_pipeline.TRANSLATE_SYSTEM_PROMPT},
+                        {"role": "user", "content": req.get("text", "")},
+                    ],
+                    "stream": True,
+                }
+                resp = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, stream=True, timeout=(10, 120))
+                self.send_response(resp.status_code)
+                self.send_header("Content-Type", "application/x-ndjson")
+                self._cors()
+                self.end_headers()
+                for chunk in resp.iter_content(chunk_size=None):
+                    if chunk:
+                        self.wfile.write(chunk)
+                        self.wfile.flush()
+            except requests.exceptions.ConnectionError:
+                self._send_json(503, {"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."})
             except Exception as e:  # noqa: BLE001
                 self._send_json(500, {"error": str(e)})
             return

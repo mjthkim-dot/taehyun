@@ -12,18 +12,53 @@ PREPLY AI 스피킹 코치를 **TBLT(과업 중심 언어 교수)** 기반 글�
 | **로컬(기본)** | `../server.py` | 0 (stdlib + requests) | ✅ | — | localStorage |
 | **클라우드** | `backend/main.py` | FastAPI+LangChain | ✅ | ✅ `/ws/audio` | PostgreSQL·Mongo·Qdrant·S3 |
 
-두 경로 모두 `/api/chat`·`/health`·`/api/caf`를 동일 스펙으로 제공하므로
-프론트엔드 코드 수정 없이 전환됩니다.
+두 경로 모두 `/api/chat`·`/health`·`/api/caf`·`/api/translate`·`/api/answer-set`을
+동일 스펙으로 제공하므로 프론트엔드 코드 수정 없이 전환됩니다.
 
 ## 아키텍처
 
 ```
 Browser (index.html)
-  │  HTTP(SSE)  ── POST /api/chat ──────────► Ollama /api/chat (NDJSON 스트리밍)
-  │  HTTP       ── POST /api/caf  ──► CAF 파이프라인 ─► Ollama (format=json)
-  │  HTTP       ── POST /api/session ─► PolyglotStore (Mongo 원문 + PG 점수)
+  │  HTTP(SSE)  ── POST /api/chat      ──────────► Ollama /api/chat (NDJSON 스트리밍)
+  │  HTTP       ── POST /api/caf       ──► CAF 파이프라인 ─► Ollama (format=json)
+  │  HTTP       ── POST /api/translate ──► Ollama /api/chat (NDJSON 스트리밍, KR↔EN 자동감지)
+  │  HTTP       ── POST /api/answer-set──► RAG 검색(로컬 임베딩) + Ollama (format=json)
+  │  HTTP       ── GET  /api/rag/status ─► 코퍼스/인덱스 상태
+  │  HTTP       ── POST /api/session   ─► PolyglotStore (Mongo 원문 + PG 점수)
   │  WebSocket  ── /ws/audio ───────► (Whisper STT 연동 지점) ─► CAF
   └─ localStorage: va_profile / va_skill_stats / va_sessions (오프라인 진실원천)
+```
+
+### 🆕 실시간 번역 + 영어 답변셋 (RAG) — smoothai_kr 벤치마크
+
+맥북에서 인터넷 없이(Ollama만으로) 동작하는 것을 목표로 한다.
+
+| 기능 | 엔드포인트 | 동작 |
+|---|---|---|
+| 실시간 KR↔EN 번역 | `POST /api/translate` | 입력 언어를 자동 감지해 반대 언어로 번역, NDJSON으로 토큰 스트리밍(자막처럼 실시간 표시) |
+| 영어 답변셋 (RAG) | `POST /api/answer-set` | 한국어 상황/질문 → 레슨·시나리오 코퍼스에서 관련 문장 검색 → CEFR 레벨별 영어 답변 후보 3개(격식 단계별 + 근거 문장 + 한국어 역번역) 생성 |
+| RAG 인덱스 상태 | `GET /api/rag/status` | 코퍼스 크기, 인덱스 빌드 여부, 임베딩/생성 모델 |
+| RAG 인덱스 재빌드 | `POST /api/rag/rebuild` | 코퍼스가 바뀌었을 때 임베딩 캐시 강제 재생성 |
+
+- **코퍼스**: `next-app/data/lessons.json`(레슨/마스터코스/시나리오 라이브러리)에서
+  `backend/build_rag_corpus.py`로 KR↔EN 문장쌍 697개를 뽑아 `backend/data/rag_corpus.jsonl`에 저장.
+  레슨 데이터가 바뀌면 다시 실행: `python3 backend/build_rag_corpus.py`
+- **임베딩**: Ollama `nomic-embed-text` 모델로 코퍼스를 임베딩해 `backend/data/rag_index.json`에
+  캐시(최초 요청 시 자동 빌드, 이후 재사용). 별도 벡터DB(Qdrant 등) 없이 코사인 유사도로 검색 —
+  코퍼스 규모(수백~수천 문장)에서는 순수 Python 계산으로 충분히 빠르다.
+- **의존성**: `rag_pipeline.py`는 stdlib(urllib)만 사용 — `server.py`(로컬, 의존성 0)와
+  `backend/main.py`(FastAPI) 양쪽에서 동일 모듈을 공유한다.
+
+```bash
+ollama pull nomic-embed-text     # 임베딩 모델 (최초 1회, ~270MB)
+
+curl -s localhost:3777/api/answer-set -H 'Content-Type: application/json' -d '{
+  "situation_ko": "체크인 하려는데 창가 자리로 바꿀 수 있을까요?",
+  "cefr": "B1"
+}' | python3 -m json.tool
+
+curl -s -N localhost:3777/api/translate -H 'Content-Type: application/json' \
+  -d '{"text": "이 근처에 괜찮은 식당 있어요?"}'
 ```
 
 ### CAF 엔진 (`caf_pipeline.py`)
@@ -77,4 +112,13 @@ curl -s localhost:3777/health    # storage: {postgres,mongo,qdrant,s3} 활성 �
 
 # 4) 프론트 통합: 회화 탭에서 영어로 3문장+ 말한 뒤 🎯 CAF 클릭
 #    → 채팅에 CAF 카드, 📊 진도 탭에 4대 스킬 GSE 게이지 갱신 확인
+
+# 5) RAG 영어 답변셋 (Ollama + nomic-embed-text 필요, 최초 호출은 인덱스 빌드로 수 초 소요)
+ollama pull nomic-embed-text
+python3 backend/rag_pipeline.py "체크인 하려는데 창가 자리로 바꿀 수 있을까요?"
+#    → references(검색된 유사 문장) + answers(영어 답변 3개, 격식별 + 한국어 역번역)
+
+# 6) 실시간 번역 스트리밍
+curl -s -N localhost:3777/api/translate -H 'Content-Type: application/json' \
+  -d '{"text":"이 근처에 괜찮은 식당 있어요?"}'
 ```

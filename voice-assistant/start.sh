@@ -73,6 +73,15 @@ if command -v ollama &>/dev/null; then
     echo "     저사양: ollama pull gemma3:12b  또는  ollama pull gemma3:4b"
     echo ""
   fi
+
+  # 🆕 실시간 번역 / 영어 답변셋(RAG)에 쓰는 임베딩 모델
+  EMBED_MODEL="nomic-embed-text"
+  if ! ollama list 2>/dev/null | grep -q "$EMBED_MODEL"; then
+    echo ""
+    echo "  💡 RAG 임베딩 모델($EMBED_MODEL)이 없습니다. 영어 답변셋 기능에 필요합니다:"
+    echo "     ollama pull $EMBED_MODEL"
+    echo ""
+  fi
 fi
 
 # ── 4. 기존 서버 정리 후 서버 실행 ─────────────────
