@@ -37,7 +37,7 @@ CAF_MODEL = os.environ.get("CAF_MODEL", "gemma3:27b")
 # PWA(서비스워커/매니페스트)가 동작하려면 sw.js·manifest.webmanifest를 정적으로 서빙해야 한다.
 # 같은 디렉터리(voice-assistant/) 내부 파일만 허용 — 경로 순회(path traversal) 차단.
 STATIC_FILES = {"/sw.js", "/manifest.webmanifest", "/answer-set.html",
-                "/interview.html", "/interview.webmanifest"}
+                "/interview.html", "/interview.webmanifest", "/live.html"}
 CONTENT_TYPES = {
     ".js": "text/javascript; charset=utf-8",
     ".webmanifest": "application/manifest+json",
@@ -328,6 +328,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+    def _stream_ollama_chat(self, payload):
+        """Ollama /api/chat 스트리밍 응답을 그대로 프록시 (NDJSON)."""
+        resp = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, stream=True,
+                             timeout=(10, 300))
+        self.send_response(resp.status_code)
+        self.send_header("Content-Type", "application/x-ndjson")
+        self._cors()
+        self.end_headers()
+        for chunk in resp.iter_content(chunk_size=None):
+            if chunk:
+                self.wfile.write(chunk)
+                self.wfile.flush()
+
     # ── Proxy /api/chat → Ollama (streaming) + /api/caf ───
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
@@ -426,23 +439,49 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if self.path == "/api/translate":
             try:
                 req = json.loads(body or b"{}")
-                payload = {
+                self._stream_ollama_chat({
                     "model": req.get("model") or CAF_MODEL,
                     "messages": [
                         {"role": "system", "content": rag_pipeline.TRANSLATE_SYSTEM_PROMPT},
                         {"role": "user", "content": req.get("text", "")},
                     ],
                     "stream": True,
-                }
-                resp = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, stream=True, timeout=(10, 120))
-                self.send_response(resp.status_code)
-                self.send_header("Content-Type", "application/x-ndjson")
-                self._cors()
-                self.end_headers()
-                for chunk in resp.iter_content(chunk_size=None):
-                    if chunk:
-                        self.wfile.write(chunk)
-                        self.wfile.flush()
+                })
+            except requests.exceptions.ConnectionError:
+                self._send_json(503, {"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."})
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"error": str(e)})
+            return
+
+        # 🔴 라이브 모드 — 실전 면접 중 질문 감지 시 즉시 답변 제안 (스트리밍)
+        if self.path == "/api/live/suggest":
+            try:
+                req = json.loads(body or b"{}")
+                prompt = interview_pipeline.build_live_suggest_prompt(
+                    req.get("question", ""), req.get("cefr", "B1"))
+                self._stream_ollama_chat({
+                    "model": req.get("model") or CAF_MODEL,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": True, "keep_alive": "30m",
+                    "options": {"temperature": 0.4, "num_predict": 350},
+                })
+            except (requests.exceptions.ConnectionError, urllib.error.URLError):
+                self._send_json(503, {"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."})
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"error": str(e)})
+            return
+
+        # 🔴 라이브 모드 — 지금까지의 면접 트랜스크립트 중간 요약 (스트리밍)
+        if self.path == "/api/live/summary":
+            try:
+                req = json.loads(body or b"{}")
+                prompt = interview_pipeline.build_live_summary_prompt(req.get("transcript", ""))
+                self._stream_ollama_chat({
+                    "model": req.get("model") or CAF_MODEL,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": True, "keep_alive": "30m",
+                    "options": {"temperature": 0.3, "num_predict": 400},
+                })
             except requests.exceptions.ConnectionError:
                 self._send_json(503, {"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."})
             except Exception as e:  # noqa: BLE001
@@ -523,6 +562,7 @@ if __name__ == "__main__":
         print("  ℹ️  로컬 한국어 음성 비활성 (자연 음성 원하면: bash voice-assistant/tts-setup.sh)")
     print(f"\n  🖥  PC 브라우저:    http://localhost:{PORT}")
     print(f"  🎤 영어 면접 연습:  http://localhost:{PORT}/interview.html")
+    print(f"  🔴 실전 라이브 모드: http://localhost:{PORT}/live.html")
     lan_ip = get_lan_ip()
     if lan_ip:
         print(f"  📱 모바일 브라우저: http://{lan_ip}:{PORT}")

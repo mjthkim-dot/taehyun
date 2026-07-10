@@ -57,6 +57,30 @@ Browser (index.html)
 | `POST /api/interview/feedback` `{question, transcript, cefr, duration_sec}` | STAR 구조 + 표현 피드백 |
 | `GET /api/interview/status` | 질문/표현/프로필 청크 수, 인덱스 상태 |
 
+### 🔴 라이브 모드 — 실전 화상 면접 코파일럿 (`/live.html`)
+
+Zoom/Meet 옆에 띄워두는 실시간 비서 (Smooth AI 방식):
+
+```
+🎧 연속 음성 인식(en) ─► 실시간 영어 자막 + 한국어 번역
+   └─ 질문 패턴 감지(what/why/tell me/...) ─► 자동으로 답변 제안 (스트리밍)
+        전략(한국어 한 줄) + 바로 읽을 수 있는 60~90단어 영어 답변 (프로필 근거)
+📌 요약 버튼 ─► 지금까지 나온 질문 + 예상 질문 한국어 브리핑
+🇰🇷 하단 입력창 ─► 하고 싶은 말 한국어 입력 → Enter → 영어 문장
+```
+
+| 엔드포인트 | 동작 |
+|---|---|
+| `POST /api/live/suggest` `{question, cefr}` | 질문 → 저지연 답변 1개 (NDJSON 스트리밍, RAG 근거) |
+| `POST /api/live/summary` `{transcript}` | 트랜스크립트 → 한국어 중간 요약 (스트리밍) |
+
+주의사항:
+- 면접관 목소리가 **스피커로** 나와야 마이크가 인식합니다 (이어폰 사용 시 불가).
+  이어폰이 필요하면 macOS 시스템 오디오 루프백(BlackHole 등) 설정이 필요.
+- 음성 인식은 Chrome의 Web Speech API 사용 — Chrome에서 열어야 합니다.
+- 새 질문이 감지되면 진행 중이던 답변 생성은 자동 중단되고 새 답변으로 교체됩니다.
+- 한국어 자막 번역은 답변 제안이 없을 때만 처리됩니다 (답변 제안이 항상 우선).
+
 **모델 자동 선택**: `start.sh`가 RAM을 감지해 16GB 맥북이면 `gemma3:12b`를 기본으로
 사용한다 (27b는 16GB에서 스왑 발생). `CAF_MODEL=gemma3:27b bash start.sh`로 강제 가능.
 

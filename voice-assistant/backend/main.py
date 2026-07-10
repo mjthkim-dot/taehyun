@@ -78,6 +78,12 @@ def interview_manifest():
                         headers={"Cache-Control": "no-store, must-revalidate"})
 
 
+@app.get("/live.html")
+def live_page():
+    return FileResponse(INTERVIEW_HTML_FILE.parent / "live.html", media_type="text/html",
+                        headers={"Cache-Control": "no-store, must-revalidate"})
+
+
 @app.get("/health")
 async def health():
     try:
@@ -269,6 +275,62 @@ def interview_feedback(req: InterviewFeedbackRequest):
         )
     except Exception as e:  # noqa: BLE001
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# ── 🔴 라이브 모드 — 실전 면접 중 답변 제안 / 중간 요약 (스트리밍) ──
+def _stream_ollama(payload: dict):
+    body = json.dumps(payload).encode()
+
+    async def stream():
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0)) as c:
+                async with c.stream("POST", f"{OLLAMA_URL}/api/chat", content=body,
+                                    headers={"Content-Type": "application/json"}) as r:
+                    async for chunk in r.aiter_bytes():
+                        if chunk:
+                            yield chunk
+        except httpx.ConnectError:
+            yield json.dumps({"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."}).encode() + b"\n"
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+class LiveSuggestRequest(BaseModel):
+    question: str
+    cefr: str = "B1"
+    model: str | None = None
+
+
+@app.post("/api/live/suggest")
+def live_suggest(req: LiveSuggestRequest):
+    # 프롬프트 빌드(임베딩 검색)는 urllib을 쓰므로 URLError를 여기서 잡는다
+    try:
+        prompt = interview_pipeline.build_live_suggest_prompt(req.question, req.cefr)
+    except urllib.error.URLError:
+        return JSONResponse(status_code=503,
+                            content={"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."})
+    return _stream_ollama({
+        "model": req.model or ANSWER_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": True, "keep_alive": "30m",
+        "options": {"temperature": 0.4, "num_predict": 350},
+    })
+
+
+class LiveSummaryRequest(BaseModel):
+    transcript: str
+    model: str | None = None
+
+
+@app.post("/api/live/summary")
+def live_summary(req: LiveSummaryRequest):
+    prompt = interview_pipeline.build_live_summary_prompt(req.transcript)
+    return _stream_ollama({
+        "model": req.model or ANSWER_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": True, "keep_alive": "30m",
+        "options": {"temperature": 0.3, "num_predict": 400},
+    })
 
 
 # ── 🆕 /api/rag/status — RAG 인덱스 상태 (코퍼스 크기/임베딩 모델) ─

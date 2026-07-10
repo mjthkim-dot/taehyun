@@ -332,6 +332,48 @@ def feedback(question: str, transcript: str, cefr: str = "B1",
     }
 
 
+# ─────────────────────────────────────────────────────────────
+#  🔴 라이브 모드 — 실전 화상 면접 중 실시간 답변 제안 / 세션 요약
+#  (스트리밍 출력용 프롬프트만 만들고, 실제 스트리밍은 서버가 프록시)
+# ─────────────────────────────────────────────────────────────
+def build_live_suggest_prompt(question: str, cefr: str = "B1") -> str:
+    """면접관 질문 → 즉시 읽을 수 있는 짧은 답변. 저지연을 위해 답변 1개만."""
+    refs = index.retrieve(question, k_phrases=4, k_profile=4)
+    profile_lines = "\n".join(f"- {r['text']}" for r in refs["profile"]) or "- (none)"
+    phrase_lines = "\n".join(f'- "{r["en"]}"' for r in refs["phrases"] if r.get("en")) or "- (none)"
+    return f"""You are a real-time interview copilot for a Korean candidate who is IN A LIVE
+English video interview for an IT sales (cloud/SaaS) position RIGHT NOW.
+The interviewer just asked:
+
+"{question}"
+
+Candidate background facts (Korean; personalize with these, substitute plausible
+round numbers for [placeholders], never contradict them):
+{profile_lines}
+
+Useful phrases (reuse where natural):
+{phrase_lines}
+
+Respond in EXACTLY this format, nothing else:
+전략: <한국어로 답변 전략 한 줄 — 아주 짧게>
+---
+<A natural spoken English answer the candidate can read aloud immediately.
+60-90 words, first person, contractions, CEFR {cefr} level, confident tone.>"""
+
+
+def build_live_summary_prompt(transcript: str) -> str:
+    """지금까지의 면접 트랜스크립트 → 한국어 중간 요약."""
+    return f"""Below is the live transcript of an ongoing English job interview
+(IT sales position). It mixes the interviewer's and the candidate's speech.
+
+Transcript:
+\"\"\"{transcript}\"\"\"
+
+한국어로 짧게 정리해 주세요 (전체 120단어 이내, 마크다운 헤더 없이):
+📌 지금까지 나온 질문: (불릿 2~4개)
+⚠️ 주의/보완할 점: (불릿 1~2개 — 아직 안 나왔지만 준비할 질문 예상 포함)"""
+
+
 if __name__ == "__main__":
     # 수동 테스트: python3 interview_pipeline.py "Tell me about yourself."
     import sys

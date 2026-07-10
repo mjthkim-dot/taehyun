@@ -140,6 +140,7 @@ echo "  ✅ 준비 완료!"
 echo ""
 echo "  🖥  PC:      http://localhost:${PORT}"
 echo "  🎤 영어 면접 연습:  http://localhost:${PORT}/interview.html"
+echo "  🔴 실전 라이브 모드: http://localhost:${PORT}/live.html"
 if [ -n "$URL" ]; then
   echo "  📱 모바일:  ${URL}"
   echo ""
