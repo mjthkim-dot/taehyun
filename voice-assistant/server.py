@@ -25,6 +25,7 @@ except ImportError:
 
 sys.path.insert(0, str(Path(__file__).parent / "backend"))
 import rag_pipeline  # noqa: E402 (의존성 0 — stdlib만 사용, KR↔EN RAG 답변셋 + 번역 프롬프트)
+import interview_pipeline  # noqa: E402 (의존성 0 — 영어 면접 질문/답변/피드백 파이프라인)
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 PORT = int(os.environ.get("PORT", "3777"))
@@ -35,7 +36,7 @@ CAF_MODEL = os.environ.get("CAF_MODEL", "gemma3:27b")
 
 # PWA(서비스워커/매니페스트)가 동작하려면 sw.js·manifest.webmanifest를 정적으로 서빙해야 한다.
 # 같은 디렉터리(voice-assistant/) 내부 파일만 허용 — 경로 순회(path traversal) 차단.
-STATIC_FILES = {"/sw.js", "/manifest.webmanifest", "/answer-set.html"}
+STATIC_FILES = {"/sw.js", "/manifest.webmanifest", "/answer-set.html", "/interview.html"}
 CONTENT_TYPES = {
     ".js": "text/javascript; charset=utf-8",
     ".webmanifest": "application/manifest+json",
@@ -236,7 +237,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     # ── Serve index.html ──────────────────────────────────
     def do_GET(self):
-        if self.path in ("/", "/index.html"):
+        # 쿼리스트링 분리 (예: /api/interview/question?category=...)
+        path, _, query = self.path.partition("?")
+
+        if path in ("/", "/index.html"):
             data = HTML_FILE.read_bytes()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -247,7 +251,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
 
-        elif self.path == "/health":
+        elif path == "/health":
             # Check if Ollama is reachable
             try:
                 r = requests.get(f"{OLLAMA_URL}/api/tags", timeout=3)
@@ -261,7 +265,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(payload)
 
-        elif self.path == "/api/tts/status":
+        elif path == "/api/tts/status":
             # 프런트가 로컬 오픈소스 TTS 사용 가능 여부를 판단하는 데 쓴다.
             self._send_json(200, {
                 "available": _tts_available(),
@@ -269,12 +273,33 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "engine": "melotts",
             })
 
-        elif self.path == "/api/rag/status":
+        elif path == "/api/rag/status":
             # 🆕 RAG 인덱스 상태 (코퍼스 크기 / 임베딩·답변 모델)
             self._send_json(200, rag_pipeline.index.status())
 
-        elif self.path in STATIC_FILES:
-            self._serve_static(APP_DIR / self.path.lstrip("/"))
+        # 🆕 면접 모드 — 질문 은행/카테고리/상태
+        elif path == "/api/interview/question":
+            from urllib.parse import parse_qs
+            qs = parse_qs(query)
+            diff = (qs.get("difficulty") or [None])[0]
+            q = interview_pipeline.pick_question(
+                category=(qs.get("category") or [None])[0],
+                difficulty=int(diff) if diff and diff.isdigit() else None,
+                exclude=(qs.get("exclude") or [""])[0].split(","),
+            )
+            if q:
+                self._send_json(200, q)
+            else:
+                self._send_json(404, {"error": "조건에 맞는 질문이 없습니다."})
+
+        elif path == "/api/interview/categories":
+            self._send_json(200, interview_pipeline.list_categories())
+
+        elif path == "/api/interview/status":
+            self._send_json(200, interview_pipeline.index.status())
+
+        elif path in STATIC_FILES:
+            self._serve_static(APP_DIR / path.lstrip("/"))
 
         else:
             self.send_error(404)
@@ -339,6 +364,35 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._cors()
                 self.end_headers()
                 self.wfile.write(wav)
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"error": str(e)})
+            return
+
+        # 🆕 면접 모드 — 모범 답변 생성 (30초/60초/90초 3단계, 프로필 근거)
+        if self.path == "/api/interview/answers":
+            try:
+                req = json.loads(body or b"{}")
+                result = interview_pipeline.generate_answers(
+                    req.get("question", ""), req.get("cefr", "B1"), req.get("model"),
+                )
+                self._send_json(200, result)
+            except urllib.error.URLError:
+                self._send_json(503, {"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."})
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"error": str(e)})
+            return
+
+        # 🆕 면접 모드 — 내 답변 피드백 (STAR 구조 + 표현 업그레이드)
+        if self.path == "/api/interview/feedback":
+            try:
+                req = json.loads(body or b"{}")
+                result = interview_pipeline.feedback(
+                    req.get("question", ""), req.get("transcript", ""),
+                    req.get("cefr", "B1"), req.get("duration_sec"), req.get("model"),
+                )
+                self._send_json(200, result)
+            except urllib.error.URLError:
+                self._send_json(503, {"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."})
             except Exception as e:  # noqa: BLE001
                 self._send_json(500, {"error": str(e)})
             return
@@ -467,6 +521,7 @@ if __name__ == "__main__":
     else:
         print("  ℹ️  로컬 한국어 음성 비활성 (자연 음성 원하면: bash voice-assistant/tts-setup.sh)")
     print(f"\n  🖥  PC 브라우저:    http://localhost:{PORT}")
+    print(f"  🎤 영어 면접 연습:  http://localhost:{PORT}/interview.html")
     lan_ip = get_lan_ip()
     if lan_ip:
         print(f"  📱 모바일 브라우저: http://{lan_ip}:{PORT}")

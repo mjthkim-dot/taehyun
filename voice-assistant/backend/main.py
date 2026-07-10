@@ -12,6 +12,10 @@
    🆕 추가     POST /api/session → CAF 결과 영속화 (폴리글랏 스토어)
    🆕 추가     GET  /api/storage → 활성 스토리지 백엔드 상태
    🆕 추가     WS   /ws/audio    → 실시간 오디오 스트리밍 (Whisper STT 대비)
+   🆕 면접     GET  /api/interview/question|categories|status → 질문 은행
+   🆕 면접     POST /api/interview/answers  → 30/60/90초 모범 답변 (프로필 근거)
+   🆕 면접     POST /api/interview/feedback → 내 답변 STAR 구조 + 표현 피드백
+   🆕 번역     POST /api/translate → 실시간 KR↔EN 번역 (NDJSON 스트리밍)
 
  실행:  uvicorn backend.main:app --host 0.0.0.0 --port 3777
 ═══════════════════════════════════════════════════════════════
@@ -29,6 +33,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
+import interview_pipeline
 from caf_pipeline import analyze_caf
 from rag_pipeline import ANSWER_MODEL, TRANSLATE_SYSTEM_PROMPT, generate_answer_set
 from rag_pipeline import index as rag_index
@@ -37,6 +42,7 @@ from storage import store
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 HTML_FILE = Path(__file__).parent.parent / "index.html"
 ANSWER_SET_HTML_FILE = Path(__file__).parent.parent / "answer-set.html"
+INTERVIEW_HTML_FILE = Path(__file__).parent.parent / "interview.html"
 
 app = FastAPI(title="TBLT LMS — AI Speech Pipeline", version="1.0")
 app.add_middleware(
@@ -56,6 +62,12 @@ def index():
 @app.get("/answer-set.html")
 def answer_set_page():
     return FileResponse(ANSWER_SET_HTML_FILE, media_type="text/html",
+                        headers={"Cache-Control": "no-store, must-revalidate"})
+
+
+@app.get("/interview.html")
+def interview_page():
+    return FileResponse(INTERVIEW_HTML_FILE, media_type="text/html",
                         headers={"Cache-Control": "no-store, must-revalidate"})
 
 
@@ -182,6 +194,67 @@ def answer_set(req: AnswerSetRequest):
     # rag_pipeline은 stdlib(urllib)로 Ollama를 호출하므로 httpx가 아닌 URLError를 던진다.
     try:
         return generate_answer_set(req.situation_ko, req.cefr, req.k, req.category, req.model)
+    except urllib.error.URLError:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."},
+        )
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# ── 🆕 면접 모드 — 질문 은행 / 모범 답변 / 피드백 ───────────────
+@app.get("/api/interview/question")
+def interview_question(category: str | None = None, difficulty: int | None = None,
+                       exclude: str = ""):
+    q = interview_pipeline.pick_question(category, difficulty, exclude.split(","))
+    if not q:
+        return JSONResponse(status_code=404, content={"error": "조건에 맞는 질문이 없습니다."})
+    return q
+
+
+@app.get("/api/interview/categories")
+def interview_categories():
+    return interview_pipeline.list_categories()
+
+
+@app.get("/api/interview/status")
+def interview_status():
+    return interview_pipeline.index.status()
+
+
+class InterviewAnswersRequest(BaseModel):
+    question: str
+    cefr: str = "B1"
+    model: str | None = None
+
+
+@app.post("/api/interview/answers")
+def interview_answers(req: InterviewAnswersRequest):
+    try:
+        return interview_pipeline.generate_answers(req.question, req.cefr, req.model)
+    except urllib.error.URLError:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."},
+        )
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+class InterviewFeedbackRequest(BaseModel):
+    question: str
+    transcript: str
+    cefr: str = "B1"
+    duration_sec: float | None = None
+    model: str | None = None
+
+
+@app.post("/api/interview/feedback")
+def interview_feedback(req: InterviewFeedbackRequest):
+    try:
+        return interview_pipeline.feedback(req.question, req.transcript, req.cefr,
+                                           req.duration_sec, req.model)
     except urllib.error.URLError:
         return JSONResponse(
             status_code=503,

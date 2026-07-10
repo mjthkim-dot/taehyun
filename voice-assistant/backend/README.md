@@ -29,6 +29,49 @@ Browser (index.html)
   └─ localStorage: va_profile / va_skill_stats / va_sessions (오프라인 진실원천)
 ```
 
+### 🎤 영어 면접 코치 (IT 영업 직군) — 메인 기능
+
+맥북(16GB 권장)에서 Ollama만으로 동작하는 **영어 면접 준비 프로그램**.
+접속: `bash start.sh` 후 **http://localhost:3777/interview.html**
+
+```
+질문 받기 (질문 은행 27개, 카테고리별) ─► 🔊 질문 듣기 (macOS 내장 TTS)
+  → 🎙 영어로 답변 (Web Speech STT, Chrome)
+  → 📋 피드백: STAR 구조 체크 + 표현 업그레이드 + 점수 (WPM·군말 비율 측정)
+  → 💬 모범 답변: 내 프로필 근거 30초/60초/90초 3버전 (핵심 표현 + 전달 팁)
+  → 🇰🇷 말문 막히면: 한국어 입력 → 실시간 영어 힌트
+```
+
+| 구성 요소 | 파일 | 설명 |
+|---|---|---|
+| 질문 은행 | `data/interview_bank.json` | IT 영업 빈출 질문 27개(카테고리 8종·난이도·팁) + 면접 표현 48개(KR↔EN) — 직접 추가/수정 가능 |
+| **내 프로필** | `data/my_profile.md` | 이력·성과 (수정 후 저장하면 **다음 요청에 자동 반영** — 파일 해시로 인덱스 자동 재빌드) |
+| 파이프라인 | `interview_pipeline.py` | 질문 선택 → 프로필+표현 검색(RAG) → 답변 생성/피드백 |
+| UI | `../interview.html` | 모의 면접 화면 (질문/녹음/피드백/모범답변/힌트) |
+
+| 엔드포인트 | 동작 |
+|---|---|
+| `GET /api/interview/question?category=&difficulty=&exclude=` | 질문 출제 (exclude로 중복 방지) |
+| `GET /api/interview/categories` | 카테고리 목록 |
+| `POST /api/interview/answers` `{question, cefr}` | 프로필 근거 모범 답변 3버전 |
+| `POST /api/interview/feedback` `{question, transcript, cefr, duration_sec}` | STAR 구조 + 표현 피드백 |
+| `GET /api/interview/status` | 질문/표현/프로필 청크 수, 인덱스 상태 |
+
+**모델 자동 선택**: `start.sh`가 RAM을 감지해 16GB 맥북이면 `gemma3:12b`를 기본으로
+사용한다 (27b는 16GB에서 스왑 발생). `CAF_MODEL=gemma3:27b bash start.sh`로 강제 가능.
+
+```bash
+# 맥북 최초 설정 (합계 약 8.5GB 다운로드)
+ollama pull gemma3:12b
+ollama pull nomic-embed-text
+
+bash voice-assistant/start.sh
+# → http://localhost:3777/interview.html (STT는 Chrome에서)
+
+# CLI로 빠른 확인:
+python3 backend/interview_pipeline.py "Tell me about a time you exceeded your sales target."
+```
+
 ### 🆕 실시간 번역 + 영어 답변셋 (RAG) — smoothai_kr 벤치마크
 
 맥북에서 인터넷 없이(Ollama만으로) 동작하는 것을 목표로 한다.

@@ -62,23 +62,37 @@ if ! curl -s --max-time 2 "http://localhost:11434/api/tags" >/dev/null; then
   fi
 fi
 
-# ── 3-1. 권장 모델 확인 ──────────────────────────
-RECOMMENDED="gemma3:27b"
+# ── 3-1. 맥북 RAM에 맞는 모델 자동 선택 ──────────
+# gemma3:27b는 16GB 맥북에서 스왑을 유발해 오히려 느려진다.
+# CAF_MODEL을 직접 지정하면(예: CAF_MODEL=gemma3:27b bash start.sh) 그 값을 우선한다.
+if [ -z "${CAF_MODEL:-}" ]; then
+  MEM_GB=0
+  if sysctl -n hw.memsize &>/dev/null; then                     # macOS
+    MEM_GB=$(( $(sysctl -n hw.memsize) / 1073741824 ))
+  elif [ -r /proc/meminfo ]; then                               # Linux
+    MEM_GB=$(( $(awk '/MemTotal/{print $2}' /proc/meminfo) / 1048576 ))
+  fi
+  if   [ "$MEM_GB" -ge 24 ]; then CAF_MODEL="gemma3:27b"
+  elif [ "$MEM_GB" -ge 12 ]; then CAF_MODEL="gemma3:12b"        # 16GB 맥북 최적
+  else                            CAF_MODEL="gemma3:4b"
+  fi
+  export CAF_MODEL
+  echo "  🧠 RAM ${MEM_GB}GB 감지 → 모델 ${CAF_MODEL} 사용 (변경: CAF_MODEL=모델명 bash start.sh)"
+fi
+
 if command -v ollama &>/dev/null; then
-  if ! ollama list 2>/dev/null | grep -q "$RECOMMENDED"; then
+  if ! ollama list 2>/dev/null | grep -q "$CAF_MODEL"; then
     echo ""
-    echo "  💡 권장 모델($RECOMMENDED)이 없습니다."
-    echo "     최고 품질을 위해 아래 명령으로 다운로드하세요 (약 17GB):"
-    echo "     ollama pull $RECOMMENDED"
-    echo "     저사양: ollama pull gemma3:12b  또는  ollama pull gemma3:4b"
+    echo "  💡 사용할 모델($CAF_MODEL)이 아직 없습니다. 먼저 다운로드하세요:"
+    echo "     ollama pull $CAF_MODEL"
     echo ""
   fi
 
-  # 🆕 실시간 번역 / 영어 답변셋(RAG)에 쓰는 임베딩 모델
+  # 🆕 면접 답변 검색(RAG)에 쓰는 임베딩 모델
   EMBED_MODEL="nomic-embed-text"
   if ! ollama list 2>/dev/null | grep -q "$EMBED_MODEL"; then
     echo ""
-    echo "  💡 RAG 임베딩 모델($EMBED_MODEL)이 없습니다. 영어 답변셋 기능에 필요합니다:"
+    echo "  💡 RAG 임베딩 모델($EMBED_MODEL)이 없습니다. 면접 모범 답변 기능에 필요합니다 (~270MB):"
     echo "     ollama pull $EMBED_MODEL"
     echo ""
   fi
@@ -125,6 +139,7 @@ echo "  ════════════════════════
 echo "  ✅ 준비 완료!"
 echo ""
 echo "  🖥  PC:      http://localhost:${PORT}"
+echo "  🎤 영어 면접 연습:  http://localhost:${PORT}/interview.html"
 if [ -n "$URL" ]; then
   echo "  📱 모바일:  ${URL}"
   echo ""
