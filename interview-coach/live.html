@@ -209,7 +209,7 @@
       <button data-intent="disagree">👎 반박하기</button>
       <button data-intent="ask">💬 질문하기</button>
       <button data-intent="propose">💡 제안하기</button>
-      <button class="who" id="btn-who" title="다음 발화의 화자 (클릭해서 전환)">🎙 상대</button>
+      <span class="who" id="stt-ind" style="display:none; border:none; background:none; color:var(--faint); font-size:11.5px; margin-left:auto; padding:6px 10px;">듣는 중…</span>
     </div>
     <div class="quickbar">
       <input type="text" id="hint-in" placeholder="한국어 문장 혹은 단어를 빠르게 번역하기...">
@@ -248,18 +248,17 @@
 </main>
 
 <div class="notice">
-  화상 면접 창 옆에 띄워두세요 · 상대 목소리가 <b>스피커로</b> 나와야 인식됩니다 (이어폰 ✕) · <b>Chrome</b> 권장
+  ▶ 시작 → 화상회의가 열린 <b>Chrome 탭</b> 선택 + <b>'오디오도 공유'</b> 체크 (상대=탭 오디오, 나=마이크로 화자 자동 분리) ·
+  <b>이어폰 사용 OK</b> · macOS에서 Zoom은 웹 브라우저로 접속하세요
 </div>
 
 <script>
 const $ = (s) => document.querySelector(s);
 const feed = $('#feed');
 const log = [];                 // {who, text}
-let rec = null, interimEl = null;
 let suggestAbort = null;
 const trQueue = [];             // 자막 번역 대기열
 let translating = false;
-let speakerMe = false;          // 🎙 화자 토글 (기본: 상대)
 let uttCount = 0, lineSumBusy = false;
 
 // ── 질문 감지 휴리스틱 ─────────────────────────────────────
@@ -306,12 +305,12 @@ async function streamChat(url, payload, onToken, signal) {
 
 const now = () => new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
 
-// ── 발화 버블 ──────────────────────────────────────────────
-function addUtterance(text) {
+// ── 발화 버블 (who: '상대' | '나' — 스트림 출처로 자동 결정) ─
+function addUtterance(text, who) {
   $('#feed-empty')?.remove();
-  const me = speakerMe;
+  const me = who === '나';
   const q = !me && isQuestion(text);
-  log.push({ who: me ? '나' : '상대', text });
+  log.push({ who, text });
   const row = document.createElement('div');
   row.className = 'row' + (me ? ' me' : '') + (q ? ' q' : '');
   row.innerHTML =
@@ -417,14 +416,6 @@ document.querySelectorAll('.actions [data-intent]').forEach(btn => {
   });
 });
 
-// ── 🎙 화자 토글 ───────────────────────────────────────────
-$('#btn-who').addEventListener('click', () => {
-  speakerMe = !speakerMe;
-  const b = $('#btn-who');
-  b.textContent = speakerMe ? '🎙 나' : '🎙 상대';
-  b.classList.toggle('me', speakerMe);
-});
-
 function speak(text) {
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
@@ -434,43 +425,128 @@ function speak(text) {
   speechSynthesis.speak(u);
 }
 
-// ── ▶/⏸ 연속 음성 인식 · ⏹ 세션 종료 ──────────────────────
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+// ════════════════════════════════════════════════════════════
+//  🎙 이중 스트림 캡처 + Groq Whisper STT — 화자 자동 분리
+//    · 상대: getDisplayMedia로 화상회의 '탭 오디오'를 직접 캡처
+//    · 나:   getUserMedia 마이크
+//  두 스트림을 각각 VAD(음성 구간 감지)로 세그먼트로 잘라
+//  /api/stt(Groq whisper-large-v3-turbo)에 보낸다.
+//  → 화자 분리 정확 + 이어폰 사용 가능 + Web Speech보다 인식 품질 ↑
+// ════════════════════════════════════════════════════════════
+let audioCtx = null, tabCap = null, micCap = null;
+let pendingStt = 0, sttAlerted = false;
+
+function sttPending(delta) {
+  pendingStt += delta;
+  $('#stt-ind').style.display = pendingStt > 0 ? 'inline' : 'none';
+}
+
+class SegmentRecorder {
+  constructor(stream, who) {
+    this.stream = stream; this.who = who;
+    this.src = audioCtx.createMediaStreamSource(stream);
+    this.analyser = audioCtx.createAnalyser();
+    this.analyser.fftSize = 2048;
+    this.src.connect(this.analyser);
+    this.buf = new Uint8Array(this.analyser.fftSize);
+    this.hadSpeech = false; this.silenceMs = 0; this.segMs = 0;
+    this.mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+    this._arm();
+    this.timer = setInterval(() => this._tick(), 100);
+  }
+  _arm() {
+    this.chunks = [];
+    this.recorder = new MediaRecorder(this.stream, { mimeType: this.mime, audioBitsPerSecond: 48000 });
+    this.recorder.ondataavailable = (e) => { if (e.data.size) this.chunks.push(e.data); };
+    this.recorder.onstop = () => {
+      const blob = new Blob(this.chunks, { type: this.mime });
+      const send = this.hadSpeech && blob.size > 2500;
+      this.hadSpeech = false; this.silenceMs = 0; this.segMs = 0;
+      if (this.stream.active) { this._arm(); this.recorder.start(); }
+      if (send) this._transcribe(blob);
+    };
+    this.recorder.start();
+  }
+  _rms() {
+    this.analyser.getByteTimeDomainData(this.buf);
+    let s = 0;
+    for (let i = 0; i < this.buf.length; i++) { const v = (this.buf[i] - 128) / 128; s += v * v; }
+    return Math.sqrt(s / this.buf.length);
+  }
+  _tick() {
+    if (!this.recorder || this.recorder.state !== 'recording') return;
+    this.segMs += 100;
+    if (this._rms() > 0.015) { this.hadSpeech = true; this.silenceMs = 0; }
+    else this.silenceMs += 100;
+    // 발화 후 0.8초 침묵 → 문장 단위 컷 · 12초 강제 컷 · 무음이면 6초마다 버퍼 리셋
+    if ((this.hadSpeech && this.silenceMs >= 800) || this.segMs >= 12000 ||
+        (!this.hadSpeech && this.segMs >= 6000)) {
+      this.recorder.stop();
+    }
+  }
+  async _transcribe(blob) {
+    sttPending(1);
+    try {
+      const res = await fetch('/api/stt?lang=en', {
+        method: 'POST', headers: { 'Content-Type': 'audio/webm' }, body: blob });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || `STT 오류 (${res.status})`);
+      const text = (d.text || '').trim();
+      // Whisper가 무음에서 만들어내는 환청 토막("you", "Thank you." 등) 필터
+      if (text && text.split(' ').length >= 2 && !/^thank you\.?$/i.test(text)) {
+        addUtterance(text, this.who);
+      }
+    } catch (e) {
+      if (!sttAlerted) { sttAlerted = true; alert('음성 인식 실패: ' + e.message); }
+    } finally { sttPending(-1); }
+  }
+  stop() {
+    clearInterval(this.timer);
+    try { if (this.recorder.state !== 'inactive') { this.recorder.onstop = null; this.recorder.stop(); } } catch {}
+    this.src.disconnect();
+    this.stream.getTracks().forEach(t => t.stop());
+  }
+}
+
 function stopListening() {
-  if (rec) { rec.onend = null; rec.stop(); rec = null; }
+  tabCap?.stop(); micCap?.stop();
+  tabCap = micCap = null;
   $('#btn-listen').textContent = '▶';
   $('#btn-listen').classList.remove('live');
 }
-$('#btn-listen').addEventListener('click', () => {
-  if (rec) { stopListening(); return; }
-  if (!SR) { alert('이 브라우저는 음성 인식을 지원하지 않아요. Chrome을 사용하세요.'); return; }
-  rec = new SR();
-  rec.lang = 'en-US'; rec.continuous = true; rec.interimResults = true;
-  rec.onresult = (e) => {
-    let interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      const txt = e.results[i][0].transcript.trim();
-      if (e.results[i].isFinal) { if (txt) addUtterance(txt); }
-      else interim += txt + ' ';
-    }
-    if (interim) {
-      if (!interimEl) {
-        $('#feed-empty')?.remove();
-        interimEl = document.createElement('div');
-        interimEl.className = 'row dim';
-        interimEl.innerHTML = '<div class="bubble"><div class="en"></div></div>';
-        feed.appendChild(interimEl);
-      }
-      interimEl.querySelector('.en').textContent = interim;
-      feed.scrollTop = feed.scrollHeight;
-    } else if (interimEl) { interimEl.remove(); interimEl = null; }
-  };
-  rec.onend = () => { if (rec) rec.start(); };
-  rec.onerror = (e) => { if (e.error === 'not-allowed') alert('마이크 권한을 허용해 주세요.'); };
-  rec.start();
+
+async function startListening() {
+  let tab;
+  try {
+    // 1) 화상회의 탭 선택 + '오디오도 공유' 체크 → 상대 목소리
+    tab = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+  } catch (e) { return; /* 사용자가 취소 */ }
+  if (!tab.getAudioTracks().length) {
+    tab.getTracks().forEach(t => t.stop());
+    alert("탭 오디오가 공유되지 않았어요.\n\n'Chrome 탭' 목록에서 화상회의 탭을 고른 뒤,\n왼쪽 아래 '오디오도 공유' 체크박스를 켜 주세요.");
+    return;
+  }
+  let mic;
+  try {
+    // 2) 마이크 → 내 목소리 (에코 캔슬로 스피커 소리 유입 억제)
+    mic = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true } });
+  } catch (e) {
+    tab.getTracks().forEach(t => t.stop());
+    alert('마이크 권한을 허용해 주세요.');
+    return;
+  }
+  audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  await audioCtx.resume();
+  tabCap = new SegmentRecorder(tab, '상대');
+  micCap = new SegmentRecorder(mic, '나');
+  const vTrack = tab.getVideoTracks()[0];
+  if (vTrack) vTrack.onended = stopListening;   // 사용자가 공유 중단하면 함께 정지
   $('#btn-listen').textContent = '⏸';
   $('#btn-listen').classList.add('live');
-});
+}
+
+$('#btn-listen').addEventListener('click', () => tabCap ? stopListening() : startListening());
 $('#btn-stop').addEventListener('click', () => {
   stopListening();
   log.length = 0; uttCount = 0;

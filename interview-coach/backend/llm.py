@@ -1,13 +1,11 @@
 """
 ═══════════════════════════════════════════════════════════════
- LLM 프로바이더 추상화 — Groq(클라우드, 초고속) ↔ Ollama(로컬)
+ Groq 백엔드 — LLM(답변/번역/요약) + Whisper STT(음성 인식)
 
- GROQ_API_KEY 환경변수가 설정돼 있으면 Groq를, 없으면 로컬 Ollama를 쓴다.
- - Groq: llama-3.3-70b 기준 초당 수백 토큰 → 라이브 모드 답변이 1~2초
-   (트레이드오프: 대화 내용이 Groq 서버로 전송됨)
- - Ollama: 완전 로컬/오프라인, 프라이버시 보장 (16GB 맥북 기준 15~30초)
-
- 임베딩(nomic-embed-text)은 Groq가 제공하지 않으므로 항상 로컬 Ollama 사용.
+ 실시간성이 핵심이므로 모든 AI 호출을 Groq로 통일한다:
+ - LLM:  llama-3.3-70b (초당 수백 토큰 → 답변 1~2초)
+ - STT:  whisper-large-v3-turbo (세그먼트당 수백 ms)
+ GROQ_API_KEY가 없으면 LLM만 로컬 Ollama로 폴백한다 (STT는 Groq 전용).
 
  스트리밍은 어느 프로바이더든 Ollama NDJSON 형태({"message":{"content":...}})로
  통일해 내보내므로 프런트엔드는 수정 없이 그대로 동작한다.
@@ -20,13 +18,22 @@ from __future__ import annotations
 import json
 import os
 import urllib.request
+import uuid
 from typing import Iterator
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_URL = os.environ.get("GROQ_URL", "https://api.groq.com/openai/v1")  # 테스트용 오버라이드 가능
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:12b")  # 16GB 맥북 기본값
+GROQ_STT_MODEL = os.environ.get("GROQ_STT_MODEL", "whisper-large-v3-turbo")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:12b")  # 폴백용 (16GB 맥북 기본값)
+
+# 실시간 번역 시스템 프롬프트 (KR↔EN 자동 감지)
+TRANSLATE_SYSTEM_PROMPT = """You are a real-time Korean-English translator for a
+job-interview copilot. Detect the input language automatically:
+- If the input is Korean, translate it into natural, spoken English.
+- If the input is English, translate it into natural Korean.
+Reply with ONLY the translation text - no quotes, no labels, no explanation."""
 
 
 def provider() -> str:
@@ -105,3 +112,38 @@ def stream_ndjson(messages: list[dict], temperature: float = 0.4,
         for raw in resp:
             if raw.strip():
                 yield raw if raw.endswith(b"\n") else raw + b"\n"
+
+
+def transcribe(audio: bytes, filename: str = "audio.webm",
+               language: str = "en", model: str | None = None) -> str:
+    """오디오 바이트 → 텍스트 (Groq Whisper). STT는 Groq 전용 — 키 없으면 에러."""
+    if not GROQ_API_KEY:
+        raise RuntimeError("음성 인식에는 GROQ_API_KEY가 필요합니다 (Groq Whisper STT).")
+
+    boundary = uuid.uuid4().hex
+    parts: list[bytes] = []
+
+    def field(name: str, value: str) -> None:
+        parts.append(
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode()
+        )
+
+    field("model", model or GROQ_STT_MODEL)
+    field("language", language)
+    field("response_format", "json")
+    field("temperature", "0")
+    content_type = "audio/wav" if filename.endswith(".wav") else "audio/webm"
+    parts.append(
+        f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+        f"Content-Type: {content_type}\r\n\r\n".encode() + audio + b"\r\n"
+    )
+    parts.append(f"--{boundary}--\r\n".encode())
+
+    req = urllib.request.Request(
+        f"{GROQ_URL}/audio/transcriptions", data=b"".join(parts),
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}",
+                 "Authorization": f"Bearer {GROQ_API_KEY}"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return json.loads(r.read()).get("text", "").strip()

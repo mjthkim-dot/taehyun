@@ -1,12 +1,13 @@
 """
 ═══════════════════════════════════════════════════════════════
- 영어 면접 파이프라인 — IT 영업 직군 모의 면접 (맥북 로컬/Ollama, 또는 Groq)
+ 영어 면접 파이프라인 — IT 영업 직군 (Groq 단일 백엔드)
 
  구성 요소:
    · 질문 은행     data/interview_bank.json — 빈출 질문 + 답변용 표현(KR↔EN)
    · 내 프로필     data/my_profile.md — 이력·성과 (수정하면 다음 요청에 자동 반영)
-   · 검색 인덱스   표현 + 프로필을 Ollama 임베딩으로 색인 → 질문과 유사한 것 검색
-   · 답변 생성     질문 → 프로필 근거 + 표현 은행 근거 → 30초/60초/90초 3단계 영어 답변
+   · 근거 선택     프로필은 전체 주입(작음), 표현 은행은 키워드 매칭 top-k
+                  → 임베딩/벡터DB 불필요 (외부 의존은 Groq 하나로 통일)
+   · 답변 생성     질문 → 프로필 + 표현 근거 → 영어 답변(한국어 번역 포함)
    · 답변 피드백   내가 말한 답변(STT 텍스트) → STAR 구조 체크 + 표현 업그레이드
 
  완전히 독립된 프로젝트 — 다른 앱의 코드/데이터에 의존하지 않는다.
@@ -15,20 +16,18 @@
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import random
+import re
 from pathlib import Path
 from typing import Any
 
 import llm
-from embeddings import EMBED_MODEL, cosine, embed
 from speech_metrics import deterministic_metrics
 
 DATA_DIR = Path(__file__).parent / "data"
 BANK_PATH = DATA_DIR / "interview_bank.json"
 PROFILE_PATH = DATA_DIR / "my_profile.md"
-INDEX_PATH = DATA_DIR / "interview_index.json"
 
 
 # ─────────────────────────────────────────────────────────────
@@ -97,95 +96,46 @@ def _profile_chunks() -> list[str]:
 
 
 # ─────────────────────────────────────────────────────────────
-#  검색 인덱스 — 표현 은행 + 프로필. 파일 내용 해시로 자동 재빌드.
+#  근거 선택 — 프로필은 전체 주입, 표현 은행은 키워드 매칭 top-k
+#  (코퍼스가 수십 개 규모라 임베딩 없이도 충분하고, 지연이 0ms)
 # ─────────────────────────────────────────────────────────────
-def _signature() -> str:
-    h = hashlib.md5()
-    h.update(EMBED_MODEL.encode())
-    for p in (BANK_PATH, PROFILE_PATH):
-        h.update(p.read_bytes() if p.exists() else b"")
-    return h.hexdigest()
+_WORD_RE = re.compile(r"[a-zA-Z가-힣']+")
+_STOPWORDS = {"the", "a", "an", "and", "or", "but", "you", "your", "can", "could",
+              "would", "do", "did", "does", "have", "has", "how", "what", "why",
+              "tell", "about", "for", "with", "that", "this", "are", "is", "was", "were"}
 
 
-class InterviewIndex:
-    def __init__(self) -> None:
-        self._entries: list[dict] | None = None
-        self._sig: str | None = None
-
-    def _build_entries(self) -> list[dict]:
-        entries: list[dict] = []
-        for ph in _load_bank().get("phrases", []):
-            text = f"{ph.get('kr', '')} / {ph.get('en', '')}"
-            entries.append({"kind": "phrase", "text": text, "payload": ph})
-        for chunk in _profile_chunks():
-            entries.append({"kind": "profile", "text": chunk, "payload": {"kr": chunk}})
-        for e in entries:
-            e["embedding"] = embed(e["text"])
-        return entries
-
-    def _ensure_built(self) -> list[dict]:
-        sig = _signature()
-        if self._entries is not None and self._sig == sig:
-            return self._entries
-
-        if INDEX_PATH.exists():
-            try:
-                cached = json.loads(INDEX_PATH.read_text(encoding="utf-8"))
-                if cached.get("signature") == sig:
-                    self._entries, self._sig = cached["entries"], sig
-                    return self._entries
-            except (json.JSONDecodeError, OSError, KeyError):
-                pass
-
-        entries = self._build_entries()
-        INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
-        INDEX_PATH.write_text(
-            json.dumps({"signature": sig, "entries": entries}, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        self._entries, self._sig = entries, sig
-        return entries
-
-    def retrieve(self, query: str, k_phrases: int = 6, k_profile: int = 4) -> dict[str, list[dict]]:
-        """질문과 유사한 표현/프로필 청크를 종류별로 top-k 검색."""
-        entries = self._ensure_built()
-        qvec = embed(query)
-        if not qvec:
-            return {"phrases": [], "profile": []}
-        scored: dict[str, list[tuple[float, dict]]] = {"phrase": [], "profile": []}
-        for e in entries:
-            scored[e["kind"]].append((cosine(qvec, e.get("embedding", [])), e))
-        for lst in scored.values():
-            lst.sort(key=lambda t: t[0], reverse=True)
-        return {
-            "phrases": [{**e["payload"], "score": round(s, 4)} for s, e in scored["phrase"][:k_phrases]],
-            "profile": [{"text": e["text"], "score": round(s, 4)} for s, e in scored["profile"][:k_profile]],
-        }
-
-    def status(self) -> dict[str, Any]:
-        bank = _load_bank()
-        return {
-            "questions": len(bank.get("questions", [])),
-            "phrases": len(bank.get("phrases", [])),
-            "profile_chunks": len(_profile_chunks()),
-            "profile_exists": PROFILE_PATH.exists(),
-            "index_built": INDEX_PATH.exists(),
-            "embed_model": EMBED_MODEL,
-            "provider": llm.provider(),
-            "answer_model": llm.model_name(),
-        }
+def _keyword_phrases(query: str, k: int = 6) -> list[dict]:
+    words = {w for w in _WORD_RE.findall(query.lower()) if len(w) > 2 and w not in _STOPWORDS}
+    scored: list[tuple[int, dict]] = []
+    for ph in _load_bank().get("phrases", []):
+        text = f"{ph.get('en', '')} {ph.get('kr', '')} {ph.get('category', '')} {ph.get('note_ko', '')}".lower()
+        score = sum(1 for w in words if w in text)
+        if score:
+            scored.append((score, ph))
+    scored.sort(key=lambda t: -t[0])
+    return [dict(p) for _, p in scored[:k]]
 
 
-index = InterviewIndex()
+def _safe_retrieve(query: str, k_phrases: int = 6, k_profile: int = 99) -> dict[str, list[dict]]:
+    """프로필 전체(작음) + 키워드 매칭 표현 top-k. 외부 호출 없음 → 항상 즉시 성공."""
+    return {
+        "phrases": _keyword_phrases(query, k_phrases),
+        "profile": [{"text": c} for c in _profile_chunks()],
+    }
 
 
-def _safe_retrieve(query: str, k_phrases: int = 6, k_profile: int = 4) -> dict[str, list[dict]]:
-    """임베딩(로컬 Ollama)이 죽어 있어도 답변은 나가야 한다 —
-    검색 실패 시 프로필 전체를 그대로 근거로 사용(작아서 프롬프트에 다 들어감)."""
-    try:
-        return index.retrieve(query, k_phrases, k_profile)
-    except Exception:  # noqa: BLE001
-        return {"phrases": [], "profile": [{"text": c, "score": 0.0} for c in _profile_chunks()[:14]]}
+def status() -> dict[str, Any]:
+    bank = _load_bank()
+    return {
+        "questions": len(bank.get("questions", [])),
+        "phrases": len(bank.get("phrases", [])),
+        "profile_chunks": len(_profile_chunks()),
+        "profile_exists": PROFILE_PATH.exists(),
+        "provider": llm.provider(),
+        "answer_model": llm.model_name(),
+        "stt_model": llm.GROQ_STT_MODEL if llm.GROQ_API_KEY else None,
+    }
 
 
 # ─────────────────────────────────────────────────────────────

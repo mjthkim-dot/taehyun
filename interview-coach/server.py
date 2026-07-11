@@ -29,7 +29,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "backend"))
 import interview_pipeline  # noqa: E402
 import llm  # noqa: E402
-from embeddings import OLLAMA_URL, TRANSLATE_SYSTEM_PROMPT  # noqa: E402
 
 PORT = int(os.environ.get("PORT", "3778"))
 HOST = os.environ.get("HOST", "0.0.0.0")
@@ -106,12 +105,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif path == "/health":
             try:
                 if llm.GROQ_API_KEY:
-                    self._send_json(200, {"status": "ok", "provider": "groq", "model": llm.GROQ_MODEL})
+                    self._send_json(200, {"status": "ok", "provider": "groq",
+                                          "model": llm.GROQ_MODEL, "stt": llm.GROQ_STT_MODEL})
                 else:
-                    req = urllib.request.Request(f"{OLLAMA_URL}/api/tags")
+                    req = urllib.request.Request(f"{llm.OLLAMA_URL}/api/tags")
                     with urllib.request.urlopen(req, timeout=3) as r:
                         models = [m["name"] for m in json.loads(r.read()).get("models", [])]
-                    self._send_json(200, {"status": "ok", "provider": "ollama", "models": models})
+                    self._send_json(200, {"status": "ok", "provider": "ollama", "models": models,
+                                          "warning": "GROQ_API_KEY가 없어 음성 인식(STT)을 쓸 수 없습니다."})
             except Exception as e:  # noqa: BLE001
                 self._send_json(200, {"status": "error", "message": str(e)})
 
@@ -131,7 +132,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._send_json(200, interview_pipeline.list_categories())
 
         elif path == "/api/interview/status":
-            self._send_json(200, interview_pipeline.index.status())
+            self._send_json(200, interview_pipeline.status())
 
         else:
             self.send_error(404)
@@ -140,8 +141,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length)
+        path = self.path.split("?", 1)[0]
 
         try:
+            # 🎙 음성 인식 — 오디오 세그먼트(webm/wav 바이트) → Groq Whisper → 텍스트
+            if path == "/api/stt":
+                qs = urllib.parse.parse_qs(self.path.partition("?")[2])
+                lang = (qs.get("lang") or ["en"])[0]
+                try:
+                    text = llm.transcribe(body, language=lang)
+                except RuntimeError as e:
+                    self._send_json(503, {"error": str(e)})
+                    return
+                self._send_json(200, {"text": text})
+                return
+
             if self.path == "/api/interview/answers":
                 req = json.loads(body or b"{}")
                 result = interview_pipeline.generate_answers(
@@ -160,7 +174,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if self.path == "/api/translate":
                 req = json.loads(body or b"{}")
                 _stream_llm_ndjson(self, [
-                    {"role": "system", "content": TRANSLATE_SYSTEM_PROMPT},
+                    {"role": "system", "content": llm.TRANSLATE_SYSTEM_PROMPT},
                     {"role": "user", "content": req.get("text", "")},
                 ], temperature=0.3, max_tokens=300, model=req.get("model"))
                 return
@@ -213,7 +227,11 @@ if __name__ == "__main__":
     print()
     print("  🎤  영어 면접 코치 — IT 영업")
     print("  ─────────────────────────────")
-    print(f"  ⚡ LLM: {'Groq (' + llm.GROQ_MODEL + ')' if llm.GROQ_API_KEY else 'Ollama 로컬 (' + llm.OLLAMA_MODEL + ')'}")
+    if llm.GROQ_API_KEY:
+        print(f"  ⚡ Groq — LLM: {llm.GROQ_MODEL} · STT: {llm.GROQ_STT_MODEL}")
+    else:
+        print(f"  ⚠️  GROQ_API_KEY 없음 — LLM은 Ollama({llm.OLLAMA_MODEL}) 폴백, 음성 인식(STT)은 비활성!")
+        print("     라이브 모드를 쓰려면: export GROQ_API_KEY=... 후 재실행")
     print(f"\n  🖥  연습 모드:      http://localhost:{PORT}/interview.html")
     print(f"  🔴 실전 라이브 모드: http://localhost:{PORT}/live.html")
     lan_ip = get_lan_ip()
