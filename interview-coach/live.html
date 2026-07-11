@@ -3,109 +3,219 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🔴 라이브 면접 코파일럿</title>
-<meta name="theme-color" content="#0a0b12">
+<title>실시간 면접 코파일럿</title>
+<meta name="theme-color" content="#F7F7FB">
 <style>
-  :root { color-scheme: dark; }
-  * { box-sizing: border-box; }
+  :root {
+    --bg: #F7F7FB; --card: #FFFFFF; --border: #ECECF4;
+    --text: #1B1B2E; --sub: #6E6E8A; --faint: #A0A0BC;
+    --accent: #7C5CFC; --accent-soft: #F1EDFF; --accent-deep: #5B3EE8;
+    --danger: #F0426B; --green: #16A374;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
   body {
-    margin: 0; height: 100vh; display: flex; flex-direction: column;
-    background: #0a0b12; color: #e8e8f0;
+    background: var(--bg); color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; overflow: hidden;
   }
+
+  /* ── 헤더 ─────────────────────────────────── */
   header {
-    padding: 12px 14px; border-bottom: 1px solid #1e2030; display: flex;
-    align-items: center; gap: 10px; flex-wrap: wrap; background: #0e0f18;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 12px 20px; background: var(--card); border-bottom: 1px solid var(--border);
   }
-  h1 { font-size: 15px; margin: 0; flex: 1; white-space: nowrap; }
-  h1 a { color: #7c7c9a; font-size: 12px; text-decoration: none; margin-left: 8px; }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px; }
+  .brand .dot { width: 10px; height: 10px; border-radius: 50%;
+                background: linear-gradient(135deg, #8B5CF6, #6366F1); }
+  .brand a { font-size: 12px; color: var(--faint); text-decoration: none; font-weight: 500; margin-left: 6px; }
+  .spacer { flex: 1; }
+  .pill {
+    font-size: 12px; padding: 5px 12px; border-radius: 999px;
+    background: var(--bg); color: var(--sub); border: 1px solid var(--border);
+  }
+  .pill.live { background: #FDEDF2; color: var(--danger); border-color: #F8CFDC; font-weight: 700; }
+  .pill.live::before { content: "● "; animation: blink 1.2s infinite; }
+  @keyframes blink { 50% { opacity: .35; } }
   select {
-    background: #14151f; color: #e8e8f0; border: 1px solid #2a2c42;
-    border-radius: 8px; padding: 6px 8px; font-size: 13px;
+    background: var(--card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; padding: 7px 10px; font-size: 13px; font-family: inherit;
   }
   button {
-    padding: 8px 14px; border: none; border-radius: 8px; cursor: pointer;
-    background: #24263a; color: #c8c8e0; font-size: 13px; font-weight: 600;
+    border: none; border-radius: 12px; padding: 9px 16px; cursor: pointer;
+    font-size: 13.5px; font-weight: 700; font-family: inherit;
+    background: var(--bg); color: var(--sub); transition: filter .15s;
   }
-  button.primary { background: #7c6cf6; color: #fff; }
-  button.listening { background: #e05555; color: #fff; animation: pulse 1.5s infinite; }
-  @keyframes pulse { 50% { opacity: .7; } }
+  button:hover { filter: brightness(.97); }
+  button.primary {
+    background: linear-gradient(135deg, #8B5CF6, #6D5BF0); color: #fff;
+    box-shadow: 0 4px 14px rgba(124, 92, 252, .35);
+  }
+  button.listening { background: var(--danger); color: #fff; box-shadow: 0 4px 14px rgba(240, 66, 107, .3); }
   button:disabled { opacity: .5; cursor: default; }
-  .notice { font-size: 12px; color: #8a8aa5; padding: 8px 14px; background: #11121c;
-            border-bottom: 1px solid #1e2030; }
-  #feed { flex: 1; overflow-y: auto; padding: 12px 14px; }
-  .utt { margin-bottom: 10px; padding: 9px 12px; border-radius: 10px; background: #14151f;
-         border: 1px solid #1e2030; font-size: 14px; line-height: 1.5; }
-  .utt.q { border-color: #7c6cf6; background: #171530; }
-  .utt .en { }
-  .utt .kr { color: #9a9ab0; font-size: 12.5px; margin-top: 4px; }
-  .utt .tag { font-size: 10.5px; color: #a89bff; font-weight: 700; margin-right: 6px; }
-  .utt .ask { float: right; font-size: 11px; padding: 2px 8px; background: #24263a;
-              border-radius: 6px; cursor: pointer; color: #a89bff; }
-  #panel {
-    border-top: 2px solid #7c6cf6; background: #10111c; padding: 12px 14px;
-    max-height: 45vh; overflow-y: auto; display: none;
+
+  /* ── 본문 2패널 ────────────────────────────── */
+  main {
+    flex: 1; display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px;
+    padding: 16px 20px; min-height: 0;
   }
-  #panel .strategy { color: #e0c060; font-size: 13px; margin-bottom: 8px; }
-  #panel .answer { font-size: 16px; line-height: 1.65; }
-  #panel .label { font-size: 11px; color: #7c7c9a; margin-bottom: 6px;
-                  display: flex; justify-content: space-between; }
-  #panel .label span:last-child { cursor: pointer; color: #a89bff; }
-  footer {
-    display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid #1e2030;
-    background: #0e0f18;
+  .pane {
+    background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+    display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+    box-shadow: 0 2px 10px rgba(27, 27, 46, .04);
   }
-  footer input {
-    flex: 1; background: #14151f; color: #e8e8f0; border: 1px solid #2a2c42;
-    border-radius: 8px; padding: 9px 10px; font-size: 14px;
+  .pane-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 13px 18px; border-bottom: 1px solid var(--border);
+    font-size: 13.5px; font-weight: 800;
   }
-  .empty { color: #565670; text-align: center; margin-top: 40px; font-size: 13.5px; line-height: 2; }
-  #summary-out { white-space: pre-wrap; font-size: 13.5px; color: #c8c8e0;
-                 padding: 10px 14px; display: none; border-bottom: 1px solid #1e2030;
-                 background: #11121c; max-height: 30vh; overflow-y: auto; }
-  label.chk { font-size: 12px; color: #8a8aa5; display: flex; align-items: center; gap: 4px; }
+  .pane-head .hint { font-weight: 500; font-size: 11.5px; color: var(--faint); margin-left: auto; }
+  .pane-body { flex: 1; overflow-y: auto; padding: 14px 18px; }
+
+  /* 자막 피드 */
+  .utt { padding: 11px 14px; border-radius: 12px; margin-bottom: 10px;
+         background: var(--bg); border: 1px solid transparent; }
+  .utt .en { font-size: 15px; line-height: 1.55; }
+  .utt .kr { font-size: 13px; color: var(--sub); margin-top: 5px; line-height: 1.5; }
+  .utt .kr:empty { display: none; }
+  .utt.q { background: var(--accent-soft); border-color: #DDD2FF; }
+  .utt.q .en { font-weight: 700; }
+  .utt .chip {
+    display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: .3px;
+    color: var(--accent-deep); background: #fff; border: 1px solid #DDD2FF;
+    padding: 2px 8px; border-radius: 999px; margin-bottom: 6px;
+  }
+  .utt .ask { float: right; font-size: 11.5px; color: var(--accent); cursor: pointer;
+              font-weight: 700; padding: 2px 6px; }
+  .utt.dim { opacity: .45; }
+  .empty {
+    color: var(--faint); text-align: center; margin-top: 48px;
+    font-size: 13.5px; line-height: 2;
+  }
+  .empty .big { font-size: 30px; }
+
+  /* 요약 배너 */
+  #summary-out {
+    display: none; white-space: pre-wrap; font-size: 13px; line-height: 1.65;
+    background: #FFFBEB; border: 1px solid #FDE9B8; color: #7A5B10;
+    border-radius: 12px; padding: 12px 14px; margin-bottom: 12px;
+  }
+
+  /* 답변 제안 패널 */
+  .strategy {
+    display: none; font-size: 13px; font-weight: 700; color: var(--accent-deep);
+    background: var(--accent-soft); border-radius: 10px; padding: 9px 13px; margin-bottom: 12px;
+  }
+  .cand {
+    border: 1px solid var(--border); border-radius: 14px; padding: 14px 15px;
+    margin-bottom: 12px; background: var(--card);
+  }
+  .cand .num {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 800; color: var(--accent-deep); margin-bottom: 7px;
+  }
+  .cand .num .b {
+    width: 18px; height: 18px; border-radius: 50%; background: var(--accent-soft);
+    display: inline-flex; align-items: center; justify-content: center; font-size: 11px;
+  }
+  .cand .en { font-size: 15.5px; line-height: 1.6; font-weight: 600; }
+  .cand .kr { font-size: 13px; color: var(--sub); line-height: 1.55; margin-top: 8px;
+              padding-top: 8px; border-top: 1px dashed var(--border); }
+  .cand .say { float: right; background: none; padding: 0 4px; font-size: 15px; }
+  .sug-q { font-size: 12px; color: var(--faint); margin-bottom: 10px; display: none; }
+  .sug-q b { color: var(--sub); }
+
+  /* 하단 한국어 입력 */
+  .quickbar {
+    display: flex; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--border);
+  }
+  .quickbar input {
+    flex: 1; border: 1px solid var(--border); border-radius: 12px; padding: 10px 13px;
+    font-size: 14px; font-family: inherit; background: var(--bg); color: var(--text);
+  }
+  .quickbar input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+
+  .notice {
+    font-size: 11.5px; color: var(--faint); padding: 6px 20px 12px; text-align: center;
+  }
+  .notice b { color: var(--sub); }
+
+  @media (max-width: 860px) {
+    body { overflow: auto; }
+    main { grid-template-columns: 1fr; }
+    .pane { min-height: 320px; max-height: 60vh; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>🔴 라이브 면접 코파일럿 <a href="/interview.html">← 연습 모드</a></h1>
-  <label class="chk"><input type="checkbox" id="chk-tr" checked> 한국어 자막</label>
-  <select id="cefr">
+  <div class="brand"><span class="dot"></span>실시간 면접 코파일럿
+    <a href="/interview.html">연습 모드 →</a></div>
+  <div class="spacer"></div>
+  <span class="pill" id="status-pill">대기 중</span>
+  <select id="cefr" title="내 영어 레벨">
     <option value="A2">A2</option><option value="B1" selected>B1</option>
     <option value="B2">B2</option><option value="C1">C1</option>
   </select>
-  <button id="btn-summary">📌 요약</button>
+  <button id="btn-summary">요약</button>
   <button id="btn-listen" class="primary">🎧 듣기 시작</button>
 </header>
+
+<main>
+  <!-- 왼쪽: 실시간 자막 -->
+  <section class="pane">
+    <div class="pane-head">💬 실시간 자막
+      <span class="hint">영어 → 한국어 자동 번역</span></div>
+    <div class="pane-body" id="feed">
+      <div id="summary-out"></div>
+      <div class="empty" id="feed-empty">
+        <div class="big">🎧</div>
+        <b>듣기 시작</b>을 누르면 면접관의 영어가<br>
+        실시간 자막 + 한국어 번역으로 표시됩니다
+      </div>
+    </div>
+  </section>
+
+  <!-- 오른쪽: AI 답변 제안 -->
+  <section class="pane">
+    <div class="pane-head">✨ AI 답변 제안
+      <span class="hint">질문 감지 시 자동 생성</span></div>
+    <div class="pane-body" id="sug-body">
+      <div class="sug-q" id="sug-q"></div>
+      <div class="strategy" id="sug-strategy"></div>
+      <div id="sug-cands">
+        <div class="empty" id="sug-empty">
+          <div class="big">✨</div>
+          질문이 감지되면 바로 읽을 수 있는<br>
+          영어 답변 2개와 한국어 번역이 여기 표시됩니다
+        </div>
+      </div>
+    </div>
+    <div class="quickbar">
+      <input type="text" id="hint-in" placeholder="🇰🇷 하고 싶은 말을 한국어로 입력 → Enter">
+    </div>
+  </section>
+</main>
+
 <div class="notice">
-  화상 면접 창 옆에 이 창을 띄워두세요. 면접관 목소리가 <b>스피커로</b> 나와야 인식됩니다
-  (이어폰 사용 시 마이크가 면접관 소리를 못 들어요). 질문이 감지되면 자동으로 답변을 제안합니다.
+  화상 면접 창 옆에 이 창을 띄워두세요 · 면접관 목소리가 <b>스피커로</b> 나와야 인식됩니다 (이어폰 ✕) · <b>Chrome</b> 권장
 </div>
-<div id="summary-out"></div>
-<div id="feed"><div class="empty">🎧 듣기 시작을 누르면<br>면접관의 말이 여기에 실시간 자막으로 표시됩니다</div></div>
-<div id="panel">
-  <div class="label"><span>💡 제안 답변 — 그대로 읽으세요</span><span id="panel-close">닫기 ✕</span></div>
-  <div class="strategy" id="p-strategy"></div>
-  <div class="answer" id="p-answer"></div>
-</div>
-<footer>
-  <input type="text" id="hint-in" placeholder="🇰🇷 하고 싶은 말을 한국어로 → Enter (영어로 변환)">
-</footer>
 
 <script>
 const $ = (s) => document.querySelector(s);
 const feed = $('#feed');
-const log = [];                       // 전체 트랜스크립트 (요약용)
-let rec = null, finalBuf = '', interimEl = null;
-let suggestAbort = null;              // 답변 제안 중이면 AbortController
-const trQueue = [];                   // 자막 번역 대기열
+const log = [];
+let rec = null, interimEl = null;
+let suggestAbort = null;
+const trQueue = [];
 let translating = false;
 
 // ── 질문 감지 휴리스틱 (STT 결과엔 '?'가 없는 경우가 많아 패턴 매칭) ──
 const Q_STARTS = ['what','why','how','when','where','who','which','tell me','tell us',
   'describe','walk me','walk us','could you','can you','would you','do you','did you',
   'have you','are you','were you','is there','give me','give us','let\'s talk',
-  'talk me through','explain','share'];
+  'talk me through','explain','share','i\'d love to hear','i am curious','i\'m curious'];
 function isQuestion(text) {
   const t = text.trim().toLowerCase();
   if (!t) return false;
@@ -113,7 +223,7 @@ function isQuestion(text) {
   return Q_STARTS.some(s => t.startsWith(s)) && t.split(' ').length >= 3;
 }
 
-// ── NDJSON 스트림 공통 리더 ───────────────────────────────
+// ── NDJSON 스트림 공통 리더 ────────────────────────────────
 async function streamChat(url, payload, onToken, signal) {
   const res = await fetch(url, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -142,20 +252,21 @@ async function streamChat(url, payload, onToken, signal) {
   }
 }
 
-// ── 발화 카드 추가 ────────────────────────────────────────
+// ── 발화 카드 ──────────────────────────────────────────────
 function addUtterance(text) {
-  if ($('#feed .empty')) $('#feed .empty').remove();
+  $('#feed-empty')?.remove();
   const q = isQuestion(text);
   log.push(text);
   const div = document.createElement('div');
   div.className = 'utt' + (q ? ' q' : '');
-  div.innerHTML = `${q ? '<span class="tag">질문 감지</span>' : ''}` +
-    `<span class="ask">💡 답변</span><div class="en"></div><div class="kr"></div>`;
+  div.innerHTML = `<span class="ask">답변 제안</span>` +
+    (q ? `<div class="chip">질문 감지</div>` : '') +
+    `<div class="en"></div><div class="kr"></div>`;
   div.querySelector('.en').textContent = text;
   div.querySelector('.ask').addEventListener('click', () => suggest(text));
   feed.appendChild(div);
   feed.scrollTop = feed.scrollHeight;
-  if ($('#chk-tr').checked && text.split(' ').length >= 3) {
+  if (text.split(' ').length >= 3) {
     trQueue.push({ el: div.querySelector('.kr'), text });
     processTrQueue();
   }
@@ -171,45 +282,83 @@ async function processTrQueue() {
   try {
     await streamChat('/api/translate', { text: item.text },
       tk => { item.el.textContent += tk; });
-  } catch { item.el.textContent = ''; }
+  } catch { /* 자막 번역 실패는 조용히 넘어감 */ }
   finally { translating = false; processTrQueue(); }
 }
 
-// ── 💡 답변 제안 (스트리밍, 새 질문이 오면 이전 것 중단) ────
+// ── ✨ 답변 제안 — 스트리밍 파싱 (전략 / === EN/KR 블록 2개) ─
+function renderSuggestion(raw) {
+  const blocks = raw.split('===');
+  const strategy = (blocks[0] || '').replace(/^전략\s*[:：]\s*/, '').trim();
+  const st = $('#sug-strategy');
+  st.style.display = strategy ? 'block' : 'none';
+  st.textContent = strategy ? '💡 ' + strategy : '';
+
+  const box = $('#sug-cands');
+  box.innerHTML = '';
+  blocks.slice(1).forEach((b, i) => {
+    const enM = b.match(/EN\s*[:：]\s*([\s\S]*?)(?=\nKR\s*[:：]|$)/);
+    const krM = b.match(/KR\s*[:：]\s*([\s\S]*)/);
+    const en = (enM ? enM[1] : b).trim();
+    const kr = (krM ? krM[1] : '').trim();
+    if (!en) return;
+    const div = document.createElement('div');
+    div.className = 'cand';
+    div.innerHTML =
+      `<button class="say" title="들어보기">🔊</button>` +
+      `<div class="num"><span class="b">${i + 1}</span>${i === 0 ? '간결하게' : '강하게 (숫자 포함)'}</div>` +
+      `<div class="en"></div>` + (kr ? `<div class="kr"></div>` : '');
+    div.querySelector('.en').textContent = en;
+    if (kr) div.querySelector('.kr').textContent = kr;
+    div.querySelector('.say').addEventListener('click', () => speak(en));
+    box.appendChild(div);
+  });
+}
+
 async function suggest(question) {
   if (suggestAbort) suggestAbort.abort();
   suggestAbort = new AbortController();
-  const panel = $('#panel');
-  panel.style.display = 'block';
-  $('#p-strategy').textContent = '⏳ 생성 중...';
-  $('#p-answer').textContent = '';
+  $('#sug-empty')?.remove();
+  const sq = $('#sug-q');
+  sq.style.display = 'block';
+  sq.innerHTML = 'Q. <b></b>';
+  sq.querySelector('b').textContent = question;
+  $('#sug-strategy').style.display = 'block';
+  $('#sug-strategy').textContent = '⏳ 답변 생성 중...';
+  $('#sug-cands').innerHTML = '';
+  const context = log.slice(-7, -1).join('\n');   // 직전 대화 → 꼬리 질문도 맥락 반영
   let raw = '';
-  const context = log.slice(-7, -1).join('\n');   // 직전 대화 → 꼬리 질문도 맥락 있는 답변
   try {
     await streamChat('/api/live/suggest', { question, cefr: $('#cefr').value, context },
-      tk => {
-        raw += tk;
-        const [strategy, ...rest] = raw.split('---');
-        $('#p-strategy').textContent = strategy.trim();
-        $('#p-answer').textContent = rest.join('---').trim();
-        panel.scrollTop = panel.scrollHeight;
-      }, suggestAbort.signal);
+      tk => { raw += tk; renderSuggestion(raw); }, suggestAbort.signal);
   } catch (e) {
-    if (e.name !== 'AbortError') $('#p-strategy').textContent = '⚠️ ' + e.message;
+    if (e.name !== 'AbortError') {
+      $('#sug-strategy').style.display = 'block';
+      $('#sug-strategy').textContent = '⚠️ ' + e.message;
+    }
   } finally {
     suggestAbort = null;
     processTrQueue();
   }
 }
-$('#panel-close').addEventListener('click', () => { $('#panel').style.display = 'none'; });
 
-// ── 🎧 연속 음성 인식 ─────────────────────────────────────
+function speak(text) {
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US'; u.rate = 0.95;
+  const v = speechSynthesis.getVoices().find(v => v.lang.startsWith('en'));
+  if (v) u.voice = v;
+  speechSynthesis.speak(u);
+}
+
+// ── 🎧 연속 음성 인식 ──────────────────────────────────────
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 $('#btn-listen').addEventListener('click', () => {
-  const btn = $('#btn-listen');
+  const btn = $('#btn-listen'), pill = $('#status-pill');
   if (rec) {                          // 중지
     rec.onend = null; rec.stop(); rec = null;
     btn.textContent = '🎧 듣기 시작'; btn.classList.remove('listening'); btn.classList.add('primary');
+    pill.classList.remove('live'); pill.textContent = '대기 중';
     return;
   }
   if (!SR) { alert('이 브라우저는 음성 인식을 지원하지 않아요. Chrome을 사용하세요.'); return; }
@@ -224,9 +373,9 @@ $('#btn-listen').addEventListener('click', () => {
     }
     if (interim) {
       if (!interimEl) {
-        if ($('#feed .empty')) $('#feed .empty').remove();
+        $('#feed-empty')?.remove();
         interimEl = document.createElement('div');
-        interimEl.className = 'utt'; interimEl.style.opacity = '0.5';
+        interimEl.className = 'utt dim';
         feed.appendChild(interimEl);
       }
       interimEl.textContent = interim;
@@ -234,16 +383,18 @@ $('#btn-listen').addEventListener('click', () => {
     } else if (interimEl) { interimEl.remove(); interimEl = null; }
   };
   rec.onend = () => { if (rec) rec.start(); };   // 침묵으로 끊겨도 계속 듣기
-  rec.onerror = (e) => { if (e.error === 'not-allowed') { alert('마이크 권한을 허용해 주세요.'); } };
+  rec.onerror = (e) => { if (e.error === 'not-allowed') alert('마이크 권한을 허용해 주세요.'); };
   rec.start();
   btn.textContent = '⏹ 듣기 중지'; btn.classList.add('listening'); btn.classList.remove('primary');
+  pill.classList.add('live'); pill.textContent = '듣는 중';
 });
 
-// ── 📌 중간 요약 ──────────────────────────────────────────
+// ── 요약 (자막 패널 상단 배너) ─────────────────────────────
 $('#btn-summary').addEventListener('click', async () => {
   if (!log.length) return;
   const out = $('#summary-out');
   out.style.display = 'block'; out.textContent = '⏳ 요약 중...';
+  feed.scrollTop = 0;
   try {
     let first = true;
     await streamChat('/api/live/summary', { transcript: log.join('\n') },
@@ -251,25 +402,37 @@ $('#btn-summary').addEventListener('click', async () => {
   } catch (e) { out.textContent = '⚠️ ' + e.message; }
 });
 
-// ── 🇰🇷 한국어 → 영어 힌트 (제안 패널에 표시) ──────────────
+// ── 🇰🇷 한국어 → 영어 (답변 카드 형태로 표시) ───────────────
 $('#hint-in').addEventListener('keydown', async (e) => {
   if (e.key !== 'Enter') return;
   const text = e.target.value.trim();
   if (!text) return;
   e.target.value = '';
-  const panel = $('#panel');
-  panel.style.display = 'block';
-  $('#p-strategy').textContent = '🇰🇷 ' + text;
-  $('#p-answer').textContent = '';
+  $('#sug-empty')?.remove();
   if (suggestAbort) suggestAbort.abort();
   suggestAbort = new AbortController();
+  const sq = $('#sug-q');
+  sq.style.display = 'block';
+  sq.innerHTML = '🇰🇷 <b></b>';
+  sq.querySelector('b').textContent = text;
+  $('#sug-strategy').style.display = 'none';
+  const box = $('#sug-cands');
+  box.innerHTML = '<div class="cand"><div class="num"><span class="b">→</span>영어로</div><div class="en"></div></div>';
+  const enEl = box.querySelector('.en');
   try {
     await streamChat('/api/translate', { text },
-      tk => { $('#p-answer').textContent += tk; }, suggestAbort.signal);
+      tk => { enEl.textContent += tk; }, suggestAbort.signal);
+    const finalText = enEl.textContent;
+    const sayBtn = document.createElement('button');
+    sayBtn.className = 'say'; sayBtn.textContent = '🔊';
+    sayBtn.addEventListener('click', () => speak(finalText));
+    box.querySelector('.cand').prepend(sayBtn);
   } catch (err) {
-    if (err.name !== 'AbortError') $('#p-answer').textContent = '⚠️ ' + err.message;
+    if (err.name !== 'AbortError') enEl.textContent = '⚠️ ' + err.message;
   } finally { suggestAbort = null; processTrQueue(); }
 });
+
+speechSynthesis.getVoices();
 </script>
 </body>
 </html>

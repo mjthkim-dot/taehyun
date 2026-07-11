@@ -350,6 +350,7 @@ def build_live_suggest_prompt(question: str, cefr: str = "B1", context: str = ""
     )
     return f"""You are a real-time interview copilot for a Korean candidate who is IN A LIVE
 English video interview for an IT sales (cloud/SaaS) position RIGHT NOW.
+Speed matters — the candidate is waiting to speak.
 {context_block}
 The interviewer just asked:
 
@@ -362,15 +363,25 @@ round numbers for [placeholders], never contradict them):
 Useful phrases (reuse where natural):
 {phrase_lines}
 
-Respond in EXACTLY this format, nothing else:
+Give the candidate an ANSWER SET: 2 different spoken answers they can read aloud
+immediately, each followed by its natural Korean translation.
+
+Respond in EXACTLY this format (plain text, no markdown), nothing else:
 전략: <한국어로 답변 전략 한 줄 — 아주 짧게>
----
-<A natural spoken English answer the candidate can read aloud immediately.
-60-90 words, first person, confident tone, around CEFR {cefr} but natural.
-Sound like a native speaker in a US business setting: contractions, natural
-rhythm, a light discourse marker to open (e.g. "Well," / "That's a great
-question —" / "Sure,"), absolutely no textbook or translated-sounding phrasing.
-If it was a follow-up, connect to what was said before instead of repeating it.>"""
+===
+EN: <Answer option 1 — safe and concise, 30-50 words>
+KR: <위 답변의 자연스러운 한국어 번역>
+===
+EN: <Answer option 2 — stronger, with one concrete number or example, 60-80 words>
+KR: <위 답변의 자연스러운 한국어 번역>
+
+Rules for the EN answers:
+- First person, confident tone, around CEFR {cefr} but natural.
+- Sound like a native speaker in a US business setting: contractions, natural
+  rhythm, a light discourse marker to open (e.g. "Well," / "That's a great
+  question —" / "Sure,"), absolutely no textbook or translated-sounding phrasing.
+- The two options must take meaningfully different angles, not paraphrases.
+- If it was a follow-up, connect to what was said before instead of repeating it."""
 
 
 def build_live_summary_prompt(transcript: str) -> str:

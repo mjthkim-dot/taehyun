@@ -169,8 +169,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 req = json.loads(body or b"{}")
                 prompt = interview_pipeline.build_live_suggest_prompt(
                     req.get("question", ""), req.get("cefr", "B1"), req.get("context", ""))
+                # 답변 2개 + 한국어 번역 2개가 들어가므로 토큰을 넉넉히
                 _stream_llm_ndjson(self, [{"role": "user", "content": prompt}],
-                                  temperature=0.4, max_tokens=350, model=req.get("model"))
+                                  temperature=0.4, max_tokens=650, model=req.get("model"))
                 return
 
             if self.path == "/api/live/summary":
