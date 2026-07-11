@@ -37,17 +37,24 @@ echo "  ════════════════════════
 # ── 1. Python requests 확인/설치 ──────────────────
 if ! python3 -c "import requests" 2>/dev/null; then
   echo "  📦 requests 설치 중..."
-  pip3 install --quiet requests || { echo "  ❌ pip3 install requests 실패"; exit 1; }
+  # macOS 최신 Python(PEP 668)은 시스템 전역 설치를 막는 경우가 있어 폴백을 둔다.
+  pip3 install --quiet requests \
+    || pip3 install --quiet --break-system-packages requests \
+    || pip3 install --quiet --user requests \
+    || { echo "  ❌ pip3 install requests 실패 — 수동 설치: pip3 install --user requests"; exit 1; }
 fi
 
-# ── 2. cloudflared 확인/설치 ─────────────────────
+# ── 2. cloudflared 확인/설치 (모바일 접속용, 선택 사항) ──
+# 없어도 로컬(맥북) 사용에는 지장 없음 — 실패해도 서버는 계속 켠다.
+TUNNEL_AVAILABLE=1
 if ! command -v cloudflared &>/dev/null; then
-  echo "  📦 cloudflared 설치 중... (최초 1회)"
   if command -v brew &>/dev/null; then
-    brew install cloudflared || { echo "  ❌ cloudflared 설치 실패"; exit 1; }
+    echo "  📦 cloudflared 설치 중... (모바일 접속용, 최초 1회)"
+    brew install cloudflared || { echo "  ⚠️  cloudflared 설치 실패 — 모바일 터널 없이 로컬로만 실행합니다."; TUNNEL_AVAILABLE=0; }
   else
-    echo "  ❌ Homebrew가 없습니다. https://brew.sh 에서 설치 후 다시 실행하세요."
-    exit 1
+    echo "  ℹ️  Homebrew가 없어 모바일 터널은 건너뜁니다 (로컬 PC 사용에는 영향 없음)."
+    echo "     모바일 접속을 원하면 https://brew.sh 설치 후 재실행하세요."
+    TUNNEL_AVAILABLE=0
   fi
 fi
 
@@ -125,22 +132,25 @@ SERVER_PID=$!
 sleep 2
 
 if ! kill -0 "$SERVER_PID" 2>/dev/null; then
-  echo "  ❌ 서버 시작 실패"
+  echo "  ❌ 서버 시작 실패 — 아래 명령으로 직접 실행해 에러 메시지를 확인하세요:"
+  echo "     cd \"$DIR\" && python3 server.py"
   exit 1
 fi
 
-# ── 5. HTTPS 터널 생성 ───────────────────────────
-echo ""
-echo "  🌍 모바일용 HTTPS 터널 생성 중... (몇 초 걸립니다)"
-cloudflared tunnel --url "http://localhost:${PORT}" >"$TUNNEL_LOG" 2>&1 &
-TUNNEL_PID=$!
-
+# ── 5. HTTPS 터널 생성 (cloudflared 있을 때만) ───
 URL=""
-for i in $(seq 1 30); do
-  URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' "$TUNNEL_LOG" | head -1)
-  [ -n "$URL" ] && break
-  sleep 1
-done
+if [ "$TUNNEL_AVAILABLE" = "1" ]; then
+  echo ""
+  echo "  🌍 모바일용 HTTPS 터널 생성 중... (몇 초 걸립니다)"
+  cloudflared tunnel --url "http://localhost:${PORT}" >"$TUNNEL_LOG" 2>&1 &
+  TUNNEL_PID=$!
+
+  for i in $(seq 1 30); do
+    URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' "$TUNNEL_LOG" | head -1)
+    [ -n "$URL" ] && break
+    sleep 1
+  done
+fi
 
 # ── 6. 접속 주소 안내 ────────────────────────────
 echo ""
@@ -155,7 +165,7 @@ if [ -n "$URL" ]; then
   echo ""
   echo "     ↑ 이 주소를 휴대폰 브라우저에 입력하세요."
   echo "       (https라서 🎙️ 마이크도 동작합니다)"
-else
+elif [ "$TUNNEL_AVAILABLE" = "1" ]; then
   echo "  ⚠️  터널 주소를 가져오지 못했습니다. 로그: $TUNNEL_LOG"
 fi
 echo ""
