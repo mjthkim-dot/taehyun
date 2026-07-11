@@ -26,6 +26,7 @@ except ImportError:
 sys.path.insert(0, str(Path(__file__).parent / "backend"))
 import rag_pipeline  # noqa: E402 (의존성 0 — stdlib만 사용, KR↔EN RAG 답변셋 + 번역 프롬프트)
 import interview_pipeline  # noqa: E402 (의존성 0 — 영어 면접 질문/답변/피드백 파이프라인)
+import llm  # noqa: E402 (GROQ_API_KEY 있으면 Groq 초고속, 없으면 로컬 Ollama)
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 PORT = int(os.environ.get("PORT", "3777"))
@@ -328,18 +329,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
-    def _stream_ollama_chat(self, payload):
-        """Ollama /api/chat 스트리밍 응답을 그대로 프록시 (NDJSON)."""
-        resp = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, stream=True,
-                             timeout=(10, 300))
-        self.send_response(resp.status_code)
+    def _stream_llm(self, messages, temperature=0.4, max_tokens=400, model=None):
+        """llm 모듈(Groq 또는 Ollama)의 토큰 스트림을 NDJSON으로 프록시.
+        첫 청크를 먼저 당겨서(next) 연결 실패가 503으로 처리될 수 있게 한다."""
+        it = llm.stream_ndjson(messages, temperature, max_tokens, model)
+        first = next(it, None)
+        self.send_response(200)
         self.send_header("Content-Type", "application/x-ndjson")
         self._cors()
         self.end_headers()
-        for chunk in resp.iter_content(chunk_size=None):
-            if chunk:
-                self.wfile.write(chunk)
-                self.wfile.flush()
+        if first:
+            self.wfile.write(first)
+            self.wfile.flush()
+        for chunk in it:
+            self.wfile.write(chunk)
+            self.wfile.flush()
 
     # ── Proxy /api/chat → Ollama (streaming) + /api/caf ───
     def do_POST(self):
@@ -435,20 +439,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._send_json(500, {"error": str(e)})
             return
 
-        # 🆕 실시간 KR↔EN 번역 (NDJSON 스트리밍, /api/chat과 동일한 프록시 방식)
+        # 🆕 실시간 KR↔EN 번역 (NDJSON 스트리밍 — Groq 키 있으면 Groq, 없으면 Ollama)
         if self.path == "/api/translate":
             try:
                 req = json.loads(body or b"{}")
-                self._stream_ollama_chat({
-                    "model": req.get("model") or CAF_MODEL,
-                    "messages": [
-                        {"role": "system", "content": rag_pipeline.TRANSLATE_SYSTEM_PROMPT},
-                        {"role": "user", "content": req.get("text", "")},
-                    ],
-                    "stream": True,
-                })
-            except requests.exceptions.ConnectionError:
-                self._send_json(503, {"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."})
+                self._stream_llm([
+                    {"role": "system", "content": rag_pipeline.TRANSLATE_SYSTEM_PROMPT},
+                    {"role": "user", "content": req.get("text", "")},
+                ], temperature=0.3, max_tokens=300, model=req.get("model"))
+            except urllib.error.HTTPError as e:
+                self._send_json(e.code, {"error": f"LLM API 오류 ({e.code}) — API 키/요청 한도를 확인하세요."})
+            except (urllib.error.URLError, requests.exceptions.ConnectionError):
+                self._send_json(503, {"error": "LLM에 연결할 수 없습니다. (Groq: 인터넷 / Ollama: 실행 여부 확인)"})
             except Exception as e:  # noqa: BLE001
                 self._send_json(500, {"error": str(e)})
             return
@@ -458,15 +460,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             try:
                 req = json.loads(body or b"{}")
                 prompt = interview_pipeline.build_live_suggest_prompt(
-                    req.get("question", ""), req.get("cefr", "B1"))
-                self._stream_ollama_chat({
-                    "model": req.get("model") or CAF_MODEL,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": True, "keep_alive": "30m",
-                    "options": {"temperature": 0.4, "num_predict": 350},
-                })
-            except (requests.exceptions.ConnectionError, urllib.error.URLError):
-                self._send_json(503, {"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."})
+                    req.get("question", ""), req.get("cefr", "B1"),
+                    req.get("context", ""))
+                self._stream_llm([{"role": "user", "content": prompt}],
+                                 temperature=0.4, max_tokens=350, model=req.get("model"))
+            except urllib.error.HTTPError as e:
+                self._send_json(e.code, {"error": f"LLM API 오류 ({e.code}) — API 키/요청 한도를 확인하세요."})
+            except (urllib.error.URLError, requests.exceptions.ConnectionError):
+                self._send_json(503, {"error": "LLM에 연결할 수 없습니다. (Groq: 인터넷 / Ollama: 실행 여부 확인)"})
             except Exception as e:  # noqa: BLE001
                 self._send_json(500, {"error": str(e)})
             return
@@ -476,14 +477,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             try:
                 req = json.loads(body or b"{}")
                 prompt = interview_pipeline.build_live_summary_prompt(req.get("transcript", ""))
-                self._stream_ollama_chat({
-                    "model": req.get("model") or CAF_MODEL,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": True, "keep_alive": "30m",
-                    "options": {"temperature": 0.3, "num_predict": 400},
-                })
-            except requests.exceptions.ConnectionError:
-                self._send_json(503, {"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."})
+                self._stream_llm([{"role": "user", "content": prompt}],
+                                 temperature=0.3, max_tokens=400, model=req.get("model"))
+            except urllib.error.HTTPError as e:
+                self._send_json(e.code, {"error": f"LLM API 오류 ({e.code}) — API 키/요청 한도를 확인하세요."})
+            except (urllib.error.URLError, requests.exceptions.ConnectionError):
+                self._send_json(503, {"error": "LLM에 연결할 수 없습니다. (Groq: 인터넷 / Ollama: 실행 여부 확인)"})
             except Exception as e:  # noqa: BLE001
                 self._send_json(500, {"error": str(e)})
             return

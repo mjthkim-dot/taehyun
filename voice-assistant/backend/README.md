@@ -84,6 +84,30 @@ Zoom/Meet 옆에 띄워두는 실시간 비서 (Smooth AI 방식):
 **모델 자동 선택**: `start.sh`가 RAM을 감지해 16GB 맥북이면 `gemma3:12b`를 기본으로
 사용한다 (27b는 16GB에서 스왑 발생). `CAF_MODEL=gemma3:27b bash start.sh`로 강제 가능.
 
+### ⚡ Groq 모드 — 실시간 품질 (권장: 라이브 모드)
+
+`GROQ_API_KEY`만 설정하면 답변 생성·번역이 Groq(`llama-3.3-70b-versatile`,
+초당 수백 토큰)로 전환된다 — 라이브 답변이 15~30초 → **1~2초**로 단축되고
+영어 품질도 로컬 12b보다 좋다. 코드는 `backend/llm.py`가 프로바이더를 추상화하며,
+어느 쪽이든 프런트엔드가 받는 스트림 형식은 동일하다.
+
+```bash
+export GROQ_API_KEY=gsk_...        # ~/.zshrc에 넣어두면 편함
+bash voice-assistant/start.sh      # "⚡ Groq 모드 활성" 출력 확인
+# 모델 변경: export GROQ_MODEL=llama-3.3-70b-versatile (기본값)
+```
+
+| | 로컬 (기본) | Groq (`GROQ_API_KEY` 설정 시) |
+|---|---|---|
+| 라이브 답변 지연 | 15~30초 (gemma3:12b) | **1~2초** |
+| 영어 품질 | 중상 | 상 (70B급) |
+| 프라이버시 | 완전 로컬 | 대화·프로필이 Groq 서버로 전송됨 |
+| 인터넷 | 불필요 | 필요 |
+
+임베딩(`nomic-embed-text`)과 CAF 분석은 Groq 모드에서도 로컬 Ollama를 쓴다
+(Groq는 임베딩 API가 없음). Ollama가 꺼져 있으면 검색 없이 프로필 전체를
+근거로 사용해 답변은 계속 나온다(graceful fallback).
+
 ```bash
 # 맥북 최초 설정 (합계 약 8.5GB 다운로드)
 ollama pull gemma3:12b

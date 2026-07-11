@@ -184,8 +184,9 @@ async function suggest(question) {
   $('#p-strategy').textContent = '⏳ 생성 중...';
   $('#p-answer').textContent = '';
   let raw = '';
+  const context = log.slice(-7, -1).join('\n');   // 직전 대화 → 꼬리 질문도 맥락 있는 답변
   try {
-    await streamChat('/api/live/suggest', { question, cefr: $('#cefr').value },
+    await streamChat('/api/live/suggest', { question, cefr: $('#cefr').value, context },
       tk => {
         raw += tk;
         const [strategy, ...rest] = raw.split('---');

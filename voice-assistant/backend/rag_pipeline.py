@@ -218,20 +218,15 @@ def generate_answer_set(
     category: str | None = None,
     model: str | None = None,
 ) -> dict[str, Any]:
+    import llm  # 지연 import (순환 없음 — llm은 stdlib만 의존)
+
     situation_ko = (situation_ko or "").strip()
     references = index.retrieve(situation_ko, k=k, category=category)
     prompt = build_answer_set_prompt(situation_ko, cefr, references)
-    data = _post_json(
-        "/api/chat",
-        {
-            "model": model or ANSWER_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-            "stream": False, "format": "json", "keep_alive": "30m",
-            "options": {"temperature": 0.5, "num_predict": 700},
-        },
-        timeout=180,
-    )
-    content = json.loads(data["message"]["content"])
+    content = json.loads(llm.chat_once(
+        [{"role": "user", "content": prompt}],
+        json_mode=True, temperature=0.5, max_tokens=700, model=model,
+    ))
     answers = (content.get("answers") or [])[:3]
     return {"situation_ko": situation_ko, "cefr": cefr, "references": references, "answers": answers}
 

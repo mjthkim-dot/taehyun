@@ -80,6 +80,15 @@ if [ -z "${CAF_MODEL:-}" ]; then
   echo "  🧠 RAM ${MEM_GB}GB 감지 → 모델 ${CAF_MODEL} 사용 (변경: CAF_MODEL=모델명 bash start.sh)"
 fi
 
+# ── 3-1a. Groq 모드 안내 ─────────────────────────
+# GROQ_API_KEY가 설정돼 있으면 답변 생성/번역이 Groq(초당 수백 토큰)로 동작한다.
+# 임베딩(nomic-embed-text)과 CAF 분석은 여전히 로컬 Ollama 사용.
+if [ -n "${GROQ_API_KEY:-}" ]; then
+  echo "  ⚡ Groq 모드 활성 — 답변/번역: ${GROQ_MODEL:-llama-3.3-70b-versatile} (임베딩·CAF는 로컬 Ollama)"
+else
+  echo "  🔒 로컬 모드 — 전 기능 오프라인 (빠른 답변 원하면: export GROQ_API_KEY=... 후 재실행)"
+fi
+
 if command -v ollama &>/dev/null; then
   if ! ollama list 2>/dev/null | grep -q "$CAF_MODEL"; then
     echo ""

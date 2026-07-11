@@ -34,8 +34,9 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 import interview_pipeline
+import llm
 from caf_pipeline import analyze_caf
-from rag_pipeline import ANSWER_MODEL, TRANSLATE_SYSTEM_PROMPT, generate_answer_set
+from rag_pipeline import TRANSLATE_SYSTEM_PROMPT, generate_answer_set
 from rag_pipeline import index as rag_index
 from storage import store
 
@@ -166,29 +167,27 @@ class TranslateRequest(BaseModel):
     model: str | None = None
 
 
-@app.post("/api/translate")
-async def translate(req: TranslateRequest):
-    body = json.dumps({
-        "model": req.model or ANSWER_MODEL,
-        "messages": [
-            {"role": "system", "content": TRANSLATE_SYSTEM_PROMPT},
-            {"role": "user", "content": req.text},
-        ],
-        "stream": True,
-    }).encode()
-
-    async def stream():
+def _stream_llm_response(messages: list[dict], temperature: float, max_tokens: int,
+                         model: str | None = None) -> StreamingResponse:
+    """llm 모듈(Groq/Ollama)의 동기 제너레이터를 StreamingResponse로 —
+    Starlette이 스레드풀에서 돌리므로 이벤트루프를 막지 않는다."""
+    def gen():
         try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0)) as c:
-                async with c.stream("POST", f"{OLLAMA_URL}/api/chat", content=body,
-                                    headers={"Content-Type": "application/json"}) as r:
-                    async for chunk in r.aiter_bytes():
-                        if chunk:
-                            yield chunk
-        except httpx.ConnectError:
-            yield json.dumps({"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."}).encode() + b"\n"
+            yield from llm.stream_ndjson(messages, temperature, max_tokens, model)
+        except urllib.error.HTTPError as e:
+            yield json.dumps({"error": f"LLM API 오류 ({e.code}) — API 키/요청 한도를 확인하세요."}).encode() + b"\n"
+        except urllib.error.URLError:
+            yield json.dumps({"error": "LLM에 연결할 수 없습니다. (Groq: 인터넷 / Ollama: 실행 여부 확인)"}).encode() + b"\n"
 
-    return StreamingResponse(stream(), media_type="application/x-ndjson")
+    return StreamingResponse(gen(), media_type="application/x-ndjson")
+
+
+@app.post("/api/translate")
+def translate(req: TranslateRequest):
+    return _stream_llm_response([
+        {"role": "system", "content": TRANSLATE_SYSTEM_PROMPT},
+        {"role": "user", "content": req.text},
+    ], temperature=0.3, max_tokens=300, model=req.model)
 
 
 # ── 🆕 /api/answer-set — RAG 기반 영어 답변셋 생성 ─────────────
@@ -278,43 +277,18 @@ def interview_feedback(req: InterviewFeedbackRequest):
 
 
 # ── 🔴 라이브 모드 — 실전 면접 중 답변 제안 / 중간 요약 (스트리밍) ──
-def _stream_ollama(payload: dict):
-    body = json.dumps(payload).encode()
-
-    async def stream():
-        try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0)) as c:
-                async with c.stream("POST", f"{OLLAMA_URL}/api/chat", content=body,
-                                    headers={"Content-Type": "application/json"}) as r:
-                    async for chunk in r.aiter_bytes():
-                        if chunk:
-                            yield chunk
-        except httpx.ConnectError:
-            yield json.dumps({"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."}).encode() + b"\n"
-
-    return StreamingResponse(stream(), media_type="application/x-ndjson")
-
-
 class LiveSuggestRequest(BaseModel):
     question: str
     cefr: str = "B1"
+    context: str = ""
     model: str | None = None
 
 
 @app.post("/api/live/suggest")
 def live_suggest(req: LiveSuggestRequest):
-    # 프롬프트 빌드(임베딩 검색)는 urllib을 쓰므로 URLError를 여기서 잡는다
-    try:
-        prompt = interview_pipeline.build_live_suggest_prompt(req.question, req.cefr)
-    except urllib.error.URLError:
-        return JSONResponse(status_code=503,
-                            content={"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."})
-    return _stream_ollama({
-        "model": req.model or ANSWER_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "stream": True, "keep_alive": "30m",
-        "options": {"temperature": 0.4, "num_predict": 350},
-    })
+    prompt = interview_pipeline.build_live_suggest_prompt(req.question, req.cefr, req.context)
+    return _stream_llm_response([{"role": "user", "content": prompt}],
+                                temperature=0.4, max_tokens=350, model=req.model)
 
 
 class LiveSummaryRequest(BaseModel):
@@ -325,12 +299,8 @@ class LiveSummaryRequest(BaseModel):
 @app.post("/api/live/summary")
 def live_summary(req: LiveSummaryRequest):
     prompt = interview_pipeline.build_live_summary_prompt(req.transcript)
-    return _stream_ollama({
-        "model": req.model or ANSWER_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "stream": True, "keep_alive": "30m",
-        "options": {"temperature": 0.3, "num_predict": 400},
-    })
+    return _stream_llm_response([{"role": "user", "content": prompt}],
+                                temperature=0.3, max_tokens=400, model=req.model)
 
 
 # ── 🆕 /api/rag/status — RAG 인덱스 상태 (코퍼스 크기/임베딩 모델) ─

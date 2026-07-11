@@ -21,8 +21,9 @@ import random
 from pathlib import Path
 from typing import Any
 
+import llm
 from caf_pipeline import deterministic_metrics
-from rag_pipeline import ANSWER_MODEL, EMBED_MODEL, _cosine, _post_json, embed
+from rag_pipeline import EMBED_MODEL, _cosine, embed
 
 DATA_DIR = Path(__file__).parent / "data"
 BANK_PATH = DATA_DIR / "interview_bank.json"
@@ -170,11 +171,21 @@ class InterviewIndex:
             "profile_exists": PROFILE_PATH.exists(),
             "index_built": INDEX_PATH.exists(),
             "embed_model": EMBED_MODEL,
-            "answer_model": ANSWER_MODEL,
+            "provider": llm.provider(),
+            "answer_model": llm.model_name(),
         }
 
 
 index = InterviewIndex()
+
+
+def _safe_retrieve(query: str, k_phrases: int = 6, k_profile: int = 4) -> dict[str, list[dict]]:
+    """임베딩(로컬 Ollama)이 죽어 있어도 답변은 나가야 한다 —
+    검색 실패 시 프로필 전체를 그대로 근거로 사용(작아서 프롬프트에 다 들어감)."""
+    try:
+        return index.retrieve(query, k_phrases, k_profile)
+    except Exception:  # noqa: BLE001
+        return {"phrases": [], "profile": [{"text": c, "score": 0.0} for c in _profile_chunks()[:14]]}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -222,6 +233,9 @@ Return ONLY valid JSON (no markdown) with this exact shape:
 
 Rules:
 - First person, natural spoken English with contractions (I'm, I've, that's).
+- Sound like a native speaker in a US business setting: natural rhythm, light
+  discourse markers (Well / Actually / To be honest), no textbook or
+  translated-sounding phrasing.
 - No bullet points inside "en" — it must flow as speech.
 - key_expressions: 2-3 phrases per answer, taken FROM that answer.
 - All three answers must tell a consistent story (same numbers, same facts)."""
@@ -229,24 +243,18 @@ Rules:
 
 def generate_answers(question: str, cefr: str = "B1", model: str | None = None) -> dict[str, Any]:
     question = (question or "").strip()
-    refs = index.retrieve(question)
-    data = _post_json(
-        "/api/chat",
-        {
-            "model": model or ANSWER_MODEL,
-            "messages": [{"role": "user", "content": _answers_prompt(question, cefr, refs)}],
-            "stream": False, "format": "json", "keep_alive": "30m",
-            "options": {"temperature": 0.5, "num_predict": 1600},
-        },
-        timeout=300,
-    )
-    content = json.loads(data["message"]["content"])
+    refs = _safe_retrieve(question)
+    content = json.loads(llm.chat_once(
+        [{"role": "user", "content": _answers_prompt(question, cefr, refs)}],
+        json_mode=True, temperature=0.5, max_tokens=1600, model=model,
+    ))
     return {
         "question": question,
         "cefr": cefr,
         "answers": (content.get("answers") or [])[:3],
         "profile_refs": refs["profile"],
         "phrase_refs": refs["phrases"],
+        "provider": llm.provider(),
     }
 
 
@@ -302,17 +310,10 @@ def feedback(question: str, transcript: str, cefr: str = "B1",
             "good_points_ko": [], "improvements": [], "metrics": metrics,
             "summary_ko": "답변이 너무 짧아요. 최소 3~4문장으로 다시 말해 보세요!",
         }
-    data = _post_json(
-        "/api/chat",
-        {
-            "model": model or ANSWER_MODEL,
-            "messages": [{"role": "user", "content": _feedback_prompt(question, transcript, cefr, metrics)}],
-            "stream": False, "format": "json", "keep_alive": "30m",
-            "options": {"temperature": 0.3, "num_predict": 800},
-        },
-        timeout=300,
-    )
-    content = json.loads(data["message"]["content"])
+    content = json.loads(llm.chat_once(
+        [{"role": "user", "content": _feedback_prompt(question, transcript, cefr, metrics)}],
+        json_mode=True, temperature=0.3, max_tokens=800, model=model,
+    ))
     try:
         score = max(0.0, min(10.0, float(content.get("score", 0))))
     except (TypeError, ValueError):
@@ -336,13 +337,20 @@ def feedback(question: str, transcript: str, cefr: str = "B1",
 #  🔴 라이브 모드 — 실전 화상 면접 중 실시간 답변 제안 / 세션 요약
 #  (스트리밍 출력용 프롬프트만 만들고, 실제 스트리밍은 서버가 프록시)
 # ─────────────────────────────────────────────────────────────
-def build_live_suggest_prompt(question: str, cefr: str = "B1") -> str:
-    """면접관 질문 → 즉시 읽을 수 있는 짧은 답변. 저지연을 위해 답변 1개만."""
-    refs = index.retrieve(question, k_phrases=4, k_profile=4)
+def build_live_suggest_prompt(question: str, cefr: str = "B1", context: str = "") -> str:
+    """면접관 질문 → 즉시 읽을 수 있는 짧은 답변. 저지연을 위해 답변 1개만.
+    context: 직전 대화(자막 로그) — 꼬리 질문(follow-up)에 맥락 있는 답변을 위해."""
+    refs = _safe_retrieve(question, k_phrases=4, k_profile=4)
     profile_lines = "\n".join(f"- {r['text']}" for r in refs["profile"]) or "- (none)"
     phrase_lines = "\n".join(f'- "{r["en"]}"' for r in refs["phrases"] if r.get("en")) or "- (none)"
+    context_block = (
+        "\nRecent conversation transcript (interviewer and candidate mixed; use it to"
+        f" resolve what a follow-up question refers to):\n\"\"\"{context}\"\"\"\n"
+        if context.strip() else ""
+    )
     return f"""You are a real-time interview copilot for a Korean candidate who is IN A LIVE
 English video interview for an IT sales (cloud/SaaS) position RIGHT NOW.
+{context_block}
 The interviewer just asked:
 
 "{question}"
@@ -358,7 +366,11 @@ Respond in EXACTLY this format, nothing else:
 전략: <한국어로 답변 전략 한 줄 — 아주 짧게>
 ---
 <A natural spoken English answer the candidate can read aloud immediately.
-60-90 words, first person, contractions, CEFR {cefr} level, confident tone.>"""
+60-90 words, first person, confident tone, around CEFR {cefr} but natural.
+Sound like a native speaker in a US business setting: contractions, natural
+rhythm, a light discourse marker to open (e.g. "Well," / "That's a great
+question —" / "Sure,"), absolutely no textbook or translated-sounding phrasing.
+If it was a follow-up, connect to what was said before instead of repeating it.>"""
 
 
 def build_live_summary_prompt(transcript: str) -> str:
