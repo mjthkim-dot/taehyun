@@ -1,2 +1,5 @@
 __pycache__/
 *.pyc
+
+# 사전 생성된 맞춤 답변셋 — 개인 데이터이므로 커밋하지 않음 ("맞춤 답변셋 생성"으로 재생성)
+backend/data/my_answers.json

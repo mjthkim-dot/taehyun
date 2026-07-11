@@ -102,7 +102,9 @@
     <div class="btnrow">
       <button id="btn-question">▶ 질문 받기</button>
       <button id="btn-speak" class="secondary" disabled>🔊 질문 듣기</button>
+      <button id="btn-prep" class="secondary" title="내 프로필+스토리 기반으로 전체 질문의 답변을 미리 생성 — 라이브 모드에서 즉시 표시됩니다">⚡ 맞춤 답변셋 생성</button>
     </div>
+    <div class="status" id="prep-status"></div>
     <div id="question-box" style="margin-top:14px; display:none;">
       <span class="badge" id="q-cat"></span><span class="badge" id="q-diff"></span>
       <div class="q-en" id="q-en"></div>
@@ -205,6 +207,42 @@ function speak(text) {
   speechSynthesis.speak(u);
 }
 $('#btn-speak').addEventListener('click', () => state.question && speak(state.question.en));
+
+// ── ⚡ 맞춤 답변셋 사전 생성 (내 프로필 + my_story.md 기반) ──
+let prepPoll = null;
+async function refreshPrepStatus() {
+  try {
+    const s = await (await fetch('/api/prep/status')).json();
+    const el = $('#prep-status');
+    if (s.running) {
+      el.textContent = `⚡ 생성 중... ${s.done}/${s.total} — ${s.current || ''}`;
+    } else {
+      clearInterval(prepPoll); prepPoll = null;
+      $('#btn-prep').disabled = false;
+      el.textContent = s.error ? `⚠️ 중단됨 (${s.done}/${s.total} 저장됨): ${s.error}`
+        : (s.count ? `✅ 맞춤 답변 ${s.count}개 준비됨 — 라이브 모드에서 즉시 표시됩니다` : '');
+    }
+  } catch { /* 서버 재시작 등은 무시 */ }
+}
+$('#btn-prep').addEventListener('click', async () => {
+  if (!confirm('내 프로필과 스토리(my_story.md)를 바탕으로 전체 질문의 답변을 미리 생성합니다.\n약 1분 정도 걸립니다. 시작할까요?')) return;
+  $('#btn-prep').disabled = true;
+  try {
+    const r = await fetch('/api/prep/build', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    if (!r.ok && r.status !== 409) {
+      const d = await r.json().catch(() => ({}));
+      $('#prep-status').textContent = '⚠️ ' + (d.error || r.status);
+      $('#btn-prep').disabled = false;
+      return;
+    }
+    prepPoll = setInterval(refreshPrepStatus, 1500);
+    refreshPrepStatus();
+  } catch (e) {
+    $('#prep-status').textContent = '⚠️ ' + e.message;
+    $('#btn-prep').disabled = false;
+  }
+});
+refreshPrepStatus();   // 페이지 로드 시 기존 답변셋 유무 표시
 $('#btn-ans-speak').addEventListener('click', () => {
   const a = state.answers?.answers?.[state.ansIdx];
   if (a) speak(a.en);

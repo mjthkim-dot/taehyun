@@ -182,6 +182,11 @@
     <button class="tab" data-v="translate">번역</button>
   </div>
   <div class="spacer"></div>
+  <select id="sens" title="마이크/탭 음성 감지 민감도">
+    <option value="high">민감도 높음</option>
+    <option value="mid" selected>민감도 보통</option>
+    <option value="low">민감도 낮음</option>
+  </select>
   <select id="cefr" title="내 영어 레벨">
     <option value="A2">A2</option><option value="B1" selected>B1</option>
     <option value="B2">B2</option><option value="C1">C1</option>
@@ -355,43 +360,67 @@ async function updateLineSummary() {
   finally { lineSumBusy = false; }
 }
 
-// ── ✦ 답변 카드 — 스트리밍 파싱 (요지/전략/===EN/KR×2) ─────
+// ── ✦ 답변 카드 렌더링 ─────────────────────────────────────
 let pinned = false;
-function renderCard(raw) {
-  const blocks = raw.split('===');
-  const head = blocks[0] || '';
-  const gist = (head.match(/요지\s*[:：]\s*(.*)/) || [])[1]?.trim() || '';
-  const strat = (head.match(/전략\s*[:：]\s*([\s\S]*)/) || [])[1]?.replace(/요지\s*[:：].*/, '').trim() || '';
-  if (gist) $('#c-gist').textContent = gist;
-  $('#c-strat-row').style.display = strat ? 'flex' : 'none';
-  $('#c-strat').textContent = strat;
 
+function answerRow(en, kr, label) {
+  const row = document.createElement('div');
+  row.className = 'lrow';
+  row.innerHTML = `<span class="lab an">${label || '답변'}</span>
+    <div class="body"><div class="en"></div><div class="kr"></div></div>
+    <button class="say">🔊</button>`;
+  row.querySelector('.en').textContent = en;
+  row.querySelector('.kr').textContent = kr || '';
+  row.querySelector('.say').addEventListener('click', () => speak(en));
+  return row;
+}
+
+// 스트리밍 파싱 — 새 형식: EN/KR 블록들 먼저, META(요지|전략)는 맨 뒤
+function renderCard(raw) {
   const box = $('#c-answers');
   box.innerHTML = '';
-  blocks.slice(1).forEach((b) => {
-    const en = ((b.match(/EN\s*[:：]\s*([\s\S]*?)(?=\nKR\s*[:：]|$)/) || [])[1] || b).trim();
+  for (const b of raw.split('===')) {
+    if (/META|요지\s*=/.test(b)) {
+      const gist = (b.match(/요지\s*=\s*([^|]+)/) || [])[1]?.trim();
+      const strat = (b.match(/전략\s*=\s*(.+)/) || [])[1]?.trim();
+      if (gist) $('#c-gist').textContent = gist;
+      $('#c-strat-row').style.display = strat ? 'flex' : 'none';
+      if (strat) $('#c-strat').textContent = strat;
+      continue;
+    }
+    const en = ((b.match(/EN\s*[:：]\s*([\s\S]*?)(?=\nKR\s*[:：]|$)/) || [])[1] || '').trim();
     const kr = ((b.match(/KR\s*[:：]\s*([\s\S]*)/) || [])[1] || '').trim();
-    if (!en) return;
-    const row = document.createElement('div');
-    row.className = 'lrow';
-    row.innerHTML = `<span class="lab an">답변</span>
-      <div class="body"><div class="en"></div><div class="kr"></div></div>
-      <button class="say">🔊</button>`;
-    row.querySelector('.en').textContent = en;
-    row.querySelector('.kr').textContent = kr;
-    row.querySelector('.say').addEventListener('click', () => speak(en));
-    box.appendChild(row);
-  });
+    if (en) box.appendChild(answerRow(en, kr));
+  }
+}
+
+// ⚡ 미리 생성된 맞춤 답변 즉시 렌더링 (0초)
+function renderCardData(entry) {
+  $('#c-gist').textContent = '⚡ ' + (entry.gist_ko || entry.question_kr || '');
+  $('#c-strat-row').style.display = entry.strategy_ko ? 'flex' : 'none';
+  $('#c-strat').textContent = entry.strategy_ko || '';
+  const box = $('#c-answers');
+  box.innerHTML = '';
+  (entry.answers || []).forEach(a => box.appendChild(answerRow(a.en, a.kr)));
 }
 
 async function suggest(target, intent) {
   if (suggestAbort) suggestAbort.abort();
-  suggestAbort = new AbortController();
   const card = $('#card');
   card.style.display = 'block';
-  $('#c-gist').textContent = '생성 중...';
+  // 1) 미리 준비된 맞춤 답변과 매칭되면 생성 없이 즉시 표시
+  if (intent === 'answer') {
+    try {
+      const r = await fetch('/api/live/cached?q=' + encodeURIComponent(target));
+      const d = await r.json();
+      if (d.hit) { renderCardData(d.entry); processTrQueue(); return; }
+    } catch { /* 캐시 실패는 무시하고 생성으로 */ }
+  }
+  // 2) 캐시 미스 → 실시간 생성 (답변이 먼저 스트리밍됨)
+  suggestAbort = new AbortController();
+  $('#c-gist').textContent = target.length > 60 ? target.slice(0, 60) + '…' : target;
   $('#c-strat-row').style.display = 'none';
-  $('#c-answers').innerHTML = '';
+  $('#c-answers').innerHTML = '<div class="lrow"><span class="lab an">답변</span><div class="body"><div class="en">⏳ 생성 중...</div></div></div>';
   const context = log.slice(-7).map(l => `${l.who === '나' ? 'Candidate' : 'Interviewer'}: ${l.text}`).join('\n');
   let raw = '';
   try {
@@ -441,6 +470,14 @@ function sttPending(delta) {
   $('#stt-ind').style.display = pendingStt > 0 ? 'inline' : 'none';
 }
 
+// 민감도 프리셋 — 적응형 노이즈 플로어에 곱하는 배수 + 최소 임계값
+const SENS = {
+  high: { mult: 1.9, min: 0.005 },
+  mid:  { mult: 2.6, min: 0.009 },
+  low:  { mult: 3.4, min: 0.014 },
+};
+const sensCfg = () => SENS[$('#sens').value] || SENS.mid;
+
 class SegmentRecorder {
   constructor(stream, who) {
     this.stream = stream; this.who = who;
@@ -449,7 +486,8 @@ class SegmentRecorder {
     this.analyser.fftSize = 2048;
     this.src.connect(this.analyser);
     this.buf = new Uint8Array(this.analyser.fftSize);
-    this.hadSpeech = false; this.silenceMs = 0; this.segMs = 0;
+    this.noise = 0.006;             // 적응형 노이즈 플로어 (조용할 때 학습)
+    this.hadSpeech = false; this.speechMs = 0; this.silenceMs = 0; this.segMs = 0;
     this.mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
     this._arm();
     this.timer = setInterval(() => this._tick(), 100);
@@ -460,9 +498,10 @@ class SegmentRecorder {
     this.recorder.ondataavailable = (e) => { if (e.data.size) this.chunks.push(e.data); };
     this.recorder.onstop = () => {
       const blob = new Blob(this.chunks, { type: this.mime });
-      const send = this.hadSpeech && blob.size > 2500;
-      this.hadSpeech = false; this.silenceMs = 0; this.segMs = 0;
-      if (this.stream.active) { this._arm(); this.recorder.start(); }
+      // 최소 0.3초 이상 실제 발화가 있었던 세그먼트만 전송 (노이즈 팝 필터)
+      const send = this.hadSpeech && this.speechMs >= 300 && blob.size > 2500;
+      this.hadSpeech = false; this.speechMs = 0; this.silenceMs = 0; this.segMs = 0;
+      if (this.stream.active) { this._arm(); }
       if (send) this._transcribe(blob);
     };
     this.recorder.start();
@@ -476,11 +515,18 @@ class SegmentRecorder {
   _tick() {
     if (!this.recorder || this.recorder.state !== 'recording') return;
     this.segMs += 100;
-    if (this._rms() > 0.015) { this.hadSpeech = true; this.silenceMs = 0; }
-    else this.silenceMs += 100;
-    // 발화 후 0.8초 침묵 → 문장 단위 컷 · 12초 강제 컷 · 무음이면 6초마다 버퍼 리셋
-    if ((this.hadSpeech && this.silenceMs >= 800) || this.segMs >= 12000 ||
-        (!this.hadSpeech && this.segMs >= 6000)) {
+    const rms = this._rms();
+    const cfg = sensCfg();
+    // 임계값 = max(최소값, 학습된 노이즈 플로어 × 배수) — 환경 소음에 자동 적응
+    const speaking = rms > Math.max(cfg.min, this.noise * cfg.mult);
+    if (speaking) { this.hadSpeech = true; this.speechMs += 100; this.silenceMs = 0; }
+    else {
+      this.silenceMs += 100;
+      this.noise = this.noise * 0.9 + rms * 0.1;   // 조용할 때만 노이즈 플로어 갱신
+    }
+    // 발화(0.3초+) 후 0.6초 침묵 → 문장 컷 · 10초 강제 컷 · 무음 5초마다 버퍼 리셋
+    if ((this.hadSpeech && this.speechMs >= 300 && this.silenceMs >= 600) ||
+        this.segMs >= 10000 || (!this.hadSpeech && this.segMs >= 5000)) {
       this.recorder.stop();
     }
   }

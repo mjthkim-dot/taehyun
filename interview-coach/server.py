@@ -134,6 +134,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif path == "/api/interview/status":
             self._send_json(200, interview_pipeline.status())
 
+        # ⚡ 미리 생성된 맞춤 답변 매칭 (라이브에서 0초 응답)
+        elif path == "/api/live/cached":
+            q = (query.get("q") or [""])[0]
+            entry = interview_pipeline.cached_answer(q)
+            self._send_json(200, {"hit": entry is not None, "entry": entry})
+
+        elif path == "/api/prep/status":
+            self._send_json(200, interview_pipeline.prep_status())
+
         else:
             self.send_error(404)
 
@@ -144,6 +153,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
 
         try:
+            # ⚡ 맞춤 답변셋 사전 생성 — 백그라운드 스레드로 실행, /api/prep/status로 폴링
+            if path == "/api/prep/build":
+                if interview_pipeline.prep_status()["running"]:
+                    self._send_json(409, {"error": "이미 생성 중입니다.", **interview_pipeline.prep_status()})
+                    return
+                req = json.loads(body or b"{}")
+                threading.Thread(target=interview_pipeline.build_my_answers,
+                                 args=(req.get("model"),), daemon=True).start()
+                self._send_json(202, {"started": True, **interview_pipeline.prep_status()})
+                return
+
             # 🎙 음성 인식 — 오디오 세그먼트(webm/wav 바이트) → Groq Whisper → 텍스트
             if path == "/api/stt":
                 qs = urllib.parse.parse_qs(self.path.partition("?")[2])

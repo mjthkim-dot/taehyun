@@ -28,6 +28,8 @@ from speech_metrics import deterministic_metrics
 DATA_DIR = Path(__file__).parent / "data"
 BANK_PATH = DATA_DIR / "interview_bank.json"
 PROFILE_PATH = DATA_DIR / "my_profile.md"
+STORY_PATH = DATA_DIR / "my_story.md"
+ANSWERS_PATH = DATA_DIR / "my_answers.json"   # 사전 생성된 맞춤 답변셋 (개인 데이터 — 커밋 금지)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -96,7 +98,28 @@ def _profile_chunks() -> list[str]:
 
 
 # ─────────────────────────────────────────────────────────────
-#  근거 선택 — 프로필은 전체 주입, 표현 은행은 키워드 매칭 top-k
+#  내 스토리 — my_story.md를 '## 사례' 단위로 쪼개 답변의 원천으로 사용
+# ─────────────────────────────────────────────────────────────
+def _story_chunks() -> list[str]:
+    """'## 제목' 섹션 단위로 분할 (헤딩이 없으면 빈 줄 기준 문단 분할)."""
+    if not STORY_PATH.exists():
+        return []
+    text = STORY_PATH.read_text(encoding="utf-8")
+    # 안내 주석(blockquote) 제거
+    lines = [l for l in text.splitlines() if not l.strip().startswith(">")]
+    text = "\n".join(lines)
+    if "## " in text:
+        chunks = []
+        for part in re.split(r"(?=^## )", text, flags=re.M):
+            part = part.strip()
+            if part.startswith("## ") and len(part) > 20:
+                chunks.append(part[:900])
+        return chunks
+    return [p.strip()[:900] for p in text.split("\n\n") if len(p.strip()) > 40]
+
+
+# ─────────────────────────────────────────────────────────────
+#  근거 선택 — 프로필은 전체 주입, 표현/스토리는 키워드 매칭 top-k
 #  (코퍼스가 수십 개 규모라 임베딩 없이도 충분하고, 지연이 0ms)
 # ─────────────────────────────────────────────────────────────
 _WORD_RE = re.compile(r"[a-zA-Z가-힣']+")
@@ -105,8 +128,27 @@ _STOPWORDS = {"the", "a", "an", "and", "or", "but", "you", "your", "can", "could
               "tell", "about", "for", "with", "that", "this", "are", "is", "was", "were"}
 
 
+def _norm_words(text: str) -> set[str]:
+    return {w for w in _WORD_RE.findall(text.lower()) if len(w) > 2 and w not in _STOPWORDS}
+
+
+def _keyword_stories(query: str, k: int = 2) -> list[str]:
+    words = _norm_words(query)
+    scored: list[tuple[int, str]] = []
+    for chunk in _story_chunks():
+        score = sum(1 for w in words if w in chunk.lower())
+        if score:
+            scored.append((score, chunk))
+    scored.sort(key=lambda t: -t[0])
+    picked = [c for _, c in scored[:k]]
+    # 매칭이 없으면 첫 사례라도 넣어 개인화 유지
+    if not picked:
+        picked = _story_chunks()[:1]
+    return picked
+
+
 def _keyword_phrases(query: str, k: int = 6) -> list[dict]:
-    words = {w for w in _WORD_RE.findall(query.lower()) if len(w) > 2 and w not in _STOPWORDS}
+    words = _norm_words(query)
     scored: list[tuple[int, dict]] = []
     for ph in _load_bank().get("phrases", []):
         text = f"{ph.get('en', '')} {ph.get('kr', '')} {ph.get('category', '')} {ph.get('note_ko', '')}".lower()
@@ -132,6 +174,8 @@ def status() -> dict[str, Any]:
         "phrases": len(bank.get("phrases", [])),
         "profile_chunks": len(_profile_chunks()),
         "profile_exists": PROFILE_PATH.exists(),
+        "story_chunks": len(_story_chunks()),
+        "prepared_answers": len(_load_answers()),
         "provider": llm.provider(),
         "answer_model": llm.model_name(),
         "stt_model": llm.GROQ_STT_MODEL if llm.GROQ_API_KEY else None,
@@ -139,10 +183,125 @@ def status() -> dict[str, Any]:
 
 
 # ─────────────────────────────────────────────────────────────
+#  ⚡ 맞춤 답변셋 — 내 프로필+스토리로 질문 은행 전체의 답변을 미리 생성.
+#  라이브에서 감지된 질문이 은행 질문과 매칭되면 생성 없이 0초 표시.
+# ─────────────────────────────────────────────────────────────
+_prep_state: dict[str, Any] = {"running": False, "done": 0, "total": 0, "current": "", "error": None}
+
+
+def _load_answers() -> dict:
+    if not ANSWERS_PATH.exists():
+        return {}
+    try:
+        return json.loads(ANSWERS_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def prep_status() -> dict[str, Any]:
+    return {**_prep_state, "count": len(_load_answers())}
+
+
+def _prep_prompt(q: dict) -> str:
+    profile_lines = "\n".join(f"- {c}" for c in _profile_chunks()) or "- (없음)"
+    story_lines = "\n\n".join(_keyword_stories(q["en"] + " " + q.get("kr", ""), k=3)) or "(없음)"
+    phrases = _keyword_phrases(q["en"], 4)
+    phrase_lines = "\n".join(f'- "{p["en"]}"' for p in phrases if p.get("en")) or "- (none)"
+    return f"""You are an expert English interview coach preparing a Korean candidate
+for an IT sales (cloud/SaaS) job interview in English.
+
+Interview question: "{q['en']}" ({q.get('kr', '')})
+Coaching tip for this question: {q.get('tip_ko', '-')}
+
+Candidate profile facts (Korean):
+{profile_lines}
+
+Candidate's own stories — THE most important source. Ground the answers in these
+real experiences with their specific numbers and details:
+\"\"\"{story_lines}\"\"\"
+
+Useful phrases (reuse where natural):
+{phrase_lines}
+
+Write 2 spoken answers the candidate can read aloud (option 1: concise, 30-50
+words; option 2: stronger with STAR structure and concrete numbers, 60-90 words).
+Natural native-sounding US business English, first person, contractions.
+Where the profile/story has [placeholders], substitute plausible round numbers
+and keep them consistent.
+
+Return ONLY valid JSON:
+{{
+  "gist_ko": "질문 요지 한국어 한 줄",
+  "strategy_ko": "답변 전략 한국어 한 줄",
+  "answers": [
+    {{"en": "option 1", "kr": "자연스러운 한국어 번역"}},
+    {{"en": "option 2", "kr": "자연스러운 한국어 번역"}}
+  ]
+}}"""
+
+
+def build_my_answers(model: str | None = None) -> dict[str, Any]:
+    """질문 은행 전체에 대해 맞춤 답변을 생성해 my_answers.json에 저장 (문항당 1~2초, Groq 기준)."""
+    questions = _load_bank().get("questions", [])
+    _prep_state.update(running=True, done=0, total=len(questions), current="", error=None)
+    answers = _load_answers()
+    try:
+        for q in questions:
+            _prep_state["current"] = q["en"]
+            content = json.loads(llm.chat_once(
+                [{"role": "user", "content": _prep_prompt(q)}],
+                json_mode=True, temperature=0.4, max_tokens=900, model=model,
+            ))
+            answers[q["id"]] = {
+                "question_en": q["en"], "question_kr": q.get("kr", ""),
+                "category": q.get("category", ""),
+                "gist_ko": str(content.get("gist_ko", "")).strip(),
+                "strategy_ko": str(content.get("strategy_ko", "")).strip(),
+                "answers": (content.get("answers") or [])[:2],
+            }
+            # 문항마다 저장 — 중간에 끊겨도 진행분은 유지
+            ANSWERS_PATH.write_text(json.dumps(answers, ensure_ascii=False, indent=1), encoding="utf-8")
+            _prep_state["done"] += 1
+    except Exception as e:  # noqa: BLE001
+        _prep_state["error"] = str(e)
+    finally:
+        _prep_state["running"] = False
+        _prep_state["current"] = ""
+    return prep_status()
+
+
+def cached_answer(question_text: str) -> dict | None:
+    """라이브에서 감지된 질문 ↔ 미리 만든 답변 매칭 (키워드 겹침 비율).
+    짧은 질문("Tell me about yourself" 등)은 불용어 제거 후 단어가 1개만 남으므로
+    그 경우엔 단어 집합이 완전히 같을 때만 매칭한다(오탐 방지)."""
+    answers = _load_answers()
+    if not answers:
+        return None
+    qw = _norm_words(question_text)
+    if not qw:
+        return None
+    best, best_score = None, 0.0
+    for entry in answers.values():
+        bw = _norm_words(entry.get("question_en", ""))
+        if not bw:
+            continue
+        inter = len(qw & bw)
+        small = min(len(qw), len(bw))
+        if small <= 1:
+            score = 1.0 if qw == bw else 0.0
+        else:
+            score = inter / small if inter >= 2 else 0.0
+        if score > best_score:
+            best, best_score = entry, score
+    return best if best_score >= 0.6 else None
+
+
+# ─────────────────────────────────────────────────────────────
 #  모범 답변 생성 — 30초/60초/90초 3단계
 # ─────────────────────────────────────────────────────────────
 def _answers_prompt(question: str, cefr: str, refs: dict[str, list[dict]]) -> str:
     profile_lines = "\n".join(f"- {r['text']}" for r in refs["profile"]) or "- (프로필 정보 없음)"
+    story_lines = "\n\n".join(_keyword_stories(question, k=2)) or "(없음)"
     phrase_lines = "\n".join(
         f'- "{r["en"]}" ({r["kr"]})' for r in refs["phrases"] if r.get("en")
     ) or "- (none)"
@@ -159,6 +318,9 @@ with these; where a fact contains a placeholder like [X], substitute a plausible
 round number and stay consistent across all three answers; do NOT invent
 achievements that contradict these facts):
 {profile_lines}
+
+Candidate's own stories (Korean — ground the examples in these real experiences):
+\"\"\"{story_lines}\"\"\"
 
 Reference expressions from an interview phrase bank (reuse them where natural):
 {phrase_lines}
@@ -309,11 +471,14 @@ def build_live_suggest_prompt(question: str, cefr: str = "B1", context: str = ""
     profile_lines = "\n".join(f"- {r['text']}" for r in refs["profile"]) or "- (none)"
     phrase_lines = "\n".join(f'- "{r["en"]}"' for r in refs["phrases"] if r.get("en")) or "- (none)"
     goal = INTENT_GOALS.get(intent, INTENT_GOALS["answer"])
+    story_lines = "\n\n".join(s[:450] for s in _keyword_stories(question, k=2)) or "(없음)"
     context_block = (
         "\nRecent conversation transcript (interviewer and candidate mixed; use it to"
         f" resolve what a follow-up refers to):\n\"\"\"{context}\"\"\"\n"
         if context.strip() else ""
     )
+    # ⚡ 지연 최소화: 사용자가 바로 읽어야 하는 답변(EN)을 가장 먼저 출력시키고
+    #    메타(요지/전략)는 맨 뒤로 — 첫 유효 토큰까지의 체감 대기를 최소화한다.
     return f"""You are a real-time interview copilot for a Korean candidate who is IN A LIVE
 English video interview for an IT sales (cloud/SaaS) position RIGHT NOW.
 Speed matters — the candidate is waiting to speak.
@@ -324,31 +489,31 @@ The interviewer just said:
 
 The candidate's goal right now: {goal}
 
-Candidate background facts (Korean; personalize with these, substitute plausible
-round numbers for [placeholders], never contradict them):
+Candidate profile facts (Korean; substitute plausible round numbers for
+[placeholders], never contradict them):
 {profile_lines}
+
+Candidate's own stories (Korean — ground answers in these real experiences):
+\"\"\"{story_lines}\"\"\"
 
 Useful phrases (reuse where natural):
 {phrase_lines}
 
-Give the candidate 2 different spoken options they can read aloud immediately,
-each followed by its natural Korean translation.
-
-Respond in EXACTLY this format (plain text, no markdown), nothing else:
-요지: <방금 발화의 핵심을 한국어 한 줄로 (예: "일정을 맞출 수 있나요?")>
-전략: <한국어로 말하기 전략 한 줄 — 아주 짧게>
-===
-EN: <Option 1 — safe and concise, 30-50 words>
+Respond in EXACTLY this format (plain text, no markdown), nothing else —
+the first EN line MUST come first so the candidate can start speaking:
+EN: <Option 1 — safe and concise, 25-45 words>
 KR: <위 문장의 자연스러운 한국어 번역>
 ===
-EN: <Option 2 — stronger, with one concrete number or example, 60-80 words>
+EN: <Option 2 — stronger, with one concrete number from the stories, 50-70 words>
 KR: <위 문장의 자연스러운 한국어 번역>
+===
+META: 요지=<방금 발화의 핵심 한국어 한 줄> | 전략=<말하기 전략 한국어 한 줄>
 
 Rules for the EN options:
 - First person, confident tone, around CEFR {cefr} but natural.
-- Sound like a native speaker in a US business setting: contractions, natural
-  rhythm, a light discourse marker to open (e.g. "Well," / "That's a great
-  question —" / "Sure,"), absolutely no textbook or translated-sounding phrasing.
+- Native US business English: contractions, natural rhythm, a light discourse
+  marker to open ("Well," / "Sure," / "That's a great question —"),
+  no textbook or translated-sounding phrasing.
 - The two options must take meaningfully different angles, not paraphrases.
 - If it was a follow-up, connect to what was said before instead of repeating it."""
 
