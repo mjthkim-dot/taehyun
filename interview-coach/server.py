@@ -168,17 +168,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if self.path == "/api/live/suggest":
                 req = json.loads(body or b"{}")
                 prompt = interview_pipeline.build_live_suggest_prompt(
-                    req.get("question", ""), req.get("cefr", "B1"), req.get("context", ""))
+                    req.get("question", ""), req.get("cefr", "B1"),
+                    req.get("context", ""), req.get("intent", "answer"))
                 # 답변 2개 + 한국어 번역 2개가 들어가므로 토큰을 넉넉히
                 _stream_llm_ndjson(self, [{"role": "user", "content": prompt}],
-                                  temperature=0.4, max_tokens=650, model=req.get("model"))
+                                  temperature=0.4, max_tokens=700, model=req.get("model"))
                 return
 
             if self.path == "/api/live/summary":
                 req = json.loads(body or b"{}")
-                prompt = interview_pipeline.build_live_summary_prompt(req.get("transcript", ""))
+                mode = req.get("mode", "full")
+                prompt = interview_pipeline.build_live_summary_prompt(req.get("transcript", ""), mode)
                 _stream_llm_ndjson(self, [{"role": "user", "content": prompt}],
-                                  temperature=0.3, max_tokens=400, model=req.get("model"))
+                                  temperature=0.3,
+                                  max_tokens=60 if mode == "line" else 400,
+                                  model=req.get("model"))
                 return
 
             self.send_error(404)

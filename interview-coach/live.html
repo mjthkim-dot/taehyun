@@ -4,14 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>실시간 면접 코파일럿</title>
-<meta name="theme-color" content="#F7F7FB">
+<meta name="theme-color" content="#0B0C0F">
 <style>
   :root {
-    --bg: #F7F7FB; --card: #FFFFFF; --border: #ECECF4;
-    --text: #1B1B2E; --sub: #6E6E8A; --faint: #A0A0BC;
-    --accent: #7C5CFC; --accent-soft: #F1EDFF; --accent-deep: #5B3EE8;
-    --danger: #F0426B; --green: #16A374;
-    color-scheme: light;
+    --bg: #0B0C0F; --panel: #17181D; --panel2: #1E1F26; --border: #2A2B33;
+    --text: #ECECF0; --sub: #A7A7B6; --faint: #6E6E7E;
+    --yellow: #F7CE46; --yellow-deep: #E0B32B;
+    --me-bg: #4A4030; --me-text: #F0E7CB; --me-sub: #C9BC93;
+    --danger: #F06A6A;
+    color-scheme: dark;
   }
   * { box-sizing: border-box; margin: 0; }
   html, body { height: 100%; }
@@ -21,201 +22,252 @@
     display: flex; flex-direction: column; overflow: hidden;
   }
 
-  /* ── 헤더 ─────────────────────────────────── */
+  /* ── 상단 컨트롤 바 ─────────────────────────── */
   header {
-    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    padding: 12px 20px; background: var(--card); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; background: var(--panel); border-bottom: 1px solid var(--border);
   }
-  .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px; }
-  .brand .dot { width: 10px; height: 10px; border-radius: 50%;
-                background: linear-gradient(135deg, #8B5CF6, #6366F1); }
-  .brand a { font-size: 12px; color: var(--faint); text-decoration: none; font-weight: 500; margin-left: 6px; }
+  .ctrl { display: flex; gap: 6px; }
+  .ctrl button {
+    width: 34px; height: 30px; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--panel2); color: var(--text); font-size: 13px; cursor: pointer;
+  }
+  .ctrl button.live { background: var(--yellow); color: #16130A; border-color: var(--yellow); }
+  .tabs {
+    display: flex; gap: 2px; background: var(--panel2); border-radius: 999px;
+    padding: 3px; border: 1px solid var(--border);
+  }
+  .tab {
+    padding: 5px 16px; border-radius: 999px; font-size: 13px; font-weight: 700;
+    color: var(--sub); cursor: pointer; border: none; background: none; font-family: inherit;
+  }
+  .tab.active { background: var(--text); color: #141519; }
   .spacer { flex: 1; }
-  .pill {
-    font-size: 12px; padding: 5px 12px; border-radius: 999px;
-    background: var(--bg); color: var(--sub); border: 1px solid var(--border);
+  header select {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 9px; padding: 5px 8px; font-size: 12.5px; font-family: inherit;
   }
-  .pill.live { background: #FDEDF2; color: var(--danger); border-color: #F8CFDC; font-weight: 700; }
-  .pill.live::before { content: "● "; animation: blink 1.2s infinite; }
-  @keyframes blink { 50% { opacity: .35; } }
-  select {
-    background: var(--card); color: var(--text); border: 1px solid var(--border);
-    border-radius: 10px; padding: 7px 10px; font-size: 13px; font-family: inherit;
-  }
-  button {
-    border: none; border-radius: 12px; padding: 9px 16px; cursor: pointer;
-    font-size: 13.5px; font-weight: 700; font-family: inherit;
-    background: var(--bg); color: var(--sub); transition: filter .15s;
-  }
-  button:hover { filter: brightness(.97); }
-  button.primary {
-    background: linear-gradient(135deg, #8B5CF6, #6D5BF0); color: #fff;
-    box-shadow: 0 4px 14px rgba(124, 92, 252, .35);
-  }
-  button.listening { background: var(--danger); color: #fff; box-shadow: 0 4px 14px rgba(240, 66, 107, .3); }
-  button:disabled { opacity: .5; cursor: default; }
+  header a { font-size: 12px; color: var(--faint); text-decoration: none; }
 
-  /* ── 본문 2패널 ────────────────────────────── */
-  main {
-    flex: 1; display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px;
-    padding: 16px 20px; min-height: 0;
-  }
-  .pane {
-    background: var(--card); border: 1px solid var(--border); border-radius: 18px;
-    display: flex; flex-direction: column; min-height: 0; overflow: hidden;
-    box-shadow: 0 2px 10px rgba(27, 27, 46, .04);
-  }
-  .pane-head {
+  /* ── 실시간 요약 바 ─────────────────────────── */
+  .sumbar {
     display: flex; align-items: center; gap: 8px;
-    padding: 13px 18px; border-bottom: 1px solid var(--border);
-    font-size: 13.5px; font-weight: 800;
+    margin: 10px 14px 0; padding: 9px 14px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    font-size: 13px;
   }
-  .pane-head .hint { font-weight: 500; font-size: 11.5px; color: var(--faint); margin-left: auto; }
-  .pane-body { flex: 1; overflow-y: auto; padding: 14px 18px; }
+  .sumbar .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--yellow); flex: none; }
+  .sumbar .label { color: var(--yellow); font-weight: 800; flex: none; }
+  .sumbar .line { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  /* 자막 피드 */
-  .utt { padding: 11px 14px; border-radius: 12px; margin-bottom: 10px;
-         background: var(--bg); border: 1px solid transparent; }
-  .utt .en { font-size: 15px; line-height: 1.55; }
-  .utt .kr { font-size: 13px; color: var(--sub); margin-top: 5px; line-height: 1.5; }
-  .utt .kr:empty { display: none; }
-  .utt.q { background: var(--accent-soft); border-color: #DDD2FF; }
-  .utt.q .en { font-weight: 700; }
-  .utt .chip {
-    display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: .3px;
-    color: var(--accent-deep); background: #fff; border: 1px solid #DDD2FF;
-    padding: 2px 8px; border-radius: 999px; margin-bottom: 6px;
+  /* ── 뷰 공통 ────────────────────────────────── */
+  .view { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .view.hidden { display: none; }
+
+  /* ── 라이브: 대화 피드 (채팅 버블) ───────────── */
+  #feed { flex: 1; overflow-y: auto; padding: 12px 14px 8px; }
+  .row { margin-bottom: 12px; max-width: 92%; }
+  .row.me { margin-left: auto; }
+  .row .meta { font-size: 11px; color: var(--faint); margin: 0 6px 4px; }
+  .row.me .meta { text-align: right; }
+  .bubble {
+    background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 10px 13px; position: relative;
   }
-  .utt .ask { float: right; font-size: 11.5px; color: var(--accent); cursor: pointer;
-              font-weight: 700; padding: 2px 6px; }
-  .utt.dim { opacity: .45; }
-  .empty {
-    color: var(--faint); text-align: center; margin-top: 48px;
-    font-size: 13.5px; line-height: 2;
+  .row.me .bubble { background: var(--me-bg); border-color: #5C5138; }
+  .bubble .en { font-size: 14.5px; line-height: 1.55; }
+  .row.me .bubble .en { color: var(--me-text); }
+  .bubble .kr { font-size: 12.5px; color: var(--sub); margin-top: 5px; line-height: 1.5; }
+  .row.me .bubble .kr { color: var(--me-sub); }
+  .bubble .kr:empty { display: none; }
+  .bubble .ask {
+    position: absolute; top: 8px; right: 10px; font-size: 11px; color: var(--yellow);
+    cursor: pointer; font-weight: 700; opacity: .85;
   }
+  .row.q .bubble { border-color: var(--yellow-deep); }
+  .row.dim { opacity: .45; }
+  .empty { color: var(--faint); text-align: center; margin-top: 56px; font-size: 13.5px; line-height: 2; }
   .empty .big { font-size: 30px; }
 
-  /* 요약 배너 */
-  #summary-out {
-    display: none; white-space: pre-wrap; font-size: 13px; line-height: 1.65;
-    background: #FFFBEB; border: 1px solid #FDE9B8; color: #7A5B10;
-    border-radius: 12px; padding: 12px 14px; margin-bottom: 12px;
+  /* ── 퀵 액션 ────────────────────────────────── */
+  .actions {
+    display: flex; gap: 4px; padding: 8px 14px 0; flex-wrap: wrap;
   }
+  .actions button {
+    background: none; border: none; color: var(--sub); font-size: 12.5px; font-weight: 600;
+    cursor: pointer; padding: 6px 10px; border-radius: 9px; font-family: inherit;
+  }
+  .actions button:hover { background: var(--panel2); color: var(--text); }
+  .actions .who {
+    margin-left: auto; border: 1px solid var(--border); background: var(--panel2);
+  }
+  .actions .who.me { color: var(--me-sub); border-color: #5C5138; }
 
-  /* 답변 제안 패널 */
-  .strategy {
-    display: none; font-size: 13px; font-weight: 700; color: var(--accent-deep);
-    background: var(--accent-soft); border-radius: 10px; padding: 9px 13px; margin-bottom: 12px;
-  }
-  .cand {
-    border: 1px solid var(--border); border-radius: 14px; padding: 14px 15px;
-    margin-bottom: 12px; background: var(--card);
-  }
-  .cand .num {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 11px; font-weight: 800; color: var(--accent-deep); margin-bottom: 7px;
-  }
-  .cand .num .b {
-    width: 18px; height: 18px; border-radius: 50%; background: var(--accent-soft);
-    display: inline-flex; align-items: center; justify-content: center; font-size: 11px;
-  }
-  .cand .en { font-size: 15.5px; line-height: 1.6; font-weight: 600; }
-  .cand .kr { font-size: 13px; color: var(--sub); line-height: 1.55; margin-top: 8px;
-              padding-top: 8px; border-top: 1px dashed var(--border); }
-  .cand .say { float: right; background: none; padding: 0 4px; font-size: 15px; }
-  .sug-q { font-size: 12px; color: var(--faint); margin-bottom: 10px; display: none; }
-  .sug-q b { color: var(--sub); }
-
-  /* 하단 한국어 입력 */
-  .quickbar {
-    display: flex; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--border);
-  }
+  /* ── 한국어 입력 ────────────────────────────── */
+  .quickbar { display: flex; gap: 8px; padding: 8px 14px 12px; }
   .quickbar input {
     flex: 1; border: 1px solid var(--border); border-radius: 12px; padding: 10px 13px;
-    font-size: 14px; font-family: inherit; background: var(--bg); color: var(--text);
+    font-size: 13.5px; font-family: inherit; background: var(--panel); color: var(--text);
   }
-  .quickbar input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .quickbar input::placeholder { color: var(--faint); }
+  .quickbar button {
+    width: 42px; border: none; border-radius: 12px; background: var(--yellow);
+    color: #16130A; font-size: 16px; font-weight: 800; cursor: pointer;
+  }
 
-  .notice {
-    font-size: 11.5px; color: var(--faint); padding: 6px 20px 12px; text-align: center;
+  /* ── ✦ 답변 제안 카드 (플로팅) ────────────────── */
+  #card {
+    display: none; position: absolute; left: 14px; right: 14px; bottom: 108px;
+    background: rgba(20, 21, 26, .97); border: 1px solid var(--border);
+    border-radius: 16px; padding: 13px 15px; max-height: 52%; overflow-y: auto;
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, .5); backdrop-filter: blur(6px);
   }
+  #card .head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  #card .head .gist { font-size: 14px; font-weight: 800; flex: 1; }
+  #card .head .gist::before { content: "✦ "; color: var(--yellow); }
+  #card .head button {
+    background: none; border: none; color: var(--faint); cursor: pointer; font-size: 13px;
+  }
+  #card .head button.on { color: var(--yellow); }
+  .lrow { display: flex; gap: 10px; margin-top: 10px; }
+  .lrow .lab {
+    flex: none; font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 6px;
+    height: fit-content; margin-top: 1px;
+  }
+  .lab.st { background: var(--panel2); color: var(--sub); border: 1px solid var(--border); }
+  .lab.an { background: var(--yellow); color: #16130A; }
+  .lrow .body { flex: 1; min-width: 0; }
+  .lrow .strat { font-size: 13px; color: var(--sub); line-height: 1.55; }
+  .lrow .en { font-size: 15px; font-weight: 700; line-height: 1.6; }
+  .lrow .kr { font-size: 12.5px; color: var(--sub); line-height: 1.55; margin-top: 6px; }
+  .lrow .say { background: none; border: none; cursor: pointer; font-size: 14px; flex: none; color: var(--sub); }
+
+  /* ── 요약/번역 탭 ───────────────────────────── */
+  .padview { padding: 14px; overflow-y: auto; }
+  .padview pre {
+    white-space: pre-wrap; font-family: inherit; font-size: 13.5px; line-height: 1.7;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px;
+  }
+  .padview textarea {
+    width: 100%; min-height: 90px; background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 12px; padding: 11px; font-size: 14px;
+    font-family: inherit; resize: vertical;
+  }
+  .padview .out {
+    margin-top: 10px; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px; font-size: 15px; line-height: 1.6; min-height: 46px;
+    white-space: pre-wrap;
+  }
+  .padview .btnrow { display: flex; gap: 8px; margin-top: 10px; }
+  .padview .btnrow button {
+    padding: 9px 16px; border: none; border-radius: 10px; background: var(--yellow);
+    color: #16130A; font-weight: 800; font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  .padview .btnrow button.ghost { background: var(--panel2); color: var(--sub); border: 1px solid var(--border); }
+
+  .notice { font-size: 11px; color: var(--faint); text-align: center; padding: 0 14px 10px; }
   .notice b { color: var(--sub); }
-
-  @media (max-width: 860px) {
-    body { overflow: auto; }
-    main { grid-template-columns: 1fr; }
-    .pane { min-height: 320px; max-height: 60vh; }
-  }
+  main { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
 </style>
 </head>
 <body>
 <header>
-  <div class="brand"><span class="dot"></span>실시간 면접 코파일럿
-    <a href="/interview.html">연습 모드 →</a></div>
+  <div class="ctrl">
+    <button id="btn-listen" title="듣기 시작/일시정지">▶</button>
+    <button id="btn-stop" title="세션 종료 (기록 지움)">⏹</button>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-v="live">라이브</button>
+    <button class="tab" data-v="summary">요약</button>
+    <button class="tab" data-v="translate">번역</button>
+  </div>
   <div class="spacer"></div>
-  <span class="pill" id="status-pill">대기 중</span>
   <select id="cefr" title="내 영어 레벨">
     <option value="A2">A2</option><option value="B1" selected>B1</option>
     <option value="B2">B2</option><option value="C1">C1</option>
   </select>
-  <button id="btn-summary">요약</button>
-  <button id="btn-listen" class="primary">🎧 듣기 시작</button>
+  <a href="/interview.html">연습 모드</a>
 </header>
 
+<div class="sumbar">
+  <span class="dot"></span><span class="label">실시간 요약</span>
+  <span class="line" id="sum-line">듣기를 시작하면 대화 요약이 실시간으로 표시됩니다</span>
+</div>
+
 <main>
-  <!-- 왼쪽: 실시간 자막 -->
-  <section class="pane">
-    <div class="pane-head">💬 실시간 자막
-      <span class="hint">영어 → 한국어 자동 번역</span></div>
-    <div class="pane-body" id="feed">
-      <div id="summary-out"></div>
+  <!-- 라이브 -->
+  <div class="view" id="view-live">
+    <div id="feed">
       <div class="empty" id="feed-empty">
         <div class="big">🎧</div>
-        <b>듣기 시작</b>을 누르면 면접관의 영어가<br>
-        실시간 자막 + 한국어 번역으로 표시됩니다
+        ▶ 버튼을 누르면 대화가 실시간 자막 + 한국어 번역으로 표시되고<br>
+        질문이 감지되면 답변 카드가 자동으로 뜹니다
       </div>
     </div>
-  </section>
-
-  <!-- 오른쪽: AI 답변 제안 -->
-  <section class="pane">
-    <div class="pane-head">✨ AI 답변 제안
-      <span class="hint">질문 감지 시 자동 생성</span></div>
-    <div class="pane-body" id="sug-body">
-      <div class="sug-q" id="sug-q"></div>
-      <div class="strategy" id="sug-strategy"></div>
-      <div id="sug-cands">
-        <div class="empty" id="sug-empty">
-          <div class="big">✨</div>
-          질문이 감지되면 바로 읽을 수 있는<br>
-          영어 답변 2개와 한국어 번역이 여기 표시됩니다
-        </div>
-      </div>
+    <div class="actions">
+      <button data-intent="agree">👍 동의하기</button>
+      <button data-intent="disagree">👎 반박하기</button>
+      <button data-intent="ask">💬 질문하기</button>
+      <button data-intent="propose">💡 제안하기</button>
+      <button class="who" id="btn-who" title="다음 발화의 화자 (클릭해서 전환)">🎙 상대</button>
     </div>
     <div class="quickbar">
-      <input type="text" id="hint-in" placeholder="🇰🇷 하고 싶은 말을 한국어로 입력 → Enter">
+      <input type="text" id="hint-in" placeholder="한국어 문장 혹은 단어를 빠르게 번역하기...">
+      <button id="hint-go">↑</button>
     </div>
-  </section>
+    <!-- ✦ 답변 제안 카드 -->
+    <div id="card">
+      <div class="head">
+        <span class="gist" id="c-gist"></span>
+        <button id="c-pin" title="고정">📌</button>
+        <button id="c-close" title="닫기">✕</button>
+      </div>
+      <div class="lrow" id="c-strat-row" style="display:none">
+        <span class="lab st">전략</span>
+        <div class="body"><div class="strat" id="c-strat"></div></div>
+      </div>
+      <div id="c-answers"></div>
+    </div>
+  </div>
+
+  <!-- 요약 -->
+  <div class="view hidden padview" id="view-summary">
+    <pre id="full-summary">아직 요약할 대화가 없습니다.</pre>
+    <div class="btnrow"><button id="btn-full-summary">요약 새로고침</button></div>
+  </div>
+
+  <!-- 번역 -->
+  <div class="view hidden padview" id="view-translate">
+    <textarea id="tr-in" placeholder="한국어 또는 영어를 입력하세요 (자동 감지)"></textarea>
+    <div class="btnrow">
+      <button id="tr-go">번역</button>
+      <button class="ghost" id="tr-say">🔊 듣기</button>
+    </div>
+    <div class="out" id="tr-out"></div>
+  </div>
 </main>
 
 <div class="notice">
-  화상 면접 창 옆에 이 창을 띄워두세요 · 면접관 목소리가 <b>스피커로</b> 나와야 인식됩니다 (이어폰 ✕) · <b>Chrome</b> 권장
+  화상 면접 창 옆에 띄워두세요 · 상대 목소리가 <b>스피커로</b> 나와야 인식됩니다 (이어폰 ✕) · <b>Chrome</b> 권장
 </div>
 
 <script>
 const $ = (s) => document.querySelector(s);
 const feed = $('#feed');
-const log = [];
+const log = [];                 // {who, text}
 let rec = null, interimEl = null;
 let suggestAbort = null;
-const trQueue = [];
+const trQueue = [];             // 자막 번역 대기열
 let translating = false;
+let speakerMe = false;          // 🎙 화자 토글 (기본: 상대)
+let uttCount = 0, lineSumBusy = false;
 
-// ── 질문 감지 휴리스틱 (STT 결과엔 '?'가 없는 경우가 많아 패턴 매칭) ──
+// ── 질문 감지 휴리스틱 ─────────────────────────────────────
 const Q_STARTS = ['what','why','how','when','where','who','which','tell me','tell us',
   'describe','walk me','walk us','could you','can you','would you','do you','did you',
   'have you','are you','were you','is there','give me','give us','let\'s talk',
-  'talk me through','explain','share','i\'d love to hear','i am curious','i\'m curious'];
+  'talk me through','explain','share','i\'d love to hear','i am curious','i\'m curious',
+  'so realistically','realistically'];
 function isQuestion(text) {
   const t = text.trim().toLowerCase();
   if (!t) return false;
@@ -252,29 +304,33 @@ async function streamChat(url, payload, onToken, signal) {
   }
 }
 
-// ── 발화 카드 ──────────────────────────────────────────────
+const now = () => new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+// ── 발화 버블 ──────────────────────────────────────────────
 function addUtterance(text) {
   $('#feed-empty')?.remove();
-  const q = isQuestion(text);
-  log.push(text);
-  const div = document.createElement('div');
-  div.className = 'utt' + (q ? ' q' : '');
-  div.innerHTML = `<span class="ask">답변 제안</span>` +
-    (q ? `<div class="chip">질문 감지</div>` : '') +
-    `<div class="en"></div><div class="kr"></div>`;
-  div.querySelector('.en').textContent = text;
-  div.querySelector('.ask').addEventListener('click', () => suggest(text));
-  feed.appendChild(div);
+  const me = speakerMe;
+  const q = !me && isQuestion(text);
+  log.push({ who: me ? '나' : '상대', text });
+  const row = document.createElement('div');
+  row.className = 'row' + (me ? ' me' : '') + (q ? ' q' : '');
+  row.innerHTML =
+    `<div class="meta">${me ? '나' : '상대'} · ${now()}</div>` +
+    `<div class="bubble">${me ? '' : '<span class="ask">답변</span>'}<div class="en"></div><div class="kr"></div></div>`;
+  row.querySelector('.en').textContent = text;
+  row.querySelector('.ask')?.addEventListener('click', () => suggest(text, 'answer'));
+  feed.appendChild(row);
   feed.scrollTop = feed.scrollHeight;
   if (text.split(' ').length >= 3) {
-    trQueue.push({ el: div.querySelector('.kr'), text });
+    trQueue.push({ el: row.querySelector('.kr'), text });
     processTrQueue();
   }
-  if (q) suggest(text);               // 질문이면 자동으로 답변 제안
-  return div;
+  if (q) suggest(text, 'answer');            // 질문 자동 감지 → 답변 카드
+  if (++uttCount % 3 === 0) updateLineSummary();  // 3발화마다 실시간 요약 갱신
+  return row;
 }
 
-// ── 자막 번역 큐 (답변 제안이 항상 우선권을 가짐) ──────────
+// ── 자막 번역 큐 (답변 제안이 항상 우선) ───────────────────
 async function processTrQueue() {
   if (translating || suggestAbort || !trQueue.length) return;
   translating = true;
@@ -286,61 +342,88 @@ async function processTrQueue() {
   finally { translating = false; processTrQueue(); }
 }
 
-// ── ✨ 답변 제안 — 스트리밍 파싱 (전략 / === EN/KR 블록 2개) ─
-function renderSuggestion(raw) {
-  const blocks = raw.split('===');
-  const strategy = (blocks[0] || '').replace(/^전략\s*[:：]\s*/, '').trim();
-  const st = $('#sug-strategy');
-  st.style.display = strategy ? 'block' : 'none';
-  st.textContent = strategy ? '💡 ' + strategy : '';
+// ── 실시간 한 줄 요약 (상단 바) ────────────────────────────
+async function updateLineSummary() {
+  if (lineSumBusy || suggestAbort || !log.length) return;
+  lineSumBusy = true;
+  let out = '';
+  try {
+    await streamChat('/api/live/summary',
+      { transcript: log.slice(-14).map(l => `${l.who}: ${l.text}`).join('\n'), mode: 'line' },
+      tk => { out += tk; });
+    if (out.trim()) $('#sum-line').textContent = out.trim();
+  } catch { /* 요약 실패는 무시 */ }
+  finally { lineSumBusy = false; }
+}
 
-  const box = $('#sug-cands');
+// ── ✦ 답변 카드 — 스트리밍 파싱 (요지/전략/===EN/KR×2) ─────
+let pinned = false;
+function renderCard(raw) {
+  const blocks = raw.split('===');
+  const head = blocks[0] || '';
+  const gist = (head.match(/요지\s*[:：]\s*(.*)/) || [])[1]?.trim() || '';
+  const strat = (head.match(/전략\s*[:：]\s*([\s\S]*)/) || [])[1]?.replace(/요지\s*[:：].*/, '').trim() || '';
+  if (gist) $('#c-gist').textContent = gist;
+  $('#c-strat-row').style.display = strat ? 'flex' : 'none';
+  $('#c-strat').textContent = strat;
+
+  const box = $('#c-answers');
   box.innerHTML = '';
-  blocks.slice(1).forEach((b, i) => {
-    const enM = b.match(/EN\s*[:：]\s*([\s\S]*?)(?=\nKR\s*[:：]|$)/);
-    const krM = b.match(/KR\s*[:：]\s*([\s\S]*)/);
-    const en = (enM ? enM[1] : b).trim();
-    const kr = (krM ? krM[1] : '').trim();
+  blocks.slice(1).forEach((b) => {
+    const en = ((b.match(/EN\s*[:：]\s*([\s\S]*?)(?=\nKR\s*[:：]|$)/) || [])[1] || b).trim();
+    const kr = ((b.match(/KR\s*[:：]\s*([\s\S]*)/) || [])[1] || '').trim();
     if (!en) return;
-    const div = document.createElement('div');
-    div.className = 'cand';
-    div.innerHTML =
-      `<button class="say" title="들어보기">🔊</button>` +
-      `<div class="num"><span class="b">${i + 1}</span>${i === 0 ? '간결하게' : '강하게 (숫자 포함)'}</div>` +
-      `<div class="en"></div>` + (kr ? `<div class="kr"></div>` : '');
-    div.querySelector('.en').textContent = en;
-    if (kr) div.querySelector('.kr').textContent = kr;
-    div.querySelector('.say').addEventListener('click', () => speak(en));
-    box.appendChild(div);
+    const row = document.createElement('div');
+    row.className = 'lrow';
+    row.innerHTML = `<span class="lab an">답변</span>
+      <div class="body"><div class="en"></div><div class="kr"></div></div>
+      <button class="say">🔊</button>`;
+    row.querySelector('.en').textContent = en;
+    row.querySelector('.kr').textContent = kr;
+    row.querySelector('.say').addEventListener('click', () => speak(en));
+    box.appendChild(row);
   });
 }
 
-async function suggest(question) {
+async function suggest(target, intent) {
   if (suggestAbort) suggestAbort.abort();
   suggestAbort = new AbortController();
-  $('#sug-empty')?.remove();
-  const sq = $('#sug-q');
-  sq.style.display = 'block';
-  sq.innerHTML = 'Q. <b></b>';
-  sq.querySelector('b').textContent = question;
-  $('#sug-strategy').style.display = 'block';
-  $('#sug-strategy').textContent = '⏳ 답변 생성 중...';
-  $('#sug-cands').innerHTML = '';
-  const context = log.slice(-7, -1).join('\n');   // 직전 대화 → 꼬리 질문도 맥락 반영
+  const card = $('#card');
+  card.style.display = 'block';
+  $('#c-gist').textContent = '생성 중...';
+  $('#c-strat-row').style.display = 'none';
+  $('#c-answers').innerHTML = '';
+  const context = log.slice(-7).map(l => `${l.who === '나' ? 'Candidate' : 'Interviewer'}: ${l.text}`).join('\n');
   let raw = '';
   try {
-    await streamChat('/api/live/suggest', { question, cefr: $('#cefr').value, context },
-      tk => { raw += tk; renderSuggestion(raw); }, suggestAbort.signal);
+    await streamChat('/api/live/suggest',
+      { question: target, cefr: $('#cefr').value, context, intent },
+      tk => { raw += tk; renderCard(raw); }, suggestAbort.signal);
   } catch (e) {
-    if (e.name !== 'AbortError') {
-      $('#sug-strategy').style.display = 'block';
-      $('#sug-strategy').textContent = '⚠️ ' + e.message;
-    }
+    if (e.name !== 'AbortError') $('#c-gist').textContent = '⚠️ ' + e.message;
   } finally {
     suggestAbort = null;
     processTrQueue();
   }
 }
+$('#c-close').addEventListener('click', () => { $('#card').style.display = 'none'; pinned = false; $('#c-pin').classList.remove('on'); });
+$('#c-pin').addEventListener('click', () => { pinned = !pinned; $('#c-pin').classList.toggle('on', pinned); });
+
+// ── 퀵 액션 (동의/반박/질문/제안) — 마지막 상대 발화 기준 ───
+document.querySelectorAll('.actions [data-intent]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const last = [...log].reverse().find(l => l.who === '상대');
+    if (last) suggest(last.text, btn.dataset.intent);
+  });
+});
+
+// ── 🎙 화자 토글 ───────────────────────────────────────────
+$('#btn-who').addEventListener('click', () => {
+  speakerMe = !speakerMe;
+  const b = $('#btn-who');
+  b.textContent = speakerMe ? '🎙 나' : '🎙 상대';
+  b.classList.toggle('me', speakerMe);
+});
 
 function speak(text) {
   speechSynthesis.cancel();
@@ -351,16 +434,15 @@ function speak(text) {
   speechSynthesis.speak(u);
 }
 
-// ── 🎧 연속 음성 인식 ──────────────────────────────────────
+// ── ▶/⏸ 연속 음성 인식 · ⏹ 세션 종료 ──────────────────────
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+function stopListening() {
+  if (rec) { rec.onend = null; rec.stop(); rec = null; }
+  $('#btn-listen').textContent = '▶';
+  $('#btn-listen').classList.remove('live');
+}
 $('#btn-listen').addEventListener('click', () => {
-  const btn = $('#btn-listen'), pill = $('#status-pill');
-  if (rec) {                          // 중지
-    rec.onend = null; rec.stop(); rec = null;
-    btn.textContent = '🎧 듣기 시작'; btn.classList.remove('listening'); btn.classList.add('primary');
-    pill.classList.remove('live'); pill.textContent = '대기 중';
-    return;
-  }
+  if (rec) { stopListening(); return; }
   if (!SR) { alert('이 브라우저는 음성 인식을 지원하지 않아요. Chrome을 사용하세요.'); return; }
   rec = new SR();
   rec.lang = 'en-US'; rec.continuous = true; rec.interimResults = true;
@@ -375,62 +457,91 @@ $('#btn-listen').addEventListener('click', () => {
       if (!interimEl) {
         $('#feed-empty')?.remove();
         interimEl = document.createElement('div');
-        interimEl.className = 'utt dim';
+        interimEl.className = 'row dim';
+        interimEl.innerHTML = '<div class="bubble"><div class="en"></div></div>';
         feed.appendChild(interimEl);
       }
-      interimEl.textContent = interim;
+      interimEl.querySelector('.en').textContent = interim;
       feed.scrollTop = feed.scrollHeight;
     } else if (interimEl) { interimEl.remove(); interimEl = null; }
   };
-  rec.onend = () => { if (rec) rec.start(); };   // 침묵으로 끊겨도 계속 듣기
+  rec.onend = () => { if (rec) rec.start(); };
   rec.onerror = (e) => { if (e.error === 'not-allowed') alert('마이크 권한을 허용해 주세요.'); };
   rec.start();
-  btn.textContent = '⏹ 듣기 중지'; btn.classList.add('listening'); btn.classList.remove('primary');
-  pill.classList.add('live'); pill.textContent = '듣는 중';
+  $('#btn-listen').textContent = '⏸';
+  $('#btn-listen').classList.add('live');
+});
+$('#btn-stop').addEventListener('click', () => {
+  stopListening();
+  log.length = 0; uttCount = 0;
+  feed.innerHTML = '<div class="empty" id="feed-empty"><div class="big">🎧</div>▶ 버튼을 누르면 대화가 실시간 자막 + 한국어 번역으로 표시되고<br>질문이 감지되면 답변 카드가 자동으로 뜹니다</div>';
+  $('#card').style.display = 'none';
+  $('#sum-line').textContent = '듣기를 시작하면 대화 요약이 실시간으로 표시됩니다';
 });
 
-// ── 요약 (자막 패널 상단 배너) ─────────────────────────────
-$('#btn-summary').addEventListener('click', async () => {
-  if (!log.length) return;
-  const out = $('#summary-out');
-  out.style.display = 'block'; out.textContent = '⏳ 요약 중...';
-  feed.scrollTop = 0;
+// ── 탭 전환 ────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    ['live', 'summary', 'translate'].forEach(v =>
+      $('#view-' + v).classList.toggle('hidden', v !== tab.dataset.v));
+    if (tab.dataset.v === 'summary' && log.length) fullSummary();
+  });
+});
+
+// ── 요약 탭 ────────────────────────────────────────────────
+async function fullSummary() {
+  const out = $('#full-summary');
+  out.textContent = '⏳ 요약 중...';
   try {
     let first = true;
-    await streamChat('/api/live/summary', { transcript: log.join('\n') },
+    await streamChat('/api/live/summary',
+      { transcript: log.map(l => `${l.who}: ${l.text}`).join('\n'), mode: 'full' },
       tk => { if (first) { out.textContent = ''; first = false; } out.textContent += tk; });
   } catch (e) { out.textContent = '⚠️ ' + e.message; }
-});
+}
+$('#btn-full-summary').addEventListener('click', () => log.length && fullSummary());
 
-// ── 🇰🇷 한국어 → 영어 (답변 카드 형태로 표시) ───────────────
-$('#hint-in').addEventListener('keydown', async (e) => {
-  if (e.key !== 'Enter') return;
-  const text = e.target.value.trim();
+// ── 번역 탭 ────────────────────────────────────────────────
+async function doTranslate() {
+  const text = $('#tr-in').value.trim();
   if (!text) return;
-  e.target.value = '';
-  $('#sug-empty')?.remove();
+  const out = $('#tr-out');
+  out.textContent = '';
+  try {
+    await streamChat('/api/translate', { text }, tk => { out.textContent += tk; });
+  } catch (e) { out.textContent = '⚠️ ' + e.message; }
+}
+$('#tr-go').addEventListener('click', doTranslate);
+$('#tr-in').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) doTranslate(); });
+$('#tr-say').addEventListener('click', () => { const t = $('#tr-out').textContent; if (t) speak(t); });
+
+// ── 🇰🇷 빠른 번역 입력 (라이브 탭 하단) — 결과를 답변 카드로 ──
+async function quickHint() {
+  const text = $('#hint-in').value.trim();
+  if (!text) return;
+  $('#hint-in').value = '';
   if (suggestAbort) suggestAbort.abort();
   suggestAbort = new AbortController();
-  const sq = $('#sug-q');
-  sq.style.display = 'block';
-  sq.innerHTML = '🇰🇷 <b></b>';
-  sq.querySelector('b').textContent = text;
-  $('#sug-strategy').style.display = 'none';
-  const box = $('#sug-cands');
-  box.innerHTML = '<div class="cand"><div class="num"><span class="b">→</span>영어로</div><div class="en"></div></div>';
+  const card = $('#card');
+  card.style.display = 'block';
+  $('#c-gist').textContent = text;
+  $('#c-strat-row').style.display = 'none';
+  const box = $('#c-answers');
+  box.innerHTML = `<div class="lrow"><span class="lab an">영어</span>
+    <div class="body"><div class="en"></div></div><button class="say">🔊</button></div>`;
   const enEl = box.querySelector('.en');
+  box.querySelector('.say').addEventListener('click', () => speak(enEl.textContent));
   try {
     await streamChat('/api/translate', { text },
       tk => { enEl.textContent += tk; }, suggestAbort.signal);
-    const finalText = enEl.textContent;
-    const sayBtn = document.createElement('button');
-    sayBtn.className = 'say'; sayBtn.textContent = '🔊';
-    sayBtn.addEventListener('click', () => speak(finalText));
-    box.querySelector('.cand').prepend(sayBtn);
   } catch (err) {
     if (err.name !== 'AbortError') enEl.textContent = '⚠️ ' + err.message;
   } finally { suggestAbort = null; processTrQueue(); }
-});
+}
+$('#hint-go').addEventListener('click', quickHint);
+$('#hint-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') quickHint(); });
 
 speechSynthesis.getVoices();
 </script>

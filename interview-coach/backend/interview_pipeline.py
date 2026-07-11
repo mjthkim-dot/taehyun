@@ -337,24 +337,42 @@ def feedback(question: str, transcript: str, cefr: str = "B1",
 #  🔴 라이브 모드 — 실전 화상 면접 중 실시간 답변 제안 / 세션 요약
 #  (스트리밍 출력용 프롬프트만 만들고, 실제 스트리밍은 서버가 프록시)
 # ─────────────────────────────────────────────────────────────
-def build_live_suggest_prompt(question: str, cefr: str = "B1", context: str = "") -> str:
-    """면접관 질문 → 즉시 읽을 수 있는 짧은 답변. 저지연을 위해 답변 1개만.
+# 퀵 액션 의도 — Smooth AI의 동의하기/반박하기/질문하기/제안하기 벤치마킹
+INTENT_GOALS = {
+    "answer": "Directly answer what the interviewer just said/asked.",
+    "agree": "AGREE with what was just said and reinforce it with one supporting "
+             "point drawn from the candidate's background.",
+    "disagree": "Politely PUSH BACK on what was just said with one concrete, "
+                "respectful reason — disagree without being confrontational.",
+    "ask": "ASK one sharp, professional clarifying or probing question about "
+           "what was just said (the candidate wants to ask, not answer).",
+    "propose": "Make one concrete, forward-moving SUGGESTION related to what "
+               "was just said.",
+}
+
+
+def build_live_suggest_prompt(question: str, cefr: str = "B1", context: str = "",
+                              intent: str = "answer") -> str:
+    """면접관 발화 → 즉시 읽을 수 있는 답변 2개(+한국어 번역). intent로 의도 선택.
     context: 직전 대화(자막 로그) — 꼬리 질문(follow-up)에 맥락 있는 답변을 위해."""
     refs = _safe_retrieve(question, k_phrases=4, k_profile=4)
     profile_lines = "\n".join(f"- {r['text']}" for r in refs["profile"]) or "- (none)"
     phrase_lines = "\n".join(f'- "{r["en"]}"' for r in refs["phrases"] if r.get("en")) or "- (none)"
+    goal = INTENT_GOALS.get(intent, INTENT_GOALS["answer"])
     context_block = (
         "\nRecent conversation transcript (interviewer and candidate mixed; use it to"
-        f" resolve what a follow-up question refers to):\n\"\"\"{context}\"\"\"\n"
+        f" resolve what a follow-up refers to):\n\"\"\"{context}\"\"\"\n"
         if context.strip() else ""
     )
     return f"""You are a real-time interview copilot for a Korean candidate who is IN A LIVE
 English video interview for an IT sales (cloud/SaaS) position RIGHT NOW.
 Speed matters — the candidate is waiting to speak.
 {context_block}
-The interviewer just asked:
+The interviewer just said:
 
 "{question}"
+
+The candidate's goal right now: {goal}
 
 Candidate background facts (Korean; personalize with these, substitute plausible
 round numbers for [placeholders], never contradict them):
@@ -363,19 +381,20 @@ round numbers for [placeholders], never contradict them):
 Useful phrases (reuse where natural):
 {phrase_lines}
 
-Give the candidate an ANSWER SET: 2 different spoken answers they can read aloud
-immediately, each followed by its natural Korean translation.
+Give the candidate 2 different spoken options they can read aloud immediately,
+each followed by its natural Korean translation.
 
 Respond in EXACTLY this format (plain text, no markdown), nothing else:
-전략: <한국어로 답변 전략 한 줄 — 아주 짧게>
+요지: <방금 발화의 핵심을 한국어 한 줄로 (예: "일정을 맞출 수 있나요?")>
+전략: <한국어로 말하기 전략 한 줄 — 아주 짧게>
 ===
-EN: <Answer option 1 — safe and concise, 30-50 words>
-KR: <위 답변의 자연스러운 한국어 번역>
+EN: <Option 1 — safe and concise, 30-50 words>
+KR: <위 문장의 자연스러운 한국어 번역>
 ===
-EN: <Answer option 2 — stronger, with one concrete number or example, 60-80 words>
-KR: <위 답변의 자연스러운 한국어 번역>
+EN: <Option 2 — stronger, with one concrete number or example, 60-80 words>
+KR: <위 문장의 자연스러운 한국어 번역>
 
-Rules for the EN answers:
+Rules for the EN options:
 - First person, confident tone, around CEFR {cefr} but natural.
 - Sound like a native speaker in a US business setting: contractions, natural
   rhythm, a light discourse marker to open (e.g. "Well," / "That's a great
@@ -384,8 +403,20 @@ Rules for the EN answers:
 - If it was a follow-up, connect to what was said before instead of repeating it."""
 
 
-def build_live_summary_prompt(transcript: str) -> str:
-    """지금까지의 면접 트랜스크립트 → 한국어 중간 요약."""
+def build_live_summary_prompt(transcript: str, mode: str = "full") -> str:
+    """지금까지의 면접 트랜스크립트 → 한국어 요약.
+    mode="line": 상단 바에 상시 표시되는 실시간 한 줄 요약 (Smooth AI 벤치마킹)
+    mode="full": 요약 탭에서 보는 전체 정리"""
+    if mode == "line":
+        return f"""Below is the live transcript of an ongoing English job interview.
+
+Transcript (most recent last):
+\"\"\"{transcript}\"\"\"
+
+지금 대화의 핵심 주제/상황을 한국어 한 문장(40자 이내)으로 요약하세요.
+예: "영업 목표 달성 경험에 대한 심층 질문 진행 중"
+문장 하나만 출력하고 다른 말은 붙이지 마세요."""
+
     return f"""Below is the live transcript of an ongoing English job interview
 (IT sales position). It mixes the interviewer's and the candidate's speech.
 
@@ -394,6 +425,7 @@ Transcript:
 
 한국어로 짧게 정리해 주세요 (전체 120단어 이내, 마크다운 헤더 없이):
 📌 지금까지 나온 질문: (불릿 2~4개)
+🗣 내 답변 요지: (불릿 1~2개)
 ⚠️ 주의/보완할 점: (불릿 1~2개 — 아직 안 나왔지만 준비할 질문 예상 포함)"""
 
 
