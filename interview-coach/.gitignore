@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+
+# 검색 인덱스 캐시 — 최초 요청 시 자동 재생성됨 (질문 은행/프로필만 커밋)
+backend/data/interview_index.json

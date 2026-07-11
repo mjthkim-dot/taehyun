@@ -13,7 +13,6 @@ import socket
 import sys
 import tempfile
 import threading
-import urllib.error
 import webbrowser
 from pathlib import Path
 
@@ -22,11 +21,6 @@ try:
 except ImportError:
     print("❌ requests 패키지가 필요합니다: pip3 install requests")
     sys.exit(1)
-
-sys.path.insert(0, str(Path(__file__).parent / "backend"))
-import rag_pipeline  # noqa: E402 (의존성 0 — stdlib만 사용, KR↔EN RAG 답변셋 + 번역 프롬프트)
-import interview_pipeline  # noqa: E402 (의존성 0 — 영어 면접 질문/답변/피드백 파이프라인)
-import llm  # noqa: E402 (GROQ_API_KEY 있으면 Groq 초고속, 없으면 로컬 Ollama)
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 PORT = int(os.environ.get("PORT", "3777"))
@@ -37,8 +31,7 @@ CAF_MODEL = os.environ.get("CAF_MODEL", "gemma3:27b")
 
 # PWA(서비스워커/매니페스트)가 동작하려면 sw.js·manifest.webmanifest를 정적으로 서빙해야 한다.
 # 같은 디렉터리(voice-assistant/) 내부 파일만 허용 — 경로 순회(path traversal) 차단.
-STATIC_FILES = {"/sw.js", "/manifest.webmanifest", "/answer-set.html",
-                "/interview.html", "/interview.webmanifest", "/live.html"}
+STATIC_FILES = {"/sw.js", "/manifest.webmanifest"}
 CONTENT_TYPES = {
     ".js": "text/javascript; charset=utf-8",
     ".webmanifest": "application/manifest+json",
@@ -46,7 +39,6 @@ CONTENT_TYPES = {
     ".png": "image/png",
     ".svg": "image/svg+xml",
     ".ico": "image/x-icon",
-    ".html": "text/html; charset=utf-8",
 }
 
 
@@ -239,10 +231,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     # ── Serve index.html ──────────────────────────────────
     def do_GET(self):
-        # 쿼리스트링 분리 (예: /api/interview/question?category=...)
-        path, _, query = self.path.partition("?")
-
-        if path in ("/", "/index.html"):
+        if self.path in ("/", "/index.html"):
             data = HTML_FILE.read_bytes()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -253,7 +242,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
 
-        elif path == "/health":
+        elif self.path == "/health":
             # Check if Ollama is reachable
             try:
                 r = requests.get(f"{OLLAMA_URL}/api/tags", timeout=3)
@@ -267,7 +256,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(payload)
 
-        elif path == "/api/tts/status":
+        elif self.path == "/api/tts/status":
             # 프런트가 로컬 오픈소스 TTS 사용 가능 여부를 판단하는 데 쓴다.
             self._send_json(200, {
                 "available": _tts_available(),
@@ -275,33 +264,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "engine": "melotts",
             })
 
-        elif path == "/api/rag/status":
-            # 🆕 RAG 인덱스 상태 (코퍼스 크기 / 임베딩·답변 모델)
-            self._send_json(200, rag_pipeline.index.status())
-
-        # 🆕 면접 모드 — 질문 은행/카테고리/상태
-        elif path == "/api/interview/question":
-            from urllib.parse import parse_qs
-            qs = parse_qs(query)
-            diff = (qs.get("difficulty") or [None])[0]
-            q = interview_pipeline.pick_question(
-                category=(qs.get("category") or [None])[0],
-                difficulty=int(diff) if diff and diff.isdigit() else None,
-                exclude=(qs.get("exclude") or [""])[0].split(","),
-            )
-            if q:
-                self._send_json(200, q)
-            else:
-                self._send_json(404, {"error": "조건에 맞는 질문이 없습니다."})
-
-        elif path == "/api/interview/categories":
-            self._send_json(200, interview_pipeline.list_categories())
-
-        elif path == "/api/interview/status":
-            self._send_json(200, interview_pipeline.index.status())
-
-        elif path in STATIC_FILES:
-            self._serve_static(APP_DIR / path.lstrip("/"))
+        elif self.path in STATIC_FILES:
+            self._serve_static(APP_DIR / self.path.lstrip("/"))
 
         else:
             self.send_error(404)
@@ -328,22 +292,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._cors()
         self.end_headers()
         self.wfile.write(payload)
-
-    def _stream_llm(self, messages, temperature=0.4, max_tokens=400, model=None):
-        """llm 모듈(Groq 또는 Ollama)의 토큰 스트림을 NDJSON으로 프록시.
-        첫 청크를 먼저 당겨서(next) 연결 실패가 503으로 처리될 수 있게 한다."""
-        it = llm.stream_ndjson(messages, temperature, max_tokens, model)
-        first = next(it, None)
-        self.send_response(200)
-        self.send_header("Content-Type", "application/x-ndjson")
-        self._cors()
-        self.end_headers()
-        if first:
-            self.wfile.write(first)
-            self.wfile.flush()
-        for chunk in it:
-            self.wfile.write(chunk)
-            self.wfile.flush()
 
     # ── Proxy /api/chat → Ollama (streaming) + /api/caf ───
     def do_POST(self):
@@ -382,107 +330,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._cors()
                 self.end_headers()
                 self.wfile.write(wav)
-            except Exception as e:  # noqa: BLE001
-                self._send_json(500, {"error": str(e)})
-            return
-
-        # 🆕 면접 모드 — 모범 답변 생성 (30초/60초/90초 3단계, 프로필 근거)
-        if self.path == "/api/interview/answers":
-            try:
-                req = json.loads(body or b"{}")
-                result = interview_pipeline.generate_answers(
-                    req.get("question", ""), req.get("cefr", "B1"), req.get("model"),
-                )
-                self._send_json(200, result)
-            except urllib.error.URLError:
-                self._send_json(503, {"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."})
-            except Exception as e:  # noqa: BLE001
-                self._send_json(500, {"error": str(e)})
-            return
-
-        # 🆕 면접 모드 — 내 답변 피드백 (STAR 구조 + 표현 업그레이드)
-        if self.path == "/api/interview/feedback":
-            try:
-                req = json.loads(body or b"{}")
-                result = interview_pipeline.feedback(
-                    req.get("question", ""), req.get("transcript", ""),
-                    req.get("cefr", "B1"), req.get("duration_sec"), req.get("model"),
-                )
-                self._send_json(200, result)
-            except urllib.error.URLError:
-                self._send_json(503, {"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."})
-            except Exception as e:  # noqa: BLE001
-                self._send_json(500, {"error": str(e)})
-            return
-
-        # 🆕 RAG 기반 영어 답변셋 — 한국어 상황/질문 → 관련 문장 검색 → 답변 후보 3개
-        if self.path == "/api/answer-set":
-            try:
-                req = json.loads(body or b"{}")
-                result = rag_pipeline.generate_answer_set(
-                    req.get("situation_ko", ""), req.get("cefr", "B1"),
-                    req.get("k", 5), req.get("category"), req.get("model"),
-                )
-                self._send_json(200, result)
-            except urllib.error.URLError:
-                self._send_json(503, {"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."})
-            except Exception as e:  # noqa: BLE001
-                self._send_json(500, {"error": str(e)})
-            return
-
-        if self.path == "/api/rag/rebuild":
-            try:
-                self._send_json(200, rag_pipeline.index.rebuild())
-            except urllib.error.URLError:
-                self._send_json(503, {"error": "Ollama에 연결할 수 없습니다."})
-            except Exception as e:  # noqa: BLE001
-                self._send_json(500, {"error": str(e)})
-            return
-
-        # 🆕 실시간 KR↔EN 번역 (NDJSON 스트리밍 — Groq 키 있으면 Groq, 없으면 Ollama)
-        if self.path == "/api/translate":
-            try:
-                req = json.loads(body or b"{}")
-                self._stream_llm([
-                    {"role": "system", "content": rag_pipeline.TRANSLATE_SYSTEM_PROMPT},
-                    {"role": "user", "content": req.get("text", "")},
-                ], temperature=0.3, max_tokens=300, model=req.get("model"))
-            except urllib.error.HTTPError as e:
-                self._send_json(e.code, {"error": f"LLM API 오류 ({e.code}) — API 키/요청 한도를 확인하세요."})
-            except (urllib.error.URLError, requests.exceptions.ConnectionError):
-                self._send_json(503, {"error": "LLM에 연결할 수 없습니다. (Groq: 인터넷 / Ollama: 실행 여부 확인)"})
-            except Exception as e:  # noqa: BLE001
-                self._send_json(500, {"error": str(e)})
-            return
-
-        # 🔴 라이브 모드 — 실전 면접 중 질문 감지 시 즉시 답변 제안 (스트리밍)
-        if self.path == "/api/live/suggest":
-            try:
-                req = json.loads(body or b"{}")
-                prompt = interview_pipeline.build_live_suggest_prompt(
-                    req.get("question", ""), req.get("cefr", "B1"),
-                    req.get("context", ""))
-                self._stream_llm([{"role": "user", "content": prompt}],
-                                 temperature=0.4, max_tokens=350, model=req.get("model"))
-            except urllib.error.HTTPError as e:
-                self._send_json(e.code, {"error": f"LLM API 오류 ({e.code}) — API 키/요청 한도를 확인하세요."})
-            except (urllib.error.URLError, requests.exceptions.ConnectionError):
-                self._send_json(503, {"error": "LLM에 연결할 수 없습니다. (Groq: 인터넷 / Ollama: 실행 여부 확인)"})
-            except Exception as e:  # noqa: BLE001
-                self._send_json(500, {"error": str(e)})
-            return
-
-        # 🔴 라이브 모드 — 지금까지의 면접 트랜스크립트 중간 요약 (스트리밍)
-        if self.path == "/api/live/summary":
-            try:
-                req = json.loads(body or b"{}")
-                prompt = interview_pipeline.build_live_summary_prompt(req.get("transcript", ""))
-                self._stream_llm([{"role": "user", "content": prompt}],
-                                 temperature=0.3, max_tokens=400, model=req.get("model"))
-            except urllib.error.HTTPError as e:
-                self._send_json(e.code, {"error": f"LLM API 오류 ({e.code}) — API 키/요청 한도를 확인하세요."})
-            except (urllib.error.URLError, requests.exceptions.ConnectionError):
-                self._send_json(503, {"error": "LLM에 연결할 수 없습니다. (Groq: 인터넷 / Ollama: 실행 여부 확인)"})
             except Exception as e:  # noqa: BLE001
                 self._send_json(500, {"error": str(e)})
             return
@@ -560,8 +407,6 @@ if __name__ == "__main__":
     else:
         print("  ℹ️  로컬 한국어 음성 비활성 (자연 음성 원하면: bash voice-assistant/tts-setup.sh)")
     print(f"\n  🖥  PC 브라우저:    http://localhost:{PORT}")
-    print(f"  🎤 영어 면접 연습:  http://localhost:{PORT}/interview.html")
-    print(f"  🔴 실전 라이브 모드: http://localhost:{PORT}/live.html")
     lan_ip = get_lan_ip()
     if lan_ip:
         print(f"  📱 모바일 브라우저: http://{lan_ip}:{PORT}")

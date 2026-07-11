@@ -12,10 +12,6 @@
    🆕 추가     POST /api/session → CAF 결과 영속화 (폴리글랏 스토어)
    🆕 추가     GET  /api/storage → 활성 스토리지 백엔드 상태
    🆕 추가     WS   /ws/audio    → 실시간 오디오 스트리밍 (Whisper STT 대비)
-   🆕 면접     GET  /api/interview/question|categories|status → 질문 은행
-   🆕 면접     POST /api/interview/answers  → 30/60/90초 모범 답변 (프로필 근거)
-   🆕 면접     POST /api/interview/feedback → 내 답변 STAR 구조 + 표현 피드백
-   🆕 번역     POST /api/translate → 실시간 KR↔EN 번역 (NDJSON 스트리밍)
 
  실행:  uvicorn backend.main:app --host 0.0.0.0 --port 3777
 ═══════════════════════════════════════════════════════════════
@@ -24,7 +20,6 @@ from __future__ import annotations
 
 import json
 import os
-import urllib.error
 from pathlib import Path
 
 import httpx
@@ -33,17 +28,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-import interview_pipeline
-import llm
 from caf_pipeline import analyze_caf
-from rag_pipeline import TRANSLATE_SYSTEM_PROMPT, generate_answer_set
-from rag_pipeline import index as rag_index
 from storage import store
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 HTML_FILE = Path(__file__).parent.parent / "index.html"
-ANSWER_SET_HTML_FILE = Path(__file__).parent.parent / "answer-set.html"
-INTERVIEW_HTML_FILE = Path(__file__).parent.parent / "interview.html"
 
 app = FastAPI(title="TBLT LMS — AI Speech Pipeline", version="1.0")
 app.add_middleware(
@@ -60,31 +49,6 @@ def index():
 
 
 # ── /health (기존 호환) ────────────────────────────────────────
-@app.get("/answer-set.html")
-def answer_set_page():
-    return FileResponse(ANSWER_SET_HTML_FILE, media_type="text/html",
-                        headers={"Cache-Control": "no-store, must-revalidate"})
-
-
-@app.get("/interview.html")
-def interview_page():
-    return FileResponse(INTERVIEW_HTML_FILE, media_type="text/html",
-                        headers={"Cache-Control": "no-store, must-revalidate"})
-
-
-@app.get("/interview.webmanifest")
-def interview_manifest():
-    return FileResponse(INTERVIEW_HTML_FILE.parent / "interview.webmanifest",
-                        media_type="application/manifest+json",
-                        headers={"Cache-Control": "no-store, must-revalidate"})
-
-
-@app.get("/live.html")
-def live_page():
-    return FileResponse(INTERVIEW_HTML_FILE.parent / "live.html", media_type="text/html",
-                        headers={"Cache-Control": "no-store, must-revalidate"})
-
-
 @app.get("/health")
 async def health():
     try:
@@ -157,169 +121,6 @@ def save_session(req: SessionRequest):
 @app.get("/api/storage")
 def storage_status():
     return store.enabled
-
-
-# ── 🆕 /api/translate — 실시간 KR↔EN 번역 (NDJSON 스트리밍) ────
-# smoothai_kr 벤치마크: 방향(한→영/영→한) 자동 감지, 토큰 스트리밍으로
-# 대화 중 지연 없이 자막처럼 번역이 흘러나오도록 한다.
-class TranslateRequest(BaseModel):
-    text: str
-    model: str | None = None
-
-
-def _stream_llm_response(messages: list[dict], temperature: float, max_tokens: int,
-                         model: str | None = None) -> StreamingResponse:
-    """llm 모듈(Groq/Ollama)의 동기 제너레이터를 StreamingResponse로 —
-    Starlette이 스레드풀에서 돌리므로 이벤트루프를 막지 않는다."""
-    def gen():
-        try:
-            yield from llm.stream_ndjson(messages, temperature, max_tokens, model)
-        except urllib.error.HTTPError as e:
-            yield json.dumps({"error": f"LLM API 오류 ({e.code}) — API 키/요청 한도를 확인하세요."}).encode() + b"\n"
-        except urllib.error.URLError:
-            yield json.dumps({"error": "LLM에 연결할 수 없습니다. (Groq: 인터넷 / Ollama: 실행 여부 확인)"}).encode() + b"\n"
-
-    return StreamingResponse(gen(), media_type="application/x-ndjson")
-
-
-@app.post("/api/translate")
-def translate(req: TranslateRequest):
-    return _stream_llm_response([
-        {"role": "system", "content": TRANSLATE_SYSTEM_PROMPT},
-        {"role": "user", "content": req.text},
-    ], temperature=0.3, max_tokens=300, model=req.model)
-
-
-# ── 🆕 /api/answer-set — RAG 기반 영어 답변셋 생성 ─────────────
-# 한국어 상황/질문 → 레슨·시나리오 코퍼스에서 관련 문장 검색(RAG) →
-# CEFR 레벨별 영어 답변 후보 3개(격식 단계별)를 생성한다.
-class AnswerSetRequest(BaseModel):
-    situation_ko: str
-    cefr: str = "B1"
-    k: int = 5
-    category: str | None = None
-    model: str | None = None
-
-
-@app.post("/api/answer-set")
-def answer_set(req: AnswerSetRequest):
-    # rag_pipeline은 stdlib(urllib)로 Ollama를 호출하므로 httpx가 아닌 URLError를 던진다.
-    try:
-        return generate_answer_set(req.situation_ko, req.cefr, req.k, req.category, req.model)
-    except urllib.error.URLError:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."},
-        )
-    except Exception as e:  # noqa: BLE001
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-
-# ── 🆕 면접 모드 — 질문 은행 / 모범 답변 / 피드백 ───────────────
-@app.get("/api/interview/question")
-def interview_question(category: str | None = None, difficulty: int | None = None,
-                       exclude: str = ""):
-    q = interview_pipeline.pick_question(category, difficulty, exclude.split(","))
-    if not q:
-        return JSONResponse(status_code=404, content={"error": "조건에 맞는 질문이 없습니다."})
-    return q
-
-
-@app.get("/api/interview/categories")
-def interview_categories():
-    return interview_pipeline.list_categories()
-
-
-@app.get("/api/interview/status")
-def interview_status():
-    return interview_pipeline.index.status()
-
-
-class InterviewAnswersRequest(BaseModel):
-    question: str
-    cefr: str = "B1"
-    model: str | None = None
-
-
-@app.post("/api/interview/answers")
-def interview_answers(req: InterviewAnswersRequest):
-    try:
-        return interview_pipeline.generate_answers(req.question, req.cefr, req.model)
-    except urllib.error.URLError:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."},
-        )
-    except Exception as e:  # noqa: BLE001
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-
-class InterviewFeedbackRequest(BaseModel):
-    question: str
-    transcript: str
-    cefr: str = "B1"
-    duration_sec: float | None = None
-    model: str | None = None
-
-
-@app.post("/api/interview/feedback")
-def interview_feedback(req: InterviewFeedbackRequest):
-    try:
-        return interview_pipeline.feedback(req.question, req.transcript, req.cefr,
-                                           req.duration_sec, req.model)
-    except urllib.error.URLError:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."},
-        )
-    except Exception as e:  # noqa: BLE001
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-
-# ── 🔴 라이브 모드 — 실전 면접 중 답변 제안 / 중간 요약 (스트리밍) ──
-class LiveSuggestRequest(BaseModel):
-    question: str
-    cefr: str = "B1"
-    context: str = ""
-    model: str | None = None
-
-
-@app.post("/api/live/suggest")
-def live_suggest(req: LiveSuggestRequest):
-    prompt = interview_pipeline.build_live_suggest_prompt(req.question, req.cefr, req.context)
-    return _stream_llm_response([{"role": "user", "content": prompt}],
-                                temperature=0.4, max_tokens=350, model=req.model)
-
-
-class LiveSummaryRequest(BaseModel):
-    transcript: str
-    model: str | None = None
-
-
-@app.post("/api/live/summary")
-def live_summary(req: LiveSummaryRequest):
-    prompt = interview_pipeline.build_live_summary_prompt(req.transcript)
-    return _stream_llm_response([{"role": "user", "content": prompt}],
-                                temperature=0.3, max_tokens=400, model=req.model)
-
-
-# ── 🆕 /api/rag/status — RAG 인덱스 상태 (코퍼스 크기/임베딩 모델) ─
-@app.get("/api/rag/status")
-def rag_status():
-    return rag_index.status()
-
-
-@app.post("/api/rag/rebuild")
-def rag_rebuild():
-    try:
-        return rag_index.rebuild()
-    except urllib.error.URLError:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요."},
-        )
-    except Exception as e:  # noqa: BLE001
-        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 # ── 🆕 /ws/audio — 실시간 오디오 스트리밍 ─────────────────────

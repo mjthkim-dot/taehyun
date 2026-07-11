@@ -1,6 +1,6 @@
 """
 ═══════════════════════════════════════════════════════════════
- 영어 면접 파이프라인 — IT 영업 직군 모의 면접 (맥북 로컬/Ollama)
+ 영어 면접 파이프라인 — IT 영업 직군 모의 면접 (맥북 로컬/Ollama, 또는 Groq)
 
  구성 요소:
    · 질문 은행     data/interview_bank.json — 빈출 질문 + 답변용 표현(KR↔EN)
@@ -9,8 +9,8 @@
    · 답변 생성     질문 → 프로필 근거 + 표현 은행 근거 → 30초/60초/90초 3단계 영어 답변
    · 답변 피드백   내가 말한 답변(STT 텍스트) → STAR 구조 체크 + 표현 업그레이드
 
- 의존성 0 (stdlib) — rag_pipeline의 embed/_post_json을 재사용하므로
- server.py(로컬)와 backend/main.py(FastAPI) 양쪽에서 동일하게 동작한다.
+ 완전히 독립된 프로젝트 — 다른 앱의 코드/데이터에 의존하지 않는다.
+ 의존성 0 (stdlib만 사용).
 ═══════════════════════════════════════════════════════════════
 """
 from __future__ import annotations
@@ -22,8 +22,8 @@ from pathlib import Path
 from typing import Any
 
 import llm
-from caf_pipeline import deterministic_metrics
-from rag_pipeline import EMBED_MODEL, _cosine, embed
+from embeddings import EMBED_MODEL, cosine, embed
+from speech_metrics import deterministic_metrics
 
 DATA_DIR = Path(__file__).parent / "data"
 BANK_PATH = DATA_DIR / "interview_bank.json"
@@ -154,7 +154,7 @@ class InterviewIndex:
             return {"phrases": [], "profile": []}
         scored: dict[str, list[tuple[float, dict]]] = {"phrase": [], "profile": []}
         for e in entries:
-            scored[e["kind"]].append((_cosine(qvec, e.get("embedding", [])), e))
+            scored[e["kind"]].append((cosine(qvec, e.get("embedding", [])), e))
         for lst in scored.values():
             lst.sort(key=lambda t: t[0], reverse=True)
         return {

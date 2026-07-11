@@ -12,7 +12,7 @@
  스트리밍은 어느 프로바이더든 Ollama NDJSON 형태({"message":{"content":...}})로
  통일해 내보내므로 프런트엔드는 수정 없이 그대로 동작한다.
 
- 의존성 0 (stdlib urllib만 사용) — server.py / backend/main.py 공용.
+ 의존성 0 (stdlib urllib만 사용) — server.py 전용 (interview-coach는 독립 프로젝트).
 ═══════════════════════════════════════════════════════════════
 """
 from __future__ import annotations
@@ -26,7 +26,7 @@ OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_URL = os.environ.get("GROQ_URL", "https://api.groq.com/openai/v1")  # 테스트용 오버라이드 가능
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
-OLLAMA_MODEL = os.environ.get("CAF_MODEL", "gemma3:27b")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:12b")  # 16GB 맥북 기본값
 
 
 def provider() -> str:

@@ -1,6 +1,2 @@
 __pycache__/
 *.pyc
-
-# RAG/면접 임베딩 인덱스 캐시 — Ollama로 최초 요청 시 자동 재생성됨 (코퍼스만 커밋)
-data/rag_index.json
-data/interview_index.json
