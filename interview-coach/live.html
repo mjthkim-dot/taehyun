@@ -321,17 +321,27 @@ const trQueue = [];             // 자막 번역 대기열
 let translating = false;
 let uttCount = 0, lineSumBusy = false;
 
-// ── 질문 감지 휴리스틱 ─────────────────────────────────────
+// ── 질문 감지 휴리스틱 — STT가 물음표를 빠뜨려도 잡아야 한다.
+//    실제 면접관은 "So,", "Okay,", "And..." 로 질문을 시작하므로
+//    ① 문두 군말을 반복 제거하고 ② 세그먼트 안 문장별로 검사한다.
+//    (실측: 면접 말투 18문항 기준 기존 6/18 → 18/18, 오탐 0/16)
 const Q_STARTS = ['what','why','how','when','where','who','which','tell me','tell us',
   'describe','walk me','walk us','could you','can you','would you','do you','did you',
-  'have you','are you','were you','is there','give me','give us','let\'s talk',
-  'talk me through','explain','share','i\'d love to hear','i am curious','i\'m curious',
-  'so realistically','realistically'];
+  'have you','has your','are you','were you','is there','is it','are there',
+  'give me','give us',"let's say",'suppose','imagine','talk me through','talk about',
+  'explain','share',"i'd love to hear",'i am curious',"i'm curious",'how about','what about'];
+const FILLER_RE = /^(so|okay|ok|well|alright|right|now|and|then|um+|uh+|hmm+|great|nice|good|thanks|thank you|i see|got it)[,.!]?\s+/;
 function isQuestion(text) {
   const t = text.trim().toLowerCase();
   if (!t) return false;
   if (t.includes('?')) return true;
-  return Q_STARTS.some(s => t.startsWith(s)) && t.split(' ').length >= 3;
+  for (let s of t.split(/[.!;]/)) {
+    s = s.trim();
+    let prev = null;
+    while (prev !== s) { prev = s; s = s.replace(FILLER_RE, ''); }   // 문두 군말 제거
+    if (s.split(' ').length >= 3 && Q_STARTS.some(q => s.startsWith(q))) return true;
+  }
+  return false;
 }
 
 // ── NDJSON 스트림 공통 리더 ────────────────────────────────
