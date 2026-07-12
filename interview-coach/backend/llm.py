@@ -115,8 +115,9 @@ def stream_ndjson(messages: list[dict], temperature: float = 0.4,
 
 
 def transcribe(audio: bytes, filename: str = "audio.webm",
-               language: str = "en", model: str | None = None) -> str:
-    """오디오 바이트 → 텍스트 (Groq Whisper). STT는 Groq 전용 — 키 없으면 에러."""
+               language: str | None = None, model: str | None = None) -> str:
+    """오디오 바이트 → 텍스트 (Groq Whisper). STT는 Groq 전용 — 키 없으면 에러.
+    language=None이면 Whisper가 언어를 자동 감지한다 (한국어/영어 혼용 면접 대응)."""
     if not GROQ_API_KEY:
         raise RuntimeError("음성 인식에는 GROQ_API_KEY가 필요합니다 (Groq Whisper STT).")
 
@@ -129,7 +130,8 @@ def transcribe(audio: bytes, filename: str = "audio.webm",
         )
 
     field("model", model or GROQ_STT_MODEL)
-    field("language", language)
+    if language:
+        field("language", language)
     field("response_format", "json")
     field("temperature", "0")
     content_type = "audio/wav" if filename.endswith(".wav") else "audio/webm"

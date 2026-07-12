@@ -29,9 +29,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "backend"))
 import interview_pipeline  # noqa: E402
 import llm  # noqa: E402
+from speech_metrics import deterministic_metrics  # noqa: E402
 
 PORT = int(os.environ.get("PORT", "3778"))
-HOST = os.environ.get("HOST", "0.0.0.0")
+# 기본은 로컬 전용 — LAN의 다른 기기가 이 서버(=내 Groq 키)를 쓰지 못하게 한다.
+# 같은 Wi-Fi 기기에서 접속이 필요하면: HOST=0.0.0.0 bash start.sh
+HOST = os.environ.get("HOST", "127.0.0.1")
 APP_DIR = Path(__file__).parent
 
 STATIC_FILES = {
@@ -160,16 +163,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return
                 req = json.loads(body or b"{}")
                 threading.Thread(target=interview_pipeline.build_my_answers,
-                                 args=(req.get("model"),), daemon=True).start()
+                                 args=(req.get("model"), req.get("cefr", "B1")), daemon=True).start()
                 self._send_json(202, {"started": True, **interview_pipeline.prep_status()})
                 return
 
             # 🎙 음성 인식 — 오디오 세그먼트(webm/wav 바이트) → Groq Whisper → 텍스트
+            # lang 파라미터를 생략하면 Whisper가 언어 자동 감지 (한/영 혼용 면접 대응)
             if path == "/api/stt":
                 qs = urllib.parse.parse_qs(self.path.partition("?")[2])
-                lang = (qs.get("lang") or ["en"])[0]
+                lang = (qs.get("lang") or [None])[0]
                 try:
-                    text = llm.transcribe(body, language=lang)
+                    text = llm.transcribe(body, language=lang or None)
                 except RuntimeError as e:
                     self._send_json(503, {"error": str(e)})
                     return
@@ -219,6 +223,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
                                   model=req.get("model"))
                 return
 
+            # 📋 세션 종료 리포트 — 내 발화 분석 + 표현 업그레이드 + 예상 꼬리 질문
+            if self.path == "/api/live/report":
+                req = json.loads(body or b"{}")
+                transcript = req.get("transcript", "")
+                my_lines = " ".join(l.partition(":")[2] for l in transcript.splitlines()
+                                    if l.strip().startswith("나:"))
+                metrics = deterministic_metrics(my_lines, None)
+                prompt = interview_pipeline.build_live_report_prompt(transcript, metrics)
+                _stream_llm_ndjson(self, [{"role": "user", "content": prompt}],
+                                  temperature=0.3, max_tokens=700, model=req.get("model"))
+                return
+
             self.send_error(404)
         except urllib.error.HTTPError as e:
             self._send_json(e.code, {"error": f"LLM API 오류 ({e.code}) — API 키/요청 한도를 확인하세요."})
@@ -254,9 +270,12 @@ if __name__ == "__main__":
         print("     라이브 모드를 쓰려면: export GROQ_API_KEY=... 후 재실행")
     print(f"\n  🖥  연습 모드:      http://localhost:{PORT}/interview.html")
     print(f"  🔴 실전 라이브 모드: http://localhost:{PORT}/live.html")
-    lan_ip = get_lan_ip()
-    if lan_ip:
-        print(f"  📱 같은 Wi-Fi 기기: http://{lan_ip}:{PORT}/interview.html")
+    if HOST == "0.0.0.0":
+        lan_ip = get_lan_ip()
+        if lan_ip:
+            print(f"  📱 같은 Wi-Fi 기기: http://{lan_ip}:{PORT}/interview.html")
+    else:
+        print("  🔒 로컬 전용 바인딩 (LAN 공유가 필요하면: HOST=0.0.0.0 bash start.sh)")
     print("  🛑 종료: Ctrl+C\n")
 
     if os.environ.get("NO_BROWSER") != "1":

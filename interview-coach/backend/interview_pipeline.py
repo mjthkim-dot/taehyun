@@ -202,7 +202,7 @@ def prep_status() -> dict[str, Any]:
     return {**_prep_state, "count": len(_load_answers())}
 
 
-def _prep_prompt(q: dict) -> str:
+def _prep_prompt(q: dict, cefr: str = "B1") -> str:
     profile_lines = "\n".join(f"- {c}" for c in _profile_chunks()) or "- (없음)"
     story_lines = "\n\n".join(_keyword_stories(q["en"] + " " + q.get("kr", ""), k=3)) or "(없음)"
     phrases = _keyword_phrases(q["en"], 4)
@@ -212,6 +212,7 @@ for an IT sales (cloud/SaaS) job interview in English.
 
 Interview question: "{q['en']}" ({q.get('kr', '')})
 Coaching tip for this question: {q.get('tip_ko', '-')}
+Candidate CEFR level: {cefr} (answers must be realistically speakable at this level)
 
 Candidate profile facts (Korean):
 {profile_lines}
@@ -240,7 +241,7 @@ Return ONLY valid JSON:
 }}"""
 
 
-def build_my_answers(model: str | None = None) -> dict[str, Any]:
+def build_my_answers(model: str | None = None, cefr: str = "B1") -> dict[str, Any]:
     """질문 은행 전체에 대해 맞춤 답변을 생성해 my_answers.json에 저장 (문항당 1~2초, Groq 기준)."""
     questions = _load_bank().get("questions", [])
     _prep_state.update(running=True, done=0, total=len(questions), current="", error=None)
@@ -249,12 +250,12 @@ def build_my_answers(model: str | None = None) -> dict[str, Any]:
         for q in questions:
             _prep_state["current"] = q["en"]
             content = json.loads(llm.chat_once(
-                [{"role": "user", "content": _prep_prompt(q)}],
+                [{"role": "user", "content": _prep_prompt(q, cefr)}],
                 json_mode=True, temperature=0.4, max_tokens=900, model=model,
             ))
             answers[q["id"]] = {
                 "question_en": q["en"], "question_kr": q.get("kr", ""),
-                "category": q.get("category", ""),
+                "category": q.get("category", ""), "cefr": cefr,
                 "gist_ko": str(content.get("gist_ko", "")).strip(),
                 "strategy_ko": str(content.get("strategy_ko", "")).strip(),
                 "answers": (content.get("answers") or [])[:2],
@@ -516,6 +517,38 @@ Rules for the EN options:
   no textbook or translated-sounding phrasing.
 - The two options must take meaningfully different angles, not paraphrases.
 - If it was a follow-up, connect to what was said before instead of repeating it."""
+
+
+def build_live_report_prompt(transcript: str, metrics: dict) -> str:
+    """면접 종료 후 사후 리포트 — 내 발화 분석 + 표현 업그레이드 + 예상 꼬리 질문."""
+    wpm = metrics.get("wpm")
+    return f"""Below is the full transcript of an English job interview for an IT sales
+(cloud/SaaS) position. Lines are labeled 상대(interviewer) / 나(candidate, Korean
+native speaker).
+
+Transcript:
+\"\"\"{transcript}\"\"\"
+
+Candidate delivery metrics (from 나 lines only):
+- Total words spoken: {metrics.get('word_count', 0):.0f}
+- Filler word ratio: {metrics.get('filler_ratio', 0)}{f" / Speaking rate: {wpm:.0f} WPM" if wpm else ""}
+
+당신은 면접 코치입니다. 지원자를 위한 사후 리포트를 한국어로 작성하세요
+(마크다운 헤더 없이 아래 형식 그대로, 전체 280단어 이내):
+
+✅ 잘한 점
+- (불릿 2개 — 실제 발화를 근거로)
+
+🔧 표현 업그레이드
+- "내가 실제로 한 말(영어)" → "더 자연스러운 표현(영어)" — 한국어 한 줄 이유
+- (총 3개, 가장 임팩트 큰 것부터)
+
+❓ 예상 꼬리 질문 (다음 면접 대비)
+- English question — 한국어 번역
+- (총 2개, 이번 대화 흐름 기반)
+
+🎯 다음 면접까지 연습 포인트
+- (불릿 1~2개, 구체적인 행동으로)"""
 
 
 def build_live_summary_prompt(transcript: str, mode: str = "full") -> str:

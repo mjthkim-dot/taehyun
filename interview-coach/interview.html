@@ -228,7 +228,8 @@ $('#btn-prep').addEventListener('click', async () => {
   if (!confirm('내 프로필과 스토리(my_story.md)를 바탕으로 전체 질문의 답변을 미리 생성합니다.\n약 1분 정도 걸립니다. 시작할까요?')) return;
   $('#btn-prep').disabled = true;
   try {
-    const r = await fetch('/api/prep/build', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const r = await fetch('/api/prep/build', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cefr: $('#cefr').value }) });
     if (!r.ok && r.status !== 409) {
       const d = await r.json().catch(() => ({}));
       $('#prep-status').textContent = '⚠️ ' + (d.error || r.status);
@@ -248,38 +249,50 @@ $('#btn-ans-speak').addEventListener('click', () => {
   if (a) speak(a.en);
 });
 
-// ── STT (Web Speech API — Chrome 필요) ───────────────────
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let rec = null, timerIv = null, finalText = '';
+// ── STT (Groq Whisper — 라이브 모드와 동일한 인식 품질) ────
+// 답변 전체를 한 번에 녹음했다가 종료 시 /api/stt로 보낸다.
+let rec = null, recStream = null, recChunks = [], timerIv = null;
 
 function stopRec() {
-  if (rec) { rec.onend = null; rec.stop(); rec = null; }
+  if (rec && rec.state !== 'inactive') rec.stop();   // onstop에서 전사 처리
   clearInterval(timerIv);
   state.recSec = (Date.now() - state.recStart) / 1000;
   $('#btn-rec').textContent = '🎙 답변 시작';
   $('#btn-rec').classList.remove('rec');
-  $('#practice-status').textContent = '';
 }
 
-$('#btn-rec').addEventListener('click', () => {
+$('#btn-rec').addEventListener('click', async () => {
   if (rec) { stopRec(); return; }
-  if (!SR) {
-    $('#practice-status').textContent = '이 브라우저는 음성 인식을 지원하지 않아요. Chrome을 사용하거나 직접 타이핑하세요.';
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true } });
+  } catch {
+    $('#practice-status').textContent = '마이크 권한을 허용해 주세요.';
     return;
   }
-  finalText = $('#transcript').value ? $('#transcript').value + ' ' : '';
-  rec = new SR();
-  rec.lang = 'en-US'; rec.continuous = true; rec.interimResults = true;
-  rec.onresult = (e) => {
-    let interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' ';
-      else interim += e.results[i][0].transcript;
+  recStream = stream; recChunks = [];
+  const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+  rec = new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 48000 });
+  rec.ondataavailable = (e) => { if (e.data.size) recChunks.push(e.data); };
+  rec.onstop = async () => {
+    recStream.getTracks().forEach(t => t.stop());
+    const blob = new Blob(recChunks, { type: mime });
+    rec = null; recStream = null;
+    if (blob.size < 3000) { $('#practice-status').textContent = '녹음이 너무 짧아요.'; return; }
+    $('#practice-status').textContent = '⏳ 음성 인식 중... (Groq Whisper)';
+    try {
+      const res = await fetch('/api/stt?lang=en', {
+        method: 'POST', headers: { 'Content-Type': 'audio/webm' }, body: blob });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || `STT 오류 (${res.status})`);
+      const prev = $('#transcript').value.trim();
+      $('#transcript').value = (prev ? prev + ' ' : '') + (d.text || '').trim();
+      $('#practice-status').textContent = '';
+    } catch (e) {
+      $('#practice-status').textContent = '⚠️ ' + e.message + ' — 직접 타이핑해도 됩니다.';
     }
-    $('#transcript').value = finalText + interim;
   };
-  rec.onerror = (e) => { $('#practice-status').textContent = '음성 인식 오류: ' + e.error; stopRec(); };
-  rec.onend = () => { if (rec) rec.start(); };  // 침묵으로 끊겨도 이어서 듣기
   rec.start();
   state.recStart = Date.now();
   timerIv = setInterval(() => {
@@ -288,7 +301,7 @@ $('#btn-rec').addEventListener('click', () => {
   }, 500);
   $('#btn-rec').textContent = '⏹ 답변 끝';
   $('#btn-rec').classList.add('rec');
-  $('#practice-status').textContent = '듣고 있어요... 영어로 답변하세요.';
+  $('#practice-status').textContent = '🎙 녹음 중... 답변이 끝나면 ⏹를 누르세요.';
 });
 
 // ── 피드백 ────────────────────────────────────────────────
