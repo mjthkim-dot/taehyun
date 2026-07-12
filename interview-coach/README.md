@@ -133,23 +133,25 @@ interview-coach/
 | `POST /api/interview/answers·feedback` | 연습 모드 모범답변/STAR 피드백 |
 | `GET /health` | 프로바이더/모델 상태 |
 
-## 실행 위치에 대해
+## ☁️ 클라우드 배포 (고정 URL)
 
-이 앱은 **로컬(맥북) 실행이 기본이자 권장**이다 — 개인 프로필/스토리와 Groq 키가
-내 기기 밖으로 나가지 않는다 (LLM 호출 자체는 Groq API로 전송됨).
-아이폰 사용은 `start.sh`가 만들어주는 임시 HTTPS 터널로 충분하다.
+Render 무료 티어로 고정 HTTPS URL을 만들 수 있다 (저장소 루트의 `render.yaml` 사용):
 
-무료 공용 클라우드(Vercel/Render 등)에는 올리지 않는다. 굳이 상시 URL이
-필요해지면 **본인 소유 인프라**(회사 AWS 계정의 EC2/Lightsail 등)에
-`Dockerfile`로 올리는 것을 전제로 하고, 그 경우 반드시 `ACCESS_CODE`
-환경변수를 설정해 접속 코드 게이트를 켠다 (미설정 시 로컬용으로 게이트 없음).
+1. [render.com](https://render.com) 가입 (GitHub 계정 연동)
+2. **New → Blueprint** → 이 저장소 선택 (`render.yaml` 자동 인식)
+3. 환경변수 2개 입력:
+   - `GROQ_API_KEY` — console.groq.com에서 발급한 키
+   - `ACCESS_CODE` — **접속 코드 (필수!)** 본인만 아는 값. 고정 공개 URL이므로
+     이 코드가 없으면 URL을 아는 누구나 내 Groq 키로 API를 쓸 수 있다.
+4. Deploy → `https://interview-coach-xxxx.onrender.com` (아이폰 홈 화면 추가 OK)
 
-`ACCESS_CODE`는 터널 사용 시에도 유용하다 — 터널 주소가 무작위이긴 하지만
-켜져 있는 동안은 공개 URL이므로, 코드를 걸어두면 더 안전하다:
+접속하면 코드 입력 화면이 먼저 뜨고, 한 번 입력하면 30일간 유지된다.
 
-```bash
-ACCESS_CODE=나만아는코드 bash start.sh
-```
+**무료 티어 주의사항**:
+- 15분간 접속이 없으면 잠들고, 첫 접속에 30초~1분 걸린다 → **면접 5분 전에 미리 접속**해 깨워둘 것
+- 디스크가 배포/재시작 시 초기화된다 → 프로필/스토리 수정은 저장소에 커밋(자동 재배포),
+  ⚡ 맞춤 답변셋은 재시작 후 버튼으로 다시 생성 (약 1분)
+- 로컬 실행(`bash start.sh`)은 `ACCESS_CODE` 미설정 시 게이트 없이 그대로 동작
 
 ## 폴백 동작
 
