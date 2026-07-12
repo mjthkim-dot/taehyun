@@ -14,6 +14,7 @@
 """
 from __future__ import annotations
 
+import http.cookies
 import http.server
 import json
 import os
@@ -35,6 +36,24 @@ PORT = int(os.environ.get("PORT", "3778"))
 # 기본은 로컬 전용 — LAN의 다른 기기가 이 서버(=내 Groq 키)를 쓰지 못하게 한다.
 # 같은 Wi-Fi 기기에서 접속이 필요하면: HOST=0.0.0.0 bash start.sh
 HOST = os.environ.get("HOST", "127.0.0.1")
+# 클라우드 배포 시 필수 — 접속 코드를 모르면 아무것도 쓸 수 없게 막는다
+# (고정 공개 URL + 내 Groq 키 조합이므로). 로컬 실행은 미설정 → 게이트 없음.
+ACCESS_CODE = os.environ.get("ACCESS_CODE")
+
+LOGIN_HTML = """<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"><title>접속 코드</title>
+<style>body{{background:#0B0C0F;color:#ECECF0;font-family:-apple-system,"Apple SD Gothic Neo",sans-serif;
+display:flex;align-items:center;justify-content:center;height:100vh;margin:0}}
+form{{background:#17181D;border:1px solid #2A2B33;border-radius:16px;padding:28px;text-align:center;width:280px}}
+h1{{font-size:16px;margin:0 0 6px}}p{{font-size:12.5px;color:#A7A7B6;margin:0 0 16px}}
+input{{width:100%;box-sizing:border-box;background:#0B0C0F;color:#ECECF0;border:1px solid #2A2B33;
+border-radius:10px;padding:11px;font-size:15px;text-align:center;margin-bottom:10px}}
+button{{width:100%;border:none;border-radius:10px;padding:11px;background:#F7CE46;color:#16130A;
+font-weight:800;font-size:14px;cursor:pointer}}.err{{color:#F06A6A;font-size:12px;margin-top:10px}}</style>
+</head><body><form action="/login" method="get">
+<h1>🎤 영어 면접 코파일럿</h1><p>접속 코드를 입력하세요</p>
+<input type="password" name="code" autofocus autocomplete="current-password">
+<button>입장</button>{err}</form></body></html>"""
 APP_DIR = Path(__file__).parent
 
 STATIC_FILES = {
@@ -80,6 +99,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+    # ── 접속 코드 게이트 (ACCESS_CODE 설정 시에만 활성) ─────
+    def _authed(self) -> bool:
+        if not ACCESS_CODE:
+            return True
+        cookies = http.cookies.SimpleCookie(self.headers.get("Cookie", ""))
+        morsel = cookies.get("ic_auth")
+        return morsel is not None and morsel.value == ACCESS_CODE
+
+    def _send_login(self, bad: bool = False):
+        html = LOGIN_HTML.format(err='<div class="err">코드가 올바르지 않습니다</div>' if bad else '').encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(html)
+
     def _serve_static(self, path: str, content_type: str):
         try:
             data = (APP_DIR / path.lstrip("/")).read_bytes()
@@ -98,6 +133,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         path, query = parsed.path, urllib.parse.parse_qs(parsed.query)
+
+        # 접속 코드 게이트 — /health(모니터링용)만 예외
+        if ACCESS_CODE and path != "/health":
+            if path == "/login":
+                code = (query.get("code") or [""])[0]
+                if code == ACCESS_CODE:
+                    self.send_response(302)
+                    self.send_header("Set-Cookie",
+                                     f"ic_auth={ACCESS_CODE}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax")
+                    self.send_header("Location", "/interview.html")
+                    self.end_headers()
+                else:
+                    self._send_login(bad=bool(code))
+                return
+            if not self._authed():
+                self._send_login()
+                return
 
         if path in ("/", "/index.html"):
             self._serve_static("/interview.html", "text/html; charset=utf-8")
@@ -151,6 +203,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     # ── POST ───────────────────────────────────────────────
     def do_POST(self):
+        if not self._authed():
+            self._send_json(401, {"error": "인증이 필요합니다 — 페이지를 새로고침해 접속 코드를 입력하세요."})
+            return
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length)
         path = self.path.split("?", 1)[0]
