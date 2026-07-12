@@ -29,16 +29,113 @@ DATA_DIR = Path(__file__).parent / "data"
 BANK_PATH = DATA_DIR / "interview_bank.json"
 PROFILE_PATH = DATA_DIR / "my_profile.md"
 STORY_PATH = DATA_DIR / "my_story.md"
-ANSWERS_PATH = DATA_DIR / "my_answers.json"   # 사전 생성된 맞춤 답변셋 (개인 데이터 — 커밋 금지)
+ANSWERS_PATH = DATA_DIR / "my_answers.json"          # 사전 생성 맞춤 답변셋 (개인 데이터 — 커밋 금지)
+TARGET_PATH = DATA_DIR / "my_target.md"              # 🎯 타겟 회사 JD/정보
+TARGET_Q_PATH = DATA_DIR / "my_target_questions.json"  # JD 기반 예상 질문 (생성물 — 커밋 금지)
 
 
 # ─────────────────────────────────────────────────────────────
-#  질문 은행
+#  질문 은행 (+ 🎯 타겟 회사 예상 질문 병합)
 # ─────────────────────────────────────────────────────────────
+def _load_target_questions() -> list[dict]:
+    if not TARGET_Q_PATH.exists():
+        return []
+    try:
+        return json.loads(TARGET_Q_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
 def _load_bank() -> dict:
     if not BANK_PATH.exists():
-        return {"meta": {"category_labels": {}}, "questions": [], "phrases": []}
-    return json.loads(BANK_PATH.read_text(encoding="utf-8"))
+        bank: dict = {"meta": {"category_labels": {}}, "questions": [], "phrases": []}
+    else:
+        bank = json.loads(BANK_PATH.read_text(encoding="utf-8"))
+    tq = _load_target_questions()
+    if tq:
+        bank = {**bank, "questions": list(bank.get("questions", [])) + tq}
+        labels = dict(bank.get("meta", {}).get("category_labels", {}))
+        labels["target"] = "🎯 타겟 회사"
+        bank["meta"] = {**bank.get("meta", {}), "category_labels": labels}
+    return bank
+
+
+# ─────────────────────────────────────────────────────────────
+#  🎯 타겟 회사 — JD를 저장하면 모든 답변이 회사 맥락으로 조정되고
+#  회사 예상 질문이 질문 은행에 병합된다 (연습/사전생성/라이브 캐시 전부 반영)
+# ─────────────────────────────────────────────────────────────
+def _target_text(limit: int = 2500) -> str:
+    if not TARGET_PATH.exists():
+        return ""
+    lines = [l for l in TARGET_PATH.read_text(encoding="utf-8").splitlines()
+             if not l.strip().startswith(">")]
+    return "\n".join(lines).strip()[:limit]
+
+
+def _target_block(limit: int = 2500) -> str:
+    """프롬프트에 끼워 넣는 타겟 회사 블록 (미설정 시 빈 문자열)."""
+    t = _target_text(limit)
+    if not t:
+        return ""
+    return f"""
+Target company & role (job description the candidate is applying to — tailor
+answers to this company's product, market and requirements, especially for
+motivation/fit questions):
+\"\"\"{t}\"\"\"
+"""
+
+
+def save_target(text: str) -> None:
+    TARGET_PATH.parent.mkdir(parents=True, exist_ok=True)
+    TARGET_PATH.write_text("# 🎯 타겟 회사 (채용공고/회사 정보)\n\n" + text.strip() + "\n",
+                           encoding="utf-8")
+
+
+def generate_target_questions(model: str | None = None) -> list[dict]:
+    """JD + 내 프로필 기반으로 그 회사가 물어볼 법한 예상 질문 8개 생성 → 은행에 병합."""
+    target = _target_text()
+    if not target:
+        raise ValueError("타겟 회사 정보가 비어 있습니다. 채용공고를 먼저 저장하세요.")
+    profile_lines = "\n".join(f"- {c}" for c in _profile_chunks()) or "- (없음)"
+    prompt = f"""You are an expert interview coach. Based on the job description below and the
+candidate's profile, predict the questions THIS SPECIFIC company would likely ask
+in an English interview for this role.
+
+Job description / company info:
+\"\"\"{target}\"\"\"
+
+Candidate profile (Korean):
+{profile_lines}
+
+Generate exactly 8 questions: 2 about motivation/company fit, 3 probing the
+role's key requirements against the candidate's experience, 2 situational
+(realistic scenarios at this company), 1 tough/curveball.
+
+Return ONLY valid JSON:
+{{
+  "questions": [
+    {{"en": "the interview question in English",
+      "kr": "한국어 번역",
+      "tip_ko": "이 질문의 의도와 공략 팁 한 줄 (한국어)",
+      "difficulty": 1-3}}
+  ]
+}}"""
+    content = json.loads(llm.chat_once(
+        [{"role": "user", "content": prompt}],
+        json_mode=True, temperature=0.4, max_tokens=1400, model=model,
+    ))
+    questions = []
+    for i, q in enumerate((content.get("questions") or [])[:10], 1):
+        if not q.get("en"):
+            continue
+        questions.append({
+            "id": f"t{i:02d}", "category": "target",
+            "difficulty": int(q.get("difficulty", 2) or 2),
+            "en": str(q["en"]).strip(), "kr": str(q.get("kr", "")).strip(),
+            "tip_ko": str(q.get("tip_ko", "")).strip(),
+        })
+    TARGET_Q_PATH.write_text(json.dumps(questions, ensure_ascii=False, indent=1), encoding="utf-8")
+    return questions
 
 
 def list_categories() -> list[dict]:
@@ -176,6 +273,8 @@ def status() -> dict[str, Any]:
         "profile_exists": PROFILE_PATH.exists(),
         "story_chunks": len(_story_chunks()),
         "prepared_answers": len(_load_answers()),
+        "target_set": bool(_target_text()),
+        "target_questions": len(_load_target_questions()),
         "provider": llm.provider(),
         "answer_model": llm.model_name(),
         "stt_model": llm.GROQ_STT_MODEL if llm.GROQ_API_KEY else None,
@@ -220,7 +319,7 @@ Candidate profile facts (Korean):
 Candidate's own stories — THE most important source. Ground the answers in these
 real experiences with their specific numbers and details:
 \"\"\"{story_lines}\"\"\"
-
+{_target_block(1800)}
 Useful phrases (reuse where natural):
 {phrase_lines}
 
@@ -322,7 +421,7 @@ achievements that contradict these facts):
 
 Candidate's own stories (Korean — ground the examples in these real experiences):
 \"\"\"{story_lines}\"\"\"
-
+{_target_block(1800)}
 Reference expressions from an interview phrase bank (reuse them where natural):
 {phrase_lines}
 
@@ -496,7 +595,7 @@ Candidate profile facts (Korean; substitute plausible round numbers for
 
 Candidate's own stories (Korean — ground answers in these real experiences):
 \"\"\"{story_lines}\"\"\"
-
+{_target_block(1200)}
 Useful phrases (reuse where natural):
 {phrase_lines}
 

@@ -105,6 +105,14 @@
       <button id="btn-prep" class="secondary" title="내 프로필+스토리 기반으로 전체 질문의 답변을 미리 생성 — 라이브 모드에서 즉시 표시됩니다">⚡ 맞춤 답변셋 생성</button>
     </div>
     <div class="status" id="prep-status"></div>
+    <details style="margin-top:12px;">
+      <summary style="cursor:pointer; color:#9a9ab0; font-size:13px;">🎯 타겟 회사 설정 — 채용공고(JD)를 붙여넣으면 예상 질문 생성 + 모든 답변이 회사 맞춤으로</summary>
+      <textarea id="target-in" style="margin-top:10px;" placeholder="지원하는 회사의 채용공고(JD), 회사 소개, 제품 설명 등을 붙여넣으세요.&#10;예: [회사명] Cloud Solutions Sales Manager 채용 — 담당업무: 엔터프라이즈 고객 대상..."></textarea>
+      <div class="btnrow">
+        <button id="btn-target">🎯 저장 + 예상 질문 생성</button>
+      </div>
+      <div class="status" id="target-status"></div>
+    </details>
     <div id="question-box" style="margin-top:14px; display:none;">
       <span class="badge" id="q-cat"></span><span class="badge" id="q-diff"></span>
       <div class="q-en" id="q-en"></div>
@@ -162,14 +170,44 @@
 const $ = (s) => document.querySelector(s);
 const state = { question: null, asked: [], answers: null, ansIdx: 0, recStart: 0, recSec: 0 };
 
-// ── 카테고리 로드 ─────────────────────────────────────────
-fetch('/api/interview/categories').then(r => r.json()).then(cats => {
-  for (const c of cats) {
-    const opt = document.createElement('option');
-    opt.value = c.id; opt.textContent = `${c.label_ko} (${c.count})`;
-    $('#category').appendChild(opt);
-  }
-}).catch(() => {});
+// ── 카테고리 로드 (타겟 질문 생성 후 재호출됨) ─────────────
+async function loadCategories() {
+  try {
+    const cats = await (await fetch('/api/interview/categories')).json();
+    const sel = $('#category');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">전체 (무작위)</option>';
+    for (const c of cats) {
+      const opt = document.createElement('option');
+      opt.value = c.id; opt.textContent = `${c.label_ko} (${c.count})`;
+      sel.appendChild(opt);
+    }
+    sel.value = cur;
+  } catch { /* 서버 미기동 등 */ }
+}
+loadCategories();
+
+// ── 🎯 타겟 회사 설정 ─────────────────────────────────────
+$('#btn-target').addEventListener('click', async () => {
+  const text = $('#target-in').value.trim();
+  const st = $('#target-status');
+  if (!text) { st.textContent = '채용공고를 먼저 붙여넣으세요.'; return; }
+  $('#btn-target').disabled = true;
+  st.textContent = '⏳ JD 분석 + 예상 질문 생성 중...';
+  try {
+    const r = await fetch('/api/target/set', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    await loadCategories();
+    $('#category').value = 'target';
+    st.textContent = `✅ 예상 질문 ${d.questions}개 생성 — 카테고리가 '🎯 타겟 회사'로 설정됐어요. `
+      + `이제 모든 답변이 이 회사 맞춤으로 생성됩니다. ⚡ 맞춤 답변셋도 다시 생성해 두세요.`;
+  } catch (e) {
+    st.textContent = '⚠️ ' + e.message;
+  } finally { $('#btn-target').disabled = false; }
+});
 
 // ── 질문 받기 ─────────────────────────────────────────────
 async function nextQuestion() {

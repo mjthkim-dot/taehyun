@@ -222,6 +222,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._send_json(202, {"started": True, **interview_pipeline.prep_status()})
                 return
 
+            # 🎯 타겟 회사 설정 — JD 저장 + 그 회사 예상 질문 생성(은행에 병합)
+            if path == "/api/target/set":
+                req = json.loads(body or b"{}")
+                text = (req.get("text") or "").strip()
+                if not text:
+                    self._send_json(400, {"error": "채용공고/회사 정보를 입력하세요."})
+                    return
+                interview_pipeline.save_target(text)
+                questions = interview_pipeline.generate_target_questions(req.get("model"))
+                self._send_json(200, {"saved": True, "questions": len(questions)})
+                return
+
             # 🎙 음성 인식 — 오디오 세그먼트(webm/wav 바이트) → Groq Whisper → 텍스트
             # lang 파라미터를 생략하면 Whisper가 언어 자동 감지 (한/영 혼용 면접 대응)
             if path == "/api/stt":
