@@ -272,18 +272,22 @@ $('#btn-rec').addEventListener('click', async () => {
     return;
   }
   recStream = stream; recChunks = [];
-  const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
-  rec = new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 48000 });
+  // iOS Safari는 webm 미지원 → audio/mp4 폴백 (그래도 없으면 브라우저 기본값)
+  const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+    .find(m => MediaRecorder.isTypeSupported(m)) || '';
+  rec = mime ? new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 48000 })
+             : new MediaRecorder(stream);
   rec.ondataavailable = (e) => { if (e.data.size) recChunks.push(e.data); };
   rec.onstop = async () => {
     recStream.getTracks().forEach(t => t.stop());
-    const blob = new Blob(recChunks, { type: mime });
+    const blobType = mime || rec.mimeType || 'audio/mp4';
+    const blob = new Blob(recChunks, { type: blobType });
     rec = null; recStream = null;
     if (blob.size < 3000) { $('#practice-status').textContent = '녹음이 너무 짧아요.'; return; }
     $('#practice-status').textContent = '⏳ 음성 인식 중... (Groq Whisper)';
     try {
       const res = await fetch('/api/stt?lang=en', {
-        method: 'POST', headers: { 'Content-Type': 'audio/webm' }, body: blob });
+        method: 'POST', headers: { 'Content-Type': blobType.split(';')[0] }, body: blob });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || `STT 오류 (${res.status})`);
       const prev = $('#transcript').value.trim();

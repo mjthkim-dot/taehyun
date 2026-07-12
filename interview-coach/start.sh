@@ -28,4 +28,49 @@ fi
 EXISTING=$(lsof -ti tcp:"$PORT" 2>/dev/null || true)
 [ -n "$EXISTING" ] && kill $EXISTING 2>/dev/null && sleep 1
 
-exec python3 "$DIR/server.py"
+SERVER_PID=""
+TUNNEL_PID=""
+TUNNEL_LOG="/tmp/interview-coach-tunnel-$$.log"
+
+cleanup() {
+  [ -n "$TUNNEL_PID" ] && kill "$TUNNEL_PID" 2>/dev/null
+  [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null
+  rm -f "$TUNNEL_LOG"
+  echo ""
+  echo "  👋 종료되었습니다."
+  exit 0
+}
+trap cleanup INT TERM
+
+python3 "$DIR/server.py" &
+SERVER_PID=$!
+sleep 1.5
+
+# ── 📱 아이폰용 HTTPS 터널 (마이크는 https에서만 동작) ──
+# cloudflared가 있으면 자동 생성 (없으면: brew install cloudflared)
+if command -v cloudflared &>/dev/null; then
+  cloudflared tunnel --url "http://localhost:${PORT}" >"$TUNNEL_LOG" 2>&1 &
+  TUNNEL_PID=$!
+  TUNNEL_URL=""
+  for i in $(seq 1 30); do
+    TUNNEL_URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' "$TUNNEL_LOG" | head -1)
+    [ -n "$TUNNEL_URL" ] && break
+    sleep 1
+  done
+  echo ""
+  if [ -n "$TUNNEL_URL" ]; then
+    echo "  📱 아이폰(사파리): ${TUNNEL_URL}/interview.html"
+    echo "     └ 공유 → '홈 화면에 추가'로 앱처럼 설치 가능 (주소는 실행마다 바뀜)"
+    echo "     └ 라이브 모드(탭 오디오 캡처)는 데스크톱 Chrome 전용입니다"
+  else
+    echo "  ⚠️  터널 주소를 가져오지 못했습니다. 로그: $TUNNEL_LOG"
+  fi
+else
+  echo ""
+  echo "  📱 아이폰에서 쓰려면 HTTPS 터널이 필요합니다 (최초 1회):"
+  echo "     brew install cloudflared   → 재실행하면 아이폰용 주소가 자동 출력됩니다"
+fi
+echo ""
+
+wait "$SERVER_PID"
+cleanup

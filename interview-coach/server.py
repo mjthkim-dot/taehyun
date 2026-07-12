@@ -172,8 +172,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if path == "/api/stt":
                 qs = urllib.parse.parse_qs(self.path.partition("?")[2])
                 lang = (qs.get("lang") or [None])[0]
+                # iOS Safari는 audio/mp4로 녹음됨 — Content-Type을 보고 포맷 전달
+                ct = (self.headers.get("Content-Type") or "audio/webm").split(";")[0].strip()
+                ext = {"audio/mp4": ".mp4", "audio/mpeg": ".mp3", "audio/wav": ".wav",
+                       "audio/x-m4a": ".m4a"}.get(ct, ".webm")
                 try:
-                    text = llm.transcribe(body, language=lang or None)
+                    text = llm.transcribe(body, filename=f"audio{ext}", language=lang or None)
                 except RuntimeError as e:
                     self._send_json(503, {"error": str(e)})
                     return

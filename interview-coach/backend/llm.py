@@ -19,6 +19,7 @@ import json
 import os
 import urllib.request
 import uuid
+from pathlib import Path
 from typing import Iterator
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
@@ -134,7 +135,9 @@ def transcribe(audio: bytes, filename: str = "audio.webm",
         field("language", language)
     field("response_format", "json")
     field("temperature", "0")
-    content_type = "audio/wav" if filename.endswith(".wav") else "audio/webm"
+    content_type = {
+        ".wav": "audio/wav", ".mp4": "audio/mp4", ".m4a": "audio/mp4", ".mp3": "audio/mpeg",
+    }.get(Path(filename).suffix, "audio/webm")
     parts.append(
         f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{filename}"\r\n'
         f"Content-Type: {content_type}\r\n\r\n".encode() + audio + b"\r\n"

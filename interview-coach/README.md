@@ -16,7 +16,23 @@ bash start.sh
 ```
 
 의존성 0 — stdlib만 사용하는 단일 파일 Python 서버라 `pip install`이 필요 없다.
-반드시 **Chrome**에서 열 것 (탭 오디오 캡처 사용).
+라이브 모드는 반드시 **데스크톱 Chrome**에서 열 것 (탭 오디오 캡처 사용).
+
+### 📱 아이폰에서 사용 (연습 모드)
+
+아이폰 마이크는 HTTPS에서만 동작하므로 `start.sh`가 cloudflared가 설치돼 있으면
+HTTPS 터널을 자동 생성해 아이폰용 주소를 출력한다:
+
+```bash
+brew install cloudflared    # 최초 1회
+bash start.sh
+#  📱 아이폰(사파리): https://xxxx.trycloudflare.com/interview.html
+```
+
+사파리에서 열고 공유 → **홈 화면에 추가**하면 앱처럼 설치된다.
+주소는 실행할 때마다 바뀌며, 맥에서 서버가 켜져 있어야 접속된다.
+연습 모드(질문/녹음/피드백/모범답변)는 아이폰에서 전부 동작하고
+(iOS는 audio/mp4로 녹음 → 서버가 자동 처리), 라이브 모드는 데스크톱 전용.
 
 ## 🔴 라이브 모드 — 화자 자동 분리 구조
 
