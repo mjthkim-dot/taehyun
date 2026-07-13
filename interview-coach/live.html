@@ -60,6 +60,27 @@
   .sumbar .label { color: var(--yellow); font-weight: 800; flex: none; }
   .sumbar .line { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+  /* ── 오디오 입력 장치 선택 (BlackHole=상대 / 마이크=나) ── */
+  .audiobar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin: 10px 14px 0; padding: 8px 14px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    font-size: 12.5px; color: var(--sub);
+  }
+  .audiobar .grp { display: flex; align-items: center; gap: 6px; }
+  .audiobar .grp b { color: var(--text); font-weight: 700; white-space: nowrap; }
+  .audiobar select {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 5px 8px; font-size: 12.5px; font-family: inherit;
+    max-width: 200px;
+  }
+  .audiobar select:disabled { opacity: .55; }
+  .audiobar button {
+    background: var(--panel2); color: var(--sub); border: 1px solid var(--border);
+    border-radius: 8px; padding: 5px 9px; cursor: pointer; font-size: 12.5px;
+  }
+  .audiobar .warn { color: var(--danger); }
+
   /* ── 뷰 공통 ────────────────────────────────── */
   .view { flex: 1; display: flex; flex-direction: column; min-height: 0; }
   .view.hidden { display: none; }
@@ -217,7 +238,7 @@
     <button class="tab" data-v="translate">번역</button>
   </div>
   <div class="spacer"></div>
-  <select id="sens" title="마이크/탭 음성 감지 민감도">
+  <select id="sens" title="음성 감지 민감도">
     <option value="high">민감도 높음</option>
     <option value="mid" selected>민감도 보통</option>
     <option value="low">민감도 낮음</option>
@@ -228,6 +249,15 @@
   </select>
   <a href="/interview.html">연습 모드</a>
 </header>
+
+<div class="audiobar">
+  <div class="grp"><b>🎧 상대(면접관)</b>
+    <select id="dev-opp" title="면접관 목소리 입력 — BlackHole(루프백) 권장"></select></div>
+  <div class="grp"><b>🎙 내 목소리</b>
+    <select id="dev-me" title="내 목소리 입력 — 실제 마이크"></select></div>
+  <button id="dev-refresh" title="장치 목록 새로고침">↻ 장치</button>
+  <span id="dev-hint" style="color:var(--faint)"></span>
+</div>
 
 <div class="sumbar">
   <span class="dot"></span><span class="label">실시간 요약</span>
@@ -293,8 +323,8 @@
 </main>
 
 <div class="notice">
-  ▶ 시작 → 화상회의가 열린 <b>Chrome 탭</b> 선택 + <b>'오디오도 공유'</b> 체크 (상대=탭 오디오, 나=마이크로 화자 자동 분리) ·
-  <b>이어폰 사용 OK</b> · macOS에서 Zoom은 웹 브라우저로 접속하세요
+  🎧 <b>BlackHole</b> 셋업: 화상회의 앱 스피커 출력을 <b>Multi-Output(스피커+BlackHole)</b>으로,
+  위 <b>상대(면접관)</b>를 <b>BlackHole</b>로 · <b>내 목소리</b>를 실제 마이크로 선택 → ▶ 시작 · <b>이어폰 사용 OK · 네이티브 Zoom 앱 OK</b>
 </div>
 
 <!-- 📋 세션 종료 리포트 -->
@@ -525,14 +555,14 @@ function speak(text) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  🎙 이중 스트림 캡처 + Groq Whisper STT — 화자 자동 분리
-//    · 상대: getDisplayMedia로 화상회의 '탭 오디오'를 직접 캡처
-//    · 나:   getUserMedia 마이크
-//  두 스트림을 각각 VAD(음성 구간 감지)로 세그먼트로 잘라
+//  🎙 이중 입력 장치 캡처 + Groq Whisper STT — 화자 물리적 분리
+//    · 상대(면접관): BlackHole(루프백) 입력 — 화상회의 앱 오디오가 여기로 들어옴
+//    · 나:          실제 마이크 입력
+//  두 장치를 각각 VAD(음성 구간 감지)로 세그먼트로 잘라
 //  /api/stt(Groq whisper-large-v3-turbo)에 보낸다.
-//  → 화자 분리 정확 + 이어폰 사용 가능 + Web Speech보다 인식 품질 ↑
+//  → 장치가 물리적으로 분리돼 화자 구분이 100% 정확, 이어폰·네이티브 Zoom OK
 // ════════════════════════════════════════════════════════════
-let audioCtx = null, tabCap = null, micCap = null;
+let audioCtx = null, oppCap = null, meCap = null;
 let pendingStt = 0;
 // STT 장애 복원력: 실패 시 지수 백오프(2→4→…→30초) 동안 세그먼트 전송을 멈추고
 // 상태를 화면에 계속 표시한다 — "조용히 죽는" 상황 방지.
@@ -646,45 +676,91 @@ class SegmentRecorder {
   }
 }
 
+// ── 오디오 입력 장치 열거 + 자동 감지 ──────────────────────
+const LOOPBACK_RE = /blackhole|black hole|aggregate|loopback|soundflower|multi-?output|vb-?audio|집계/i;
+async function populateDevices(unlock) {
+  if (unlock) {   // 권한이 없으면 라벨이 비어 나오므로 임시 스트림으로 잠금 해제
+    try {
+      const tmp = await navigator.mediaDevices.getUserMedia({ audio: true });
+      tmp.getTracks().forEach(t => t.stop());
+    } catch { throw new Error('마이크 권한이 필요합니다 (장치 이름을 읽으려면 허용하세요).'); }
+  }
+  const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput');
+  const oppSel = $('#dev-opp'), meSel = $('#dev-me');
+  for (const sel of [oppSel, meSel]) {
+    const cur = sel.value;
+    sel.innerHTML = '';
+    devs.forEach((d, i) => {
+      const o = document.createElement('option');
+      o.value = d.deviceId; o.textContent = d.label || `입력 장치 ${i + 1}`;
+      sel.appendChild(o);
+    });
+    if (cur) sel.value = cur;
+  }
+  // 사용자가 손대지 않았으면 자동 감지: 상대=BlackHole류, 나=그 외 실제 마이크
+  if (!oppSel.dataset.userset) {
+    const bh = devs.find(d => LOOPBACK_RE.test(d.label));
+    if (bh) oppSel.value = bh.deviceId;
+  }
+  if (!meSel.dataset.userset) {
+    const mic = devs.find(d => !LOOPBACK_RE.test(d.label) &&
+                               (/default|macbook|built-?in|내장|기본/i.test(d.label) || d.label))
+             || devs.find(d => !LOOPBACK_RE.test(d.label));
+    if (mic) meSel.value = mic.deviceId;
+  }
+  const hasBH = devs.some(d => LOOPBACK_RE.test(d.label));
+  $('#dev-hint').innerHTML = hasBH ? ''
+    : (devs.length ? '<span class="warn">BlackHole 장치를 못 찾았어요 — 상대 입력을 직접 선택하세요</span>' : '');
+  return devs;
+}
+$('#dev-opp').addEventListener('change', (e) => { e.target.dataset.userset = '1'; });
+$('#dev-me').addEventListener('change', (e) => { e.target.dataset.userset = '1'; });
+$('#dev-refresh').addEventListener('click', () => populateDevices(true).catch(e => alert(e.message)));
+navigator.mediaDevices?.addEventListener?.('devicechange', () => populateDevices(false).catch(() => {}));
+populateDevices(false).catch(() => {});   // 로드 시 1회 (권한 있으면 라벨까지 채워짐)
+
 function stopListening() {
-  tabCap?.stop(); micCap?.stop();
-  tabCap = micCap = null;
+  oppCap?.stop(); meCap?.stop();
+  oppCap = meCap = null;
+  $('#dev-opp').disabled = $('#dev-me').disabled = false;
   $('#btn-listen').textContent = '▶';
   $('#btn-listen').classList.remove('live');
 }
 
 async function startListening() {
-  let tab;
+  try { await populateDevices(true); } catch (e) { alert(e.message); return; }
+  const oppId = $('#dev-opp').value, meId = $('#dev-me').value;
+  if (!oppId || !meId) { alert('오디오 입력 장치를 선택하세요.'); return; }
+  if (oppId === meId &&
+      !confirm('상대와 내 목소리가 같은 장치예요. 화자 구분이 안 됩니다. 그래도 진행할까요?')) return;
+
+  let oppStream, meStream;
   try {
-    // 1) 화상회의 탭 선택 + '오디오도 공유' 체크 → 상대 목소리
-    tab = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-  } catch (e) { return; /* 사용자가 취소 */ }
-  if (!tab.getAudioTracks().length) {
-    tab.getTracks().forEach(t => t.stop());
-    alert("탭 오디오가 공유되지 않았어요.\n\n'Chrome 탭' 목록에서 화상회의 탭을 고른 뒤,\n왼쪽 아래 '오디오도 공유' 체크박스를 켜 주세요.");
-    return;
-  }
-  let mic;
-  try {
-    // 2) 마이크 → 내 목소리 (에코 캔슬로 스피커 소리 유입 억제)
-    mic = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true } });
+    // 상대(BlackHole 루프백): 오디오 처리 전부 끔 — 깨끗한 디지털 신호 보존
+    oppStream = await navigator.mediaDevices.getUserMedia({
+      audio: { deviceId: { exact: oppId },
+               echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    // 나(실제 마이크): 에코 캔슬·노이즈 억제 켬
+    meStream = await navigator.mediaDevices.getUserMedia({
+      audio: { deviceId: { exact: meId },
+               echoCancellation: true, noiseSuppression: true } });
   } catch (e) {
-    tab.getTracks().forEach(t => t.stop());
-    alert('마이크 권한을 허용해 주세요.');
+    oppStream?.getTracks().forEach(t => t.stop());
+    alert('오디오 장치를 열 수 없습니다: ' + e.message + '\n장치 선택을 확인하고 다시 시도하세요.');
     return;
   }
   audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
   await audioCtx.resume();
-  tabCap = new SegmentRecorder(tab, '상대');
-  micCap = new SegmentRecorder(mic, '나');
-  const vTrack = tab.getVideoTracks()[0];
-  if (vTrack) vTrack.onended = stopListening;   // 사용자가 공유 중단하면 함께 정지
+  oppCap = new SegmentRecorder(oppStream, '상대');
+  meCap = new SegmentRecorder(meStream, '나');
+  // 장치가 사라지면(언플러그 등) 세션 정지
+  oppStream.getAudioTracks()[0].onended = stopListening;
+  $('#dev-opp').disabled = $('#dev-me').disabled = true;
   $('#btn-listen').textContent = '⏸';
   $('#btn-listen').classList.add('live');
 }
 
-$('#btn-listen').addEventListener('click', () => tabCap ? stopListening() : startListening());
+$('#btn-listen').addEventListener('click', () => oppCap ? stopListening() : startListening());
 
 // ── ⏹ 세션 종료 → 📋 사후 리포트 (기록은 리포트 확인 후 지움) ──
 function resetSession() {
@@ -791,10 +867,10 @@ $('#hint-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') quickH
 $('#hint-say').addEventListener('click', () => { const t = $('#hint-txt').textContent; if (t) speak(t); });
 $('#hint-x').addEventListener('click', () => { $('#hint-out').style.display = 'none'; });
 
-// ── 데스크톱 전용 안내 — 모바일에는 탭 오디오 캡처 API가 없음 ──
-if (!navigator.mediaDevices?.getDisplayMedia) {
+// ── 지원 여부 확인 — 장치 열거/캡처 API가 필요 (BlackHole은 macOS 데스크톱) ──
+if (!navigator.mediaDevices?.enumerateDevices || !navigator.mediaDevices?.getUserMedia) {
   $('#btn-listen').disabled = true;
-  $('#sum-line').textContent = '⚠️ 이 브라우저는 탭 오디오 캡처를 지원하지 않아요 — 라이브 모드는 데스크톱 Chrome에서 사용하세요';
+  $('#sum-line').textContent = '⚠️ 이 브라우저는 오디오 장치 캡처를 지원하지 않아요 — 데스크톱 Chrome에서 사용하세요';
 }
 
 speechSynthesis.getVoices();
