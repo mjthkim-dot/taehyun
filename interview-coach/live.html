@@ -80,6 +80,15 @@
     border-radius: 8px; padding: 5px 9px; cursor: pointer; font-size: 12.5px;
   }
   .audiobar .warn { color: var(--danger); }
+  .audiobar .meter {
+    width: 48px; height: 8px; border-radius: 4px; background: var(--panel2);
+    border: 1px solid var(--border); overflow: hidden; flex: none;
+  }
+  .audiobar .meter i {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, #16A374, var(--yellow)); transition: width .05s linear;
+  }
+  .audiobar button.mon.on { background: var(--yellow); color: #16130A; border-color: var(--yellow); }
 
   /* ── 뷰 공통 ────────────────────────────────── */
   .view { flex: 1; display: flex; flex-direction: column; min-height: 0; }
@@ -252,9 +261,12 @@
 
 <div class="audiobar">
   <div class="grp"><b>🎧 상대(면접관)</b>
-    <select id="dev-opp" title="면접관 목소리 입력 — BlackHole(루프백) 권장"></select></div>
+    <select id="dev-opp" title="면접관 목소리 입력 — BlackHole(루프백) 권장"></select>
+    <span class="meter"><i id="meter-opp"></i></span></div>
   <div class="grp"><b>🎙 내 목소리</b>
-    <select id="dev-me" title="내 목소리 입력 — 실제 마이크"></select></div>
+    <select id="dev-me" title="내 목소리 입력 — 실제 마이크"></select>
+    <span class="meter"><i id="meter-me"></i></span></div>
+  <button id="dev-mon" class="mon" title="소리 테스트 — 유튜브를 틀고 상대 막대가 움직이면 라우팅 정상">🎚 소리 테스트</button>
   <button id="dev-refresh" title="장치 목록 새로고침">↻ 장치</button>
   <span id="dev-hint" style="color:var(--faint)"></span>
 </div>
@@ -713,11 +725,60 @@ async function populateDevices(unlock) {
     : (devs.length ? '<span class="warn">BlackHole 장치를 못 찾았어요 — 상대 입력을 직접 선택하세요</span>' : '');
   return devs;
 }
-$('#dev-opp').addEventListener('change', (e) => { e.target.dataset.userset = '1'; });
-$('#dev-me').addEventListener('change', (e) => { e.target.dataset.userset = '1'; });
+$('#dev-opp').addEventListener('change', (e) => { e.target.dataset.userset = '1'; if (monOn) restartMonitor(); });
+$('#dev-me').addEventListener('change', (e) => { e.target.dataset.userset = '1'; if (monOn) restartMonitor(); });
 $('#dev-refresh').addEventListener('click', () => populateDevices(true).catch(e => alert(e.message)));
 navigator.mediaDevices?.addEventListener?.('devicechange', () => populateDevices(false).catch(() => {}));
 populateDevices(false).catch(() => {});   // 로드 시 1회 (권한 있으면 라벨까지 채워짐)
+
+// ── 🎚 소리 테스트 — 선택한 두 장치의 실시간 입력 레벨을 막대로 표시.
+//    유튜브/Zoom을 틀고 '상대' 막대가 움직이면 BlackHole 라우팅 정상.
+//    (듣기 시작 전에 셋업을 눈으로 검증 → "왜 안 잡히지" 문제를 즉시 진단)
+let monOn = false, monStreams = [], monRAF = null, monAudioCtx = null;
+async function _monMeter(deviceId, el) {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { deviceId: deviceId ? { exact: deviceId } : undefined,
+             echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  monStreams.push(stream);
+  const src = monAudioCtx.createMediaStreamSource(stream);
+  const an = monAudioCtx.createAnalyser(); an.fftSize = 1024;
+  src.connect(an);
+  const buf = new Uint8Array(an.fftSize);
+  return () => {
+    an.getByteTimeDomainData(buf);
+    let s = 0; for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; s += v * v; }
+    const rms = Math.sqrt(s / buf.length);
+    el.style.width = Math.min(100, rms * 320) + '%';   // 시각적으로 잘 보이게 증폭
+  };
+}
+async function startMonitor() {
+  stopMonitor();
+  monAudioCtx = monAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  await monAudioCtx.resume();
+  try {
+    const draws = await Promise.all([
+      _monMeter($('#dev-opp').value, $('#meter-opp')),
+      _monMeter($('#dev-me').value, $('#meter-me')),
+    ]);
+    const loop = () => { draws.forEach(d => d()); monRAF = requestAnimationFrame(loop); };
+    loop();
+    monOn = true;
+    $('#dev-mon').classList.add('on');
+    $('#dev-hint').innerHTML = '유튜브를 틀어보세요 → <b style="color:var(--text)">상대</b> 막대가 움직이면 정상 · 내가 말하면 <b style="color:var(--text)">내 목소리</b> 막대가 움직여야 함';
+  } catch (e) {
+    alert('소리 테스트 실패: ' + e.message);
+    stopMonitor();
+  }
+}
+function stopMonitor() {
+  monOn = false;
+  if (monRAF) cancelAnimationFrame(monRAF), monRAF = null;
+  monStreams.forEach(s => s.getTracks().forEach(t => t.stop())); monStreams = [];
+  $('#meter-opp').style.width = $('#meter-me').style.width = '0%';
+  $('#dev-mon').classList.remove('on');
+}
+function restartMonitor() { if (monOn) startMonitor(); }
+$('#dev-mon').addEventListener('click', () => monOn ? stopMonitor() : startMonitor());
 
 function stopListening() {
   oppCap?.stop(); meCap?.stop();
@@ -728,6 +789,7 @@ function stopListening() {
 }
 
 async function startListening() {
+  stopMonitor();   // 테스트 중이면 장치를 놓아줘야 실제 캡처가 열린다
   try { await populateDevices(true); } catch (e) { alert(e.message); return; }
   const oppId = $('#dev-opp').value, meId = $('#dev-me').value;
   if (!oppId || !meId) { alert('오디오 입력 장치를 선택하세요.'); return; }
