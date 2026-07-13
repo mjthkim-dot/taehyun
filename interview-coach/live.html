@@ -709,20 +709,23 @@ async function populateDevices(unlock) {
     });
     if (cur) sel.value = cur;
   }
-  // 사용자가 손대지 않았으면 자동 감지: 상대=BlackHole류, 나=그 외 실제 마이크
+  // 자동 감지 — 나(실제 마이크) 먼저 정하고, 상대는 그와 '다른' 장치로 (같은 장치 방지)
+  if (!meSel.dataset.userset) {
+    const mic = devs.find(d => !LOOPBACK_RE.test(d.label) && /default|macbook|built-?in|내장|기본/i.test(d.label))
+             || devs.find(d => !LOOPBACK_RE.test(d.label)) || devs[0];
+    if (mic) meSel.value = mic.deviceId;
+  }
   if (!oppSel.dataset.userset) {
     const bh = devs.find(d => LOOPBACK_RE.test(d.label));
     if (bh) oppSel.value = bh.deviceId;
-  }
-  if (!meSel.dataset.userset) {
-    const mic = devs.find(d => !LOOPBACK_RE.test(d.label) &&
-                               (/default|macbook|built-?in|내장|기본/i.test(d.label) || d.label))
-             || devs.find(d => !LOOPBACK_RE.test(d.label));
-    if (mic) meSel.value = mic.deviceId;
+    else {   // BlackHole 없으면 최소한 '나'와 다른 장치를 골라 같은 장치 자동선택을 피함
+      const other = devs.find(d => d.deviceId !== meSel.value);
+      if (other) oppSel.value = other.deviceId;
+    }
   }
   const hasBH = devs.some(d => LOOPBACK_RE.test(d.label));
   $('#dev-hint').innerHTML = hasBH ? ''
-    : (devs.length ? '<span class="warn">BlackHole 장치를 못 찾았어요 — 상대 입력을 직접 선택하세요</span>' : '');
+    : (devs.length ? "<span class='warn'>⚠️ BlackHole을 못 찾았어요 — '상대(면접관)'를 BlackHole로 직접 선택하세요</span>" : '');
   return devs;
 }
 $('#dev-opp').addEventListener('change', (e) => { e.target.dataset.userset = '1'; if (monOn) restartMonitor(); });
@@ -792,9 +795,14 @@ async function startListening() {
   stopMonitor();   // 테스트 중이면 장치를 놓아줘야 실제 캡처가 열린다
   try { await populateDevices(true); } catch (e) { alert(e.message); return; }
   const oppId = $('#dev-opp').value, meId = $('#dev-me').value;
-  if (!oppId || !meId) { alert('오디오 입력 장치를 선택하세요.'); return; }
-  if (oppId === meId &&
-      !confirm('상대와 내 목소리가 같은 장치예요. 화자 구분이 안 됩니다. 그래도 진행할까요?')) return;
+  if (!oppId || !meId) {
+    $('#dev-hint').innerHTML = "<span class='warn'>⚠️ 오디오 입력 장치를 선택하세요</span>";
+    return;
+  }
+  if (oppId === meId) {   // 같은 장치면 화자 구분 불가 — 조용히 취소 대신 눈에 보이는 안내
+    $('#dev-hint').innerHTML = "<span class='warn'>⚠️ '상대'와 '내 목소리'가 같은 장치예요 — '상대(면접관)'를 BlackHole로 바꿔주세요 (🎚 소리 테스트로 확인)</span>";
+    return;
+  }
 
   let oppStream, meStream;
   try {
@@ -818,6 +826,7 @@ async function startListening() {
   // 장치가 사라지면(언플러그 등) 세션 정지
   oppStream.getAudioTracks()[0].onended = stopListening;
   $('#dev-opp').disabled = $('#dev-me').disabled = true;
+  $('#dev-hint').innerHTML = '';
   $('#btn-listen').textContent = '⏸';
   $('#btn-listen').classList.add('live');
 }
