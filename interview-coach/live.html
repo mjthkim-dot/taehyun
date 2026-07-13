@@ -578,7 +578,7 @@ let audioCtx = null, oppCap = null, meCap = null;
 let pendingStt = 0;
 // STT 장애 복원력: 실패 시 지수 백오프(2→4→…→30초) 동안 세그먼트 전송을 멈추고
 // 상태를 화면에 계속 표시한다 — "조용히 죽는" 상황 방지.
-let sttFails = 0, sttBackoffUntil = 0, sttKeyMissing = false;
+let sttFails = 0, sttBackoffUntil = 0, sttKeyMissing = false, sttLastError = '';
 
 function sttStatus() {
   const el = $('#stt-ind');
@@ -587,7 +587,9 @@ function sttStatus() {
     el.textContent = '⚠️ GROQ_API_KEY 없음 — 음성 인식 불가';
   } else if (Date.now() < sttBackoffUntil) {
     el.style.display = 'inline'; el.style.color = 'var(--danger)';
-    el.textContent = `⚠️ 인식 오류 — ${Math.ceil((sttBackoffUntil - Date.now()) / 1000)}초 후 재시도`;
+    const secs = Math.ceil((sttBackoffUntil - Date.now()) / 1000);
+    // 실제 원인을 그대로 노출 (401=키오류 / 429=요청한도 / 그 외)
+    el.textContent = `⚠️ ${sttLastError || '인식 오류'} — ${secs}초 후 재시도`;
     setTimeout(sttStatus, 1000);
   } else if (pendingStt > 0) {
     el.style.display = 'inline'; el.style.color = 'var(--faint)';
@@ -665,10 +667,12 @@ class SegmentRecorder {
       // lang 미지정 → Whisper 언어 자동 감지 (한국어/영어 혼용 면접 대응)
       const res = await fetch('/api/stt', {
         method: 'POST', headers: { 'Content-Type': 'audio/webm' }, body: blob });
-      const d = await res.json();
-      if (res.status === 503) { sttKeyMissing = true; throw new Error(d.error); }
+      const d = await res.json().catch(() => ({}));
+      if (res.status === 503) { sttKeyMissing = true; throw new Error(d.error || 'GROQ_API_KEY 없음'); }
+      if (res.status === 401) throw new Error('API 키 오류(401) — 키를 확인하세요');
+      if (res.status === 429) throw new Error('Groq 요청 한도(429) — 잠시 후 자동 재시도');
       if (!res.ok) throw new Error(d.error || `STT 오류 (${res.status})`);
-      sttFails = 0;                                              // 성공 → 백오프 초기화
+      sttFails = 0; sttLastError = '';                           // 성공 → 백오프 초기화
       const text = (d.text || '').trim();
       // Whisper가 무음에서 만들어내는 환청 토막("you", "Thank you." 등) 필터
       if (text && text.split(' ').length >= 2 && !/^thank you\.?$/i.test(text)) {
@@ -676,7 +680,9 @@ class SegmentRecorder {
       }
     } catch (e) {
       sttFails += 1;
+      sttLastError = e.message;
       sttBackoffUntil = Date.now() + Math.min(30, 2 ** sttFails) * 1000;
+      sttStatus();
       console.warn('STT 실패:', e.message);
     } finally { sttPending(-1); }
   }
