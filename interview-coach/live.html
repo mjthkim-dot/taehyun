@@ -247,6 +247,10 @@
     <button class="tab" data-v="translate">번역</button>
   </div>
   <div class="spacer"></div>
+  <select id="sttmode" title="음성 인식 대상 — Groq 요청 한도에 걸리면 '상대만'으로 절약">
+    <option value="both" selected>인식: 양쪽</option>
+    <option value="opp">인식: 상대만(절약)</option>
+  </select>
   <select id="sens" title="음성 감지 민감도">
     <option value="high">민감도 높음</option>
     <option value="mid" selected>민감도 보통</option>
@@ -600,6 +604,86 @@ function sttStatus() {
 }
 function sttPending(delta) { pendingStt += delta; sttStatus(); }
 
+// ── 전역 STT 스케줄러 — Groq 요청 한도(RPM) 회피 ────────────────
+//  · 요청 간 최소 간격(adaptive)을 강제해 분당 요청 수를 한도 아래로
+//  · 상대(면접관) 세그먼트 우선 처리, 큐가 밀리면 '나'부터 버림
+//  · 429가 나면 간격을 자동으로 벌리고, 성공하면 서서히 회복
+let sttQueue = [];                    // {who, blob}
+let sttDraining = false, sttLastSent = 0;
+let sttGap = 3500;                    // 요청 간 최소 간격(ms) — 429 시 자동 증가
+const STT_QUEUE_MAX = 4;              // 이보다 밀리면 '나' 세그먼트부터 폐기
+
+function enqueueStt(who, blob) {
+  if (sttKeyMissing) return;
+  if ($('#sttmode')?.value === 'opp' && who === '나') return;   // 절약: 상대만 인식
+  sttQueue.push({ who, blob });
+  drainStt();
+}
+
+async function drainStt() {
+  if (sttDraining) return;
+  sttDraining = true;
+  try {
+    while (sttQueue.length) {
+      if (Date.now() < sttBackoffUntil)                          // 백오프 중 대기
+        await new Promise(r => setTimeout(r, sttBackoffUntil - Date.now()));
+      // 큐가 밀리면 '나' 세그먼트부터 버려 상대(질문) 인식을 지킨다
+      while (sttQueue.length > STT_QUEUE_MAX) {
+        const idx = sttQueue.findIndex(x => x.who === '나');
+        if (idx >= 0) sttQueue.splice(idx, 1); else break;
+      }
+      let i = sttQueue.findIndex(x => x.who === '상대');          // 상대 우선
+      if (i < 0) i = 0;
+      const item = sttQueue.splice(i, 1)[0];
+      const wait = sttGap - (Date.now() - sttLastSent);
+      if (wait > 0) await new Promise(r => setTimeout(r, wait));
+      sttLastSent = Date.now();
+      const result = await sttSend(item.who, item.blob);
+      // 상대(질문)는 일시 실패(429/네트워크) 시 한 번 재시도 — 질문을 놓치지 않도록
+      if (result === 'retry' && item.who === '상대' && !item.retried) {
+        item.retried = true; sttQueue.unshift(item);
+      }
+    }
+  } finally { sttDraining = false; }
+}
+
+// 반환: 'ok' | 'retry'(일시 실패, 재시도 가치 있음) | 'drop'(키 오류 등, 재시도 무의미)
+async function sttSend(who, blob) {
+  sttPending(1);
+  try {
+    // lang 미지정 → Whisper 언어 자동 감지 (한/영 혼용 대응)
+    const res = await fetch('/api/stt', {
+      method: 'POST', headers: { 'Content-Type': 'audio/webm' }, body: blob });
+    const d = await res.json().catch(() => ({}));
+    if (res.status === 503) { sttKeyMissing = true; sttLastError = d.error || 'GROQ_API_KEY 없음'; sttStatus(); return 'drop'; }
+    if (res.status === 401) { sttLastError = 'API 키 오류(401) — 키를 확인하세요'; sttFails++; sttStatus(); return 'drop'; }
+    if (res.status === 429) {
+      sttGap = Math.min(9000, Math.round(sttGap * 1.5));          // 한도 → 간격 자동 확대
+      sttFails += 1;
+      sttLastError = `Groq 요청 한도 — 간격 ${(sttGap/1000).toFixed(1)}s로 자동 조절`;
+      sttBackoffUntil = Date.now() + Math.min(15, 2 ** sttFails) * 1000;
+      sttStatus();
+      return 'retry';
+    }
+    if (!res.ok) { sttLastError = d.error || `STT 오류 (${res.status})`; sttFails++; sttStatus(); return 'retry'; }
+    sttFails = 0; sttLastError = '';
+    sttGap = Math.max(3000, Math.round(sttGap * 0.95));           // 성공 → 간격 서서히 회복
+    const text = (d.text || '').trim();
+    // Whisper가 무음에서 만들어내는 환청 토막("you", "Thank you." 등) 필터
+    if (text && text.split(' ').length >= 2 && !/^thank you\.?$/i.test(text)) {
+      addUtterance(text, who);
+    }
+    return 'ok';
+  } catch (e) {                                                    // 네트워크 오류 → 재시도 가치
+    sttFails += 1;
+    sttLastError = e.message;
+    sttBackoffUntil = Date.now() + Math.min(15, 2 ** sttFails) * 1000;
+    sttStatus();
+    console.warn('STT 실패:', e.message);
+    return 'retry';
+  } finally { sttPending(-1); }
+}
+
 // 민감도 프리셋 — 적응형 노이즈 플로어에 곱하는 배수 + 최소 임계값
 const SENS = {
   high: { mult: 1.9, min: 0.005 },
@@ -628,11 +712,11 @@ class SegmentRecorder {
     this.recorder.ondataavailable = (e) => { if (e.data.size) this.chunks.push(e.data); };
     this.recorder.onstop = () => {
       const blob = new Blob(this.chunks, { type: this.mime });
-      // 최소 0.3초 이상 실제 발화가 있었던 세그먼트만 전송 (노이즈 팝 필터)
-      const send = this.hadSpeech && this.speechMs >= 300 && blob.size > 2500;
+      // 최소 0.4초 이상 실제 발화가 있었던 세그먼트만 전송 (노이즈 팝 필터)
+      const send = this.hadSpeech && this.speechMs >= 400 && blob.size > 2500;
       this.hadSpeech = false; this.speechMs = 0; this.silenceMs = 0; this.segMs = 0;
       if (this.stream.active) { this._arm(); }
-      if (send) this._transcribe(blob);
+      if (send) enqueueStt(this.who, blob);   // 전역 스케줄러로 (요청 한도 회피)
     };
     this.recorder.start();
   }
@@ -654,37 +738,12 @@ class SegmentRecorder {
       this.silenceMs += 100;
       this.noise = this.noise * 0.9 + rms * 0.1;   // 조용할 때만 노이즈 플로어 갱신
     }
-    // 발화(0.3초+) 후 0.6초 침묵 → 문장 컷 · 10초 강제 컷 · 무음 5초마다 버퍼 리셋
-    if ((this.hadSpeech && this.speechMs >= 300 && this.silenceMs >= 600) ||
-        this.segMs >= 10000 || (!this.hadSpeech && this.segMs >= 5000)) {
+    // 발화(0.4초+) 후 0.9초 침묵 → 문장 컷 · 14초 강제 컷 · 무음 6초마다 버퍼 리셋
+    // (침묵 컷을 늘리면 세그먼트가 길어져 Groq 요청 수가 줄고 한도(RPM)에 덜 걸린다)
+    if ((this.hadSpeech && this.speechMs >= 400 && this.silenceMs >= 900) ||
+        this.segMs >= 14000 || (!this.hadSpeech && this.segMs >= 6000)) {
       this.recorder.stop();
     }
-  }
-  async _transcribe(blob) {
-    if (sttKeyMissing || Date.now() < sttBackoffUntil) return;   // 백오프 중엔 전송 중단
-    sttPending(1);
-    try {
-      // lang 미지정 → Whisper 언어 자동 감지 (한국어/영어 혼용 면접 대응)
-      const res = await fetch('/api/stt', {
-        method: 'POST', headers: { 'Content-Type': 'audio/webm' }, body: blob });
-      const d = await res.json().catch(() => ({}));
-      if (res.status === 503) { sttKeyMissing = true; throw new Error(d.error || 'GROQ_API_KEY 없음'); }
-      if (res.status === 401) throw new Error('API 키 오류(401) — 키를 확인하세요');
-      if (res.status === 429) throw new Error('Groq 요청 한도(429) — 잠시 후 자동 재시도');
-      if (!res.ok) throw new Error(d.error || `STT 오류 (${res.status})`);
-      sttFails = 0; sttLastError = '';                           // 성공 → 백오프 초기화
-      const text = (d.text || '').trim();
-      // Whisper가 무음에서 만들어내는 환청 토막("you", "Thank you." 등) 필터
-      if (text && text.split(' ').length >= 2 && !/^thank you\.?$/i.test(text)) {
-        addUtterance(text, this.who);
-      }
-    } catch (e) {
-      sttFails += 1;
-      sttLastError = e.message;
-      sttBackoffUntil = Date.now() + Math.min(30, 2 ** sttFails) * 1000;
-      sttStatus();
-      console.warn('STT 실패:', e.message);
-    } finally { sttPending(-1); }
   }
   stop() {
     clearInterval(this.timer);
