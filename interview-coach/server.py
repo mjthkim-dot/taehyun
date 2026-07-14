@@ -159,9 +159,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         elif path == "/health":
             try:
+                stt_local = llm.stt_local_available()
+                stt_engine = f"local:{llm.STT_LOCAL_MODEL}" if stt_local else llm.GROQ_STT_MODEL
                 if llm.GROQ_API_KEY:
                     self._send_json(200, {"status": "ok", "provider": "groq",
-                                          "model": llm.GROQ_MODEL, "stt": llm.GROQ_STT_MODEL})
+                                          "model": llm.GROQ_MODEL,
+                                          "stt": stt_engine, "stt_local": stt_local})
                 else:
                     req = urllib.request.Request(f"{llm.OLLAMA_URL}/api/tags")
                     with urllib.request.urlopen(req, timeout=3) as r:
@@ -244,7 +247,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 ext = {"audio/mp4": ".mp4", "audio/mpeg": ".mp3", "audio/wav": ".wav",
                        "audio/x-m4a": ".m4a"}.get(ct, ".webm")
                 try:
-                    text = llm.transcribe(body, filename=f"audio{ext}", language=lang or None)
+                    # 🆓 로컬 Whisper 있으면 우선(무료·무제한), 없으면 Groq
+                    if llm.stt_local_available():
+                        text = llm.transcribe_local(body, filename=f"audio{ext}", language=lang or None)
+                    else:
+                        text = llm.transcribe(body, filename=f"audio{ext}", language=lang or None)
                 except RuntimeError as e:
                     self._send_json(503, {"error": str(e)})
                     return
@@ -335,10 +342,13 @@ if __name__ == "__main__":
     print("  🎤  영어 면접 코치 — IT 영업")
     print("  ─────────────────────────────")
     if llm.GROQ_API_KEY:
-        print(f"  ⚡ Groq — LLM: {llm.GROQ_MODEL} · STT: {llm.GROQ_STT_MODEL}")
+        print(f"  ⚡ Groq — LLM: {llm.GROQ_MODEL}")
     else:
-        print(f"  ⚠️  GROQ_API_KEY 없음 — LLM은 Ollama({llm.OLLAMA_MODEL}) 폴백, 음성 인식(STT)은 비활성!")
+        print(f"  ⚠️  GROQ_API_KEY 없음 — LLM은 Ollama({llm.OLLAMA_MODEL}) 폴백")
         print("     라이브 모드를 쓰려면: export GROQ_API_KEY=... 후 재실행")
+    # 🆓 로컬 STT 백그라운드 워밍업 (설치돼 있으면 무료·무제한, 없으면 Groq 폴백)
+    if llm.STT_LOCAL:
+        threading.Thread(target=llm.stt_local_available, daemon=True).start()
     print(f"\n  🖥  연습 모드:      http://localhost:{PORT}/interview.html")
     print(f"  🔴 실전 라이브 모드: http://localhost:{PORT}/live.html")
     if HOST == "0.0.0.0":

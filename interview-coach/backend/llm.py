@@ -29,6 +29,13 @@ GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 GROQ_STT_MODEL = os.environ.get("GROQ_STT_MODEL", "whisper-large-v3-turbo")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:12b")  # 폴백용 (16GB 맥북 기본값)
 
+# 🆓 로컬 STT — faster-whisper가 설치돼 있으면 맥에서 직접 인식 (무료·무제한·비공개)
+# STT_LOCAL=0 으로 끌 수 있고, 미설치 시 자동으로 Groq Whisper로 폴백된다.
+STT_LOCAL = os.environ.get("STT_LOCAL", "1") != "0"
+STT_LOCAL_MODEL = os.environ.get("STT_LOCAL_MODEL", "base")   # tiny/base/small/medium
+_local_model = None
+_local_failed = False
+
 # 실시간 번역 시스템 프롬프트 (KR↔EN 자동 감지)
 TRANSLATE_SYSTEM_PROMPT = """You are a real-time Korean-English translator for a
 job-interview copilot. Detect the input language automatically:
@@ -152,3 +159,44 @@ def transcribe(audio: bytes, filename: str = "audio.webm",
     )
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.loads(r.read()).get("text", "").strip()
+
+
+# ── 🆓 로컬 Whisper (faster-whisper) — 무료·무제한·비공개 ───────
+def _get_local_model():
+    """faster-whisper 모델을 lazy-load. 미설치/실패 시 None (→ Groq 폴백)."""
+    global _local_model, _local_failed
+    if _local_model is not None or _local_failed or not STT_LOCAL:
+        return _local_model
+    try:
+        from faster_whisper import WhisperModel
+        _local_model = WhisperModel(STT_LOCAL_MODEL, device="cpu", compute_type="int8")
+        print(f"  🆓 로컬 STT 활성 — faster-whisper ({STT_LOCAL_MODEL}), 무료·무제한")
+    except Exception as e:  # noqa: BLE001 (미설치 포함)
+        _local_failed = True
+        print(f"  ℹ️  로컬 STT 미사용 (faster-whisper 미설치 → Groq 사용): {e}")
+    return _local_model
+
+
+def stt_local_available() -> bool:
+    return _get_local_model() is not None
+
+
+def transcribe_local(audio: bytes, filename: str = "audio.webm",
+                     language: str | None = None) -> str:
+    """오디오 바이트 → 텍스트 (로컬 faster-whisper). 클라우드 전송 없음."""
+    import tempfile
+    model = _get_local_model()
+    if model is None:
+        raise RuntimeError("로컬 Whisper를 사용할 수 없습니다.")
+    suffix = Path(filename).suffix or ".webm"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
+        f.write(audio)
+        tmp = f.name
+    try:
+        segments, _ = model.transcribe(tmp, language=language, beam_size=1, vad_filter=True)
+        return " ".join(s.text for s in segments).strip()
+    finally:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass

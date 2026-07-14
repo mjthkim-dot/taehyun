@@ -16,12 +16,20 @@ echo "  🎤 영어 면접 코파일럿 — IT 영업"
 echo "  ═══════════════════════════════════════════"
 
 if [ -n "${GROQ_API_KEY:-}" ]; then
-  echo "  ⚡ Groq 모드 — LLM: ${GROQ_MODEL:-llama-3.3-70b-versatile} · STT: ${GROQ_STT_MODEL:-whisper-large-v3-turbo}"
+  echo "  ⚡ Groq 모드 — LLM(번역·답변): ${GROQ_MODEL:-llama-3.3-70b-versatile}"
 else
-  echo "  ❌ GROQ_API_KEY가 설정되지 않았습니다!"
-  echo "     실시간 음성 인식(STT)과 빠른 답변 생성에 Groq가 필요합니다:"
+  echo "  ❌ GROQ_API_KEY가 설정되지 않았습니다! (번역·답변에 필요)"
   echo "       export GROQ_API_KEY=gsk_...   # https://console.groq.com 에서 발급"
-  echo "     (키 없이 실행하면: 답변 생성은 로컬 Ollama 폴백, 라이브 음성 인식은 비활성)"
+fi
+
+# ── 🆓 로컬 STT (faster-whisper) 확인 — 있으면 음성인식이 무료·무제한 ──
+if [ "${STT_LOCAL:-1}" != "0" ]; then
+  if python3 -c "import faster_whisper" 2>/dev/null; then
+    echo "  🆓 로컬 STT 활성 — faster-whisper(${STT_LOCAL_MODEL:-base}), 음성인식 무료·무제한"
+  else
+    echo "  💡 음성인식을 무료·무제한으로: pip3 install faster-whisper  (설치 시 자동 사용)"
+    echo "     (미설치면 Groq Whisper 사용 — 무료 티어 요청 한도 있음)"
+  fi
 fi
 
 # ── 기존 서버 정리 후 실행 ───────────────────────

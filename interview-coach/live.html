@@ -1070,6 +1070,19 @@ if (!navigator.mediaDevices?.enumerateDevices || !navigator.mediaDevices?.getUse
   $('#sum-line').textContent = '⚠️ 이 브라우저는 오디오 장치 캡처를 지원하지 않아요 — 데스크톱 Chrome에서 사용하세요';
 }
 
+// ── 서버 STT 엔진 확인 — 로컬 Whisper가 있으면 무료·무제한이므로 기본 엔진으로 ──
+(async () => {
+  try {
+    const h = await (await fetch('/health')).json();
+    if (h.stt_local) {
+      const opt = document.querySelector('#sttengine option[value="groq"]');
+      if (opt) opt.textContent = '인식: 로컬 Whisper(무료·무제한)';
+      $('#sttengine').value = 'groq';   // 로컬은 화자분리+무제한 → 장치기반 엔진을 기본으로
+      sttGap = 400;                     // 요청 한도 없음 → 간격 최소화(거의 실시간)
+    }
+  } catch { /* /health 실패는 무시 */ }
+})();
+
 speechSynthesis.getVoices();
 </script>
 </body>
