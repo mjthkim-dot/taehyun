@@ -247,9 +247,13 @@
     <button class="tab" data-v="translate">번역</button>
   </div>
   <div class="spacer"></div>
+  <select id="sttengine" title="음성 인식 엔진 — 브라우저는 무료·무제한(단 면접관 채널만), Groq는 고품질(요청 한도 있음)">
+    <option value="web" selected>인식: 브라우저(무료·무제한)</option>
+    <option value="groq">인식: Groq Whisper(고품질)</option>
+  </select>
   <select id="sttmode" title="음성 인식 대상 — Groq 요청 한도에 걸리면 '상대만'으로 절약">
-    <option value="both" selected>인식: 양쪽</option>
-    <option value="opp">인식: 상대만(절약)</option>
+    <option value="both" selected>대상: 양쪽</option>
+    <option value="opp">대상: 상대만(절약)</option>
   </select>
   <select id="sens" title="음성 감지 민감도">
     <option value="high">민감도 높음</option>
@@ -848,16 +852,73 @@ function stopMonitor() {
 function restartMonitor() { if (monOn) startMonitor(); }
 $('#dev-mon').addEventListener('click', () => monOn ? stopMonitor() : startMonitor());
 
+// ── 브라우저 내장 음성인식(Web Speech API) — 무료·무제한 STT ──────
+//  Google 서버로 실시간 인식. API 키/요청 한도 없음. 단, 입력 장치를
+//  지정할 수 없어 '시스템 기본 입력'만 듣는다 → 시스템 입력을 BlackHole로
+//  두면 면접관 발화가 인식된다. (내 목소리 채널은 이 모드에선 꺼짐)
+let webRec = null;
+function startWebSpeech() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert('이 브라우저는 내장 음성인식을 지원하지 않아요.\nChrome을 쓰거나 헤더에서 Groq Whisper 모드로 바꾸세요.'); return false; }
+  webRec = new SR();
+  webRec.lang = 'en-US';
+  webRec.continuous = true;
+  webRec.interimResults = true;
+  let interimRow = null;
+  webRec.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript.trim();
+      if (e.results[i].isFinal) { if (t) addUtterance(t, '상대'); }
+      else interim += t + ' ';
+    }
+    if (interim) {
+      if (!interimRow) {
+        $('#feed-empty')?.remove();
+        interimRow = document.createElement('div');
+        interimRow.className = 'row dim';
+        interimRow.innerHTML = '<div class="bubble"><div class="en"></div></div>';
+        feed.appendChild(interimRow);
+      }
+      interimRow.querySelector('.en').textContent = interim;
+      feed.scrollTop = feed.scrollHeight;
+    } else if (interimRow) { interimRow.remove(); interimRow = null; }
+  };
+  webRec.onerror = (ev) => {
+    if (ev.error === 'not-allowed') { alert('마이크 권한을 허용해 주세요.'); stopListening(); }
+    else if (ev.error === 'no-speech') { /* 무음은 무시 */ }
+  };
+  webRec.onend = () => { if (webRec) { try { webRec.start(); } catch {} } };  // 끊겨도 계속
+  try { webRec.start(); } catch (e) { alert('음성인식 시작 실패: ' + e.message); return false; }
+  return true;
+}
+function stopWebSpeech() { if (webRec) { webRec.onend = null; try { webRec.stop(); } catch {} webRec = null; } }
+const isListening = () => !!(oppCap || webRec);
+
 function stopListening() {
   oppCap?.stop(); meCap?.stop();
   oppCap = meCap = null;
+  stopWebSpeech();
   $('#dev-opp').disabled = $('#dev-me').disabled = false;
+  $('#sttengine').disabled = false;
   $('#btn-listen').textContent = '▶';
   $('#btn-listen').classList.remove('live');
 }
 
 async function startListening() {
   stopMonitor();   // 테스트 중이면 장치를 놓아줘야 실제 캡처가 열린다
+
+  // 🆓 브라우저 무료 엔진 — 시스템 기본 입력(BlackHole 권장)에서 면접관 인식
+  if (($('#sttengine')?.value || 'web') === 'web') {
+    if (!startWebSpeech()) return;
+    $('#sttengine').disabled = true;
+    $('#dev-hint').innerHTML = "🆓 브라우저 인식 — <b>시스템 기본 입력을 BlackHole로</b> 설정해야 면접관 소리가 인식됩니다 (내 목소리 채널은 이 모드에선 꺼짐 · Chrome 전용)";
+    $('#btn-listen').textContent = '⏸';
+    $('#btn-listen').classList.add('live');
+    return;
+  }
+
+  // 🎤 Groq Whisper 엔진 — 두 입력 장치 각각 캡처 (화자 분리)
   try { await populateDevices(true); } catch (e) { alert(e.message); return; }
   const oppId = $('#dev-opp').value, meId = $('#dev-me').value;
   if (!oppId || !meId) {
@@ -896,7 +957,7 @@ async function startListening() {
   $('#btn-listen').classList.add('live');
 }
 
-$('#btn-listen').addEventListener('click', () => oppCap ? stopListening() : startListening());
+$('#btn-listen').addEventListener('click', () => isListening() ? stopListening() : startListening());
 
 // ── ⏹ 세션 종료 → 📋 사후 리포트 (기록은 리포트 확인 후 지움) ──
 function resetSession() {
