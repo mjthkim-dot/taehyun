@@ -315,9 +315,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
             self.send_error(404)
         except urllib.error.HTTPError as e:
-            self._send_json(e.code, {"error": f"LLM API 오류 ({e.code}) — API 키/요청 한도를 확인하세요."})
-        except urllib.error.URLError:
-            self._send_json(503, {"error": "LLM에 연결할 수 없습니다. (Groq: 인터넷 확인 / Ollama: 실행 여부 확인)"})
+            # 상류(Groq/프록시)의 실제 응답 본문을 그대로 노출 — 원인 특정용
+            # (Groq면 {"error":{"message":...}} JSON, 회사 프록시면 HTML/차단 메시지)
+            detail = ""
+            try:
+                detail = e.read().decode("utf-8", "ignore").strip()[:300]
+            except Exception:  # noqa: BLE001
+                pass
+            server = e.headers.get("Server", "") if e.headers else ""
+            print(f"  [LLM {e.code}] server={server!r} body={detail!r}")
+            self._send_json(e.code, {"error": f"LLM {e.code}: {detail or '(본문 없음)'}"})
+        except urllib.error.URLError as e:
+            self._send_json(503, {"error": f"LLM에 연결할 수 없습니다 — {getattr(e, 'reason', e)} "
+                                           "(회사 네트워크가 api.groq.com을 막을 수 있어요)"})
         except Exception as e:  # noqa: BLE001
             self._send_json(500, {"error": str(e)})
 
