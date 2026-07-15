@@ -449,15 +449,20 @@ function addUtterance(text, who) {
   return row;
 }
 
-// ── 자막 번역 큐 (답변 제안이 항상 우선) ───────────────────
+// ── 자막 번역 큐 — 영어 발화마다 바로 한국어 번역을 채운다.
+//   답변 생성과 독립적으로 동작(막히지 않음)하고, 실패 시 이유를 그 자리에 표시.
 async function processTrQueue() {
-  if (translating || suggestAbort || !trQueue.length) return;
+  if (translating || !trQueue.length) return;
   translating = true;
   const item = trQueue.shift();
   try {
+    let got = false;
     await streamChat('/api/translate', { text: item.text },
-      tk => { item.el.textContent += tk; });
-  } catch { /* 자막 번역 실패는 조용히 넘어감 */ }
+      tk => { if (!got) { item.el.textContent = ''; got = true; } item.el.textContent += tk; });
+  } catch (e) {
+    // 조용히 감추지 않고 이유를 노출 (예: LLM API 오류 403 → 키 문제라는 걸 바로 알 수 있게)
+    item.el.innerHTML = `<span style="color:var(--danger)">번역 실패: ${e.message}</span>`;
+  }
   finally { translating = false; processTrQueue(); }
 }
 
