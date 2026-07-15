@@ -247,9 +247,9 @@
     <button class="tab" data-v="translate">번역</button>
   </div>
   <div class="spacer"></div>
-  <select id="sttengine" title="음성 인식 엔진 — 브라우저는 무료·무제한(단 면접관 채널만), Groq는 고품질(요청 한도 있음)">
-    <option value="web" selected>인식: 브라우저(무료·무제한)</option>
-    <option value="groq">인식: Groq Whisper(고품질)</option>
+  <select id="sttengine" title="음성 인식 엔진 — 브라우저는 실시간(무료), Whisper는 정확하지만 비실시간(문장 단위 지연)">
+    <option value="web" selected>인식: 브라우저(실시간·무료)</option>
+    <option value="groq">인식: Whisper(정확·비실시간)</option>
   </select>
   <select id="sttmode" title="음성 인식 대상 — Groq 요청 한도에 걸리면 '상대만'으로 절약">
     <option value="both" selected>대상: 양쪽</option>
@@ -864,12 +864,13 @@ function startWebSpeech() {
   webRec.lang = 'en-US';
   webRec.continuous = true;
   webRec.interimResults = true;
-  let interimRow = null;
+  let interimRow = null, lastResultAt = Date.now(), heard = false;
   webRec.onresult = (e) => {
+    lastResultAt = Date.now(); heard = true;
     let interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const t = e.results[i][0].transcript.trim();
-      if (e.results[i].isFinal) { if (t) addUtterance(t, '상대'); }
+      if (e.results[i].isFinal) { if (t) addUtterance(t, '상대'); }  // → 자막+한국어 번역+답변
       else interim += t + ' ';
     }
     if (interim) {
@@ -880,7 +881,7 @@ function startWebSpeech() {
         interimRow.innerHTML = '<div class="bubble"><div class="en"></div></div>';
         feed.appendChild(interimRow);
       }
-      interimRow.querySelector('.en').textContent = interim;
+      interimRow.querySelector('.en').textContent = interim;   // 말하는 대로 실시간 표시
       feed.scrollTop = feed.scrollHeight;
     } else if (interimRow) { interimRow.remove(); interimRow = null; }
   };
@@ -890,9 +891,20 @@ function startWebSpeech() {
   };
   webRec.onend = () => { if (webRec) { try { webRec.start(); } catch {} } };  // 끊겨도 계속
   try { webRec.start(); } catch (e) { alert('음성인식 시작 실패: ' + e.message); return false; }
+  // 워치독 — 시작 후 몇 초간 아무 소리도 안 들리면 시스템 입력 설정을 안내
+  webWatchdog = setInterval(() => {
+    if (!webRec) return;
+    if (!heard && Date.now() - lastResultAt > 6000) {
+      $('#sum-line').innerHTML = "⚠️ 면접관 소리가 안 들려요 — <b>시스템 설정 → 사운드 → 입력</b>을 <b>BlackHole</b>로 바꾸세요 (또는 헤더에서 'Whisper' 엔진으로)";
+    }
+  }, 2000);
   return true;
 }
-function stopWebSpeech() { if (webRec) { webRec.onend = null; try { webRec.stop(); } catch {} webRec = null; } }
+let webWatchdog = null;
+function stopWebSpeech() {
+  if (webWatchdog) { clearInterval(webWatchdog); webWatchdog = null; }
+  if (webRec) { webRec.onend = null; try { webRec.stop(); } catch {} webRec = null; }
+}
 const isListening = () => !!(oppCap || webRec);
 
 function stopListening() {
@@ -1074,11 +1086,12 @@ if (!navigator.mediaDevices?.enumerateDevices || !navigator.mediaDevices?.getUse
 (async () => {
   try {
     const h = await (await fetch('/health')).json();
+    // 로컬 Whisper가 있으면 옵션 라벨만 갱신하고 간격을 줄인다.
+    // 단, 기본 엔진은 '브라우저(실시간)' 유지 — Whisper(로컬/Groq)는 배치라 실시간이 아님.
     if (h.stt_local) {
       const opt = document.querySelector('#sttengine option[value="groq"]');
-      if (opt) opt.textContent = '인식: 로컬 Whisper(무료·무제한)';
-      $('#sttengine').value = 'groq';   // 로컬은 화자분리+무제한 → 장치기반 엔진을 기본으로
-      sttGap = 400;                     // 요청 한도 없음 → 간격 최소화(거의 실시간)
+      if (opt) opt.textContent = '인식: 로컬 Whisper(정확·비실시간)';
+      sttGap = 400;                     // 요청 한도 없음 → 배치 간격 최소화
     }
   } catch { /* /health 실패는 무시 */ }
 })();
