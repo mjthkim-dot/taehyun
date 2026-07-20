@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { MASTER_CURRICULUM } from '../lib/curriculum';
 import { getProfile, calcStreak, todayCount, dueWeak, getLessonStats, groqKey, isPlaced, getPhrases, DAILY_GOAL } from '../lib/state';
+import DailyMissionCard from './DailyMissionCard';
 import type { Mode } from './NavBar';
 
 export default function MasterScreen({
@@ -54,6 +55,9 @@ export default function MasterScreen({
           <div className="l">일 연속</div>
         </div>
       </div>
+
+      {/* 오늘 할 딱 한 가지 — 앱을 열면 바로 이걸 하면 된다 */}
+      <DailyMissionCard onNavigate={onNavigate} />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: 14 }}>
         <svg width="64" height="64" viewBox="0 0 64 64" style={{ flex: '0 0 auto' }}>
@@ -143,19 +147,8 @@ export default function MasterScreen({
         </button>
       </div>
 
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: 14 }}>
-        <div style={{ fontSize: '0.84rem', fontWeight: 800, marginBottom: 8 }}>🚀 학습은 딱 3단계입니다</div>
-        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.9 }}>
-          1️⃣ 아래 로드맵에서 원하는 유닛의 <b style={{ color: 'var(--primary-light)' }}>시작</b> 버튼 누르기
-          <br />
-          2️⃣ <b style={{ color: 'var(--text)' }}>① 학습</b>에서 핵심 읽기 → <b style={{ color: 'var(--text)' }}>② 드릴</b>에서 입에 붙이기 (🎧 쉐도잉 추천)
-          <br />
-          3️⃣ <b style={{ color: 'var(--text)' }}>③ 회화</b>에서 AI 코치와 실전 — 들어가면 AI가 먼저 말을 겁니다
-          <br />
-          <span style={{ fontSize: '0.74rem' }}>
-            💡 화면 위 ①→②→③ 버튼으로 언제든 단계 이동 · 틀린 문장 복습은 ⚡ 오늘의 훈련이 자동으로 챙겨요
-          </span>
-        </div>
+      <div style={{ fontSize: '0.82rem', fontWeight: 800, margin: '2px 2px 8px', color: 'var(--text-muted)' }}>
+        📚 레벨별 커리큘럼 (원하면 여기서도 학습)
       </div>
 
       {MASTER_CURRICULUM.map((lvl) => {

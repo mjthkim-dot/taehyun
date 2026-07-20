@@ -2591,3 +2591,222 @@ body,
   line-height: 1.5;
   margin-top: 6px;
 }
+
+/* ── 오늘의 비즈니스 미션(DailyMissionCard) ── */
+.mission-card {
+  background: linear-gradient(160deg, var(--surface), var(--surface2));
+  border: 2px solid var(--primary);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-card);
+}
+.mission-card.done {
+  border-color: var(--green);
+}
+.mission-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mission-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  letter-spacing: 0.02em;
+}
+.mission-done-tag {
+  color: var(--green-dk);
+  margin-left: 4px;
+}
+.mission-shuffle {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.mission-title {
+  font-size: 1.08rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-top: 6px;
+  line-height: 1.35;
+}
+.mission-goal {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+  line-height: 1.5;
+}
+.mission-step-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 16px 0 8px;
+}
+.mission-mini-next,
+.mission-mini {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--primary-dk);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 9px;
+  cursor: pointer;
+}
+.mission-phrases {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mission-phrase {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+.mission-phrase-main {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.mission-phrase-en {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+}
+.mission-phrase-kr {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+.mission-ic {
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 2px 3px;
+}
+.mission-ic:disabled {
+  cursor: default;
+}
+.mission-practice {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.mission-secondary {
+  width: 100%;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 11px;
+  cursor: pointer;
+}
+.mission-dialogue {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.mission-dialogue-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+.mission-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+}
+.mission-line.active {
+  background: rgba(255, 90, 54, 0.1);
+  border-radius: 8px;
+}
+.mission-line .sp-a,
+.mission-line .sp-b {
+  flex: 0 0 auto;
+  font-weight: 800;
+  font-size: 0.78rem;
+  width: 18px;
+  text-align: center;
+}
+.mission-line-txt {
+  flex: 1;
+  min-width: 0;
+}
+.mission-line-txt .en {
+  font-size: 0.86rem;
+  color: var(--text);
+  line-height: 1.45;
+}
+.mission-line-txt .kr {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+.mission-cta {
+  width: 100%;
+  margin-top: 16px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #fff;
+  background: var(--grad-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 13px;
+  cursor: pointer;
+  box-shadow: var(--shadow-press);
+}
+.mission-complete {
+  width: 100%;
+  margin-top: 8px;
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: var(--green-dk);
+  background: var(--green-soft);
+  border: 1.5px solid var(--green);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  cursor: pointer;
+}
+.mission-done-banner {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--green-dk);
+  background: var(--green-soft);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
