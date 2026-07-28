@@ -111,7 +111,7 @@ export const SCAFFOLD_BY_CEFR: Record<Cefr, number> = {
   A1: 1.0, A2: 1.0, B1: 0.65, B2: 0.4, C1: 0.2, C2: 0.08,
 };
 
-/** 레슨의 CEFR 추정: 마스터 유닛은 master 레벨, 그 외(PREPLY 회차/선행)는 A2 */
+/** 레슨의 CEFR 추정: 마스터 유닛은 master 레벨, 그 외(개인 수업 회차/선행)는 A2 */
 export function cefrOf(lesson: Lesson | null | undefined): Cefr {
   return ((lesson && (lesson.master as Cefr)) || 'A2');
 }

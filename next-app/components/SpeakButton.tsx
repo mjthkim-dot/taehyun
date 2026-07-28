@@ -76,7 +76,7 @@ function activateMediaSession() {
     if (typeof MediaMetadata !== 'undefined' && !ms.metadata) {
       ms.metadata = new MediaMetadata({
         title: 'AI 영어 회화',
-        artist: 'Preply 영어 코치',
+        artist: '내 영어 코치',
         album: '회화 연습',
       });
     }

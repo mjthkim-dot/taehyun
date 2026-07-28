@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { rateLimit, clientIp, tooManyRequests } from '../../../lib/rateLimit';
 
 /**
  * Groq TTS 프록시 — /api/groq와 동일한 "No-key UX" 패턴(서버 키 우선, 로컬 키 fallback).
@@ -13,15 +14,25 @@ import { NextRequest } from 'next/server';
 const TTS_MODEL = 'canopylabs/orpheus-v1-english';
 const DEFAULT_VOICE = 'austin';
 
+/* ── 남용 방어(상용화 Phase 0) — TTS는 호출당 원가가 가장 커서 더 엄격하게 ── */
+const RATE_LIMIT_PER_MIN = 20;
+const MAX_TEXT_CHARS = 600;
+
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  if (!rateLimit(`tts:${clientIp(req.headers)}`, RATE_LIMIT_PER_MIN, 60_000)) {
+    return tooManyRequests();
+  }
+  const body = await req.json().catch(() => null);
   const { text, voice, key } = body || {};
+  if (!text || typeof text !== 'string') {
+    return Response.json({ error: { message: 'text가 필요합니다.' } }, { status: 400 });
+  }
+  if (text.length > MAX_TEXT_CHARS) {
+    return Response.json({ error: { message: '텍스트가 너무 깁니다.' } }, { status: 413 });
+  }
   const apiKey = process.env.GROQ_API_KEY || key;
   if (!apiKey) {
     return Response.json({ error: { message: 'NO_GROQ_KEY' } }, { status: 401 });
-  }
-  if (!text || typeof text !== 'string') {
-    return Response.json({ error: { message: 'text가 필요합니다.' } }, { status: 400 });
   }
 
   const resp = await fetch('https://api.groq.com/openai/v1/audio/speech', {

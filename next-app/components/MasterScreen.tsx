@@ -6,6 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { MASTER_CURRICULUM } from '../lib/curriculum';
+import { APP_NAME_KO, APP_TAGLINE_KO } from '../lib/brand';
 import { getProfile, calcStreak, todayCount, dueWeak, getLessonStats, groqKey, isPlaced, getPhrases, DAILY_GOAL } from '../lib/state';
 import DailyMissionCard from './DailyMissionCard';
 import type { Mode } from './NavBar';
@@ -47,7 +48,7 @@ export default function MasterScreen({
       <div className="home-hero">
         <div className="home-hero-avatar">🦉</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="home-hero-title">PREPLY AI 스피킹 코치</div>
+          <div className="home-hero-title">{APP_NAME_KO} — {APP_TAGLINE_KO}</div>
           <div className="home-hero-sub">
             CEFR <b style={{ color: 'white' }}>{prof.cefr}</b> (GSE {prof.gse}) 진행 중
           </div>

@@ -52,7 +52,7 @@ export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenPro
         <div className="study-card preview-card">
           <h3>🔮 선행학습 — 다음 수업 미리 준비하기</h3>
           <p className="muted">
-            아직 PREPLY에서 배우지 않은 내용입니다. 표준 A2 커리큘럼에서 지금 진도의 바로 다음
+            아직 수업에서 배우지 않은 내용입니다. 표준 A2 커리큘럼에서 지금 진도의 바로 다음
             단계예요. 미리 익혀두면 실제 수업에서 훨씬 빠르게 흡수됩니다.
           </p>
         </div>
@@ -104,7 +104,7 @@ export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenPro
 
       {lesson.freeTalk && (
         <div className="study-card freetalk-card">
-          <h3>🗣 진옥쌤과 프리토킹 — 내 이야기로 말하기</h3>
+          <h3>🗣 프리토킹 — 내 이야기로 말하기</h3>
           {lesson.freeTalk.intro && <div className="sec-intro">{lesson.freeTalk.intro}</div>}
           {lesson.freeTalk.topics.map((t, i) => (
             <div className="point" key={i}>

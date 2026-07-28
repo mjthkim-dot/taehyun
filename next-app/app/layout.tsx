@@ -15,7 +15,7 @@ const pretendard = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'Preply English Coach',
+  title: 'My English Coach',
   description: 'AI 영어 회화 코치 — 오프라인 학습 지원 PWA',
   manifest: 'manifest.json',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'EnglishCoach' },
