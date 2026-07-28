@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLessonStore } from '../store/useLessonStore';
 import { speakText } from './SpeakButton';
+import { SpeakerIcon } from './icons';
 import { haptic } from '../lib/haptics';
 
 // 벤더 프리픽스 대응
@@ -186,22 +187,22 @@ export default function SpeakingPractice({
     <div className="speaking-practice">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {showTarget ? (
-          <p className="target" style={{ flex: 1, margin: 0 }}>🎯 {currentSentence || '문장을 선택하세요'}</p>
+          <p className="target" style={{ flex: 1, margin: 0 }}>{currentSentence || '문장을 선택하세요'}</p>
         ) : (
-          <p className="target" style={{ flex: 1, margin: 0 }}>🇰🇷 {prompt || '뜻을 보고 영어로 말해보세요'}</p>
+          <p className="target" style={{ flex: 1, margin: 0 }}>{prompt || '뜻을 보고 영어로 말해보세요'}</p>
         )}
         {currentSentence && showTarget && (
           <>
-            <button type="button" className="speak-mini" title="듣기" onClick={() => speakText(currentSentence, lang)}>🔊</button>
-            <button type="button" className="speak-mini" title="느리게 듣기" onClick={() => speakText(currentSentence, lang, 0.6)}>🐢</button>
+            <button type="button" className="speak-mini" title="듣기" onClick={() => speakText(currentSentence, lang)}><SpeakerIcon /></button>
+            <button type="button" className="speak-mini" title="느리게 듣기" onClick={() => speakText(currentSentence, lang, 0.6)}><span className="speak-mini-slow">0.6×</span></button>
           </>
         )}
         {!showTarget && (
-          <button type="button" className="speak-mini" title="영어 정답 보기" onClick={() => setRevealed(true)}>👀</button>
+          <button type="button" className="speak-mini" title="영어 정답 보기" onClick={() => setRevealed(true)}>정답</button>
         )}
       </div>
       {showTarget && hideTarget && prompt && (
-        <div className="muted" style={{ fontSize: '0.82rem', marginTop: 2 }}>🇰🇷 {prompt}</div>
+        <div className="muted" style={{ fontSize: '0.82rem', marginTop: 2 }}>{prompt}</div>
       )}
 
       {!supported && (
@@ -216,7 +217,7 @@ export default function SpeakingPractice({
         disabled={!supported || !currentSentence}
         className={isListening ? 'mic listening' : 'mic'}
       >
-        {isListening ? '⏹ 멈추기' : attempts > 0 ? '🎤 다시 말하기' : '🎤 말하기'}
+        {isListening ? '멈추기' : attempts > 0 ? '다시 말하기' : '말하기'}
       </button>
 
       <div className="transcript">
@@ -233,7 +234,7 @@ export default function SpeakingPractice({
               accuracyScore >= 80 ? 'high' : accuracyScore >= 50 ? 'mid' : 'low'
             }
           >
-            {accuracyScore >= 80 ? '🎉 ' : ''}정확도 {accuracyScore}점{attempts > 1 ? ` · ${attempts}번째 시도` : ''}
+            정확도 {accuracyScore}점{attempts > 1 ? ` · ${attempts}번째 시도` : ''}
           </div>
           {wordDiff.length > 0 && (
             <div className="word-diff" style={{ fontSize: '0.88rem', lineHeight: 1.7, marginTop: 6 }}>
@@ -253,7 +254,7 @@ export default function SpeakingPractice({
           )}
           {accuracyScore < 80 && (
             <p className="muted" style={{ fontSize: '0.76rem', marginTop: 6 }}>
-              🔴 빨간 단어를 다시 듣고 발음해 보세요 — 🐢 느리게 듣기로 정확한 발음을 확인할 수 있어요.
+              빨간 단어를 다시 듣고 발음해 보세요 — 0.6× 느리게 듣기로 정확한 발음을 확인할 수 있어요.
             </p>
           )}
         </>

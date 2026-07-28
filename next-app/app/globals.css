@@ -3,21 +3,22 @@
    디자인 강화판: 멀티레이어 그림자, 오로라 배경, 글래스 헤더/네비, 카드 호버 리프트,
    스태거 진입 애니메이션 — 클래스명/구조는 그대로 두어 기능은 동일하게 유지한다. */
 :root {
-  --bg: #fdf8f1;
+  --bg: #fafaf8;
   --surface: #ffffff;
-  --surface2: #faf1e6;
-  --border: #efe2d2;
-  --border-strong: #e3d2bd;
-  --primary: #ff5a36;
-  --primary-light: #ff6e45;
-  --primary-dk: #d6431f;
-  --primary-soft: #ffe9e0;
+  --surface2: #f5f4f1;
+  --border: #ebe9e4;
+  --border-strong: #dcdad3;
+  --ink: #191817; /* 주요 행동(CTA)의 잉크 블랙 — Calm Premium의 중심 */
+  --primary: #ea580c;
+  --primary-light: #f97316;
+  --primary-dk: #c2410c;
+  --primary-soft: #fdefe4;
   --green: #1a8f5c;
   --green-soft: #e9f8ef;
   --yellow: #c2750c;
   --red: #e0383a;
-  --text: #1c1410;
-  --text-muted: #8a7b6e;
+  --text: #1b1a18;
+  --text-muted: #74716b;
   --radius: 20px;
   --radius-sm: 14px;
   --radius-lg: 28px;
@@ -29,15 +30,17 @@
   --shadow-card-hover:
     0 2px 4px rgba(28, 20, 16, 0.05),
     0 10px 20px -8px rgba(28, 20, 16, 0.12),
-    0 28px 50px -20px rgba(214, 67, 31, 0.22);
+    0 28px 50px -20px rgba(28, 26, 24, 0.14);
   --shadow-press: 0 1px 2px rgba(28, 20, 16, 0.06);
   --shadow-float:
     0 6px 14px -6px rgba(28, 20, 16, 0.14),
     0 20px 44px -22px rgba(28, 20, 16, 0.28);
-  --glow-primary: 0 0 0 4px rgba(255, 90, 54, 0.16);
+  --glow-primary: 0 0 0 4px rgba(234, 88, 12, 0.15);
   --green-dk: #0f6b44;
-  --grad-primary: linear-gradient(135deg, #ff7a4d, #ff5a36 58%, #e8441f);
-  --grad-primary-sheen: linear-gradient(135deg, #ff8a5d, #ff5a36 55%, #de3f1c);
+  /* Calm Premium: 주요 행동 표면은 코랄이 아니라 잉크 블랙 — 주황은 강조 텍스트·
+     활성 표시 등 '한 곳 포인트'로만 쓴다 */
+  --grad-primary: linear-gradient(135deg, #2a2825, #191817 60%, #121110);
+  --grad-primary-sheen: linear-gradient(135deg, #34322e, #191817 55%, #121110);
   --ease-out-back: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -78,11 +81,7 @@ body::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(46% 38% at 14% 8%, rgba(255, 122, 77, 0.14), transparent 70%),
-    radial-gradient(40% 34% at 92% 12%, rgba(255, 160, 90, 0.12), transparent 72%),
-    radial-gradient(50% 40% at 82% 96%, rgba(26, 143, 92, 0.08), transparent 74%),
-    radial-gradient(46% 40% at 6% 92%, rgba(255, 90, 54, 0.07), transparent 76%);
+  background: radial-gradient(60% 42% at 50% 0%, rgba(28, 26, 24, 0.03), transparent 72%);
 }
 
 button {
@@ -120,15 +119,17 @@ button {
 }
 
 .app-header-brand {
-  font-size: 1.1rem;
-  width: 34px;
-  height: 34px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #fff;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--grad-primary);
-  box-shadow: 0 4px 10px -4px rgba(255, 90, 54, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .app-version {
@@ -262,8 +263,8 @@ button {
 
 .mode-tab.active {
   color: var(--primary-dk);
-  background: linear-gradient(180deg, #fff1ea, var(--primary-soft));
-  box-shadow: inset 0 0 0 1px rgba(255, 90, 54, 0.16), 0 4px 10px -6px rgba(255, 90, 54, 0.5);
+  background: var(--surface2);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 
 .mode-tab.active .ic {
@@ -290,7 +291,7 @@ button {
   border-radius: var(--radius-sm);
   background-color: var(--surface);
   /* 커스텀 코랄 화살표 */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23ff5a36' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23ea580c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 15px center;
   border: 2px solid var(--border);
@@ -461,7 +462,7 @@ button {
 .speak-mini:hover {
   border-color: var(--primary);
   background: var(--primary-soft);
-  box-shadow: 0 3px 8px -4px rgba(255, 90, 54, 0.5);
+  box-shadow: 0 3px 8px -5px rgba(28, 26, 24, 0.25);
 }
 .speak-mini:active {
   transform: scale(0.9);
@@ -648,9 +649,9 @@ button {
 .btn.primary {
   background: var(--grad-primary);
   color: white;
-  border: 1px solid var(--primary-dk);
+  border: 1px solid #121110;
   /* 위쪽 하이라이트 + 코랄 글로우로 입체감 */
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 18px -8px rgba(255, 90, 54, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 8px 18px -10px rgba(25, 24, 23, 0.45);
 }
 .btn:hover {
   background: var(--surface2);
@@ -658,7 +659,7 @@ button {
 }
 .btn.primary:hover {
   filter: brightness(1.05);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 12px 24px -8px rgba(255, 90, 54, 0.7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 12px 24px -10px rgba(25, 24, 23, 0.5);
 }
 .btn:active {
   transform: scale(0.97);
@@ -678,7 +679,7 @@ button {
   background: var(--grad-primary);
   color: white;
   border: none;
-  box-shadow: 0 8px 18px -8px rgba(255, 90, 54, 0.55);
+  box-shadow: 0 8px 18px -10px rgba(25, 24, 23, 0.4);
   transition: transform 0.1s, filter 0.15s;
 }
 .start-drill-btn:hover {
@@ -1134,11 +1135,12 @@ button {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 22px 18px;
-  margin: -16px -16px 18px;
-  background: var(--grad-primary);
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  box-shadow: 0 16px 34px -18px rgba(255, 90, 54, 0.7);
+  padding: 16px 18px;
+  margin: 0 0 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
   position: relative;
   overflow: hidden;
   isolation: isolate;
@@ -1154,6 +1156,7 @@ button {
   filter: blur(2px);
 }
 .home-hero::before {
+  display: none;
   width: 180px;
   height: 180px;
   top: -90px;
@@ -1162,6 +1165,7 @@ button {
   animation: hero-float 7s ease-in-out infinite;
 }
 .home-hero::after {
+  display: none;
   width: 140px;
   height: 140px;
   bottom: -80px;
@@ -1174,44 +1178,46 @@ button {
   50% { transform: translate(-14px, 12px) scale(1.12); }
 }
 .home-hero-avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.24);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--ink);
+  color: #fff;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.75rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
 }
 .home-hero-title {
-  font-size: 1.05rem;
+  font-size: 0.98rem;
   font-weight: 800;
-  color: white;
+  color: var(--text);
 }
 .home-hero-sub {
-  font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.76rem;
+  color: var(--text-muted);
   margin-top: 3px;
 }
 .home-hero-streak {
   flex-shrink: 0;
   text-align: center;
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--surface2);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 8px 13px;
 }
 .home-hero-streak .n {
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 800;
-  color: white;
+  color: var(--primary-dk);
   line-height: 1;
 }
 .home-hero-streak .l {
   font-size: 0.62rem;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-muted);
   font-weight: 700;
 }
 
@@ -1805,22 +1811,23 @@ body,
 
 [data-theme='dark'] {
   color-scheme: dark;
-  --bg: #15110e;
-  --surface: #1f1915;
-  --surface2: #29211b;
-  --border: #382d25;
-  --border-strong: #4a3c31;
-  --primary: #ff6b47;
-  --primary-light: #ff8763;
-  --primary-dk: #ff8763; /* 다크에선 강조 텍스트도 밝게 */
-  --primary-soft: #3a241c;
+  --bg: #131211;
+  --surface: #1b1a18;
+  --surface2: #242220;
+  --border: #2e2c29;
+  --border-strong: #3b3934;
+  --ink: #2e2c29; /* 다크의 CTA는 살짝 떠 있는 차콜 패널 */
+  --primary: #fb923c;
+  --primary-light: #fdba74;
+  --primary-dk: #fdba74; /* 다크에선 강조 텍스트도 밝게 */
+  --primary-soft: #33261a;
   --green: #34d399;
   --green-soft: #16271e;
   --green-dk: #6ee7b7;
   --yellow: #e0a34e;
   --red: #f06a6c;
-  --text: #f4ece3;
-  --text-muted: #a59685;
+  --text: #f1efea;
+  --text-muted: #a29d95;
   /* 어두운 배경에선 그림자가 잘 안 보이므로 더 짙게 + 코랄 글로우 강조 */
   --shadow-card:
     0 1px 1px rgba(0, 0, 0, 0.35),
@@ -1829,41 +1836,49 @@ body,
   --shadow-card-hover:
     0 2px 6px rgba(0, 0, 0, 0.4),
     0 12px 24px -8px rgba(0, 0, 0, 0.55),
-    0 30px 52px -20px rgba(255, 107, 71, 0.28);
+    0 30px 52px -20px rgba(0, 0, 0, 0.55);
   --shadow-press: 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-float:
     0 6px 16px -6px rgba(0, 0, 0, 0.5),
     0 22px 46px -22px rgba(0, 0, 0, 0.7);
-  --glow-primary: 0 0 0 4px rgba(255, 107, 71, 0.22);
+  --glow-primary: 0 0 0 4px rgba(251, 146, 60, 0.2);
 }
 
-/* 오로라 배경 — 다크에선 살짝 더 또렷하게 살려 무드를 준다 */
+[data-theme='dark'] {
+  /* CTA 표면: 다크에선 배경보다 살짝 밝은 차콜 패널이 '주요 행동'으로 읽힌다 */
+  --grad-primary: linear-gradient(135deg, #3a3833, #2b2926 60%, #232220);
+  --grad-primary-sheen: linear-gradient(135deg, #44423c, #2b2926 55%, #232220);
+}
 [data-theme='dark'] body::before {
-  background:
-    radial-gradient(46% 38% at 14% 8%, rgba(255, 122, 77, 0.16), transparent 70%),
-    radial-gradient(40% 34% at 92% 12%, rgba(255, 140, 70, 0.12), transparent 72%),
-    radial-gradient(50% 40% at 82% 96%, rgba(52, 211, 153, 0.08), transparent 74%),
-    radial-gradient(46% 40% at 6% 92%, rgba(255, 90, 54, 0.1), transparent 76%);
+  background: none;
+}
+[data-theme='dark'] .btn.primary {
+  border-color: #44423c;
+}
+[data-theme='dark'] .home-hero-avatar {
+  background: #ecebe7;
+  color: #191817;
 }
 
 /* 글래스 헤더·하단 네비 — 다크 표면색 기반으로 */
 [data-theme='dark'] .app-header {
-  background: linear-gradient(180deg, rgba(31, 25, 21, 0.92), rgba(31, 25, 21, 0.76));
-  border-bottom-color: rgba(56, 45, 37, 0.85);
+  background: linear-gradient(180deg, rgba(27, 26, 24, 0.92), rgba(27, 26, 24, 0.76));
+  border-bottom-color: rgba(46, 44, 41, 0.85);
 }
 [data-theme='dark'] .mode-tabs {
-  background: linear-gradient(180deg, rgba(31, 25, 21, 0.85), rgba(21, 17, 14, 0.96));
-  border-top-color: rgba(56, 45, 37, 0.9);
+  background: linear-gradient(180deg, rgba(27, 26, 24, 0.85), rgba(19, 18, 17, 0.96));
+  border-top-color: rgba(46, 44, 41, 0.9);
 }
 [data-theme='dark'] .mode-tab.active {
-  background: linear-gradient(180deg, #2e1d16, var(--primary-soft));
+  background: var(--surface2);
   color: var(--primary-light);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 
 /* 칩·배지 */
 [data-theme='dark'] .streak-chip {
-  background: linear-gradient(135deg, #3a241c, #2e1d16);
-  border-color: rgba(255, 107, 71, 0.28);
+  background: var(--surface2);
+  border-color: var(--border-strong);
   color: var(--primary-light);
 }
 
@@ -2002,7 +2017,7 @@ body,
   bottom: -5px;
   width: 10px;
   height: 10px;
-  background: var(--primary);
+  background: #171614;
   transform: translateX(-50%) rotate(45deg);
   border-radius: 2px;
 }
@@ -2594,8 +2609,8 @@ body,
 
 /* ── 오늘의 비즈니스 미션(DailyMissionCard) ── */
 .mission-card {
-  background: linear-gradient(160deg, var(--surface), var(--surface2));
-  border: 2px solid var(--primary);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 16px;
   margin-bottom: 16px;
@@ -2750,7 +2765,7 @@ body,
   padding: 6px 0;
 }
 .mission-line.active {
-  background: rgba(255, 90, 54, 0.1);
+  background: var(--primary-soft);
   border-radius: 8px;
 }
 .mission-line .sp-a,
@@ -2876,4 +2891,29 @@ body,
   background: var(--surface);
   border: 1.5px solid var(--red);
   color: var(--red);
+}
+
+/* ── Calm Premium 아이콘 정렬 보정 ── */
+.mission-ic {
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.mission-ic:hover { color: var(--primary-dk); }
+.speak-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+.speak-mini-slow {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+.mission-mini-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }

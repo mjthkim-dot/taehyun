@@ -19,6 +19,7 @@ import {
   type BusinessMission,
 } from '../lib/dailyMission';
 import { GroqError } from '../lib/groq';
+import { SpeakerIcon, PinIcon, CheckIcon, PlayIcon, StopIcon } from './icons';
 import { addPhrase, markPracticedToday, groqKey } from '../lib/state';
 import { speakText, stopSpeaking } from './SpeakButton';
 import { playDialogueAudio } from './DialoguePractice';
@@ -94,15 +95,15 @@ export default function DailyMissionCard({ onNavigate, onProgress }: { onNavigat
   return (
     <div className={`mission-card${done ? ' done' : ''}`}>
       <div className="mission-top">
-        <div className="mission-label">🎯 오늘의 비즈니스 미션 {done && <span className="mission-done-tag">완료 ✓</span>}</div>
+        <div className="mission-label">오늘의 비즈니스 미션 {done && <span className="mission-done-tag">완료 ✓</span>}</div>
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
           {canAi && (
             <button className="mission-shuffle mission-ai" onClick={aiNewMission} disabled={aiBusy} title="AI가 새 상황을 만들어줘요">
-              {aiBusy ? '⏳ 만드는 중…' : '✨ AI 새 상황'}
+              {aiBusy ? '만드는 중…' : 'AI 새 상황'}
             </button>
           )}
           <button className="mission-shuffle" onClick={shuffle} title="다른 상황 보기">
-            🎲 다른 상황
+            다른 상황
           </button>
         </div>
       </div>
@@ -119,9 +120,9 @@ export default function DailyMissionCard({ onNavigate, onProgress }: { onNavigat
               <span className="mission-phrase-en">{p.en}</span>
               {openPhrase === i && <span className="mission-phrase-kr">{p.kr}</span>}
             </button>
-            <button className="mission-ic" title="듣기" onClick={() => speakText(p.en)}>🔊</button>
+            <button className="mission-ic" title="듣기" onClick={() => speakText(p.en)}><SpeakerIcon /></button>
             <button className="mission-ic" title="표현장에 저장" onClick={() => save(p.en, p.kr)} disabled={!!saved[p.en]}>
-              {saved[p.en] ? '✅' : '📌'}
+              {saved[p.en] ? <CheckIcon /> : <PinIcon />}
             </button>
           </div>
         ))}
@@ -143,19 +144,19 @@ export default function DailyMissionCard({ onNavigate, onProgress }: { onNavigat
       {/* 3) 실전 대화 */}
       <div className="mission-step-label">③ 실전 대화로 감 잡기</div>
       {!showDialogue ? (
-        <button className="mission-secondary" onClick={() => setShowDialogue(true)}>💬 대화 보기 · 듣기</button>
+        <button className="mission-secondary" onClick={() => setShowDialogue(true)}>대화 보기 · 듣기</button>
       ) : (
         <MissionDialogue mission={mission} />
       )}
 
       {/* 4) AI와 실전 — 미션 상황을 회화 화면에 그대로 넘긴다 */}
-      <button className="mission-cta" onClick={startTalk}>🗣 이 상황으로 AI와 대화하기 →</button>
+      <button className="mission-cta" onClick={startTalk}>이 상황으로 AI와 대화하기 →</button>
 
       {/* 완료 */}
       {!done ? (
-        <button className="mission-complete" onClick={complete}>✅ 오늘 미션 완료</button>
+        <button className="mission-complete" onClick={complete}>오늘 미션 완료</button>
       ) : (
-        <div className="mission-done-banner">🎉 오늘 미션 완료! 내일 새로운 상황으로 만나요.</div>
+        <div className="mission-done-banner">오늘 미션 완료! 내일 새로운 상황으로 만나요.</div>
       )}
     </div>
   );
@@ -201,8 +202,8 @@ function MissionDialogue({ mission }: { mission: BusinessMission }) {
       <div className="mission-dialogue-head">
         <span>{mission.dialogue.title}</span>
         <div style={{ display: 'flex', gap: 6 }}>
-          <button className="mission-mini" onClick={() => setSlow((v) => !v)}>{slow ? '🐢' : '🔊'}</button>
-          <button className="mission-mini" onClick={toggle}>{playing ? `⏹ ${(playingIdx ?? 0) + 1}/${mission.dialogue.lines.length}` : '▶ 재생'}</button>
+          <button className="mission-mini" onClick={() => setSlow((v) => !v)}>{slow ? '느리게' : '보통'}</button>
+          <button className="mission-mini mission-mini-play" onClick={toggle}>{playing ? <><StopIcon /> {(playingIdx ?? 0) + 1}/{mission.dialogue.lines.length}</> : <><PlayIcon /> 재생</>}</button>
         </div>
       </div>
       {mission.dialogue.lines.map((ln, i) => (
@@ -212,7 +213,7 @@ function MissionDialogue({ mission }: { mission: BusinessMission }) {
             <div className="en">{ln.en}</div>
             <div className="kr">{ln.kr}</div>
           </div>
-          <button className="mission-ic" title="듣기" onClick={() => speakText(ln.en)}>🔊</button>
+          <button className="mission-ic" title="듣기" onClick={() => speakText(ln.en)}><SpeakerIcon size={14} /></button>
         </div>
       ))}
     </div>

@@ -110,7 +110,7 @@ export default function Page() {
     <main className="app-shell">
       <header className="app-header">
         <div className="app-header-title">
-          <span className="app-header-brand">🗣️</span>
+          <span className="app-header-brand">EC</span>
           <h1>{screen.title}</h1>
           <span className="app-version" title="앱 버전 (배포 갱신 확인용)">
             v{APP_VERSION}
