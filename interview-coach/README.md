@@ -5,22 +5,26 @@ Smooth AI를 벤치마킹한 **실시간 영어 면접 비서** (완전 독립 �
 **실시간 답변 추천**(질문 감지 → 바로 읽을 수 있는 영어 답변 + 한국어 번역).
 
 - **STT(자막)**: 브라우저 Web Speech — 유일한 무료 '실시간 스트리밍' 인식
-- **LLM(번역·답변)**: **Groq → Gemini → Ollama 3중 자동 전환** — 회사망이
-  api.groq.com을 막아도(403) Gemini(구글 도메인·무료)나 로컬 Ollama로 즉시 넘어가
+- **LLM(번역·답변)**: **Groq → Cerebras → Gemini → Ollama 4중 자동 전환** —
+  실시간 퀄리티가 핵심이므로 70B급 클라우드를 앞순위로 유지하고, 회사망이
+  api.groq.com을 막아도(403) Cerebras(오픈소스 70B·무료 1M토큰/일) →
+  Gemini(구글 도메인·무료) → 로컬 Ollama 순으로 즉시 넘어가
   **하나만 살아있으면 번역·답변이 끊기지 않는다**
 
 ## 실행
 
 ```bash
-# LLM 키는 하나만 있으면 된다 (둘 다 있으면 Groq 우선, 막히면 Gemini 자동 전환)
-export GROQ_API_KEY=gsk_...    # https://console.groq.com  (회사망에서 403이면 아래로)
-export GEMINI_API_KEY=...      # https://aistudio.google.com/apikey  (무료·회사망 통과율 높음)
-bash start.sh                  # 시작 배너에 공급자별 ✅/❌ 상태가 표시된다
+# LLM 키는 하나만 있으면 된다 (앞순위가 막히면 자동으로 다음 공급자 사용)
+export GROQ_API_KEY=gsk_...      # https://console.groq.com  (회사망에서 403이면 아래로)
+export CEREBRAS_API_KEY=csk-...  # https://cloud.cerebras.ai  (오픈소스 70B, 무료 1M토큰/일)
+export GEMINI_API_KEY=...        # https://aistudio.google.com/apikey  (무료·회사망 통과율 높음)
+bash start.sh                    # 시작 배너에 공급자별 ✅/❌ 상태가 표시된다
 # → http://localhost:3778/live.html       (🔴 실전 화상 면접 코파일럿)
 # → http://localhost:3778/interview.html  (연습 모드)
 ```
 
-> 오프라인 보험: `ollama pull gemma3:4b` — 클라우드가 전부 막혀도 로컬 모델로 동작.
+> 오프라인 보험: `ollama pull qwen3:8b` — 클라우드가 전부 막혀도 로컬 모델로 동작
+> (한국어 자연스러움이 소형 오픈소스 중 최상위, 16GB 맥북에서 여유).
 
 의존성 0 — stdlib만 사용하는 단일 파일 Python 서버라 `pip install`이 필요 없다.
 라이브 모드는 반드시 **데스크톱 Chrome**에서 열 것 (탭 오디오 캡처 사용).
@@ -173,7 +177,7 @@ bash start.sh                    # "🆓 로컬 STT 활성" 확인
 Zoom/Teams 마이크는 앱에서 실제 마이크로 따로 지정 (면접관이 내 목소리를 듣는 용)
 ```
 
-번역·답변은 두 엔진 모두 LLM 자동 전환 체인(Groq → Gemini → Ollama)을 쓴다 —
+번역·답변은 두 엔진 모두 LLM 자동 전환 체인(Groq → Cerebras → Gemini → Ollama)을 쓴다 —
 질문당 몇 번뿐이라 무료 한도로 충분하다. **STT만 브라우저로 돌리면 한도 문제가
 사라진다.** 화자 분리(내 발화 기록)와 최고 인식 품질이 필요하면 Whisper 엔진으로 바꾼다.
 
@@ -213,7 +217,7 @@ interview-coach/
 ├── interview.html            연습 모드 UI
 ├── interview.webmanifest    PWA 매니페스트
 └── backend/
-    ├── llm.py               LLM 3중 자동 전환(Groq→Gemini→Ollama) + Whisper STT
+    ├── llm.py               LLM 4중 자동 전환(Groq→Cerebras→Gemini→Ollama) + Whisper STT
     ├── speech_metrics.py     WPM·군말 비율 등 결정론적 발화 지표
     ├── interview_pipeline.py 질문은행/근거선택/답변·피드백·라이브 프롬프트
     └── data/
@@ -253,14 +257,21 @@ Render 무료 티어로 고정 HTTPS URL을 만들 수 있다 (저장소 루트�
   ⚡ 맞춤 답변셋은 재시작 후 버튼으로 다시 생성 (약 1분)
 - 로컬 실행(`bash start.sh`)은 `ACCESS_CODE` 미설정 시 게이트 없이 그대로 동작
 
-## LLM 자동 전환 (Groq → Gemini → Ollama)
+## LLM 자동 전환 (Groq → Cerebras → Gemini → Ollama)
 
-번역·답변·요약·리포트의 모든 LLM 호출은 공급자 체인을 순서대로 시도한다:
+번역·답변·요약·리포트의 모든 LLM 호출은 공급자 체인을 순서대로 시도한다.
+**퀄리티 유지가 원칙**이라 70B급 클라우드가 앞순위, 로컬 소형 모델은 최후 보험이다:
 
 1. **Groq** (llama-3.3-70b) — 가장 빠름. 단, 일부 회사망 프록시가 api.groq.com을 차단(403)
-2. **Gemini** (gemini-2.5-flash) — 구글 도메인이라 회사망 통과율이 높고 무료 키 발급 즉시 가능
+2. **Cerebras** (llama-3.3-70b, OpenAI 호환) — Groq과 같은 70B급 오픈소스 모델을
+   무료 1M토큰/일로 서빙. 도메인(api.cerebras.ai)이 달라 Groq이 막힌 회사망에서도
+   뚫릴 수 있다 ([cloud.cerebras.ai](https://cloud.cerebras.ai)에서 무료 키 발급).
+   `CEREBRAS_MODEL=qwen-3-235b-a22b-instruct-2507`로 바꾸면 한국어 품질이 더 올라간다
+3. **Gemini** (gemini-2.5-flash) — 구글 도메인이라 회사망 통과율이 가장 높고 무료 키 발급 즉시 가능
    ([aistudio.google.com/apikey](https://aistudio.google.com/apikey))
-3. **Ollama** (설치된 모델 자동 감지, `OLLAMA_MODEL`로 지정 가능) — 완전 오프라인 보험
+4. **Ollama** (설치된 모델 자동 감지, 권장 `qwen3:8b`) — 완전 오프라인 보험.
+   답변 카드 완성이 8~12초로 느려지므로, 로컬 폴백에 자주 의존한다면
+   **⚡ 맞춤 답변셋 사전 생성**을 미리 돌려 빈출 질문을 0초 캐시로 커버할 것
 
 - 401/403/404/429나 연결 실패가 난 공급자는 **60초간 건너뛰고** 다음 공급자로 즉시 전환
   → 면접 중 한 공급자가 죽어도 답변 흐름이 끊기지 않는다.

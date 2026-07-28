@@ -2,8 +2,9 @@
 # ─────────────────────────────────────────────────────────────
 # 🎤 영어 면접 코파일럿 — 실행 스크립트
 #
-# LLM 키는 하나만 있으면 됨 (Groq → Gemini → Ollama 자동 전환):
+# LLM 키는 하나만 있으면 됨 (Groq → Cerebras → Gemini → Ollama 자동 전환):
 #   export GROQ_API_KEY=gsk_...     # console.groq.com
+#   export CEREBRAS_API_KEY=csk-... # cloud.cerebras.ai (오픈소스 70B, 무료 1M토큰/일)
 #   export GEMINI_API_KEY=...       # aistudio.google.com/apikey (무료·회사망 통과율 높음)
 # 사용법: bash start.sh   /   종료: Ctrl+C
 # ─────────────────────────────────────────────────────────────
@@ -16,12 +17,14 @@ echo ""
 echo "  🎤 영어 면접 코파일럿 — IT 영업"
 echo "  ═══════════════════════════════════════════"
 
-# 번역·답변 LLM — Groq → Gemini → Ollama 자동 전환 (하나만 있으면 동작)
-[ -n "${GROQ_API_KEY:-}" ]   && echo "  · Groq 키 설정됨 (회사망에서 403이면 자동으로 다음 공급자로 전환)"
-[ -n "${GEMINI_API_KEY:-}" ] && echo "  · Gemini 키 설정됨 (구글 무료 — 회사망에서도 대부분 허용)"
-if [ -z "${GROQ_API_KEY:-}" ] && [ -z "${GEMINI_API_KEY:-}" ]; then
-  echo "  ⚠️ 클라우드 LLM 키가 없습니다 — 무료 Gemini 키를 권장:"
-  echo "       https://aistudio.google.com/apikey → export GEMINI_API_KEY=..."
+# 번역·답변 LLM — Groq → Cerebras → Gemini → Ollama 자동 전환 (하나만 있으면 동작)
+[ -n "${GROQ_API_KEY:-}" ]     && echo "  · Groq 키 설정됨 (회사망에서 403이면 자동으로 다음 공급자로 전환)"
+[ -n "${CEREBRAS_API_KEY:-}" ] && echo "  · Cerebras 키 설정됨 (오픈소스 70B — 무료 1M토큰/일)"
+[ -n "${GEMINI_API_KEY:-}" ]   && echo "  · Gemini 키 설정됨 (구글 무료 — 회사망에서도 대부분 허용)"
+if [ -z "${GROQ_API_KEY:-}" ] && [ -z "${CEREBRAS_API_KEY:-}" ] && [ -z "${GEMINI_API_KEY:-}" ]; then
+  echo "  ⚠️ 클라우드 LLM 키가 없습니다 — 무료 키를 하나 넣으세요:"
+  echo "       Cerebras(70B·고품질): https://cloud.cerebras.ai → export CEREBRAS_API_KEY=..."
+  echo "       Gemini(회사망 통과율↑): https://aistudio.google.com/apikey → export GEMINI_API_KEY=..."
 fi
 if curl -s --max-time 2 "http://localhost:11434/api/tags" >/dev/null 2>&1; then
   echo "  · Ollama 실행 중 (오프라인 폴백 사용 가능)"

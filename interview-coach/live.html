@@ -1103,8 +1103,9 @@ if (!navigator.mediaDevices?.enumerateDevices || !navigator.mediaDevices?.getUse
     if (llm.length && !llm.some(p => p.state === 'ok')) {
       const why = llm.map(p => `${p.name}: ${p.detail || p.state}`).join(' · ');
       $('#sum-line').innerHTML =
-        `⚠️ 번역·답변 LLM에 연결할 수 없어요 (${why}) — 무료 Gemini 키를 넣어주세요: ` +
-        `<b>aistudio.google.com/apikey</b> → <b>export GEMINI_API_KEY=...</b> 후 재시작`;
+        `⚠️ 번역·답변 LLM에 연결할 수 없어요 (${why}) — 무료 키를 하나 넣어주세요: ` +
+        `<b>cloud.cerebras.ai</b>(70B·고품질) 또는 <b>aistudio.google.com/apikey</b> → ` +
+        `export CEREBRAS_API_KEY / GEMINI_API_KEY 후 재시작`;
     }
   } catch { /* /health 실패는 무시 */ }
 })();

@@ -1,11 +1,10 @@
 """
 ═══════════════════════════════════════════════════════════════
- Groq 백엔드 — LLM(답변/번역/요약) + Whisper STT(음성 인식)
+ LLM(답변/번역/요약) 다중 공급자 + Whisper STT(음성 인식)
 
- 실시간성이 핵심이므로 모든 AI 호출을 Groq로 통일한다:
- - LLM:  llama-3.3-70b (초당 수백 토큰 → 답변 1~2초)
- - STT:  whisper-large-v3-turbo (세그먼트당 수백 ms)
- GROQ_API_KEY가 없으면 LLM만 로컬 Ollama로 폴백한다 (STT는 Groq 전용).
+ - LLM:  Groq → Cerebras → Gemini → Ollama 자동 전환 (LLM_ORDER로 조정)
+         실시간 퀄리티가 핵심이라 70B급 클라우드를 앞순위로 유지한다.
+ - STT:  whisper-large-v3-turbo (Groq 전용 — 기본 엔진은 브라우저 Web Speech)
 
  스트리밍은 어느 프로바이더든 Ollama NDJSON 형태({"message":{"content":...}})로
  통일해 내보내므로 프런트엔드는 수정 없이 그대로 동작한다.
@@ -24,19 +23,26 @@ import uuid
 from pathlib import Path
 from typing import Iterator
 
-# ═══ 다중 공급자 자동 전환 (Groq → Gemini → Ollama) ═══
-# 회사망이 api.groq.com을 차단해도 Gemini(구글 도메인 — 대부분 허용됨)나
-# 로컬 Ollama로 자동 전환되어, 하나만 살아있으면 번역·답변이 계속 동작한다.
+# ═══ 다중 공급자 자동 전환 (Groq → Cerebras → Gemini → Ollama) ═══
+# 실시간 번역·답변 '퀄리티'가 핵심이므로 70B급 클라우드 모델을 앞순위로 유지한다.
+# 회사망이 api.groq.com을 차단해도 Cerebras(오픈소스 70B, 무료 1M토큰/일)나
+# Gemini(구글 도메인 — 대부분 허용), 로컬 Ollama로 자동 전환되어
+# 하나만 살아있으면 번역·답변이 계속 동작한다.
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_URL = os.environ.get("GROQ_URL", "https://api.groq.com/openai/v1")  # 테스트용 오버라이드 가능
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 GROQ_STT_MODEL = os.environ.get("GROQ_STT_MODEL", "whisper-large-v3-turbo")
+CEREBRAS_API_KEY = os.environ.get("CEREBRAS_API_KEY")  # 무료 발급: https://cloud.cerebras.ai
+CEREBRAS_URL = os.environ.get("CEREBRAS_URL", "https://api.cerebras.ai/v1")  # OpenAI 호환
+CEREBRAS_MODEL = os.environ.get("CEREBRAS_MODEL", "llama-3.3-70b")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")   # 무료 발급: https://aistudio.google.com/apikey
 GEMINI_URL = os.environ.get("GEMINI_URL", "https://generativelanguage.googleapis.com/v1beta")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:12b")  # 폴백용 (16GB 맥북 기본값)
-LLM_ORDER = [p.strip() for p in os.environ.get("LLM_ORDER", "groq,gemini,ollama").split(",") if p.strip()]
+# 폴백용 로컬 모델 — 한국어 자연스러움이 소형 오픈소스 중 최상위 + 16GB에서 여유(Q4 ≈ 5GB)
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:8b")
+LLM_ORDER = [p.strip() for p in
+             os.environ.get("LLM_ORDER", "groq,cerebras,gemini,ollama").split(",") if p.strip()]
 
 # 🆓 로컬 STT — faster-whisper가 설치돼 있으면 맥에서 직접 인식 (무료·무제한·비공개)
 # STT_LOCAL=0 으로 끌 수 있고, 미설치 시 자동으로 Groq Whisper로 폴백된다.
@@ -64,25 +70,26 @@ def _open(url: str, payload: dict, headers: dict | None = None, timeout: int = 3
 # ─────────────────────────────────────────────────────────────
 #  공급자별 구현 — chat(단발) / stream(NDJSON 토큰)
 # ─────────────────────────────────────────────────────────────
-def _groq_chat(messages, json_mode, temperature, max_tokens, model):
+# Groq·Cerebras 공통 (OpenAI 호환 API)
+def _oai_chat(base, key, default_model, messages, json_mode, temperature, max_tokens, model):
     payload: dict = {
-        "model": model or GROQ_MODEL, "messages": messages,
+        "model": model or default_model, "messages": messages,
         "temperature": temperature, "max_tokens": max_tokens, "stream": False,
     }
     if json_mode:
         payload["response_format"] = {"type": "json_object"}
-    with _open(f"{GROQ_URL}/chat/completions", payload,
-               {"Authorization": f"Bearer {GROQ_API_KEY}"}) as r:
+    with _open(f"{base}/chat/completions", payload,
+               {"Authorization": f"Bearer {key}"}) as r:
         return json.loads(r.read())["choices"][0]["message"]["content"]
 
 
-def _groq_stream(messages, temperature, max_tokens, model):
+def _oai_stream(base, key, default_model, messages, temperature, max_tokens, model):
     payload = {
-        "model": model or GROQ_MODEL, "messages": messages,
+        "model": model or default_model, "messages": messages,
         "temperature": temperature, "max_tokens": max_tokens, "stream": True,
     }
-    with _open(f"{GROQ_URL}/chat/completions", payload,
-               {"Authorization": f"Bearer {GROQ_API_KEY}"}, timeout=120) as resp:
+    with _open(f"{base}/chat/completions", payload,
+               {"Authorization": f"Bearer {key}"}, timeout=120) as resp:
         for raw in resp:  # SSE: "data: {...}\n"
             line = raw.decode("utf-8", "ignore").strip()
             if not line.startswith("data:"):
@@ -97,6 +104,26 @@ def _groq_stream(messages, temperature, max_tokens, model):
             if tok:
                 yield (json.dumps({"message": {"content": tok}}) + "\n").encode("utf-8")
     yield (json.dumps({"done": True}) + "\n").encode("utf-8")
+
+
+def _groq_chat(messages, json_mode, temperature, max_tokens, model):
+    return _oai_chat(GROQ_URL, GROQ_API_KEY, GROQ_MODEL,
+                     messages, json_mode, temperature, max_tokens, model)
+
+
+def _groq_stream(messages, temperature, max_tokens, model):
+    return _oai_stream(GROQ_URL, GROQ_API_KEY, GROQ_MODEL,
+                       messages, temperature, max_tokens, model)
+
+
+def _cerebras_chat(messages, json_mode, temperature, max_tokens, model):
+    return _oai_chat(CEREBRAS_URL, CEREBRAS_API_KEY, CEREBRAS_MODEL,
+                     messages, json_mode, temperature, max_tokens, model)
+
+
+def _cerebras_stream(messages, temperature, max_tokens, model):
+    return _oai_stream(CEREBRAS_URL, CEREBRAS_API_KEY, CEREBRAS_MODEL,
+                       messages, temperature, max_tokens, model)
 
 
 def _gemini_payload(messages, json_mode, temperature, max_tokens):
@@ -196,8 +223,10 @@ def _ollama_stream(messages, temperature, max_tokens, model):
 # ─────────────────────────────────────────────────────────────
 #  디스패처 — 순서대로 시도, 실패한 공급자는 60초 건너뜀
 # ─────────────────────────────────────────────────────────────
-_CHAT = {"groq": _groq_chat, "gemini": _gemini_chat, "ollama": _ollama_chat}
-_STREAM = {"groq": _groq_stream, "gemini": _gemini_stream, "ollama": _ollama_stream}
+_CHAT = {"groq": _groq_chat, "cerebras": _cerebras_chat,
+         "gemini": _gemini_chat, "ollama": _ollama_chat}
+_STREAM = {"groq": _groq_stream, "cerebras": _cerebras_stream,
+           "gemini": _gemini_stream, "ollama": _ollama_stream}
 _bad_until: dict[str, float] = {}
 _last_error: dict[str, str] = {}
 _active: str | None = None
@@ -206,6 +235,8 @@ _active: str | None = None
 def _configured(name: str) -> bool:
     if name == "groq":
         return bool(GROQ_API_KEY)
+    if name == "cerebras":
+        return bool(CEREBRAS_API_KEY)
     if name == "gemini":
         return bool(GEMINI_API_KEY)
     if name == "ollama":
@@ -225,8 +256,9 @@ def _usable(name: str) -> bool:
 def _no_provider_error(errs: list[str]) -> RuntimeError:
     return RuntimeError(
         "사용 가능한 LLM이 없습니다 [" + "; ".join(errs or ["설정된 공급자 없음"]) + "] — "
-        "무료 Gemini 키(aistudio.google.com/apikey)를 export GEMINI_API_KEY=... 로 넣거나, "
-        "Ollama 모델을 설치하세요 (ollama pull gemma3:4b)")
+        "무료 키를 하나 넣으세요: Cerebras(cloud.cerebras.ai → CEREBRAS_API_KEY) 또는 "
+        "Gemini(aistudio.google.com/apikey → GEMINI_API_KEY), "
+        "오프라인은 ollama pull qwen3:8b")
 
 
 def provider() -> str:
@@ -238,7 +270,7 @@ def provider() -> str:
 
 def model_name() -> str:
     p = provider()
-    return {"groq": GROQ_MODEL, "gemini": GEMINI_MODEL,
+    return {"groq": GROQ_MODEL, "cerebras": CEREBRAS_MODEL, "gemini": GEMINI_MODEL,
             "ollama": _ollama_pick_model() or OLLAMA_MODEL}.get(p, "-")
 
 
@@ -306,7 +338,9 @@ def probe() -> list[dict]:
     for name in LLM_ORDER:
         if not _configured(name):
             results.append({"name": name, "state": "미설정",
-                            "detail": {"groq": "GROQ_API_KEY 없음", "gemini": "GEMINI_API_KEY 없음",
+                            "detail": {"groq": "GROQ_API_KEY 없음",
+                                       "cerebras": "CEREBRAS_API_KEY 없음",
+                                       "gemini": "GEMINI_API_KEY 없음",
                                        "ollama": "미실행/모델 없음"}.get(name, "")})
             continue
         try:
