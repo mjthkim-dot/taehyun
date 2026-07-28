@@ -46,3 +46,22 @@ export function StopIcon({ size = 14 }: { size?: number }) {
     </svg>
   );
 }
+
+export function MicIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg {...S} width={size} height={size} aria-hidden="true">
+      <rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor" stroke="none" />
+      <path d="M5 10a7 7 0 0 0 14 0" />
+      <path d="M12 17v4" />
+    </svg>
+  );
+}
+
+export function SendIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg {...S} width={size} height={size} aria-hidden="true">
+      <path d="M22 2 11 13" />
+      <path d="M22 2 15 22l-4-9-9-4 20-7z" fill="currentColor" stroke="none" opacity="0.9" />
+    </svg>
+  );
+}

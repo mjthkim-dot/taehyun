@@ -36,7 +36,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
 
   const sections: FeatSection[] = [
     {
-      title: '🧭 내 레벨',
+      title: '내 레벨',
       cards: [
         {
           icon: '🧭',
@@ -47,7 +47,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
       ],
     },
     {
-      title: '🎓 4대 영역 훈련',
+      title: '4대 영역 훈련',
       cards: [
         { icon: '🗣', label: '말하기', sub: 'AI 코치와 실전 대화 · CAF 분석', action: { kind: 'nav', mode: 'talk' } },
         { icon: '🦜', label: '쉐도잉', sub: '따라 말하기 · 단어별 발음 채점', action: { kind: 'nav', mode: 'shadowing' } },
@@ -58,7 +58,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
       ],
     },
     {
-      title: '📚 숙제 & 암기',
+      title: '숙제 & 암기',
       cards: [
         { icon: '📚', label: '숙제 도우미', sub: 'AI와 함께 풀이', action: { kind: 'nav', mode: 'homework' } },
         { icon: '🃏', label: '암기 카드', sub: dueCount ? `오늘 ${dueCount}개 대기` : '카드 외우기', action: { kind: 'nav', mode: 'flashcards' } },
@@ -67,11 +67,11 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
       ],
     },
     {
-      title: '🎬 콘텐츠로 배우기',
+      title: '콘텐츠로 배우기',
       cards: [{ icon: '🎬', label: '영상 학습', sub: '유튜브로 듣기 연습 + 자막 번역', action: { kind: 'nav', mode: 'video' } }],
     },
     {
-      title: '📈 학습 관리',
+      title: '학습 관리',
       cards: [
         { icon: '📝', label: '간격 반복 복습', sub: `${dueCount}개 대기`, action: { kind: 'nav', mode: 'review' } },
         { icon: '📊', label: '진도 & 리포트', sub: 'CEFR·GSE 현황', action: { kind: 'nav', mode: 'progress' } },
@@ -105,7 +105,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
             gap: 10,
           }}
         >
-          <div style={{ fontSize: '1.3rem' }}>🚧</div>
+          <div style={{ fontSize: '1.3rem' }}></div>
           <div style={{ flex: 1, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
             <b style={{ color: 'var(--text)' }}>{soonLabel}</b>은 아직 준비 중이에요. 곧 추가될 예정입니다!
           </div>

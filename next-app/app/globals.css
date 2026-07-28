@@ -331,8 +331,8 @@ button {
 
 .study-card h3 {
   font-size: 0.94rem;
-  font-weight: 800;
-  color: var(--primary);
+  font-weight: 700;
+  color: var(--text);
   margin-bottom: 12px;
   display: flex;
   align-items: center;
@@ -1258,9 +1258,9 @@ button {
   display: grid;
   place-items: center;
   border-radius: 15px;
-  /* 코랄 틴트 타일 — 이모지의 친근함은 살리고 "앱 아이콘" 같은 정돈된 틀을 준다 */
-  background: linear-gradient(160deg, var(--primary-soft), rgba(255, 90, 54, 0.05));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 4px 10px -6px rgba(255, 90, 54, 0.4);
+  /* 뉴트럴 컨테이너 — 이모지는 '일러스트 슬롯'로만 허용(버튼·라벨 금지 규칙) */
+  background: var(--surface2);
+  border: 1px solid var(--border);
   transition: transform 0.25s var(--ease-out-back);
 }
 [data-theme='dark'] .feat-card .ic {
@@ -1387,10 +1387,11 @@ button {
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  font-size: 1rem;
-  background: linear-gradient(160deg, var(--primary-soft), rgba(255, 90, 54, 0.06));
-  border: 1px solid rgba(255, 90, 54, 0.18);
-  box-shadow: 0 2px 6px -3px rgba(255, 90, 54, 0.4);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: var(--ink);
   margin-bottom: 2px;
 }
 .msg-col {
@@ -1478,8 +1479,9 @@ button {
   align-self: stretch;
   width: 100%;
   margin: 4px 0 10px;
-  background: linear-gradient(135deg, rgba(255,90,54,0.12), rgba(255,90,54,0.04));
-  border: 1px solid rgba(255,90,54,0.3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
   border-radius: 14px;
   padding: 14px 16px;
 }

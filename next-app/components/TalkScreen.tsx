@@ -13,6 +13,7 @@ import { groqStream, groqComplete, GroqError } from '../lib/groq';
 import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, parseAiText } from '../lib/talkPrompts';
 import { takeMissionTalkContext, type MissionTalkCtx } from '../lib/dailyMission';
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS } from './SpeakButton';
+import { MicIcon, SendIcon } from './icons';
 
 interface Correction {
   is_correct: boolean;
@@ -517,11 +518,11 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
             return (
               <div className="msg" key={m.id}>
                 <div className="talk-intro">
-                  <div className="ti-head">🎬 {m.scenario.title}</div>
+                  <div className="ti-head">{m.scenario.title}</div>
                   <div className="ti-desc">{m.scenario.desc}</div>
                   {m.examples.length > 0 && (
                     <>
-                      <div className="ti-sec">💬 이렇게 말해보세요</div>
+                      <div className="ti-sec">이렇게 말해보세요</div>
                       <div className="ti-ex">
                         {m.examples.map((e, i) => (
                           <div key={i}>
@@ -531,7 +532,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
                       </div>
                     </>
                   )}
-                  <div className="ti-go">🎙️ 또는 입력창으로 영어 대화를 시작해 보세요!</div>
+                  <div className="ti-go">마이크 또는 입력창으로 영어 대화를 시작해 보세요!</div>
                 </div>
               </div>
             );
@@ -560,13 +561,13 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
           const parsed = parseAiText(m.text);
           return (
             <div className="msg ai" key={m.id}>
-              <div className="ai-avatar" aria-hidden="true">🗣️</div>
+              <div className="ai-avatar" aria-hidden="true">AI</div>
               <div className="msg-col">
                 <div className={`bubble${m.streaming ? ' typing' : ''}`}>
                   {parsed.plain || (m.streaming ? <TypingDots /> : '')}
                   {parsed.heard.map((h, i) => (
                     <div className="correction-box" key={i}>
-                      <div className="label">🎧 발음 피드백</div>
+                      <div className="label">발음 피드백</div>
                       내가 들은 말: <span className="wrong">{h.heard}</span> → 네 의도: <span className="right">{h.intent}</span>
                       <br />
                       <span style={{ opacity: 0.85, fontSize: '0.78rem' }}>{h.note}</span>
@@ -574,7 +575,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
                   ))}
                   {parsed.explain.map((ex, i) => (
                     <div className="explain-box" key={i}>
-                      <div className="label">💡 코치 설명</div>
+                      <div className="label">코치 설명</div>
                       {ex}
                     </div>
                   ))}
@@ -583,14 +584,14 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
                   <div className="msg-meta">
                     {m.time}
                     <button className="tr-btn" disabled={m.translating} onClick={() => translate(m.id, parsed.plain)}>
-                      {m.translating ? '⏳ 번역중' : m.translation ? '🇰🇷 숨기기' : '🇰🇷 번역'}
+                      {m.translating ? '번역중' : m.translation ? '숨기기' : '번역'}
                     </button>
                     <button className="tr-btn" onClick={() => savePhrase(parsed.plain)}>
-                      📌 저장
+                      저장
                     </button>
                   </div>
                 )}
-                {m.translation && <div className="tr-box">🇰🇷 {m.translation}</div>}
+                {m.translation && <div className="tr-box">{m.translation}</div>}
               </div>
             </div>
           );
@@ -600,7 +601,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       <div className="input-area">
         <div className="helper-chips">
           <button className="helper-chip hint" onClick={askForSuggestions} title="AI가 지금 상황에 맞는 영어 답변 예시를 제안해줍니다">
-            💡 뭐라고 답하지?
+            뭐라고 답하지?
           </button>
           {helperChips.map((c) => (
             <button className="helper-chip" key={c} onClick={() => sendChip(c)} title="탭하면 이 문장으로 답합니다">
@@ -618,19 +619,19 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
         )}
         <div className="mini-actions">
           <button className="mini-btn" onClick={toggleBgCorrect}>
-            ✏️ 교정 {bgCorrectOn ? 'ON' : 'OFF'}
+            교정 {bgCorrectOn ? 'ON' : 'OFF'}
           </button>
           <button className="mini-btn" onClick={requestSummary}>
-            📋 요약
+            요약
           </button>
           <button className="mini-btn" onClick={analyzeCaf} disabled={cafBusy}>
-            {cafBusy ? '⏳ 분석중' : '🎯 CAF'}
+            {cafBusy ? '분석중' : 'CAF'}
           </button>
         </div>
         <div className="controls">
           <input
             className="text-input"
-            placeholder="영어로 입력하거나 🎙️로 말하세요"
+            placeholder="영어로 입력하거나 마이크로 말하세요"
             maxLength={500}
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -647,10 +648,10 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
             disabled={!micSupported && !micOn}
             title={micSupported ? '마이크로 말하기 (자동 전송)' : '이 브라우저는 음성 인식을 지원하지 않아요'}
           >
-            🎙️
+            <MicIcon />
           </button>
           <button className={`round-btn send${isProcessing ? ' processing' : ''}`} onClick={sendText} disabled={isProcessing} title="전송">
-            ➤
+            <SendIcon />
           </button>
         </div>
       </div>
