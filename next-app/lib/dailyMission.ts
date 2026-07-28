@@ -8,6 +8,7 @@
  * 데이터라 키·네트워크 없이도 즉시 동작한다. 완료는 날짜로 기록해 하루 1회 판정.
  */
 import { load, store } from './state';
+import { groqComplete } from './groq';
 
 export interface MissionPhrase {
   en: string;
@@ -357,6 +358,84 @@ export function nextMission(): BusinessMission {
 
 export function isMissionDoneToday(): boolean {
   return load<string>(DONE_KEY, '') === todayStr();
+}
+
+/* ── ✨ AI 새 상황 생성 ──
+ * 정적 미션 12종은 12일이면 한 바퀴 돈다. 키가 있으면 그날의 상황을 AI가
+ * 새로 만들어 무한히 다양하게 쓸 수 있다. 생성한 미션은 날짜와 함께 저장해
+ * 같은 날 다시 열어도 유지되고, 자정이 지나면 자연히 무시된다. */
+const CUSTOM_KEY = 'va_mission_custom';
+
+/** 오늘 생성해 둔 AI 미션이 있으면 반환(다른 날 것이면 null). */
+export function getCustomMissionToday(): BusinessMission | null {
+  const v = load<{ date: string; mission: BusinessMission } | null>(CUSTOM_KEY, null);
+  if (!v || v.date !== todayStr() || !v.mission?.title || !Array.isArray(v.mission.phrases)) return null;
+  return v.mission;
+}
+
+export function saveCustomMissionToday(m: BusinessMission) {
+  store(CUSTOM_KEY, { date: todayStr(), mission: m });
+}
+
+export function clearCustomMission() {
+  store(CUSTOM_KEY, null);
+}
+
+const GEN_SYSTEM = [
+  '너는 한국인 클라우드 세일즈 실무자를 위한 비즈니스 영어 코치다. 실무에서 실제로 겪는',
+  '영어 상황 미션 하나를 새로 만들어 아래 JSON 형식으로만 출력한다(코드블록·설명 없이):',
+  '{',
+  '  "title": "상황 제목 (한국어)",',
+  '  "goal": "오늘 목표 한 줄 (한국어)",',
+  '  "phrases": [ { "en": "실무에서 바로 쓰는 영어 표현", "kr": "자연스러운 한국어 뜻" } ],',
+  '  "dialogue": { "title": "대화 제목", "lines": [ { "sp": "A", "en": "영어 대사", "kr": "한국어 뜻" } ] },',
+  '  "talkPrompt": "AI와 자유 대화할 상황 설명 (한국어)"',
+  '}',
+  '',
+  '규칙:',
+  '- phrases는 정확히 5개. 원어민이 실제 비즈니스에서 쓰는 자연스러운 표현.',
+  '- dialogue.lines는 6~8줄, A(상대/고객)와 B(나)가 번갈아 말한다.',
+  '- 클라우드/IT 세일즈 맥락(고객 미팅·기술 논의·협상·사내 회의·출장 등)에서 고른다.',
+  '- "피해야 할 제목" 목록과 겹치지 않는 새로운 상황을 만든다.',
+].join('\n');
+
+/** AI로 새 비즈니스 미션을 생성한다. 실패 시 GroqError/Error를 던진다. */
+export async function generateAiMission(): Promise<BusinessMission> {
+  const avoid = [...BUSINESS_MISSIONS.map((m) => m.title), getCustomMissionToday()?.title].filter(Boolean);
+  const raw = await groqComplete(
+    [
+      { role: 'system', content: GEN_SYSTEM },
+      { role: 'user', content: `피해야 할 제목: ${avoid.join(' / ')}\n\n새로운 상황 미션 하나를 만들어줘.` },
+    ],
+    { temperature: 0.9, maxTokens: 1100, json: true }
+  );
+  const p = JSON.parse(raw || '{}') as Partial<BusinessMission>;
+  const phrases = Array.isArray(p.phrases)
+    ? p.phrases.filter((x) => x && x.en).map((x) => ({ en: String(x.en).trim(), kr: String(x.kr || '').trim() })).slice(0, 5)
+    : [];
+  const rawLines = Array.isArray(p.dialogue?.lines) ? p.dialogue!.lines : [];
+  const lines = rawLines
+    .filter((l) => l && (l as { en?: unknown }).en)
+    .slice(0, 8)
+    .map((l, i) => {
+      const sp = String((l as { sp?: unknown }).sp || '').trim().toUpperCase();
+      return {
+        sp: (sp === 'A' || sp === 'B' ? sp : i % 2 === 0 ? 'A' : 'B') as 'A' | 'B',
+        en: String((l as { en?: unknown }).en).trim(),
+        kr: String((l as { kr?: unknown }).kr || '').trim(),
+      };
+    });
+  if (!p.title || phrases.length < 3 || lines.length < 4) {
+    throw new Error('미션 생성에 실패했어요. 다시 시도해주세요.');
+  }
+  return {
+    key: `ai-${todayStr()}`,
+    title: String(p.title).trim(),
+    goal: String(p.goal || '').trim() || '오늘의 상황을 영어로 자신 있게 말해보기',
+    phrases,
+    dialogue: { title: String(p.dialogue?.title || p.title).trim(), lines },
+    talkPrompt: String(p.talkPrompt || '').trim() || `"${String(p.title).trim()}" 상황을 영어로 연습하는 대화.`,
+  };
 }
 
 /* ── 미션 → 회화 탭 핸드오프 ──

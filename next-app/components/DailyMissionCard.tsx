@@ -6,26 +6,68 @@
  * 실전 대화 듣기 → AI와 자유 대화. 하루 15분 안에 끝나고, 매일 새로운 상황이 뜬다.
  */
 import { useEffect, useRef, useState } from 'react';
-import { getTodayMission, nextMission, isMissionDoneToday, markMissionDone, setMissionTalkContext, type BusinessMission } from '../lib/dailyMission';
-import { addPhrase, markPracticedToday } from '../lib/state';
+import {
+  getTodayMission,
+  nextMission,
+  isMissionDoneToday,
+  markMissionDone,
+  setMissionTalkContext,
+  getCustomMissionToday,
+  saveCustomMissionToday,
+  clearCustomMission,
+  generateAiMission,
+  type BusinessMission,
+} from '../lib/dailyMission';
+import { GroqError } from '../lib/groq';
+import { addPhrase, markPracticedToday, groqKey } from '../lib/state';
 import { speakText, stopSpeaking } from './SpeakButton';
 import { playDialogueAudio } from './DialoguePractice';
 import SpeakingPractice from './SpeakingPractice';
 import type { Mode } from './NavBar';
 
 export default function DailyMissionCard({ onNavigate, onProgress }: { onNavigate: (m: Mode) => void; onProgress?: () => void }) {
-  const [mission, setMission] = useState<BusinessMission>(() => getTodayMission());
+  // 오늘 AI로 만든 미션이 있으면 그걸 이어서, 없으면 날짜 순환 미션을 쓴다.
+  const [mission, setMission] = useState<BusinessMission>(() => getCustomMissionToday() ?? getTodayMission());
   const [done, setDone] = useState(() => isMissionDoneToday());
   const [openPhrase, setOpenPhrase] = useState<number | null>(null);
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [practiceIdx, setPracticeIdx] = useState(0);
   const [showDialogue, setShowDialogue] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const [canAi, setCanAi] = useState(false);
+  useEffect(() => setCanAi(!!groqKey()), []);
 
-  function shuffle() {
-    setMission(nextMission());
+  function resetView() {
     setOpenPhrase(null);
     setPracticeIdx(0);
     setShowDialogue(false);
+    setAiError('');
+  }
+
+  function shuffle() {
+    clearCustomMission(); // AI 미션에서 벗어나 정적 순환으로 복귀
+    setMission(nextMission());
+    resetView();
+  }
+
+  async function aiNewMission() {
+    if (aiBusy) return;
+    setAiBusy(true);
+    setAiError('');
+    try {
+      const m = await generateAiMission();
+      saveCustomMissionToday(m); // 같은 날 다시 열어도 유지
+      setMission(m);
+      resetView();
+    } catch (err) {
+      const e = err as Error;
+      setAiError(e instanceof GroqError && e.message === 'NO_GROQ_KEY'
+        ? '⚡ 회화 탭에서 무료 Groq 키를 등록하면 쓸 수 있어요.'
+        : `❌ ${e.message}`);
+    } finally {
+      setAiBusy(false);
+    }
   }
 
   function save(en: string, kr: string) {
@@ -53,12 +95,20 @@ export default function DailyMissionCard({ onNavigate, onProgress }: { onNavigat
     <div className={`mission-card${done ? ' done' : ''}`}>
       <div className="mission-top">
         <div className="mission-label">🎯 오늘의 비즈니스 미션 {done && <span className="mission-done-tag">완료 ✓</span>}</div>
-        <button className="mission-shuffle" onClick={shuffle} title="다른 상황 보기">
-          🎲 다른 상황
-        </button>
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          {canAi && (
+            <button className="mission-shuffle mission-ai" onClick={aiNewMission} disabled={aiBusy} title="AI가 새 상황을 만들어줘요">
+              {aiBusy ? '⏳ 만드는 중…' : '✨ AI 새 상황'}
+            </button>
+          )}
+          <button className="mission-shuffle" onClick={shuffle} title="다른 상황 보기">
+            🎲 다른 상황
+          </button>
+        </div>
       </div>
       <div className="mission-title">{mission.title}</div>
       <div className="mission-goal">{mission.goal}</div>
+      {aiError && <div className="dlgv-error">{aiError}</div>}
 
       {/* 1) 핵심 표현 */}
       <div className="mission-step-label">① 오늘의 핵심 표현 5개</div>

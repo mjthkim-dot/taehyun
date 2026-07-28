@@ -84,8 +84,8 @@ export default function RemindersScreen() {
 
         <div className="rem-row">
           <div className="rem-row-main">
-            <div className="rem-row-title">매일 복습 알림</div>
-            <div className="rem-row-sub">정한 시간에 복습할 카드가 있으면 알려드려요.</div>
+            <div className="rem-row-title">매일 학습 알림</div>
+            <div className="rem-row-sub">정한 시간에 오늘의 미션·복습 카드가 남아 있으면 알려드려요.</div>
           </div>
           <button
             type="button"
@@ -122,7 +122,7 @@ export default function RemindersScreen() {
             <li>앱을 홈 화면에 추가(설치)하면 알림이 가장 잘 도착해요.</li>
             <li>앱이 열려 있는 동안에는 정한 시간에 바로 알려드려요.</li>
             <li>지원 기기에서는 앱이 닫혀 있어도 하루 한 번 알림을 시도해요.</li>
-            <li>복습할 카드가 없는 날에는 알림을 보내지 않아요.</li>
+            <li>오늘 미션을 이미 완료했고 복습 카드도 없으면 알림을 보내지 않아요.</li>
           </ul>
         </div>
       </div>

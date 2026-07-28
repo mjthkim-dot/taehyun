@@ -10,6 +10,7 @@
  * 하루 한 번만, 그리고 실제로 복습할 카드가 있을 때만 알림을 보낸다.
  */
 import { dueWeak, load, store } from './state';
+import { isMissionDoneToday } from './dailyMission';
 
 export interface ReminderSettings {
   enabled: boolean;
@@ -61,10 +62,17 @@ export function dueReviewCount(): number {
 }
 
 export function reminderTitle(): string {
-  return '🔥 오늘의 복습';
+  return '🔥 오늘의 영어';
 }
 
-export function reminderBody(count: number): string {
+/** 미션 완료 여부 + 복습 카드 수에 따라 가장 와닿는 문구를 고른다. */
+export function reminderBody(count: number, missionDone: boolean): string {
+  if (!missionDone && count > 0) {
+    return `오늘의 비즈니스 미션이 아직 남았어요 · 복습 카드도 ${count}개 대기 중! 15분이면 충분해요.`;
+  }
+  if (!missionDone) {
+    return '오늘의 비즈니스 미션이 아직 남았어요. 15분이면 충분해요!';
+  }
   return `복습할 카드 ${count}개가 기다리고 있어요. 지금 복습하고 연속 학습을 이어가세요!`;
 }
 
@@ -78,7 +86,9 @@ function todayKey(now: Date): string {
 
 /**
  * 지금 알림을 보낼지 결정하는 순수 함수 — 부수효과 없이 테스트 가능.
- * 시간이 됐고, 오늘 아직 안 보냈고, 복습할 카드가 있을 때만 true.
+ * 시간이 됐고, 오늘 아직 안 보냈고, "할 일이 남아 있을 때"만 true.
+ * 할 일 = 오늘 미션 미완료 또는 복습 카드 대기. 미션도 끝냈고 카드도 없으면
+ * 보내지 않는다(스팸 방지).
  */
 export function shouldFire(args: {
   enabled: boolean;
@@ -87,11 +97,12 @@ export function shouldFire(args: {
   minute: number;
   firedDate: string;
   count: number;
+  missionDone: boolean;
   now: Date;
 }): boolean {
   if (!args.enabled) return false;
   if (args.permission !== 'granted') return false;
-  if (args.count <= 0) return false;
+  if (args.count <= 0 && args.missionDone) return false;
   const target = new Date(args.now);
   target.setHours(args.hour, args.minute, 0, 0);
   if (args.now.getTime() < target.getTime()) return false;
@@ -128,7 +139,8 @@ async function showNotification(title: string, body: string) {
 export async function maybeFireReminder(now = new Date()): Promise<boolean> {
   const s = getReminderSettings();
   const count = dueReviewCount();
-  mirrorDueCount(count); // 서비스워커(백그라운드)가 읽을 수 있게 미러링
+  const missionDone = isMissionDoneToday();
+  mirrorReminderMeta(count, missionDone); // 서비스워커(백그라운드)가 읽을 수 있게 미러링
   if (
     !shouldFire({
       enabled: s.enabled,
@@ -137,12 +149,13 @@ export async function maybeFireReminder(now = new Date()): Promise<boolean> {
       minute: s.minute,
       firedDate: load<string>(FIRED_KEY, ''),
       count,
+      missionDone,
       now,
     })
   ) {
     return false;
   }
-  await showNotification(reminderTitle(), reminderBody(count));
+  await showNotification(reminderTitle(), reminderBody(count, missionDone));
   store(FIRED_KEY, todayKey(now));
   return true;
 }
@@ -150,15 +163,22 @@ export async function maybeFireReminder(now = new Date()): Promise<boolean> {
 /** "지금 테스트" 버튼 — 조건과 무관하게 즉시 알림을 한 번 띄운다(포그라운드). */
 export async function showTestReminder(): Promise<void> {
   const count = dueReviewCount();
-  await showNotification(reminderTitle(), count > 0 ? reminderBody(count) : '알림이 이렇게 표시됩니다. 매일 이 시간에 복습을 알려드릴게요!');
+  const missionDone = isMissionDoneToday();
+  await showNotification(
+    reminderTitle(),
+    count > 0 || !missionDone ? reminderBody(count, missionDone) : '알림이 이렇게 표시됩니다. 매일 이 시간에 오늘의 미션과 복습을 알려드릴게요!'
+  );
 }
 
-/** 서비스워커가 백그라운드에서 복습 개수를 알 수 있도록 Cache에 미러링한다. */
-export function mirrorDueCount(count: number) {
+/** 서비스워커가 백그라운드에서 복습 개수·미션 완료 여부를 알 수 있도록 Cache에 미러링한다. */
+export function mirrorReminderMeta(count: number, missionDone: boolean) {
   if (typeof caches === 'undefined') return;
   caches
     .open('reminder-meta')
-    .then((c) => c.put('reminder-due', new Response(String(count))))
+    .then((c) => {
+      c.put('reminder-due', new Response(String(count))).catch(() => {});
+      c.put('reminder-mission-done', new Response(missionDone ? '1' : '0')).catch(() => {});
+    })
     .catch(() => {});
 }
 

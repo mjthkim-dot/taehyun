@@ -14,16 +14,28 @@ self.addEventListener('periodicsync', (event) => {
 
 async function showDailyReview() {
   let count = 0;
+  let missionDone = false;
   try {
     const cache = await caches.open('reminder-meta');
     const res = await cache.match('reminder-due');
     if (res) count = parseInt(await res.text(), 10) || 0;
+    const mres = await cache.match('reminder-mission-done');
+    if (mres) missionDone = (await mres.text()) === '1';
   } catch (e) {
-    /* Cache 접근 실패 — 개수 미상 */
+    /* Cache 접근 실패 — 미상으로 두고 아래 조건으로 판단 */
   }
-  if (count <= 0) return; // 복습할 게 없으면 알리지 않는다
-  await self.registration.showNotification('🔥 오늘의 복습', {
-    body: `복습할 카드 ${count}개가 기다리고 있어요. 지금 복습하고 연속 학습을 이어가세요!`,
+  // 할 일(오늘 미션 미완료 or 복습 카드)이 없으면 알리지 않는다.
+  if (count <= 0 && missionDone) return;
+  let body;
+  if (!missionDone && count > 0) {
+    body = `오늘의 비즈니스 미션이 아직 남았어요 · 복습 카드도 ${count}개 대기 중! 15분이면 충분해요.`;
+  } else if (!missionDone) {
+    body = '오늘의 비즈니스 미션이 아직 남았어요. 15분이면 충분해요!';
+  } else {
+    body = `복습할 카드 ${count}개가 기다리고 있어요. 지금 복습하고 연속 학습을 이어가세요!`;
+  }
+  await self.registration.showNotification('🔥 오늘의 영어', {
+    body,
     icon: '/app/icons/icon-192.png',
     badge: '/app/icons/icon-192.png',
     tag: 'daily-review',

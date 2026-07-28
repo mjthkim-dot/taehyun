@@ -2810,3 +2810,14 @@ body,
   border-radius: var(--radius-sm);
   padding: 12px;
 }
+
+/* ✨ AI 새 상황 버튼 — 🎲와 같은 칩이되 프라이머리 강조 */
+.mission-ai {
+  color: var(--primary-dk);
+  border-color: var(--primary);
+  border-style: dashed;
+}
+.mission-ai:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
