@@ -2919,3 +2919,232 @@ body,
   align-items: center;
   gap: 4px;
 }
+
+/* ── 미션 완주 루프 + 표현 딥카드 ── */
+.mission-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.mission-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--surface2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.mission-progress-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+.mission-progress-txt {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+.mission-stages {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+}
+.mission-stages i {
+  font-style: normal;
+  font-size: 0.6rem;
+  font-weight: 800;
+  width: 20px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--surface2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.mission-stages i.on {
+  background: var(--green-soft);
+  color: var(--green-dk);
+  border-color: var(--green);
+}
+.mission-mastered {
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--green-dk);
+  margin-left: 2px;
+}
+/* 리콜 진행 중엔 목록의 영어를 가려 '뜻만 보고 떠올리기'가 성립하게 한다 */
+.mission-phrase.recalling .mission-phrase-en {
+  filter: blur(6px);
+  user-select: none;
+}
+.mission-nomic {
+  width: 100%;
+  margin-top: 8px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface2);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 9px;
+  cursor: pointer;
+  line-height: 1.5;
+}
+
+.deep-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.deep-loading {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 4px 2px;
+}
+.deep-error {
+  font-size: 0.78rem;
+  color: var(--red);
+}
+.deep-sec-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--primary-dk);
+  margin-bottom: 6px;
+}
+.deep-register {
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+}
+.deep-nuance {
+  font-size: 0.8rem;
+  line-height: 1.65;
+  color: var(--text);
+}
+.deep-var {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+.deep-var:last-child { border-bottom: none; }
+.deep-var-tone {
+  flex: 0 0 52px;
+  font-size: 0.64rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  padding-top: 2px;
+}
+.deep-var-txt { flex: 1; min-width: 0; }
+.deep-var-en { font-size: 0.82rem; font-weight: 600; color: var(--text); line-height: 1.45; }
+.deep-var-kr { font-size: 0.72rem; color: var(--text-muted); margin-top: 1px; }
+.deep-mistake {
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.deep-mistake-wrong { color: var(--red); }
+.deep-mistake-right { color: var(--green-dk); font-weight: 600; }
+.deep-mistake-why { font-size: 0.74rem; color: var(--text-muted); margin-top: 4px; }
+.deep-reply-line {
+  display: flex;
+  gap: 8px;
+  padding: 5px 0;
+}
+.deep-reply-who {
+  flex: 0 0 30px;
+  font-size: 0.64rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  padding-top: 2px;
+}
+.deep-reply-line.me .deep-reply-who { color: var(--primary-dk); }
+.deep-check-q { font-size: 0.8rem; font-weight: 600; margin-bottom: 7px; }
+.deep-check-opts { display: flex; flex-direction: column; gap: 6px; }
+.deep-check-opt {
+  text-align: left;
+  font-size: 0.78rem;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  cursor: pointer;
+}
+.deep-check-opt.correct { border-color: var(--green); background: var(--green-soft); color: var(--green-dk); font-weight: 700; }
+.deep-check-opt.wrong { border-color: var(--red); color: var(--red); }
+.deep-check-result { font-size: 0.74rem; margin-top: 6px; color: var(--red); font-weight: 700; }
+.deep-check-result.ok { color: var(--green-dk); }
+
+.deep-recall {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.deep-recall-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.deep-pass {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.66rem;
+  color: var(--green-dk);
+}
+.deep-recall-kr { font-size: 0.86rem; font-weight: 700; margin-bottom: 8px; }
+.deep-recall-en { font-size: 0.84rem; font-weight: 600; color: var(--primary-dk); margin-bottom: 8px; }
+.deep-recall-btn {
+  width: 100%;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 9px;
+  border-radius: 10px;
+  background: var(--grad-primary);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+.deep-recall-grade { display: flex; gap: 6px; }
+.deep-recall-yes,
+.deep-recall-no {
+  flex: 1;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 8px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.deep-recall-yes { background: var(--green-soft); border: 1.5px solid var(--green); color: var(--green-dk); }
+.deep-recall-no { background: var(--surface2); border: 1px solid var(--border-strong); color: var(--text-muted); }
+.deep-recall-donemsg { font-size: 0.76rem; color: var(--green-dk); }
+.mission-complete:disabled {
+  opacity: 0.55;
+  cursor: default;
+  border-style: dashed;
+}
