@@ -359,6 +359,29 @@ export function isMissionDoneToday(): boolean {
   return load<string>(DONE_KEY, '') === todayStr();
 }
 
+/* ── 미션 → 회화 탭 핸드오프 ──
+ * "이 상황으로 AI와 대화하기"를 누르면 미션 상황을 저장해 두고, 회화 화면이
+ * 마운트될 때 한 번만 꺼내(one-shot) 그 상황을 시나리오로 쓴다. 이렇게 해야
+ * 버튼의 약속("이 상황으로")이 실제로 지켜진다. */
+const TALK_KEY = 'va_mission_talk';
+
+export interface MissionTalkCtx {
+  title: string;
+  desc: string;
+  examples: MissionPhrase[];
+}
+
+export function setMissionTalkContext(m: BusinessMission) {
+  store(TALK_KEY, { title: m.title, desc: m.talkPrompt, examples: m.phrases.slice(0, 3) });
+}
+
+/** 저장된 미션 상황을 꺼내고 비운다(한 번만 소비). 없으면 null. */
+export function takeMissionTalkContext(): MissionTalkCtx | null {
+  const v = load<MissionTalkCtx | null>(TALK_KEY, null);
+  if (v) store(TALK_KEY, null);
+  return v && v.title ? v : null;
+}
+
 export function markMissionDone() {
   store(DONE_KEY, todayStr());
 }

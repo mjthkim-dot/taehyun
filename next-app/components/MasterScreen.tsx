@@ -20,6 +20,8 @@ export default function MasterScreen({
   onStartToday: () => void;
 }) {
   const [ready, setReady] = useState(false);
+  // 미션 완료 등으로 진행 데이터가 바뀌면 스트릭·목표 링을 그 자리에서 다시 계산한다.
+  const [, setTick] = useState(0);
   useEffect(() => setReady(true), []);
   if (!ready) return null;
 
@@ -57,7 +59,7 @@ export default function MasterScreen({
       </div>
 
       {/* 오늘 할 딱 한 가지 — 앱을 열면 바로 이걸 하면 된다 */}
-      <DailyMissionCard onNavigate={onNavigate} />
+      <DailyMissionCard onNavigate={onNavigate} onProgress={() => setTick((t) => t + 1)} />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: 14 }}>
         <svg width="64" height="64" viewBox="0 0 64 64" style={{ flex: '0 0 auto' }}>

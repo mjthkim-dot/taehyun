@@ -11,6 +11,7 @@ import { ALL_LESSONS, LESSONS, CEFR_NEXT, cefrOf, type Lesson } from '../lib/les
 import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, store, saveChatLog } from '../lib/state';
 import { groqStream, groqComplete, GroqError } from '../lib/groq';
 import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, parseAiText } from '../lib/talkPrompts';
+import { takeMissionTalkContext, type MissionTalkCtx } from '../lib/dailyMission';
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS } from './SpeakButton';
 
 interface Correction {
@@ -83,6 +84,8 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   const [keyInput, setKeyInput] = useState('');
   const [hasKey, setHasKey] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
+  // 홈 미션에서 넘어온 상황 — 있으면 레슨 시나리오 대신 이 상황으로 대화한다.
+  const [missionCtx, setMissionCtx] = useState<MissionTalkCtx | null>(null);
   const [input, setInput] = useState('');
   const [interim, setInterim] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -110,12 +113,24 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   }, []);
 
   // 레슨이 바뀌면 대화를 리셋하고 시나리오 인트로 카드를 다시 보여준다.
+  // 홈의 "이 상황으로 AI와 대화하기"로 들어온 경우엔 그 미션 상황을 시나리오로 쓴다.
   useEffect(() => {
     if (!ready) return;
     historyRef.current = [];
     talkStampsRef.current = [];
     sessionIdRef.current = `${lesson.id}-${Date.now()}`;
-    if (lesson.scenario) {
+    const mission = takeMissionTalkContext();
+    setMissionCtx(mission);
+    if (mission) {
+      setMessages([
+        {
+          id: ++idRef.current,
+          kind: 'intro',
+          scenario: { title: `🎯 ${mission.title}`, desc: mission.desc },
+          examples: mission.examples,
+        },
+      ]);
+    } else if (lesson.scenario) {
       setMessages([
         {
           id: ++idRef.current,
@@ -203,7 +218,10 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     }
     historyRef.current.push({ role: 'user', content: text });
 
-    const sysMsg = { role: 'system', content: buildSystemPrompt(lesson, null, prevLessons()) };
+    const sysMsg = {
+      role: 'system',
+      content: buildSystemPrompt(lesson, missionCtx ? { title: missionCtx.title, desc: missionCtx.desc } : null, prevLessons()),
+    };
     const msgs = [sysMsg, ...historyRef.current.slice(-8)];
 
     setIsProcessing(true);
