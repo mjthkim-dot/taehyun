@@ -107,6 +107,25 @@ export function restoreBackup(text: string): RestoreResult {
   return { ok: true, restored, message: `${restored}개 항목을 복원했어요. 새로고침하면 반영됩니다.` };
 }
 
+/**
+ * 모든 학습 데이터 즉시 삭제 — 개인정보처리방침의 "이용자 삭제권"을 실제로
+ * 이행하는 장치. va_* 전체(API 키 포함)와 테마, 레슨 캐시(IndexedDB)를 지운다.
+ */
+export function eraseAllData() {
+  const keys: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && (k.startsWith('va_') || EXTRA_KEYS.includes(k))) keys.push(k);
+  }
+  keys.forEach((k) => localStorage.removeItem(k));
+  try {
+    indexedDB.deleteDatabase('preply-english-coach'); // 내부 레슨 캐시(구 식별자 유지분)
+  } catch {
+    /* IndexedDB 미지원 — 무시 */
+  }
+  return keys.length;
+}
+
 /** 백업/복원 화면에 보여줄 현재 데이터 요약. */
 export function dataSummary() {
   const count = (key: string) => {

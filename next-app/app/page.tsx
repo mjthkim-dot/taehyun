@@ -27,6 +27,7 @@ import ShadowingScreen from '../components/ShadowingScreen';
 import RemindersScreen from '../components/RemindersScreen';
 import ReminderScheduler from '../components/ReminderScheduler';
 import BackupScreen from '../components/BackupScreen';
+import LegalScreen from '../components/LegalScreen';
 import ListeningScreen from '../components/ListeningScreen';
 import ReadingScreen from '../components/ReadingScreen';
 import WritingScreen from '../components/WritingScreen';
@@ -66,6 +67,7 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
   shadowing: { title: '쉐도잉', render: (c) => <ShadowingScreen lessonId={c.lessonId} /> },
   reminders: { title: '복습 알림', render: () => <RemindersScreen /> },
   backup: { title: '백업 · 복원', render: () => <BackupScreen /> },
+  legal: { title: '약관 · 개인정보', render: () => <LegalScreen /> },
   listening: { title: '듣기', render: () => <ListeningScreen /> },
   reading: { title: '읽기', render: () => <ReadingScreen /> },
   writing: { title: '쓰기', render: () => <WritingScreen /> },

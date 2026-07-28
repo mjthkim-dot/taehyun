@@ -5,7 +5,7 @@
  * 내보내고, 다른 기기/브라우저에서 그 파일로 복원한다. 로직은 lib/backup.ts.
  */
 import { useEffect, useRef, useState } from 'react';
-import { downloadBackup, restoreBackup, dataSummary } from '../lib/backup';
+import { downloadBackup, restoreBackup, dataSummary, eraseAllData } from '../lib/backup';
 
 export default function BackupScreen() {
   const [ready, setReady] = useState(false);
@@ -83,6 +83,19 @@ export default function BackupScreen() {
         <div className="bk-note">
           🔑 Groq API 키는 보안을 위해 백업 파일에 포함되지 않아요 — 복원 후 회화 탭에서 한 번만 다시 등록하면 됩니다.
         </div>
+
+        <button
+          type="button"
+          className="btn bk-btn bk-btn-danger"
+          onClick={() => {
+            if (!window.confirm('학습 데이터 전체(진도·표현장·복습 카드·설정·API 키)를 삭제할까요? 되돌릴 수 없어요.')) return;
+            if (!window.confirm('정말 삭제할까요? 백업 파일을 먼저 내려받는 것을 권장합니다.')) return;
+            eraseAllData();
+            window.location.reload();
+          }}
+        >
+          🗑 모든 데이터 삭제
+        </button>
       </div>
     </div>
   );
