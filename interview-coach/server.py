@@ -160,17 +160,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif path == "/health":
             try:
                 stt_local = llm.stt_local_available()
-                stt_engine = f"local:{llm.STT_LOCAL_MODEL}" if stt_local else llm.GROQ_STT_MODEL
-                if llm.GROQ_API_KEY:
-                    self._send_json(200, {"status": "ok", "provider": "groq",
-                                          "model": llm.GROQ_MODEL,
-                                          "stt": stt_engine, "stt_local": stt_local})
-                else:
-                    req = urllib.request.Request(f"{llm.OLLAMA_URL}/api/tags")
-                    with urllib.request.urlopen(req, timeout=3) as r:
-                        models = [m["name"] for m in json.loads(r.read()).get("models", [])]
-                    self._send_json(200, {"status": "ok", "provider": "ollama", "models": models,
-                                          "warning": "GROQ_API_KEY가 없어 음성 인식(STT)을 쓸 수 없습니다."})
+                self._send_json(200, {
+                    "status": "ok",
+                    "provider": llm.provider(), "model": llm.model_name(),
+                    "llm": llm.probe_cached(refresh="probe" in query),
+                    "stt": f"local:{llm.STT_LOCAL_MODEL}" if stt_local else llm.GROQ_STT_MODEL,
+                    "stt_local": stt_local,
+                })
             except Exception as e:  # noqa: BLE001
                 self._send_json(200, {"status": "error", "message": str(e)})
 
@@ -351,11 +347,16 @@ if __name__ == "__main__":
     print()
     print("  🎤  영어 면접 코치 — IT 영업")
     print("  ─────────────────────────────")
-    if llm.GROQ_API_KEY:
-        print(f"  ⚡ Groq — LLM: {llm.GROQ_MODEL}")
-    else:
-        print(f"  ⚠️  GROQ_API_KEY 없음 — LLM은 Ollama({llm.OLLAMA_MODEL}) 폴백")
-        print("     라이브 모드를 쓰려면: export GROQ_API_KEY=... 후 재실행")
+    # 🧠 LLM 공급자 체인 진단 (백그라운드) — 어떤 공급자가 살아있는지 출력
+    def _probe_and_print():
+        icons = {"ok": "✅", "차단/오류": "❌", "연결 실패": "❌", "미설정": "—"}
+        print("  🧠 번역·답변 LLM 공급자 (자동 전환 순서):")
+        for r in llm.probe_cached(refresh=True):
+            print(f"     {icons.get(r['state'], '?')} {r['name']:<7} {r['state']} {r.get('detail', '')}")
+        if not any(r["state"] == "ok" for r in llm.probe_cached()):
+            print("     ⚠️ 살아있는 LLM이 없습니다! 무료 Gemini 키를 넣으세요:")
+            print("        https://aistudio.google.com/apikey → export GEMINI_API_KEY=...")
+    threading.Thread(target=_probe_and_print, daemon=True).start()
     # 🆓 로컬 STT 백그라운드 워밍업 (설치돼 있으면 무료·무제한, 없으면 Groq 폴백)
     if llm.STT_LOCAL:
         threading.Thread(target=llm.stt_local_available, daemon=True).start()

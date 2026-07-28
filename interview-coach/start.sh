@@ -1,10 +1,11 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────
-# 🎤 영어 면접 코파일럿 — 실행 스크립트 (Groq 단일 백엔드)
+# 🎤 영어 면접 코파일럿 — 실행 스크립트
 #
-# 필수:   export GROQ_API_KEY=gsk_...   (~/.zshrc에 넣어두면 편함)
-# 사용법: bash start.sh
-# 종료:   Ctrl+C
+# LLM 키는 하나만 있으면 됨 (Groq → Gemini → Ollama 자동 전환):
+#   export GROQ_API_KEY=gsk_...     # console.groq.com
+#   export GEMINI_API_KEY=...       # aistudio.google.com/apikey (무료·회사망 통과율 높음)
+# 사용법: bash start.sh   /   종료: Ctrl+C
 # ─────────────────────────────────────────────────────────────
 
 set -u
@@ -15,11 +16,15 @@ echo ""
 echo "  🎤 영어 면접 코파일럿 — IT 영업"
 echo "  ═══════════════════════════════════════════"
 
-if [ -n "${GROQ_API_KEY:-}" ]; then
-  echo "  ⚡ Groq 모드 — LLM(번역·답변): ${GROQ_MODEL:-llama-3.3-70b-versatile}"
-else
-  echo "  ❌ GROQ_API_KEY가 설정되지 않았습니다! (번역·답변에 필요)"
-  echo "       export GROQ_API_KEY=gsk_...   # https://console.groq.com 에서 발급"
+# 번역·답변 LLM — Groq → Gemini → Ollama 자동 전환 (하나만 있으면 동작)
+[ -n "${GROQ_API_KEY:-}" ]   && echo "  · Groq 키 설정됨 (회사망에서 403이면 자동으로 다음 공급자로 전환)"
+[ -n "${GEMINI_API_KEY:-}" ] && echo "  · Gemini 키 설정됨 (구글 무료 — 회사망에서도 대부분 허용)"
+if [ -z "${GROQ_API_KEY:-}" ] && [ -z "${GEMINI_API_KEY:-}" ]; then
+  echo "  ⚠️ 클라우드 LLM 키가 없습니다 — 무료 Gemini 키를 권장:"
+  echo "       https://aistudio.google.com/apikey → export GEMINI_API_KEY=..."
+fi
+if curl -s --max-time 2 "http://localhost:11434/api/tags" >/dev/null 2>&1; then
+  echo "  · Ollama 실행 중 (오프라인 폴백 사용 가능)"
 fi
 
 # ── 🆓 로컬 STT (faster-whisper) 확인 — 있으면 음성인식이 무료·무제한 ──

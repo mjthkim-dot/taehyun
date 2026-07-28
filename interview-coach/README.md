@@ -3,17 +3,24 @@
 Smooth AI를 벤치마킹한 **실시간 영어 면접 비서** (완전 독립 프로젝트).
 핵심은 두 가지: **실시간 음성 번역**(영어 발화 → 한국어 자막)과
 **실시간 답변 추천**(질문 감지 → 바로 읽을 수 있는 영어 답변 + 한국어 번역).
-백엔드는 **Groq 하나로 통일** — LLM(llama-3.3-70b)과 STT(whisper-large-v3-turbo)
-모두 Groq라 답변까지 1~2초.
+
+- **STT(자막)**: 브라우저 Web Speech — 유일한 무료 '실시간 스트리밍' 인식
+- **LLM(번역·답변)**: **Groq → Gemini → Ollama 3중 자동 전환** — 회사망이
+  api.groq.com을 막아도(403) Gemini(구글 도메인·무료)나 로컬 Ollama로 즉시 넘어가
+  **하나만 살아있으면 번역·답변이 끊기지 않는다**
 
 ## 실행
 
 ```bash
-export GROQ_API_KEY=gsk_...   # 필수 — https://console.groq.com 에서 발급
-bash start.sh
+# LLM 키는 하나만 있으면 된다 (둘 다 있으면 Groq 우선, 막히면 Gemini 자동 전환)
+export GROQ_API_KEY=gsk_...    # https://console.groq.com  (회사망에서 403이면 아래로)
+export GEMINI_API_KEY=...      # https://aistudio.google.com/apikey  (무료·회사망 통과율 높음)
+bash start.sh                  # 시작 배너에 공급자별 ✅/❌ 상태가 표시된다
 # → http://localhost:3778/live.html       (🔴 실전 화상 면접 코파일럿)
 # → http://localhost:3778/interview.html  (연습 모드)
 ```
+
+> 오프라인 보험: `ollama pull gemma3:4b` — 클라우드가 전부 막혀도 로컬 모델로 동작.
 
 의존성 0 — stdlib만 사용하는 단일 파일 Python 서버라 `pip install`이 필요 없다.
 라이브 모드는 반드시 **데스크톱 Chrome**에서 열 것 (탭 오디오 캡처 사용).
@@ -166,9 +173,9 @@ bash start.sh                    # "🆓 로컬 STT 활성" 확인
 Zoom/Teams 마이크는 앱에서 실제 마이크로 따로 지정 (면접관이 내 목소리를 듣는 용)
 ```
 
-번역·답변은 두 엔진 모두 Groq LLM(llama-3.3-70b)을 쓴다 — 질문당 몇 번뿐이라 무료
-한도로 충분하다. **STT만 브라우저로 돌리면 한도 문제가 사라진다.** 화자 분리(내 발화
-기록)와 최고 인식 품질이 필요하면 Groq Whisper 엔진으로 바꾼다.
+번역·답변은 두 엔진 모두 LLM 자동 전환 체인(Groq → Gemini → Ollama)을 쓴다 —
+질문당 몇 번뿐이라 무료 한도로 충분하다. **STT만 브라우저로 돌리면 한도 문제가
+사라진다.** 화자 분리(내 발화 기록)와 최고 인식 품질이 필요하면 Whisper 엔진으로 바꾼다.
 
 ## Groq Whisper 엔진의 요청 한도(RPM) 대응
 
@@ -206,7 +213,7 @@ interview-coach/
 ├── interview.html            연습 모드 UI
 ├── interview.webmanifest    PWA 매니페스트
 └── backend/
-    ├── llm.py               Groq API — LLM 스트리밍/JSON + Whisper STT (Ollama 폴백)
+    ├── llm.py               LLM 3중 자동 전환(Groq→Gemini→Ollama) + Whisper STT
     ├── speech_metrics.py     WPM·군말 비율 등 결정론적 발화 지표
     ├── interview_pipeline.py 질문은행/근거선택/답변·피드백·라이브 프롬프트
     └── data/
@@ -224,7 +231,7 @@ interview-coach/
 | `POST /api/translate` `{text}` | KR↔EN 자동감지 번역 (스트리밍) |
 | `GET /api/interview/question·categories·status` | 연습 모드 질문 은행 |
 | `POST /api/interview/answers·feedback` | 연습 모드 모범답변/STAR 피드백 |
-| `GET /health` | 프로바이더/모델 상태 |
+| `GET /health` (`?probe`로 재검사) | 활성 공급자/모델 + 공급자별 실제 연결 상태(`llm` 배열) |
 
 ## ☁️ 클라우드 배포 (고정 URL)
 
@@ -246,8 +253,21 @@ Render 무료 티어로 고정 HTTPS URL을 만들 수 있다 (저장소 루트�
   ⚡ 맞춤 답변셋은 재시작 후 버튼으로 다시 생성 (약 1분)
 - 로컬 실행(`bash start.sh`)은 `ACCESS_CODE` 미설정 시 게이트 없이 그대로 동작
 
-## 폴백 동작
+## LLM 자동 전환 (Groq → Gemini → Ollama)
 
-`GROQ_API_KEY`가 없으면: 답변 생성·번역은 로컬 Ollama(`OLLAMA_MODEL`, 기본 gemma3:12b)로
-폴백되지만 **음성 인식(STT)은 비활성** — 라이브 모드의 핵심이 Groq이므로 키 설정을 권장.
+번역·답변·요약·리포트의 모든 LLM 호출은 공급자 체인을 순서대로 시도한다:
+
+1. **Groq** (llama-3.3-70b) — 가장 빠름. 단, 일부 회사망 프록시가 api.groq.com을 차단(403)
+2. **Gemini** (gemini-2.5-flash) — 구글 도메인이라 회사망 통과율이 높고 무료 키 발급 즉시 가능
+   ([aistudio.google.com/apikey](https://aistudio.google.com/apikey))
+3. **Ollama** (설치된 모델 자동 감지, `OLLAMA_MODEL`로 지정 가능) — 완전 오프라인 보험
+
+- 401/403/404/429나 연결 실패가 난 공급자는 **60초간 건너뛰고** 다음 공급자로 즉시 전환
+  → 면접 중 한 공급자가 죽어도 답변 흐름이 끊기지 않는다.
+- 서버 시작 시 각 공급자에 초소형 검사 요청을 보내 **✅/❌ 상태를 배너로 출력**하고,
+  라이브 페이지도 `/health`를 읽어 살아있는 공급자가 없으면 상단에 경고를 띄운다.
+- 순서 변경: `LLM_ORDER=gemini,groq,ollama` 처럼 환경변수로 조정.
+- **STT(Whisper 배치 엔진)는 Groq 전용** — 하지만 기본 엔진인 브라우저(Web Speech)는
+  서버 키와 무관하게 동작하므로, Groq이 막혀도 실시간 자막은 정상.
+
 API 키는 코드/저장소에 넣지 말고 환경변수로만 관리할 것.

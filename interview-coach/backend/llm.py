@@ -17,17 +17,26 @@ from __future__ import annotations
 
 import json
 import os
+import time
+import urllib.error
 import urllib.request
 import uuid
 from pathlib import Path
 from typing import Iterator
 
+# ═══ 다중 공급자 자동 전환 (Groq → Gemini → Ollama) ═══
+# 회사망이 api.groq.com을 차단해도 Gemini(구글 도메인 — 대부분 허용됨)나
+# 로컬 Ollama로 자동 전환되어, 하나만 살아있으면 번역·답변이 계속 동작한다.
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_URL = os.environ.get("GROQ_URL", "https://api.groq.com/openai/v1")  # 테스트용 오버라이드 가능
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 GROQ_STT_MODEL = os.environ.get("GROQ_STT_MODEL", "whisper-large-v3-turbo")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")   # 무료 발급: https://aistudio.google.com/apikey
+GEMINI_URL = os.environ.get("GEMINI_URL", "https://generativelanguage.googleapis.com/v1beta")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:12b")  # 폴백용 (16GB 맥북 기본값)
+LLM_ORDER = [p.strip() for p in os.environ.get("LLM_ORDER", "groq,gemini,ollama").split(",") if p.strip()]
 
 # 🆓 로컬 STT — faster-whisper가 설치돼 있으면 맥에서 직접 인식 (무료·무제한·비공개)
 # STT_LOCAL=0 으로 끌 수 있고, 미설치 시 자동으로 Groq Whisper로 폴백된다.
@@ -44,14 +53,6 @@ job-interview copilot. Detect the input language automatically:
 Reply with ONLY the translation text - no quotes, no labels, no explanation."""
 
 
-def provider() -> str:
-    return "groq" if GROQ_API_KEY else "ollama"
-
-
-def model_name() -> str:
-    return GROQ_MODEL if GROQ_API_KEY else OLLAMA_MODEL
-
-
 def _open(url: str, payload: dict, headers: dict | None = None, timeout: int = 300):
     req = urllib.request.Request(
         url, data=json.dumps(payload).encode("utf-8"),
@@ -60,23 +61,118 @@ def _open(url: str, payload: dict, headers: dict | None = None, timeout: int = 3
     return urllib.request.urlopen(req, timeout=timeout)
 
 
-def chat_once(messages: list[dict], json_mode: bool = False, temperature: float = 0.3,
-              max_tokens: int = 800, model: str | None = None) -> str:
-    """단발 호출 → 응답 텍스트. json_mode=True면 JSON 출력 강제."""
-    if GROQ_API_KEY:
-        payload: dict = {
-            "model": model or GROQ_MODEL, "messages": messages,
-            "temperature": temperature, "max_tokens": max_tokens, "stream": False,
-        }
-        if json_mode:
-            payload["response_format"] = {"type": "json_object"}
-        with _open(f"{GROQ_URL}/chat/completions", payload,
-                   {"Authorization": f"Bearer {GROQ_API_KEY}"}) as r:
-            return json.loads(r.read())["choices"][0]["message"]["content"]
+# ─────────────────────────────────────────────────────────────
+#  공급자별 구현 — chat(단발) / stream(NDJSON 토큰)
+# ─────────────────────────────────────────────────────────────
+def _groq_chat(messages, json_mode, temperature, max_tokens, model):
+    payload: dict = {
+        "model": model or GROQ_MODEL, "messages": messages,
+        "temperature": temperature, "max_tokens": max_tokens, "stream": False,
+    }
+    if json_mode:
+        payload["response_format"] = {"type": "json_object"}
+    with _open(f"{GROQ_URL}/chat/completions", payload,
+               {"Authorization": f"Bearer {GROQ_API_KEY}"}) as r:
+        return json.loads(r.read())["choices"][0]["message"]["content"]
 
+
+def _groq_stream(messages, temperature, max_tokens, model):
     payload = {
-        "model": model or OLLAMA_MODEL, "messages": messages,
-        "stream": False, "keep_alive": "30m",
+        "model": model or GROQ_MODEL, "messages": messages,
+        "temperature": temperature, "max_tokens": max_tokens, "stream": True,
+    }
+    with _open(f"{GROQ_URL}/chat/completions", payload,
+               {"Authorization": f"Bearer {GROQ_API_KEY}"}, timeout=120) as resp:
+        for raw in resp:  # SSE: "data: {...}\n"
+            line = raw.decode("utf-8", "ignore").strip()
+            if not line.startswith("data:"):
+                continue
+            data = line[5:].strip()
+            if data == "[DONE]":
+                break
+            try:
+                tok = json.loads(data)["choices"][0]["delta"].get("content")
+            except (json.JSONDecodeError, KeyError, IndexError):
+                continue
+            if tok:
+                yield (json.dumps({"message": {"content": tok}}) + "\n").encode("utf-8")
+    yield (json.dumps({"done": True}) + "\n").encode("utf-8")
+
+
+def _gemini_payload(messages, json_mode, temperature, max_tokens):
+    system_parts, contents = [], []
+    for m in messages:
+        if m["role"] == "system":
+            system_parts.append({"text": m["content"]})
+        else:
+            contents.append({"role": "model" if m["role"] == "assistant" else "user",
+                             "parts": [{"text": m["content"]}]})
+    payload: dict = {"contents": contents,
+                     "generationConfig": {"temperature": temperature,
+                                          "maxOutputTokens": max_tokens}}
+    if system_parts:
+        payload["systemInstruction"] = {"parts": system_parts}
+    if json_mode:
+        payload["generationConfig"]["responseMimeType"] = "application/json"
+    return payload
+
+
+def _gemini_text(obj) -> str:
+    try:
+        return "".join(p.get("text", "") for p in obj["candidates"][0]["content"]["parts"])
+    except (KeyError, IndexError, TypeError):
+        return ""
+
+
+def _gemini_chat(messages, json_mode, temperature, max_tokens, model):
+    payload = _gemini_payload(messages, json_mode, temperature, max_tokens)
+    url = f"{GEMINI_URL}/models/{model or GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+    with _open(url, payload, timeout=120) as r:
+        return _gemini_text(json.loads(r.read()))
+
+
+def _gemini_stream(messages, temperature, max_tokens, model):
+    payload = _gemini_payload(messages, False, temperature, max_tokens)
+    url = f"{GEMINI_URL}/models/{model or GEMINI_MODEL}:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
+    with _open(url, payload, timeout=120) as resp:
+        for raw in resp:  # SSE: "data: {...}\n"
+            line = raw.decode("utf-8", "ignore").strip()
+            if not line.startswith("data:"):
+                continue
+            try:
+                tok = _gemini_text(json.loads(line[5:].strip()))
+            except json.JSONDecodeError:
+                continue
+            if tok:
+                yield (json.dumps({"message": {"content": tok}}) + "\n").encode("utf-8")
+    yield (json.dumps({"done": True}) + "\n").encode("utf-8")
+
+
+_ollama_model_cache: tuple[float, str | None] = (0.0, None)
+
+
+def _ollama_pick_model() -> str | None:
+    """설치된 모델 중에서 선택 — OLLAMA_MODEL이 있으면 그것, 없으면 첫 모델(자동 적응)."""
+    global _ollama_model_cache
+    ts, cached = _ollama_model_cache
+    if time.time() - ts < 60:
+        return cached
+    picked = None
+    try:
+        with urllib.request.urlopen(f"{OLLAMA_URL}/api/tags", timeout=3) as r:
+            names = [m["name"] for m in json.loads(r.read()).get("models", [])]
+        if names:
+            picked = next((n for n in names if n.startswith(OLLAMA_MODEL)), names[0])
+    except Exception:  # noqa: BLE001
+        picked = None
+    _ollama_model_cache = (time.time(), picked)
+    return picked
+
+
+def _ollama_chat(messages, json_mode, temperature, max_tokens, model):
+    m = model or _ollama_pick_model() or OLLAMA_MODEL
+    payload = {
+        "model": m, "messages": messages, "stream": False, "keep_alive": "30m",
         "options": {"temperature": temperature, "num_predict": max_tokens},
     }
     if json_mode:
@@ -85,41 +181,155 @@ def chat_once(messages: list[dict], json_mode: bool = False, temperature: float 
         return json.loads(r.read())["message"]["content"]
 
 
-def stream_ndjson(messages: list[dict], temperature: float = 0.4,
-                  max_tokens: int = 400, model: str | None = None) -> Iterator[bytes]:
-    """토큰 스트림을 Ollama NDJSON 라인(bytes)으로 yield. 연결 실패는 첫 next()에서 예외."""
-    if GROQ_API_KEY:
-        payload = {
-            "model": model or GROQ_MODEL, "messages": messages,
-            "temperature": temperature, "max_tokens": max_tokens, "stream": True,
-        }
-        with _open(f"{GROQ_URL}/chat/completions", payload,
-                   {"Authorization": f"Bearer {GROQ_API_KEY}"}, timeout=120) as resp:
-            for raw in resp:  # SSE: "data: {...}\n"
-                line = raw.decode("utf-8", "ignore").strip()
-                if not line.startswith("data:"):
-                    continue
-                data = line[5:].strip()
-                if data == "[DONE]":
-                    break
-                try:
-                    tok = json.loads(data)["choices"][0]["delta"].get("content")
-                except (json.JSONDecodeError, KeyError, IndexError):
-                    continue
-                if tok:
-                    yield (json.dumps({"message": {"content": tok}}) + "\n").encode("utf-8")
-        yield (json.dumps({"done": True}) + "\n").encode("utf-8")
-        return
-
+def _ollama_stream(messages, temperature, max_tokens, model):
+    m = model or _ollama_pick_model() or OLLAMA_MODEL
     payload = {
-        "model": model or OLLAMA_MODEL, "messages": messages,
-        "stream": True, "keep_alive": "30m",
+        "model": m, "messages": messages, "stream": True, "keep_alive": "30m",
         "options": {"temperature": temperature, "num_predict": max_tokens},
     }
     with _open(f"{OLLAMA_URL}/api/chat", payload) as resp:
         for raw in resp:
             if raw.strip():
                 yield raw if raw.endswith(b"\n") else raw + b"\n"
+
+
+# ─────────────────────────────────────────────────────────────
+#  디스패처 — 순서대로 시도, 실패한 공급자는 60초 건너뜀
+# ─────────────────────────────────────────────────────────────
+_CHAT = {"groq": _groq_chat, "gemini": _gemini_chat, "ollama": _ollama_chat}
+_STREAM = {"groq": _groq_stream, "gemini": _gemini_stream, "ollama": _ollama_stream}
+_bad_until: dict[str, float] = {}
+_last_error: dict[str, str] = {}
+_active: str | None = None
+
+
+def _configured(name: str) -> bool:
+    if name == "groq":
+        return bool(GROQ_API_KEY)
+    if name == "gemini":
+        return bool(GEMINI_API_KEY)
+    if name == "ollama":
+        return _ollama_pick_model() is not None
+    return False
+
+
+def _mark_bad(name: str, err: str, seconds: int = 60) -> None:
+    _bad_until[name] = time.time() + seconds
+    _last_error[name] = err
+
+
+def _usable(name: str) -> bool:
+    return _configured(name) and time.time() >= _bad_until.get(name, 0)
+
+
+def _no_provider_error(errs: list[str]) -> RuntimeError:
+    return RuntimeError(
+        "사용 가능한 LLM이 없습니다 [" + "; ".join(errs or ["설정된 공급자 없음"]) + "] — "
+        "무료 Gemini 키(aistudio.google.com/apikey)를 export GEMINI_API_KEY=... 로 넣거나, "
+        "Ollama 모델을 설치하세요 (ollama pull gemma3:4b)")
+
+
+def provider() -> str:
+    if _active and _usable(_active):
+        return _active
+    return next((n for n in LLM_ORDER if _usable(n)),
+                next((n for n in LLM_ORDER if _configured(n)), "none"))
+
+
+def model_name() -> str:
+    p = provider()
+    return {"groq": GROQ_MODEL, "gemini": GEMINI_MODEL,
+            "ollama": _ollama_pick_model() or OLLAMA_MODEL}.get(p, "-")
+
+
+def chat_once(messages: list[dict], json_mode: bool = False, temperature: float = 0.3,
+              max_tokens: int = 800, model: str | None = None) -> str:
+    """단발 호출 → 응답 텍스트. 공급자 자동 전환."""
+    global _active
+    errs: list[str] = []
+    for name in LLM_ORDER:
+        if not _usable(name):
+            if _configured(name):
+                errs.append(f"{name}: {_last_error.get(name, '일시 제외')}")
+            continue
+        try:
+            out = _CHAT[name](messages, json_mode, temperature, max_tokens, model)
+            _active = name
+            return out
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 403, 404, 429):
+                _mark_bad(name, f"HTTP {e.code}")
+                errs.append(f"{name}: HTTP {e.code}")
+                continue
+            raise
+        except urllib.error.URLError as e:
+            _mark_bad(name, f"연결 실패({getattr(e, 'reason', e)})")
+            errs.append(f"{name}: 연결 실패")
+            continue
+    raise _no_provider_error(errs)
+
+
+def stream_ndjson(messages: list[dict], temperature: float = 0.4,
+                  max_tokens: int = 400, model: str | None = None) -> Iterator[bytes]:
+    """토큰 스트림 (Ollama NDJSON 통일 형식). 첫 청크 전 실패 시 다음 공급자로 전환."""
+    global _active
+    errs: list[str] = []
+    for name in LLM_ORDER:
+        if not _usable(name):
+            if _configured(name):
+                errs.append(f"{name}: {_last_error.get(name, '일시 제외')}")
+            continue
+        try:
+            it = _STREAM[name](messages, temperature, max_tokens, model)
+            first = next(it, None)
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 403, 404, 429):
+                _mark_bad(name, f"HTTP {e.code}")
+                errs.append(f"{name}: HTTP {e.code}")
+                continue
+            raise
+        except urllib.error.URLError as e:
+            _mark_bad(name, f"연결 실패({getattr(e, 'reason', e)})")
+            errs.append(f"{name}: 연결 실패")
+            continue
+        _active = name
+        if first is not None:
+            yield first
+        yield from it
+        return
+    raise _no_provider_error(errs)
+
+
+def probe() -> list[dict]:
+    """각 공급자에 초소형 요청을 보내 실제 사용 가능 여부를 확인 (시작 시 1회)."""
+    results = []
+    for name in LLM_ORDER:
+        if not _configured(name):
+            results.append({"name": name, "state": "미설정",
+                            "detail": {"groq": "GROQ_API_KEY 없음", "gemini": "GEMINI_API_KEY 없음",
+                                       "ollama": "미실행/모델 없음"}.get(name, "")})
+            continue
+        try:
+            _CHAT[name]([{"role": "user", "content": "Reply with OK"}], False, 0.0, 5, None)
+            _bad_until.pop(name, None)
+            results.append({"name": name, "state": "ok", "detail": model_name() if provider() == name else ""})
+        except urllib.error.HTTPError as e:
+            _mark_bad(name, f"HTTP {e.code}")
+            results.append({"name": name, "state": "차단/오류", "detail": f"HTTP {e.code}"})
+        except Exception as e:  # noqa: BLE001
+            _mark_bad(name, str(e)[:80])
+            results.append({"name": name, "state": "연결 실패", "detail": str(e)[:80]})
+    return results
+
+
+_probe_cache: list[dict] = []
+
+
+def probe_cached(refresh: bool = False) -> list[dict]:
+    global _probe_cache
+    if refresh or not _probe_cache:
+        _probe_cache = probe()
+    return _probe_cache
 
 
 def transcribe(audio: bytes, filename: str = "audio.webm",

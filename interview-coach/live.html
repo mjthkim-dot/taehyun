@@ -1098,6 +1098,14 @@ if (!navigator.mediaDevices?.enumerateDevices || !navigator.mediaDevices?.getUse
       if (opt) opt.textContent = '인식: 로컬 Whisper(정확·비실시간)';
       sttGap = 400;                     // 요청 한도 없음 → 배치 간격 최소화
     }
+    // LLM 공급자 상태 — 하나도 안 살아있으면 번역·답변이 불가하므로 미리 경고
+    const llm = Array.isArray(h.llm) ? h.llm : [];
+    if (llm.length && !llm.some(p => p.state === 'ok')) {
+      const why = llm.map(p => `${p.name}: ${p.detail || p.state}`).join(' · ');
+      $('#sum-line').innerHTML =
+        `⚠️ 번역·답변 LLM에 연결할 수 없어요 (${why}) — 무료 Gemini 키를 넣어주세요: ` +
+        `<b>aistudio.google.com/apikey</b> → <b>export GEMINI_API_KEY=...</b> 후 재시작`;
+    }
   } catch { /* /health 실패는 무시 */ }
 })();
 
