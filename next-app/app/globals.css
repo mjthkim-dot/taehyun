@@ -3294,3 +3294,153 @@ body,
 .path-node.current .path-info {
   padding-top: 4px;
 }
+
+/* ── 습관 공학: 프리즈 · 퀘스트 · XP ── */
+.freeze-note {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid #60a5fa;
+  border-radius: var(--radius-sm);
+  padding: 11px 13px;
+  margin-bottom: 14px;
+}
+.mission-freeze-earned {
+  margin-top: 6px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+.quests {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.quests-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.quests-title {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.quests-xp {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.quest-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.quest-row:last-of-type { border-bottom: none; }
+.quest-check {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--border-strong);
+  color: var(--green-dk);
+  background: var(--surface2);
+}
+.quest-row.done .quest-check {
+  background: var(--green-soft);
+  border-color: var(--green);
+}
+.quest-main { flex: 1; min-width: 0; }
+.quest-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.quest-row.done .quest-label { color: var(--text-muted); text-decoration: line-through; }
+.quest-note { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+.quest-bar {
+  height: 5px;
+  background: var(--surface2);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 5px;
+}
+.quest-bar-fill {
+  height: 100%;
+  background: var(--grad-primary);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.quest-meta {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.quest-row.done .quest-meta { color: var(--green-dk); }
+.quests-week {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.qw-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.qw-bar {
+  width: 100%;
+  height: 34px;
+  background: var(--surface2);
+  border-radius: 6px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+.qw-fill {
+  width: 100%;
+  background: var(--border-strong);
+  border-radius: 6px 6px 0 0;
+}
+.qw-fill.today { background: var(--grad-primary); }
+.qw-label { font-size: 0.6rem; font-weight: 700; color: var(--text-muted); }
+.qw-label.today { color: var(--primary-dk); }
+.deep-explain-btn {
+  margin-top: 8px;
+  width: 100%;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  color: var(--primary-dk);
+  cursor: pointer;
+}
+.deep-explain {
+  margin-top: 8px;
+  font-size: 0.76rem;
+  line-height: 1.65;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 11px;
+}

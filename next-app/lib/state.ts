@@ -172,6 +172,13 @@ export function gradeWeakItem(en: string, grade: FlashGrade) {
   const weak = load<WeakItem[]>('va_weak', []);
   const w = weak.find((x) => x.en === en);
   if (!w) return;
+  // 데일리 퀘스트(복습 N개 채점)용 — 오늘 채점한 카드 수를 기록한다.
+  {
+    const t = new Date();
+    const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+    const rv = load<{ date: string; count: number }>('va_review_today', { date: today, count: 0 });
+    store('va_review_today', { date: today, count: rv.date === today ? rv.count + 1 : 1 });
+  }
   const box = w.box || 0;
   if (grade === 'again') {
     if (box > 0) w.lapses = (w.lapses || 0) + 1;

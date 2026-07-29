@@ -86,6 +86,17 @@ check('완료 배너', !!(await page.evaluate(() => document.querySelector('.mis
 const ringAfter = await page.evaluate(() => document.querySelector('svg text')?.textContent);
 check('목표 링 즉시 갱신', ringBefore !== ringAfter, `${ringBefore} → ${ringAfter}`);
 
+// ── 데일리 퀘스트: 3종 렌더 + 미션 완주 반영 + XP 적립 ──
+check('퀘스트 3종 렌더', (await page.evaluate(() => document.querySelectorAll('.quest-row').length)) === 3);
+const missionQuestDone = await page.evaluate(() => {
+  const rows = Array.from(document.querySelectorAll('.quest-row'));
+  const r = rows.find((x) => x.textContent.includes('미션 완주'));
+  return r ? r.classList.contains('done') : false;
+});
+check('미션 완주 퀘스트 달성 반영', missionQuestDone);
+const xpTxt = await page.evaluate(() => document.querySelector('.quests-xp')?.textContent || '');
+check('XP 적립 표시(+50 이상)', /\+\d+ XP/.test(xpTxt) && parseInt(xpTxt.replace(/\D/g, ''), 10) >= 50, xpTxt);
+
 // ── 학습 경로(Path): 노드 렌더 + current 강조 + 탭하면 레슨으로 이동 ──
 check('경로 노드 32개(전 유닛)', (await page.evaluate(() => document.querySelectorAll('.path-node').length)) === 32);
 check('current 노드는 정확히 1개', (await page.evaluate(() => document.querySelectorAll('.path-node.current').length)) === 1);

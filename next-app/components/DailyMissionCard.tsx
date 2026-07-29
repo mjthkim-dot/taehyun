@@ -20,6 +20,7 @@ import {
   type BusinessMission,
 } from '../lib/dailyMission';
 import { getProgress, markStage, isMastered, masteredCount, REQUIRED_MASTERED, SPEAK_PASS_SCORE, type Stage } from '../lib/missionProgress';
+import { recordMissionDay } from '../lib/habits';
 import { GroqError } from '../lib/groq';
 import { SpeakerIcon, PinIcon, CheckIcon, PlayIcon, StopIcon } from './icons';
 import { addPhrase, markPracticedToday, groqKey } from '../lib/state';
@@ -47,6 +48,7 @@ export default function DailyMissionCard({ onNavigate, onProgress }: { onNavigat
   const [aiError, setAiError] = useState('');
   const [canAi, setCanAi] = useState(false);
   const [hasMic, setHasMic] = useState(true);
+  const [earnedFreeze, setEarnedFreeze] = useState(false);
   // 완주 루프 진행 상태 — localStorage(날짜+미션 키)와 동기화
   const [progress, setProgress] = useState<Record<string, Partial<Record<Stage, boolean>>>>({});
 
@@ -116,7 +118,9 @@ export default function DailyMissionCard({ onNavigate, onProgress }: { onNavigat
     markMissionDone();
     markPracticedToday();
     setDone(true);
-    // 홈의 스트릭·오늘 목표 링이 그 자리에서 갱신되게 부모에게 알린다.
+    // 미션 완료일 기록 — 3일마다 스트릭 프리즈 1개 적립(최대 2개).
+    setEarnedFreeze(recordMissionDay());
+    // 홈의 스트릭·목표 링·퀘스트가 그 자리에서 갱신되게 부모에게 알린다.
     onProgress?.();
   }
 
@@ -237,7 +241,10 @@ export default function DailyMissionCard({ onNavigate, onProgress }: { onNavigat
           {canComplete ? '오늘 미션 완료' : `표현 ${REQUIRED_MASTERED}개 완주하면 완료할 수 있어요 (${mastered}/${REQUIRED_MASTERED})`}
         </button>
       ) : (
-        <div className="mission-done-banner">오늘 미션 완료! 내일 새로운 상황으로 만나요.</div>
+        <div className="mission-done-banner">
+          오늘 미션 완료! 내일 새로운 상황으로 만나요.
+          {earnedFreeze && <div className="mission-freeze-earned">❄️ 스트릭 프리즈 1개 적립 — 하루 놓쳐도 연속 기록이 보호돼요.</div>}
+        </div>
       )}
     </div>
   );
