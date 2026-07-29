@@ -25,6 +25,7 @@ export type Mode =
   | 'reminders'
   | 'backup'
   | 'legal'
+  | 'audiocheck'
   | 'business';
 
 const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [

@@ -160,6 +160,11 @@ function speakWithBrowser(text: string, lang: string, rate: number, onend?: () =
     const voice = pickVoice(lang);
     if (voice) u.voice = voice;
     if (onend) u.onend = onend;
+    try {
+      synth.resume(); // Chrome: cancel() 후 paused에 갇히면 speak()가 무음이 된다
+    } catch {
+      /* ignore */
+    }
     synth.speak(u);
   };
   // iOS/WebKit 버그: cancel() 직후 같은 틱에서 speak()하면 새 발화까지 같이 지워져
