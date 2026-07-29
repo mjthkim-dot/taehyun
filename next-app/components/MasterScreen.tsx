@@ -5,10 +5,10 @@
  * 배치고사/숙제 도우미/암기 카드/표현장은 아직 next-app에 없어 기능(features) 탭으로 이동시킨다.
  */
 import { useEffect, useState } from 'react';
-import { MASTER_CURRICULUM } from '../lib/curriculum';
 import { APP_NAME_KO, APP_TAGLINE_KO } from '../lib/brand';
-import { getProfile, calcStreak, todayCount, dueWeak, getLessonStats, groqKey, isPlaced, getPhrases, DAILY_GOAL } from '../lib/state';
+import { getProfile, calcStreak, todayCount, dueWeak, groqKey, isPlaced, getPhrases, DAILY_GOAL } from '../lib/state';
 import DailyMissionCard from './DailyMissionCard';
+import CurriculumPath from './CurriculumPath';
 import type { Mode } from './NavBar';
 
 export default function MasterScreen({
@@ -30,7 +30,6 @@ export default function MasterScreen({
   const streak = calcStreak();
   const done = todayCount();
   const dueCount = dueWeak().length;
-  const stats = getLessonStats();
   const phraseCount = getPhrases().length;
   const goalPct = Math.min(done / DAILY_GOAL, 1);
   const goalReached = done >= DAILY_GOAL;
@@ -151,47 +150,10 @@ export default function MasterScreen({
       </div>
 
       <div style={{ fontSize: '0.82rem', fontWeight: 800, margin: '2px 2px 8px', color: 'var(--text-muted)' }}>
-        레벨별 커리큘럼 (원하면 여기서도 학습)
+        학습 경로 — 다음 한 걸음이 항상 보이게
       </div>
 
-      {MASTER_CURRICULUM.map((lvl) => {
-        const isDone = lvl.status === 'done';
-        const isCurr = lvl.status === 'current';
-        return (
-          <div className={`level-card${isCurr ? ' current' : ''}`} key={lvl.level}>
-            <div className="level-head">
-              <span className={`level-badge${isDone ? ' done' : !isCurr ? ' future' : ''}`}>
-                {isDone ? '✓ 기초' : isCurr ? '▶ 진행중' : '🔜 도전'}
-              </span>
-              <span className="level-name">{lvl.name}</span>
-              <span className="level-cefr">{lvl.cefr}</span>
-            </div>
-            <div className="level-goal">{lvl.goal}</div>
-            {lvl.units.map((u) => {
-              const s = stats[u.lessonId];
-              const pct = s?.attempts ? Math.round((s.correct / s.attempts) * 100) : 0;
-              const icon = s?.attempts ? (pct >= 80 ? '✅' : '📖') : '⬜';
-              return (
-                <div className="unit-row" key={u.lessonId}>
-                  <div className="unit-status">{icon}</div>
-                  <div className="unit-info">
-                    <div className="unit-title">{u.title}</div>
-                    <div className="unit-sub">{u.sub}</div>
-                    {!!s?.attempts && (
-                      <div style={{ height: 3, background: 'var(--surface2)', borderRadius: 2, marginTop: 4, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${pct}%`, background: pct >= 80 ? 'var(--green)' : 'var(--primary)', borderRadius: 2 }} />
-                      </div>
-                    )}
-                  </div>
-                  <button className="unit-go" onClick={() => goToUnit(u.lessonId)}>
-                    {isDone ? '복습' : '시작'}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })}
+      <CurriculumPath onSelectUnit={goToUnit} />
     </div>
   );
 }

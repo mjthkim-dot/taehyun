@@ -3148,3 +3148,149 @@ body,
   cursor: default;
   border-style: dashed;
 }
+
+/* ── 학습 경로(CurriculumPath) — 듀오링고 Path의 Calm Premium 버전 ── */
+.path {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-bottom: 8px;
+}
+.path-level {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.path-level.future {
+  opacity: 0.72;
+}
+.path-level-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.path-level-badge {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: var(--ink);
+  border-radius: 8px;
+  padding: 3px 8px;
+}
+.path-level-name {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.path-level-count {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.path-level-goal {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 4px 0 10px;
+}
+/* 노드들을 잇는 세로 라인 — 트랙 좌측을 따라 흐른다 */
+.path-track {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.path-track::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 14px;
+  bottom: 14px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+.path-node {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 9px 0;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+.path-dot {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface2);
+  border: 2px solid var(--border-strong);
+  color: var(--text-muted);
+  transition: transform 0.15s var(--ease-out-back);
+}
+.path-node:active .path-dot {
+  transform: scale(0.92);
+}
+.path-node.done .path-dot {
+  background: var(--green-soft);
+  border-color: var(--green);
+  color: var(--green-dk);
+}
+.path-node.current .path-dot {
+  width: 40px;
+  height: 40px;
+  flex-basis: 40px;
+  margin-left: -4px;
+  background: var(--grad-primary);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 0 0 5px var(--primary-soft);
+}
+.path-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: 2px;
+}
+.path-here {
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: var(--primary-dk);
+  margin-bottom: 2px;
+}
+.path-title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.35;
+}
+.path-node.todo .path-title {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.path-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 1px;
+  line-height: 1.4;
+}
+.path-pct {
+  color: var(--primary-dk);
+}
+.path-node.current .path-info {
+  padding-top: 4px;
+}

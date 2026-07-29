@@ -86,5 +86,12 @@ check('완료 배너', !!(await page.evaluate(() => document.querySelector('.mis
 const ringAfter = await page.evaluate(() => document.querySelector('svg text')?.textContent);
 check('목표 링 즉시 갱신', ringBefore !== ringAfter, `${ringBefore} → ${ringAfter}`);
 
+// ── 학습 경로(Path): 노드 렌더 + current 강조 + 탭하면 레슨으로 이동 ──
+check('경로 노드 32개(전 유닛)', (await page.evaluate(() => document.querySelectorAll('.path-node').length)) === 32);
+check('current 노드는 정확히 1개', (await page.evaluate(() => document.querySelectorAll('.path-node.current').length)) === 1);
+await page.locator('.path-node.current').click();
+await page.waitForTimeout(500);
+check('경로 노드 탭 → 레슨 화면', (await page.evaluate(() => document.querySelector('.app-header h1')?.textContent)) === '레슨');
+
 await browser.close();
 finish('01-home-mission');
