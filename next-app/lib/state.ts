@@ -98,6 +98,19 @@ export function markPracticedToday() {
   store('va_daycount', counts);
 }
 
+/* ── 발화 카운터(스픽 벤치마크) — '공부한 횟수'가 아니라 '소리 내어 말한 문장 수'를
+ * 1급 지표로 센다. 미션 빌드업·드릴·쉐도잉·역할연습·회화 마이크 발화에서 집계. ── */
+export function spokenToday(): number {
+  const rv = load<{ date: string; count: number }>('va_spoken', { date: '', count: 0 });
+  return rv.date === todayKey() ? rv.count : 0;
+}
+
+export function bumpSpoken() {
+  const today = todayKey();
+  const rv = load<{ date: string; count: number }>('va_spoken', { date: today, count: 0 });
+  store('va_spoken', { date: today, count: rv.date === today ? rv.count + 1 : 1 });
+}
+
 export function todayCount() {
   const counts = load<Record<string, number>>('va_daycount', {});
   return counts[todayKey()] || 0;

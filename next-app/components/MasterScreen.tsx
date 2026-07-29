@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { APP_NAME_KO, APP_TAGLINE_KO } from '../lib/brand';
-import { getProfile, calcStreak, todayCount, dueWeak, groqKey, isPlaced, getPhrases, DAILY_GOAL } from '../lib/state';
+import { getProfile, calcStreak, todayCount, spokenToday, dueWeak, groqKey, isPlaced, getPhrases, DAILY_GOAL } from '../lib/state';
 import DailyMissionCard from './DailyMissionCard';
 import DailyQuests from './DailyQuests';
 import { consumeFreezesForGaps, getFreezeCount } from '../lib/habits';
@@ -37,10 +37,12 @@ export default function MasterScreen({
   const prof = getProfile();
   const streak = calcStreak();
   const done = todayCount();
+  const spoken = spokenToday();
   const dueCount = dueWeak().length;
   const phraseCount = getPhrases().length;
-  const goalPct = Math.min(done / DAILY_GOAL, 1);
-  const goalReached = done >= DAILY_GOAL;
+  // 스픽 벤치마크: '공부 횟수'가 아니라 '소리 내어 말한 문장 수'를 오늘의 1급 지표로.
+  const goalPct = Math.min(spoken / DAILY_GOAL, 1);
+  const goalReached = spoken >= DAILY_GOAL;
   const R = 26;
   const C = 2 * Math.PI * R;
   const off = C * (1 - goalPct);
@@ -95,13 +97,13 @@ export default function MasterScreen({
             style={{ transition: 'stroke-dashoffset 0.5s' }}
           />
           <text x="32" y="37" textAnchor="middle" fontSize="15" fontWeight="800" fill="var(--text)">
-            {goalReached ? '✓' : done}
+            {goalReached ? '✓' : spoken}
           </text>
         </svg>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '0.86rem', fontWeight: 800 }}>{goalReached ? '오늘 목표 달성!' : '오늘의 목표'}</div>
+          <div style={{ fontSize: '0.86rem', fontWeight: 800 }}>{goalReached ? '오늘 목표 달성!' : '오늘 말한 문장'}</div>
           <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: 2 }}>
-            오늘 <b style={{ color: 'var(--text)' }}>{done}</b> / {DAILY_GOAL}문장 연습 · 🔥 {streak}일 연속
+            소리 내어 <b style={{ color: 'var(--text)' }}>{spoken}</b> / {DAILY_GOAL}문장 · 연습 {done}회 · 🔥 {streak}일 연속
           </div>
         </div>
       </div>

@@ -11,6 +11,7 @@
  *   npm i zustand
  */
 import { create } from 'zustand';
+import { bumpSpoken } from '../lib/state';
 
 export interface WordDiff {
   w: string;
@@ -115,6 +116,7 @@ export const useLessonStore = create<LessonState>((set) => ({
 
   evaluateSpeech: (text) =>
     set((state) => {
+      bumpSpoken(); // 발화 1문장 집계(스픽식 지표)
       const { score, diff, missed } = computeAccuracy(state.currentSentence, text);
       return { userSpeech: text, accuracyScore: score, wordDiff: diff, missedWords: missed, attempts: state.attempts + 1 };
     }),

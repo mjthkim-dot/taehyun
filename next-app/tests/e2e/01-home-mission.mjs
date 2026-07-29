@@ -60,17 +60,31 @@ for (let i = 0; i < 3; i++) {
   await page.locator('.deep-recall-yes').click();
   await page.waitForTimeout(150);
   await row.locator('.mission-phrase-main').click(); // 카드 접기
-  // 말하기: 연습 대상을 i번째 문장으로 맞춘 뒤 가짜 발화로 통과
+  // 말하기: 연습 대상을 i번째 문장으로 맞춘다 (빌드업이라 표시 타깃은 구간일 수 있음)
   const target = phraseEns[i];
   for (let guard = 0; guard < 6; guard++) {
+    const full = await page.evaluate(() => document.querySelector('.mission-practice .buildup, .mission-practice')?.textContent || '');
+    // 빌드업의 마지막 구간 = 전체 문장이므로, 현재 연습 문장 판별은 practiceIdx 순환으로
     const cur = await page.evaluate(() => document.querySelector('.mission-practice .target')?.textContent?.trim());
-    if (cur === target) break;
+    if (cur && target.endsWith(cur.replace(/\s+/g, ' '))) break; // 구간은 항상 문장 꼬리
     await page.locator('.mission-mini-next').click();
     await page.waitForTimeout(150);
   }
-  await page.evaluate((t) => { window.__SR_TEXT = t; }, target);
-  await page.locator('.mission-practice .mic').click();
-  await page.waitForTimeout(500);
+  // 빌드업 구간을 차례로 통과: 표시된 타깃을 그대로 말한 것으로 처리(최대 4구간)
+  for (let stage = 0; stage < 4; stage++) {
+    const cur = await page.evaluate(() => document.querySelector('.mission-practice .target')?.textContent?.trim());
+    if (!cur) break;
+    await page.evaluate((t) => { window.__SR_TEXT = t; }, cur);
+    await page.locator('.mission-practice .mic').click();
+    await page.waitForTimeout(1100); // 채점 + 구간 전환(700ms) 대기
+    const spoken = await page.evaluate((en) => {
+      const rows = Array.from(document.querySelectorAll('.mission-phrase'));
+      const r = rows.find((x) => x.textContent.includes(en.slice(0, 24)));
+      const badges = r ? Array.from(r.querySelectorAll('.mission-stages i')) : [];
+      return badges[1] ? badges[1].classList.contains('on') : false;
+    }, target);
+    if (spoken) break;
+  }
 }
 
 const masteredTxt = await page.evaluate(() => document.querySelector('.mission-progress-txt')?.textContent);
@@ -79,12 +93,14 @@ check('완주 3/3 표시', masteredTxt?.includes('3/3') === true, masteredTxt ||
 const unlocked = await page.evaluate(() => document.querySelector('.mission-complete')?.disabled === false);
 check('3개 완주 후 완료 버튼 열림', unlocked);
 
-const ringBefore = await page.evaluate(() => document.querySelector('svg text')?.textContent);
 await page.click('.mission-complete');
 await page.waitForTimeout(300);
 check('완료 배너', !!(await page.evaluate(() => document.querySelector('.mission-done-banner'))));
-const ringAfter = await page.evaluate(() => document.querySelector('svg text')?.textContent);
-check('목표 링 즉시 갱신', ringBefore !== ringAfter, `${ringBefore} → ${ringAfter}`);
+// 발화 카운터(스픽식): 빌드업 발화들이 '오늘 말한 문장'으로 집계돼 링에 반영
+const ringSpoken = await page.evaluate(() => parseInt(document.querySelector('svg text')?.textContent || '0', 10));
+const storedSpoken = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem('va_spoken') || '{}'); return v.count || 0; });
+check('발화 집계 3문장 이상', storedSpoken >= 3, `spoken=${storedSpoken}`);
+check('목표 링 = 발화 수', ringSpoken === storedSpoken, `ring=${ringSpoken} spoken=${storedSpoken}`);
 
 // ── 데일리 퀘스트: 3종 렌더 + 미션 완주 반영 + XP 적립 ──
 check('퀘스트 3종 렌더', (await page.evaluate(() => document.querySelectorAll('.quest-row').length)) === 3);

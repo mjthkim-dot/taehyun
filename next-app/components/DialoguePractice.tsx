@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dialogue } from '../lib/lessons';
 import { computeAccuracy, type WordDiff } from '../store/useLessonStore';
-import { addWeakItem, groqKey, markPracticedToday } from '../lib/state';
+import { addWeakItem, groqKey, markPracticedToday, bumpSpoken } from '../lib/state';
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS, playUrl, SPEAKER_GROQ_VOICE, GROQ_TTS_VOICE } from './SpeakButton';
 import DialogueVariantPicker from './DialogueVariantPicker';
 
@@ -403,6 +403,7 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
       const idx = stepRef.current;
       const line = dialogue.lines[idx];
       const { score, diff } = computeAccuracy(line.en, spoken);
+      bumpSpoken(); // 역할연습 발화 집계
       setResults((prev) => ({ ...prev, [idx]: { score, diff, spoken } }));
       setRevealed((prev) => ({ ...prev, [idx]: true }));
       if (score < ROLEPLAY_PASS) {

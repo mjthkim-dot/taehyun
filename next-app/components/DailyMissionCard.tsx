@@ -26,7 +26,7 @@ import { SpeakerIcon, PinIcon, CheckIcon, PlayIcon, StopIcon } from './icons';
 import { addPhrase, markPracticedToday, groqKey } from '../lib/state';
 import { speakText, stopSpeaking } from './SpeakButton';
 import { playDialogueAudio } from './DialoguePractice';
-import SpeakingPractice from './SpeakingPractice';
+import BuildupPractice from './BuildupPractice';
 import PhraseDeepCard from './PhraseDeepCard';
 import { useLessonStore } from '../store/useLessonStore';
 import type { Mode } from './NavBar';
@@ -208,7 +208,7 @@ export default function DailyMissionCard({ onNavigate, onProgress }: { onNavigat
 
       {/* 2) 말하기 도전 — 통과 점수(60점)를 넘기면 해당 표현의 '말' 단계가 채워진다 */}
       <div className="mission-step-label">
-        ② 말하기 도전 — {SPEAK_PASS_SCORE}점 이상이면 통과
+        ② 빌드업 말하기 — 구간마다 {SPEAK_PASS_SCORE}점 이상이면 다음으로
         {mission.phrases.length > 1 && (
           <button className="mission-mini-next" onClick={() => setPracticeIdx((i) => (i + 1) % mission.phrases.length)}>
             다른 문장 →
@@ -216,7 +216,7 @@ export default function DailyMissionCard({ onNavigate, onProgress }: { onNavigat
         )}
       </div>
       <div className="mission-practice">
-        <SpeakingPractice key={`${mission.key}:${practiceIdx}`} sentence={practicePhrase.en} prompt={practicePhrase.kr} />
+        <BuildupPractice key={`${mission.key}:${practiceIdx}`} sentence={practicePhrase.en} prompt={practicePhrase.kr} />
         {!hasMic && !progress[practicePhrase.en]?.speak && (
           <button className="mission-nomic" onClick={() => mark(practicePhrase.en, 'speak')}>
             마이크를 지원하지 않는 브라우저예요 — 소리 내어 3번 읽었으면 통과 처리

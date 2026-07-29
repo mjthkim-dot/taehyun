@@ -8,7 +8,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { ALL_LESSONS, LESSONS, CEFR_NEXT, cefrOf, type Lesson } from '../lib/lessons';
-import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, store, saveChatLog } from '../lib/state';
+import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, store, saveChatLog, bumpSpoken } from '../lib/state';
 import { groqStream, groqComplete, GroqError } from '../lib/groq';
 import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, parseAiText } from '../lib/talkPrompts';
 import { takeMissionTalkContext, type MissionTalkCtx } from '../lib/dailyMission';
@@ -306,6 +306,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       setInterim(interimTxt);
       if (finalTxt.trim()) {
         gotFinal = true;
+        bumpSpoken(); // 회화 마이크 발화 집계
         setInterim('');
         handleSend(finalTxt.trim());
       }

@@ -3444,3 +3444,40 @@ body,
   border-radius: 10px;
   padding: 9px 11px;
 }
+
+/* ── 문장 빌드업 드릴(BuildupPractice) ── */
+.buildup-steps {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.buildup-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.buildup-step.active {
+  background: var(--grad-primary);
+  border-color: transparent;
+  color: #fff;
+}
+.buildup-step.done {
+  background: var(--green-soft);
+  border-color: var(--green);
+  color: var(--green-dk);
+}
+.buildup-hint {
+  font-size: 0.64rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}

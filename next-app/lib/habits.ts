@@ -10,7 +10,7 @@
  * 퀘스트: 오늘 할 일 3개(미션 완주 · 문장 20개 연습 · 복습 5개)를 기존
  * 데이터로 계산만 한다 — 새 인프라 없음. 달성 시 XP 적립, 주간 XP 그래프.
  */
-import { load, store, dueWeak, todayCount, DAILY_GOAL } from './state';
+import { load, store, dueWeak, spokenToday, DAILY_GOAL } from './state';
 import { isMissionDoneToday } from './dailyMission';
 
 export const FREEZE_MAX = 2;
@@ -115,13 +115,13 @@ export function getQuests(): Quest[] {
   const rv = load<{ date: string; count: number }>('va_review_today', { date: '', count: 0 });
   const reviewCount = rv.date === today ? rv.count : 0;
   const due = dueWeak().length;
-  const practiced = todayCount();
+  const spoken = spokenToday();
   const missionDone = isMissionDoneToday();
   // 복습 카드가 아예 없는 날은 목표가 성립하지 않으므로 자동 달성으로 처리(정직하게 표기)
   const reviewAutoDone = due === 0 && reviewCount === 0;
   return [
     { id: 'mission', label: '오늘의 미션 완주', progress: missionDone ? 1 : 0, goal: 1, done: missionDone, xp: 50 },
-    { id: 'practice', label: `문장 ${DAILY_GOAL}개 연습`, progress: Math.min(practiced, DAILY_GOAL), goal: DAILY_GOAL, done: practiced >= DAILY_GOAL, xp: 30 },
+    { id: 'practice', label: `문장 ${DAILY_GOAL}개 소리 내어 말하기`, progress: Math.min(spoken, DAILY_GOAL), goal: DAILY_GOAL, done: spoken >= DAILY_GOAL, xp: 30 },
     {
       id: 'review',
       label: `복습 카드 ${REVIEW_GOAL}개 채점`,
