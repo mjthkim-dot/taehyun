@@ -14,6 +14,7 @@ import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt,
 import { takeMissionTalkContext, type MissionTalkCtx } from '../lib/dailyMission';
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS } from './SpeakButton';
 import { MicIcon, SendIcon } from './icons';
+import VoiceOverlay, { type VoiceState } from './VoiceOverlay';
 
 interface Correction {
   is_correct: boolean;
@@ -91,6 +92,9 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   const [interim, setInterim] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [micOn, setMicOn] = useState(false);
+  // 보이스 모드(ChatGPT식 음성 대화 오버레이) — 말하면 자동 전송, AI가 답하면 자동 재청취
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [aiSpeaking, setAiSpeaking] = useState(false);
   const [bgCorrectOn, setBgCorrectOn] = useState(true);
   const [cafBusy, setCafBusy] = useState(false);
 
@@ -237,7 +241,11 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       }
       historyRef.current.push({ role: 'assistant', content: fullText });
       updateMsg(aiId, { streaming: false });
-      speak(fullText, maybeResumeHandsFree);
+      setAiSpeaking(true);
+      speak(fullText, () => {
+        setAiSpeaking(false);
+        maybeResumeHandsFree();
+      });
       saveChatLog({
         id: sessionIdRef.current,
         date: new Date().toISOString(),
@@ -368,6 +376,43 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     } else {
       recogRef.current?.stop();
       stopSpeaking();
+    }
+  }
+
+  /** 보이스 모드 시작 — 탭 한 번으로 연속 음성 대화 세션을 연다. */
+  function enterVoiceMode() {
+    if (!getSpeechRecognition()) {
+      setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: '이 브라우저는 음성 인식을 지원하지 않아요. Chrome/Edge를 사용하거나 입력창에 직접 타이핑해주세요.' }]);
+      return;
+    }
+    primeAudio(); // 진입 제스처 안에서 오디오 언락
+    setVoiceMode(true);
+    setMicOn(true);
+    micOnRef.current = true;
+    startListening();
+  }
+
+  function exitVoiceMode() {
+    setVoiceMode(false);
+    micOnRef.current = false;
+    setMicOn(false);
+    recogRef.current?.stop();
+    stopSpeaking();
+    setAiSpeaking(false);
+  }
+
+  /** 오브 탭 — AI가 말하는 중이면 끼어들기(정지 후 바로 듣기), 멈춰 있으면 다시 듣기. */
+  function orbTap() {
+    if (aiSpeaking) {
+      stopSpeaking();
+      setAiSpeaking(false);
+      if (micOnRef.current) startListening();
+      return;
+    }
+    if (!isProcessingRef.current) {
+      micOnRef.current = true;
+      setMicOn(true);
+      startListening();
     }
   }
 
@@ -599,6 +644,20 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
         })}
       </div>
 
+      {voiceMode && (
+        <VoiceOverlay
+          state={(aiSpeaking ? 'speaking' : isProcessing ? 'thinking' : micOn ? 'listening' : 'idle') as VoiceState}
+          interim={interim}
+          lastUser={[...messages].reverse().find((m) => m.kind === 'user')?.kind === 'user' ? ([...messages].reverse().find((m) => m.kind === 'user') as { text: string }).text : ''}
+          lastAi={(() => {
+            const m = [...messages].reverse().find((x) => x.kind === 'ai') as { text?: string } | undefined;
+            return m?.text ? parseAiText(m.text).plain : '';
+          })()}
+          onOrbTap={orbTap}
+          onClose={exitVoiceMode}
+        />
+      )}
+
       <div className="input-area">
         <div className="helper-chips">
           <button className="helper-chip hint" onClick={askForSuggestions} title="AI가 지금 상황에 맞는 영어 답변 예시를 제안해줍니다">
@@ -645,9 +704,9 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
           />
           <button
             className={`round-btn${micOn ? ' listening' : ''}`}
-            onClick={toggleMic}
+            onClick={enterVoiceMode}
             disabled={!micSupported && !micOn}
-            title={micSupported ? '마이크로 말하기 (자동 전송)' : '이 브라우저는 음성 인식을 지원하지 않아요'}
+            title={micSupported ? '음성 대화 시작 — 말하면 자동으로 이어져요' : '이 브라우저는 음성 인식을 지원하지 않아요'}
           >
             <MicIcon />
           </button>

@@ -3481,3 +3481,180 @@ body,
   color: var(--text-muted);
   margin-left: auto;
 }
+
+/* ── 보이스 모드 오버레이(ChatGPT식 음성 대화) ── */
+.voice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background:
+    radial-gradient(60% 46% at 50% 30%, rgba(234, 88, 12, 0.09), transparent 70%),
+    radial-gradient(50% 40% at 50% 90%, rgba(26, 143, 92, 0.06), transparent 72%),
+    var(--bg);
+  animation: overlay-in 0.25s ease-out;
+}
+[data-theme='dark'] .voice-overlay {
+  background:
+    radial-gradient(60% 46% at 50% 30%, rgba(251, 146, 60, 0.1), transparent 70%),
+    radial-gradient(50% 40% at 50% 90%, rgba(52, 211, 153, 0.06), transparent 72%),
+    var(--bg);
+}
+.vo-close {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  right: 16px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.vo-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  width: 100%;
+}
+.vo-orb {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: radial-gradient(circle at 32% 28%, #ffd7bd, #f97316 48%, #c2410c 100%);
+  box-shadow:
+    0 24px 60px -22px rgba(234, 88, 12, 0.55),
+    inset 0 2px 14px rgba(255, 255, 255, 0.5);
+}
+[data-theme='dark'] .vo-orb {
+  background: radial-gradient(circle at 32% 28%, #ffedd5, #fb923c 46%, #9a3412 100%);
+  box-shadow: 0 24px 60px -22px rgba(251, 146, 60, 0.4), inset 0 2px 12px rgba(255, 255, 255, 0.28);
+}
+.vo-orb-core {
+  position: absolute;
+  inset: 26%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.12) 70%);
+  filter: blur(1px);
+}
+/* 듣는 중 — 숨쉬듯 맥동 + 링 */
+.vo-orb.listening {
+  animation: vo-breathe 2.4s ease-in-out infinite;
+}
+.vo-orb.listening::before,
+.vo-orb.listening::after {
+  content: '';
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  border: 2px solid rgba(234, 88, 12, 0.35);
+  animation: vo-ring 2.4s ease-out infinite;
+}
+.vo-orb.listening::after {
+  animation-delay: 1.2s;
+}
+/* 생각 중 — 천천히 회전하는 하이라이트 */
+.vo-orb.thinking {
+  animation: vo-spin 2.6s linear infinite;
+  filter: saturate(0.75) brightness(1.02);
+}
+/* 말하는 중 — 파동 링 확산 */
+.vo-orb.speaking::before,
+.vo-orb.speaking::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 3px solid rgba(234, 88, 12, 0.45);
+  animation: vo-wave 1.4s ease-out infinite;
+}
+.vo-orb.speaking::after {
+  animation-delay: 0.7s;
+}
+.vo-orb.idle {
+  filter: grayscale(0.4) brightness(0.96);
+}
+@keyframes vo-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.07); }
+}
+@keyframes vo-ring {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+@keyframes vo-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes vo-wave {
+  0% { transform: scale(1); opacity: 0.75; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+.vo-status {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.vo-transcript {
+  width: 100%;
+  max-width: 560px;
+  padding: 0 28px;
+  min-height: 110px;
+  text-align: center;
+}
+.vo-interim {
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.55;
+}
+.vo-ai {
+  font-size: 0.94rem;
+  color: var(--text);
+  line-height: 1.6;
+  max-height: 130px;
+  overflow: hidden;
+}
+.vo-user {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.vo-foot {
+  padding: 0 0 calc(env(safe-area-inset-bottom, 0px) + 26px);
+}
+.vo-keyboard {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 10px 18px;
+  cursor: pointer;
+}
+
+/* ── 회화 버블 순화 — 딱딱함 완화 ── */
+.bubble {
+  border-radius: 20px !important;
+}
+.msg.ai .bubble {
+  border: none;
+  box-shadow: var(--shadow-press);
+}
+.msg.user .bubble {
+  border-bottom-right-radius: 6px !important;
+}
+.msg.ai .bubble {
+  border-bottom-left-radius: 6px !important;
+}
