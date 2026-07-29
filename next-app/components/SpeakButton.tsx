@@ -268,8 +268,39 @@ export function playUrl(url: string, rate: number, onended?: () => void): Promis
 }
 
 /**
- * 한 문장 재생. voice: Groq 보이스 이름(대화문 화자별로 다르게 줄 때).
+ * Groq Orpheus는 요청당 입력이 200자로 제한된다 — 이를 넘는 텍스트는 문장 →
+ * 쉼표 → 공백 순으로 잘라 순차 재생한다. 그동안 200자를 넘는 요청은 조용히
+ * 400으로 실패해 브라우저 폴백(기기에 따라 무음)으로 떨어졌다 — "음성이 안
+ * 나온다"의 핵심 원인.
+ */
+const TTS_MAX_CHARS = 180; // 감정 태그([cheerful] 등) 여유분 포함 200자 안쪽
+
+export function splitForTTS(text: string, max = TTS_MAX_CHARS): string[] {
+  const sentences = String(text).split(/(?<=[.!?])\s+/).filter(Boolean);
+  const out: string[] = [];
+  for (const s of sentences) {
+    if (s.length <= max) {
+      out.push(s);
+      continue;
+    }
+    let rest = s;
+    while (rest.length > max) {
+      let cut = rest.lastIndexOf(', ', max);
+      if (cut < 40) cut = rest.lastIndexOf(' ', max);
+      if (cut < 40) cut = max;
+      out.push(rest.slice(0, cut + 1).trim());
+      rest = rest.slice(cut + 1).replace(/^[,\s]+/, '');
+    }
+    if (rest) out.push(rest);
+  }
+  return out.length ? out : [String(text)];
+}
+
+/**
+ * 텍스트 재생. voice: Groq 보이스 이름(대화문 화자별로 다르게 줄 때).
  * 키가 있으면 Groq 신경망 음성, 없거나 실패하면 브라우저 음성.
+ * 긴 텍스트는 자동으로 조각내 순차 재생하고(다음 조각은 미리 받아 끊김 최소화),
+ * onend는 마지막 조각이 끝난 뒤 한 번만 호출된다.
  */
 export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => void, voice?: string, opts?: { tagless?: boolean }) {
   primeAudio(); // 제스처 안에서 동기 언락
@@ -277,14 +308,26 @@ export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => 
     speakWithBrowser(text, lang, rate, onend);
     return;
   }
-  // 한 번 합성한 음성을 재생 단계에서 rate로 조절(음높이 유지) — 느리게 들어도 자연스럽다.
-  fetchGroqTTS(text, voice || GROQ_TTS_VOICE, opts).then((url) => {
-    if (url) {
-      playUrl(url, rate, onend).catch(() => speakWithBrowser(text, lang, rate, onend));
-    } else {
-      speakWithBrowser(text, lang, rate, onend);
+  const chunks = splitForTTS(text);
+  const v = voice || GROQ_TTS_VOICE;
+  let i = 0;
+  const step = () => {
+    if (i >= chunks.length) {
+      onend?.();
+      return;
     }
-  });
+    const idx = i++;
+    if (idx + 1 < chunks.length) fetchGroqTTS(chunks[idx + 1], v, opts).catch(() => {});
+    // 한 번 합성한 음성을 재생 단계에서 rate로 조절(음높이 유지) — 느리게 들어도 자연스럽다.
+    fetchGroqTTS(chunks[idx], v, opts).then((url) => {
+      if (url) {
+        playUrl(url, rate, step).catch(() => speakWithBrowser(chunks[idx], lang, rate, step));
+      } else {
+        speakWithBrowser(chunks[idx], lang, rate, step);
+      }
+    });
+  };
+  step();
 }
 
 /** 진행 중인 모든 음성(Groq 오디오 + 브라우저 합성)을 멈춘다. */

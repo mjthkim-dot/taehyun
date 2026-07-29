@@ -14,9 +14,14 @@ import { rateLimit, clientIp, tooManyRequests } from '../../../lib/rateLimit';
 const TTS_MODEL = 'canopylabs/orpheus-v1-english';
 const DEFAULT_VOICE = 'austin';
 
-/* ── 남용 방어(상용화 Phase 0) — TTS는 호출당 원가가 가장 커서 더 엄격하게 ── */
-const RATE_LIMIT_PER_MIN = 20;
-const MAX_TEXT_CHARS = 600;
+/* ── 남용 방어(상용화 Phase 0) ──
+ * rate limit: 정상 사용도 버스트가 크다 — 대화문 전체 재생(10줄) + 다음 줄
+ * 프리페치 + 문장 분할 재생이 겹치면 분당 20을 훌쩍 넘어, 우리가 만든 제한이
+ * 우리 재생을 429로 죽였다("음성이 안 나온다"의 공범). 60/분으로 완화.
+ * MAX_TEXT_CHARS: Groq Orpheus는 요청당 200자 제한 — 초과분은 어차피 400이므로
+ * 서버 한도도 여기에 정렬한다(클라이언트는 180자 기준으로 미리 분할). */
+const RATE_LIMIT_PER_MIN = 60;
+const MAX_TEXT_CHARS = 220;
 
 export async function POST(req: NextRequest) {
   if (!rateLimit(`tts:${clientIp(req.headers)}`, RATE_LIMIT_PER_MIN, 60_000)) {
