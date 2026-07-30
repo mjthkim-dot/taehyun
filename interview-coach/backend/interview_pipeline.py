@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+import math
 import random
 import re
 from pathlib import Path
@@ -32,6 +33,7 @@ STORY_PATH = DATA_DIR / "my_story.md"
 ANSWERS_PATH = DATA_DIR / "my_answers.json"          # 사전 생성 맞춤 답변셋 (개인 데이터 — 커밋 금지)
 TARGET_PATH = DATA_DIR / "my_target.md"              # 🎯 타겟 회사 JD/정보
 TARGET_Q_PATH = DATA_DIR / "my_target_questions.json"  # JD 기반 예상 질문 (생성물 — 커밋 금지)
+INDEX_PATH = DATA_DIR / "kb_index.json"              # 🔎 검색 인덱스 (생성물 — 커밋 금지)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -229,19 +231,83 @@ def _norm_words(text: str) -> set[str]:
     return {w for w in _WORD_RE.findall(text.lower()) if len(w) > 2 and w not in _STOPWORDS}
 
 
-def _keyword_stories(query: str, k: int = 2) -> list[str]:
-    words = _norm_words(query)
-    scored: list[tuple[int, str]] = []
-    for chunk in _story_chunks():
-        score = sum(1 for w in words if w in chunk.lower())
-        if score:
-            scored.append((score, chunk))
+# ─────────────────────────────────────────────────────────────
+#  🔎 검색 인덱스 (kb_index.json) — ⚡ 사전 생성 때 만들어진다:
+#   · 스토리(한국어)마다 영어 태그/예상질문/요약 → 영어 질문과의 언어 불일치 해결
+#   · 은행 질문마다 패러프레이즈 → 어휘가 달라도 캐시 매칭
+#   · bge-m3 임베딩(설치 시) → 의미 검색. 없으면 키워드만으로 동작
+# ─────────────────────────────────────────────────────────────
+_index_cache: tuple[float, dict] = (-1.0, {})
+
+
+def _load_index() -> dict:
+    global _index_cache
+    try:
+        mtime = INDEX_PATH.stat().st_mtime
+    except OSError:
+        return {}
+    if _index_cache[0] == mtime:
+        return _index_cache[1]
+    try:
+        data = json.loads(INDEX_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        data = {}
+    _index_cache = (mtime, data)
+    return data
+
+
+def _story_title(chunk: str) -> str:
+    first = chunk.splitlines()[0].strip()
+    return first[3:].strip() if first.startswith("## ") else first[:40]
+
+
+def _cos(a: list[float] | None, b: list[float] | None) -> float:
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = sum(x * y for x, y in zip(a, b))
+    na, nb = math.sqrt(sum(x * x for x in a)), math.sqrt(sum(x * x for x in b))
+    return dot / (na * nb) if na and nb else 0.0
+
+
+def _query_vec(text: str) -> list[float] | None:
+    vecs = llm.embed([text])
+    return vecs[0] if vecs else None
+
+
+def _retrieve_stories(query: str, k: int = 2,
+                      exclude: set[str] | None = None) -> list[tuple[str, str]]:
+    """하이브리드 스토리 검색 → [(제목, 본문)]. 점수 = 키워드(원문+영어 인덱스) + 임베딩.
+    exclude: 이번 세션에서 이미 쓴 스토리 제목 — 같은 사례 반복 방지 (부족하면 재사용 허용)."""
+    chunks = _story_chunks()
+    if not chunks:
+        return []
+    idx = {e.get("title", ""): e for e in _load_index().get("stories", [])}
+    qw = _norm_words(query)
+    qv = _query_vec(query)
+    scored: list[tuple[float, str, str]] = []
+    for chunk in chunks:
+        title = _story_title(chunk)
+        e = idx.get(title, {})
+        hay = " ".join([chunk, e.get("summary_en", ""),
+                        " ".join(e.get("tags_en", [])),
+                        " ".join(e.get("paraphrases_en", []))]).lower()
+        kw = sum(1 for w in qw if w in hay) / max(len(qw), 1)
+        cos = _cos(qv, e.get("vec"))
+        score = 0.5 * kw + 0.5 * cos if (kw and cos) else max(kw, cos)
+        scored.append((score, title, chunk))
     scored.sort(key=lambda t: -t[0])
-    picked = [c for _, c in scored[:k]]
-    # 매칭이 없으면 첫 사례라도 넣어 개인화 유지
-    if not picked:
-        picked = _story_chunks()[:1]
+    fresh = [(t, c) for s, t, c in scored if s > 0 and t not in (exclude or set())]
+    picked = fresh[:k]
+    if len(picked) < k:  # 새 사례가 부족하면 이미 쓴 것 중 점수순으로 보충
+        used = [(t, c) for s, t, c in scored if (t, c) not in picked and s > 0]
+        picked += used[:k - len(picked)]
+    if not picked:  # 매칭이 전혀 없으면 첫 사례라도 넣어 개인화 유지
+        picked = [(_story_title(chunks[0]), chunks[0])]
     return picked
+
+
+def _keyword_stories(query: str, k: int = 2) -> list[str]:
+    return [c for _, c in _retrieve_stories(query, k)]
 
 
 def _keyword_phrases(query: str, k: int = 6) -> list[dict]:
@@ -273,6 +339,10 @@ def status() -> dict[str, Any]:
         "profile_exists": PROFILE_PATH.exists(),
         "story_chunks": len(_story_chunks()),
         "prepared_answers": len(_load_answers()),
+        "index_stories": len(_load_index().get("stories", [])),
+        "index_questions": len(_load_index().get("questions", {})),
+        "index_embeddings": bool(_load_index().get("embed_model")),
+        "embed_ready": llm.embed_available(),
         "target_set": bool(_target_text()),
         "target_questions": len(_load_target_questions()),
         "provider": llm.provider(),
@@ -340,12 +410,114 @@ Return ONLY valid JSON:
 }}"""
 
 
-def build_my_answers(model: str | None = None, cefr: str = "B1") -> dict[str, Any]:
-    """질문 은행 전체에 대해 맞춤 답변을 생성해 my_answers.json에 저장 (문항당 1~2초, Groq 기준)."""
+def _index_story_prompt(chunk: str) -> str:
+    return f"""Below is one story/experience from a Korean job candidate's personal knowledge
+base (IT sales, cloud/SaaS). Index it for retrieval during a live ENGLISH interview:
+the incoming queries will be English interviewer questions.
+
+Story (Korean):
+\"\"\"{chunk}\"\"\"
+
+Return ONLY valid JSON:
+{{"summary_en": "1-2 sentence English summary of what this story demonstrates",
+  "tags_en": ["6-10 short English keywords/phrases an interviewer's question about this story would contain"],
+  "paraphrases_en": ["4-6 realistic English interview questions this story would be a great answer to"]}}"""
+
+
+def _index_questions_prompt(batch: list[dict]) -> str:
+    listed = "\n".join(f'- {q["id"]}: "{q["en"]}"' for q in batch)
+    return f"""For each interview question below, generate English PARAPHRASES — different
+wordings a real interviewer might use for the SAME question — plus short retrieval tags.
+
+Questions:
+{listed}
+
+Return ONLY valid JSON mapping each id to its index entry:
+{{"<id>": {{"paraphrases_en": ["3 realistic alternative wordings"],
+            "tags_en": ["3-4 short English keywords"]}}}}"""
+
+
+def _story_embed_text(e: dict) -> str:
+    return " ".join([e.get("title", ""), e.get("summary_en", ""),
+                     " ".join(e.get("tags_en", [])), " ".join(e.get("paraphrases_en", []))])
+
+
+def build_kb_index(model: str | None = None) -> dict:
+    """🔎 검색 인덱스 생성 — 스토리 영어 태그화 + 질문 패러프레이즈 + (가능하면) 임베딩.
+    ⚡ 사전 생성(build_my_answers)의 첫 단계로 실행된다. 항목별 실패는 건너뛴다."""
+    idx: dict = {"stories": [], "questions": {}}
+
+    for chunk in _story_chunks():
+        title = _story_title(chunk)
+        _prep_state["current"] = f"🔎 인덱스: {title}"
+        entry = {"title": title}
+        try:
+            content = json.loads(llm.chat_once(
+                [{"role": "user", "content": _index_story_prompt(chunk)}],
+                json_mode=True, temperature=0.2, max_tokens=500, model=model))
+            entry.update(
+                summary_en=str(content.get("summary_en", "")).strip(),
+                tags_en=[str(t).strip() for t in (content.get("tags_en") or [])[:10]],
+                paraphrases_en=[str(p).strip() for p in (content.get("paraphrases_en") or [])[:6]])
+        except Exception:  # noqa: BLE001 — 실패한 스토리는 키워드 검색으로만 커버
+            pass
+        idx["stories"].append(entry)
+        _prep_state["done"] += 1
+
     questions = _load_bank().get("questions", [])
-    _prep_state.update(running=True, done=0, total=len(questions), current="", error=None)
+    for i in range(0, len(questions), 8):
+        batch = questions[i:i + 8]
+        _prep_state["current"] = f"🔎 인덱스: 질문 패러프레이즈 {i + 1}~{i + len(batch)}"
+        try:
+            content = json.loads(llm.chat_once(
+                [{"role": "user", "content": _index_questions_prompt(batch)}],
+                json_mode=True, temperature=0.3, max_tokens=1200, model=model))
+            for q in batch:
+                e = content.get(q["id"]) or {}
+                idx["questions"][q["id"]] = {
+                    "paraphrases_en": [str(p).strip() for p in (e.get("paraphrases_en") or [])[:4]],
+                    "tags_en": [str(t).strip() for t in (e.get("tags_en") or [])[:4]]}
+        except Exception:  # noqa: BLE001
+            pass
+        _prep_state["done"] += 1
+
+    # 임베딩 (bge-m3 설치 시) — 인덱스가 영어라 질문 벡터와 같은 언어 공간에서 비교된다
+    if llm.embed_available():
+        _prep_state["current"] = "🔎 인덱스: 임베딩 계산 중"
+        svecs = llm.embed([_story_embed_text(e) for e in idx["stories"]]) or []
+        for e, v in zip(idx["stories"], svecs):
+            e["vec"] = v
+        qids = list(idx["questions"])
+        qtexts = []
+        by_id = {q["id"]: q for q in questions}
+        for qid in qids:
+            base = by_id.get(qid, {}).get("en", "")
+            qtexts.append(" ".join([base] + idx["questions"][qid].get("paraphrases_en", [])))
+        qvecs = llm.embed(qtexts) or []
+        for qid, v in zip(qids, qvecs):
+            idx["questions"][qid]["vec"] = v
+        idx["embed_model"] = llm.EMBED_MODEL
+
+    INDEX_PATH.write_text(json.dumps(idx, ensure_ascii=False), encoding="utf-8")
+    return idx
+
+
+def _index_steps() -> int:
+    q = len(_load_bank().get("questions", []))
+    return len(_story_chunks()) + (q + 7) // 8
+
+
+def build_my_answers(model: str | None = None, cefr: str = "B1") -> dict[str, Any]:
+    """⚡ 사전 생성 = ① 검색 인덱스 빌드 + ② 질문 은행 전체 맞춤 답변 생성."""
+    questions = _load_bank().get("questions", [])
+    _prep_state.update(running=True, done=0,
+                       total=len(questions) + _index_steps(), current="", error=None)
     answers = _load_answers()
     try:
+        try:
+            build_kb_index(model)
+        except Exception as e:  # noqa: BLE001 — 인덱스 실패해도 답변 생성은 계속
+            print(f"  ⚠️ 인덱스 생성 실패 (키워드 검색으로 동작): {e}")
         for q in questions:
             _prep_state["current"] = q["en"]
             content = json.loads(llm.chat_once(
@@ -370,30 +542,43 @@ def build_my_answers(model: str | None = None, cefr: str = "B1") -> dict[str, An
     return prep_status()
 
 
+def _kw_score(qw: set[str], text: str) -> float:
+    """키워드 겹침 비율. 짧은 질문(내용어 1개)은 완전 일치만 인정(오탐 방지)."""
+    bw = _norm_words(text)
+    if not bw:
+        return 0.0
+    inter = len(qw & bw)
+    small = min(len(qw), len(bw))
+    if small <= 1:
+        return 1.0 if qw == bw else 0.0
+    return inter / small if inter >= 2 else 0.0
+
+
 def cached_answer(question_text: str) -> dict | None:
-    """라이브에서 감지된 질문 ↔ 미리 만든 답변 매칭 (키워드 겹침 비율).
-    짧은 질문("Tell me about yourself" 등)은 불용어 제거 후 단어가 1개만 남으므로
-    그 경우엔 단어 집합이 완전히 같을 때만 매칭한다(오탐 방지)."""
+    """라이브에서 감지된 질문 ↔ 미리 만든 답변 매칭.
+    원문뿐 아니라 인덱스의 패러프레이즈와도 키워드 매칭하고(어휘가 달라도 히트),
+    임베딩이 있으면 의미 유사도(cos ≥ 0.78)로도 히트시킨다."""
     answers = _load_answers()
     if not answers:
         return None
     qw = _norm_words(question_text)
     if not qw:
         return None
+    qidx = _load_index().get("questions", {})
+    qv = _query_vec(question_text)
     best, best_score = None, 0.0
-    for entry in answers.values():
-        bw = _norm_words(entry.get("question_en", ""))
-        if not bw:
-            continue
-        inter = len(qw & bw)
-        small = min(len(qw), len(bw))
-        if small <= 1:
-            score = 1.0 if qw == bw else 0.0
-        else:
-            score = inter / small if inter >= 2 else 0.0
-        if score > best_score:
+    for qid, entry in answers.items():
+        e = qidx.get(qid, {})
+        texts = [entry.get("question_en", "")] + e.get("paraphrases_en", [])
+        kw = max((_kw_score(qw, t) for t in texts if t), default=0.0)
+        cos = _cos(qv, e.get("vec"))
+        hit = kw >= 0.6 or cos >= 0.78
+        score = max(kw, cos)
+        if hit and score > best_score:
             best, best_score = entry, score
-    return best if best_score >= 0.6 else None
+    if best is not None:
+        _live_session["last_question"] = question_text  # 캐시 히트도 꼬리 질문의 기준점이 된다
+    return best
 
 
 # ─────────────────────────────────────────────────────────────
@@ -549,6 +734,32 @@ def feedback(question: str, transcript: str, cefr: str = "B1",
 #  🔴 라이브 모드 — 실전 화상 면접 중 실시간 답변 제안 / 세션 요약
 #  (스트리밍 출력용 프롬프트만 만들고, 실제 스트리밍은 서버가 프록시)
 # ─────────────────────────────────────────────────────────────
+# ── 세션 맥락 (③) — 사용한 스토리 기록 + 꼬리 질문 연결 ──
+# 로컬 단일 사용자 앱이라 서버 메모리에 세션 하나만 유지한다.
+_live_session: dict[str, Any] = {"used_stories": [], "last_question": ""}
+
+_FOLLOWUP_RE = re.compile(
+    r"^(why|how come|and |what about|really|so |in what way|can you (elaborate|expand"
+    r"|give|walk)|could you (elaborate|expand|give|walk)|tell me more|anything else"
+    r"|for (example|instance)|such as|like what|go on)", re.I)
+
+
+def live_session_reset() -> None:
+    _live_session["used_stories"] = []
+    _live_session["last_question"] = ""
+
+
+def _resolve_followup(question: str) -> tuple[str, str]:
+    """짧거나 지시어로 시작하는 발화는 직전 질문의 꼬리 질문으로 보고
+    검색 쿼리를 직전 질문과 합친다. → (검색용 쿼리, 꼬리질문이면 원 질문)."""
+    last = _live_session["last_question"]
+    is_followup = bool(last) and last != question and (
+        len(_norm_words(question)) <= 3 or _FOLLOWUP_RE.match(question.strip()))
+    if is_followup:
+        return f"{last} {question}", last
+    return question, ""
+
+
 # 퀵 액션 의도 — Smooth AI의 동의하기/반박하기/질문하기/제안하기 벤치마킹
 INTENT_GOALS = {
     "answer": "Directly answer what the interviewer just said/asked.",
@@ -571,7 +782,29 @@ def build_live_suggest_prompt(question: str, cefr: str = "B1", context: str = ""
     profile_lines = "\n".join(f"- {r['text']}" for r in refs["profile"]) or "- (none)"
     phrase_lines = "\n".join(f'- "{r["en"]}"' for r in refs["phrases"] if r.get("en")) or "- (none)"
     goal = INTENT_GOALS.get(intent, INTENT_GOALS["answer"])
-    story_lines = "\n\n".join(s[:450] for s in _keyword_stories(question, k=2)) or "(없음)"
+
+    # ③ 세션 맥락: 꼬리 질문이면 직전 질문을 합쳐 검색하고, 이미 쓴 스토리는 제외
+    search_q, followup_of = _resolve_followup(question)
+    used = set(_live_session["used_stories"])
+    picked = _retrieve_stories(search_q, k=2, exclude=used)
+    story_lines = "\n\n".join(c[:450] for _, c in picked) or "(없음)"
+    for title, _ in picked:
+        if title not in _live_session["used_stories"]:
+            _live_session["used_stories"].append(title)
+    if not followup_of:
+        _live_session["last_question"] = question
+
+    followup_block = (
+        f'\nThis is a FOLLOW-UP to the earlier question: "{followup_of}" — continue that'
+        " thread (go one layer deeper: the result, a number, or what was learned)"
+        " instead of restarting the topic.\n" if followup_of else "")
+    used_block = (
+        "\nStories the candidate ALREADY TOLD earlier in this interview — do not"
+        " re-tell one as the main example; if relevant, build on it in one clause"
+        " (\"like the migration case I mentioned\"): "
+        + ", ".join(t for t in _live_session["used_stories"]
+                    if t not in {p[0] for p in picked}) + "\n"
+        if len(_live_session["used_stories"]) > len(picked) else "")
     context_block = (
         "\nRecent conversation transcript (interviewer and candidate mixed; use it to"
         f" resolve what a follow-up refers to):\n\"\"\"{context}\"\"\"\n"
@@ -582,7 +815,7 @@ def build_live_suggest_prompt(question: str, cefr: str = "B1", context: str = ""
     return f"""You are a real-time interview copilot for a Korean candidate who is IN A LIVE
 English video interview for an IT sales (cloud/SaaS) position RIGHT NOW.
 Speed matters — the candidate is waiting to speak.
-{context_block}
+{context_block}{followup_block}{used_block}
 The interviewer just said:
 
 "{question}"

@@ -924,6 +924,7 @@ function stopListening() {
 
 async function startListening() {
   stopMonitor();   // 테스트 중이면 장치를 놓아줘야 실제 캡처가 열린다
+  fetch('/api/live/reset', { method: 'POST' }).catch(() => {});  // 세션 맥락(사용한 스토리·직전 질문) 초기화
 
   // 🆓 브라우저 무료 엔진 — 시스템 기본 입력(BlackHole 권장)에서 면접관 인식
   if (($('#sttengine')?.value || 'web') === 'web') {
@@ -978,6 +979,7 @@ $('#btn-listen').addEventListener('click', () => isListening() ? stopListening()
 
 // ── ⏹ 세션 종료 → 📋 사후 리포트 (기록은 리포트 확인 후 지움) ──
 function resetSession() {
+  fetch('/api/live/reset', { method: 'POST' }).catch(() => {});
   log.length = 0; uttCount = 0;
   feed.innerHTML = '<div class="empty" id="feed-empty"><div class="big">🎧</div>▶ 버튼을 누르면 대화가 실시간 자막 + 한국어 번역으로 표시되고<br>질문이 감지되면 답변 카드가 자동으로 뜹니다</div>';
   $('#card').style.display = 'none';

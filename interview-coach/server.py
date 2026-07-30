@@ -277,6 +277,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 ], temperature=0.3, max_tokens=300, model=req.get("model"))
                 return
 
+            # 세션 맥락 초기화 — ▶ 듣기 시작/🗑 초기화 때 프런트가 호출
+            if path == "/api/live/reset":
+                interview_pipeline.live_session_reset()
+                self._send_json(200, {"reset": True})
+                return
+
             if self.path == "/api/live/suggest":
                 req = json.loads(body or b"{}")
                 prompt = interview_pipeline.build_live_suggest_prompt(

@@ -7,3 +7,4 @@ backend/data/my_answers.json
 # 🎯 타겟 회사 데이터 — 개인 데이터/생성물이므로 커밋하지 않음
 backend/data/my_target.md
 backend/data/my_target_questions.json
+backend/data/kb_index.json

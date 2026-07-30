@@ -41,6 +41,9 @@ GEMINI_URL = os.environ.get("GEMINI_URL", "https://generativelanguage.googleapis
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 # 폴백용 로컬 모델 — 한국어 자연스러움이 소형 오픈소스 중 최상위 + 16GB에서 여유(Q4 ≈ 5GB)
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:8b")
+# 검색용 임베딩 — 한·영 교차 검색에 강한 오픈소스 (설치: ollama pull bge-m3, ~1GB)
+# 없으면 키워드 검색으로 자동 폴백되므로 필수는 아니다.
+EMBED_MODEL = os.environ.get("EMBED_MODEL", "bge-m3")
 LLM_ORDER = [p.strip() for p in
              os.environ.get("LLM_ORDER", "groq,cerebras,gemini,ollama").split(",") if p.strip()]
 
@@ -364,6 +367,40 @@ def probe_cached(refresh: bool = False) -> list[dict]:
     if refresh or not _probe_cache:
         _probe_cache = probe()
     return _probe_cache
+
+
+# ── 🔎 로컬 임베딩 (Ollama /api/embed) — 날리지베이스 의미 검색용 ──
+_embed_ok_cache: tuple[float, bool] = (0.0, False)
+
+
+def embed_available() -> bool:
+    """EMBED_MODEL이 Ollama에 설치돼 있는지 (60초 캐시). 없으면 키워드 검색 폴백."""
+    global _embed_ok_cache
+    ts, ok = _embed_ok_cache
+    if time.time() - ts < 60:
+        return ok
+    ok = False
+    try:
+        with urllib.request.urlopen(f"{OLLAMA_URL}/api/tags", timeout=2) as r:
+            names = [m["name"] for m in json.loads(r.read()).get("models", [])]
+        ok = any(n.startswith(EMBED_MODEL) for n in names)
+    except Exception:  # noqa: BLE001
+        ok = False
+    _embed_ok_cache = (time.time(), ok)
+    return ok
+
+
+def embed(texts: list[str]) -> list[list[float]] | None:
+    """텍스트들 → 임베딩 벡터 (로컬 bge-m3, 한·영 교차). 불가하면 None."""
+    if not texts or not embed_available():
+        return None
+    try:
+        with _open(f"{OLLAMA_URL}/api/embed",
+                   {"model": EMBED_MODEL, "input": texts}, timeout=60) as r:
+            vecs = json.loads(r.read()).get("embeddings")
+        return vecs if vecs and len(vecs) == len(texts) else None
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def transcribe(audio: bytes, filename: str = "audio.webm",
