@@ -35,6 +35,31 @@ export default function AudioCheckScreen() {
 
     primeAudio(); // 진단 시작 탭(제스처) 안에서 오디오 언락 — 실제 사용 조건과 동일
 
+    // 0) 장치 출력 비프 — 네트워크·TTS와 무관한 순수 출력 테스트.
+    //    이 소리조차 안 들리면 앱 문제가 아니라 기기 음소거/무음 스위치/볼륨 문제다.
+    try {
+      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (Ctx) {
+        const ctx = new Ctx();
+        await ctx.resume();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        gain.gain.value = 0.12;
+        osc.frequency.value = 880;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        await new Promise((r) => setTimeout(r, 350));
+        osc.stop();
+        await ctx.close();
+        push({ name: '장치 출력(비프)', ok: true, detail: '0.35초 비프 재생 시도 — 방금 삐 소리가 안 들렸다면 기기 음소거/무음 스위치(iPhone 측면)/미디어 볼륨 문제입니다' });
+      } else {
+        push({ name: '장치 출력(비프)', ok: null, detail: 'WebAudio 미지원 — 건너뜀' });
+      }
+    } catch (e) {
+      push({ name: '장치 출력(비프)', ok: false, detail: `비프 실패: ${(e as Error).message}` });
+    }
+
     // 1) 환경
     try {
       const nav = navigator as Navigator & { standalone?: boolean };
@@ -71,6 +96,24 @@ export default function AudioCheckScreen() {
           ? '서버 키 있음'
           : '키 없음 — 신경망 음성을 쓸 수 없어요(회화 탭에서 무료 키 등록)',
     });
+
+    // 2.5) 서버→Groq 실연결 — 서버 키로 Groq에 초소형 합성을 직접 시도해
+    //      키 등급/모델 접근 문제를 서버 관점에서 분리 판정한다.
+    try {
+      const r = await fetch('/app/api/tts');
+      const j = await r.json();
+      if (j.ok) {
+        push({ name: '서버→Groq 실연결', ok: true, detail: `정상 · ${(j.bytes / 1024).toFixed(1)}KB 수신 (${j.model})` });
+      } else {
+        push({
+          name: '서버→Groq 실연결',
+          ok: j.where === 'server-key' ? null : false,
+          detail: `${j.detail}${j.status ? ` (HTTP ${j.status})` : ''}${j.where === 'groq' && (j.status === 403 || j.status === 404) ? ' → 이 키 등급에서 Orpheus 모델이 막혀 있을 가능성이 큽니다' : ''}`,
+        });
+      }
+    } catch (e) {
+      push({ name: '서버→Groq 실연결', ok: false, detail: `호출 실패: ${(e as Error).message}` });
+    }
 
     // 3) TTS 서버 호출 — 상태 코드·본문 크기를 그대로 보여준다
     let audioUrl: string | null = null;
@@ -181,7 +224,8 @@ export default function AudioCheckScreen() {
         <h3>음성 진단</h3>
         <p className="muted" style={{ fontSize: '0.8rem', lineHeight: 1.6, marginBottom: 12 }}>
           소리가 나지 않을 때, 오디오 체인의 어느 단계에서 끊기는지 이 기기에서 직접 확인합니다.
-          진단 중 영어 음성이 두 번 재생됩니다(신경망·브라우저) — 미디어 볼륨을 켜고 시작하세요.
+          진단 중 비프음 1번과 영어 음성 2번이 재생됩니다 — 미디어 볼륨을 켜고,
+          iPhone이라면 측면 무음 스위치가 꺼져 있는지 먼저 확인하세요.
         </p>
         <button className="btn primary" style={{ width: '100%', marginBottom: 14 }} onClick={run} disabled={running}>
           {running ? '진단 중…' : '진단 시작 (소리 두 번 재생)'}

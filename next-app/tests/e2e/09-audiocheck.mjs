@@ -16,7 +16,12 @@ function wavBuf() {
 const browser = await launch();
 const page = await browser.newPage();
 page.on('pageerror', (e) => console.log('  [pageerror]', e.message));
-await page.route('**/app/api/tts', (route) => route.fulfill({ status: 200, contentType: 'audio/wav', body: wavBuf() }));
+await page.route('**/app/api/tts', (route) => {
+  if (route.request().method() === 'GET') {
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, bytes: 20480, model: 'canopylabs/orpheus-v1-english' }) });
+  }
+  return route.fulfill({ status: 200, contentType: 'audio/wav', body: wavBuf() });
+});
 await page.route('**/app/api/groq', (route) => {
   if (route.request().method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ hasServerKey: false }) });
   return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{}' } }] }) });
@@ -34,7 +39,7 @@ await page.waitForSelector('.study-card h3', { timeout: 8000 });
 
 await page.click('.btn.primary');
 // 재생·폴백 타임아웃까지 고려해 넉넉히 대기
-await page.waitForFunction(() => document.querySelectorAll('.ac-row').length >= 5, { timeout: 30000 });
+await page.waitForFunction(() => document.querySelectorAll('.ac-row').length >= 7, { timeout: 30000 });
 
 const rows = await page.evaluate(() =>
   Array.from(document.querySelectorAll('.ac-row')).map((r) => ({
@@ -43,8 +48,10 @@ const rows = await page.evaluate(() =>
     detail: r.querySelector('.ac-detail')?.textContent || '',
   }))
 );
-check('5단계 전부 결과 표시', rows.length >= 5, String(rows.length));
-check('환경 단계에 버전 포함', rows[0]?.detail.includes('v0.'));
+check('7단계 전부 결과 표시', rows.length >= 7, String(rows.length));
+check('장치 출력(비프) 단계 존재', !!rows.find((r) => r.name === '장치 출력(비프)'));
+check('서버→Groq 실연결 통과(목)', rows.find((r) => r.name === '서버→Groq 실연결')?.ok === true);
+check('환경 단계에 버전 포함', !!rows.find((r) => r.name === '환경')?.detail.includes('v0.'));
 check('키 단계 통과(시드 키)', rows.find((r) => r.name === 'Groq 키')?.ok === true);
 const tts = rows.find((r) => r.name === 'TTS 서버 호출');
 check('TTS 호출 200 + 크기 표시', tts?.ok === true && /KB/.test(tts.detail), tts?.detail);
