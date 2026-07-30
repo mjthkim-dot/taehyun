@@ -1,5 +1,6 @@
 /**
- * 직무 도메인 어휘 뱅크 — 재무·법무·HR·기술.
+ * 직무 도메인 어휘 뱅크 — 재무·법무·HR·기술 + IT 영업 트랙(영업·딜, 클라우드,
+ * FinOps, 콩글리시 교정). IT 영업 실무에서 실제로 오가는 표현을 우선한다.
  *
  * 설계 원칙(단어장과의 차이):
  * ① **연어(collocation) 중심** — 단어 하나를 외워도 쓰지 못하는 이유는 함께 쓰는
@@ -379,6 +380,634 @@ export const VOCAB_DOMAINS: VocabDomain[] = [
       },
     ],
   },
+  {
+    "key": "itsales",
+    "label": "IT 영업 · 딜",
+    "desc": "파이프라인·제안·PoC·수주·갱신까지 딜 사이클에서 쓰는 표현",
+    "entries": [
+      {
+        "term": "pipeline",
+        "kr": "영업 파이프라인",
+        "level": "B2",
+        "collocations": [
+          "build a pipeline",
+          "pipeline coverage",
+          "deals in the pipeline"
+        ],
+        "example": {
+          "en": "We need three times pipeline coverage to hit the quota.",
+          "kr": "목표를 달성하려면 파이프라인이 목표의 3배는 있어야 합니다."
+        },
+        "note": "한국어 '영업 물량'을 volume으로 옮기면 어색합니다 — **pipeline**이 표준입니다.\ncoverage(목표 대비 배수), **funnel**(단계별 깔때기)과 함께 씁니다."
+      },
+      {
+        "term": "qualify",
+        "kr": "(딜을) 검증하다, 자격을 가리다",
+        "level": "B2",
+        "collocations": [
+          "qualify a lead",
+          "qualify out",
+          "qualification criteria"
+        ],
+        "example": {
+          "en": "We qualified out early because there was no budget.",
+          "kr": "예산이 없어서 초기에 딜에서 손을 뗐습니다."
+        },
+        "note": "**qualify in/out**은 '가망을 살린다/접는다'는 뜻의 영업 전문 표현입니다.\n한국어 '검증하다'를 verify로 옮기면 기술 검증 뉘앙스가 되니 구분하세요.\n짝 개념: BANT, MEDDPICC."
+      },
+      {
+        "term": "decision maker",
+        "kr": "의사결정권자",
+        "level": "B1",
+        "collocations": [
+          "the economic buyer",
+          "reach the decision maker",
+          "a champion inside the account"
+        ],
+        "example": {
+          "en": "We still haven't reached the actual decision maker.",
+          "kr": "아직 실제 의사결정권자를 만나지 못했습니다."
+        },
+        "note": "**champion**(우리를 밀어주는 내부 지지자)과 **economic buyer**(예산 결정권자)는 다른 역할입니다.\n'키맨'은 콩글리시라 영어로는 통하지 않습니다 — key stakeholder / decision maker를 쓰세요."
+      },
+      {
+        "term": "RFP",
+        "kr": "제안요청서",
+        "level": "B1",
+        "collocations": [
+          "respond to an RFP",
+          "submit a bid",
+          "RFI / RFQ"
+        ],
+        "example": {
+          "en": "The RFP is due next Friday, so we start drafting today.",
+          "kr": "제안요청서 마감이 다음 주 금요일이라 오늘 초안을 시작합니다."
+        },
+        "note": "**respond to / reply to** an RFP(제안서를 낸다)로 씁니다 — write an RFP은 발주처가 쓰는 쪽입니다.\nRFI(정보 요청) → RFP(제안 요청) → RFQ(견적 요청) 순서로 구분됩니다."
+      },
+      {
+        "term": "PoC",
+        "kr": "개념 검증",
+        "level": "B2",
+        "collocations": [
+          "run a PoC",
+          "a two-week PoC",
+          "PoC success criteria"
+        ],
+        "example": {
+          "en": "Let's agree on the PoC success criteria before we start.",
+          "kr": "시작 전에 PoC 성공 기준부터 합의하시죠."
+        },
+        "note": "**주의**: POC는 point of contact(담당자)의 약어이기도 합니다. 혼동을 피하려면 검증은 **PoC**, 담당자는 풀어서 point of contact라고 말하세요.\n성공 기준(success criteria)을 먼저 못 박는 것이 영업의 핵심입니다."
+      },
+      {
+        "term": "quote",
+        "kr": "견적(서), 견적을 내다",
+        "level": "B1",
+        "collocations": [
+          "issue a quote",
+          "a formal quotation",
+          "rate card"
+        ],
+        "example": {
+          "en": "I'll issue a formal quote by Wednesday.",
+          "kr": "수요일까지 정식 견적서를 보내드리겠습니다."
+        },
+        "note": "구어는 **quote**, 문서상 정식 명칭은 **quotation**입니다.\n'단가표'는 **rate card**, '단가'는 unit price / hourly rate.\nestimate는 개략 추정치라 구속력이 약합니다."
+      },
+      {
+        "term": "close a deal",
+        "kr": "딜을 성사시키다",
+        "level": "B2",
+        "collocations": [
+          "closed-won / closed-lost",
+          "the deal slipped",
+          "close out the quarter"
+        ],
+        "example": {
+          "en": "The deal slipped to next quarter because of the budget freeze.",
+          "kr": "예산 동결로 딜이 다음 분기로 밀렸습니다."
+        },
+        "note": "성사는 **closed-won**, 실패는 **closed-lost**로 CRM 용어처럼 씁니다.\n**slip**(일정이 밀리다)은 영업에서 매우 자주 쓰이는 동사입니다."
+      },
+      {
+        "term": "win the deal",
+        "kr": "수주하다",
+        "level": "B2",
+        "collocations": [
+          "win / lose the deal",
+          "lose out to a competitor",
+          "secure the contract"
+        ],
+        "example": {
+          "en": "We won the deal on architecture, not on price.",
+          "kr": "가격이 아니라 아키텍처로 수주했습니다."
+        },
+        "note": "'수주'를 order로 직역하면 어색합니다 — **win the deal / secure the contract**가 자연스럽습니다.\n경쟁사에 밀린 경우는 **lose out to** + 회사명."
+      },
+      {
+        "term": "renewal",
+        "kr": "계약 갱신",
+        "level": "B2",
+        "collocations": [
+          "up for renewal",
+          "renewal rate",
+          "churn risk"
+        ],
+        "example": {
+          "en": "Their contract is up for renewal in March.",
+          "kr": "그쪽 계약은 3월에 갱신 시점입니다."
+        },
+        "note": "갱신 시점이 다가온 상태는 **be up for renewal**.\n이탈은 **churn**, 이탈 위험 고객은 at-risk account.\n갱신율(renewal rate)과 유지율(retention rate)은 같은 계열 지표입니다."
+      },
+      {
+        "term": "upsell / cross-sell",
+        "kr": "상위 상품 판매 / 연계 판매",
+        "level": "B2",
+        "collocations": [
+          "upsell to a higher tier",
+          "cross-sell managed services",
+          "land and expand"
+        ],
+        "example": {
+          "en": "We landed with migration and expanded into managed services.",
+          "kr": "이관으로 진입해서 매니지드 서비스로 확장했습니다."
+        },
+        "note": "**upsell**은 같은 제품의 상위 등급, **cross-sell**은 다른 제품을 붙이는 것입니다.\n**land and expand**는 작게 시작해 계정을 키우는 전형적인 클라우드 영업 전략입니다."
+      }
+    ]
+  },
+  {
+    "key": "cloud",
+    "label": "클라우드 · 인프라",
+    "desc": "이관·아키텍처·가용성·규제 요건을 설명할 때 쓰는 표현",
+    "entries": [
+      {
+        "term": "workload",
+        "kr": "워크로드(업무 시스템 단위)",
+        "level": "B2",
+        "collocations": [
+          "migrate workloads",
+          "production workload",
+          "mission-critical workload"
+        ],
+        "example": {
+          "en": "We're migrating three production workloads this quarter.",
+          "kr": "이번 분기에 운영 워크로드 3개를 이관합니다."
+        },
+        "note": "한국어 '시스템'을 system으로만 말하면 범위가 모호합니다 — 클라우드 논의에서는 **workload**가 표준 단위입니다.\nmission-critical(업무 필수), non-prod(비운영)로 등급을 나눕니다."
+      },
+      {
+        "term": "lift and shift",
+        "kr": "(재설계 없이) 그대로 이관",
+        "level": "B2",
+        "collocations": [
+          "rehost / replatform / refactor",
+          "a lift-and-shift approach",
+          "modernize later"
+        ],
+        "example": {
+          "en": "We'll lift and shift first, then modernize in phase two.",
+          "kr": "우선 그대로 이관하고 2단계에서 현대화하겠습니다."
+        },
+        "note": "이관 전략 6R 중 **rehost**의 구어 표현입니다.\nreplatform(약간 손봄) → refactor(재설계) 순으로 난이도가 올라갑니다.\n'마이그레이션만 한다'는 뉘앙스라 부정적으로 들릴 수 있어, 뒤에 modernize 계획을 붙이는 것이 좋습니다."
+      },
+      {
+        "term": "landing zone",
+        "kr": "랜딩 존(초기 계정·네트워크 기반 구성)",
+        "level": "C1",
+        "collocations": [
+          "set up a landing zone",
+          "guardrails",
+          "multi-account strategy"
+        ],
+        "example": {
+          "en": "The landing zone gives us guardrails before teams start building.",
+          "kr": "랜딩 존을 깔아두면 팀들이 개발을 시작하기 전에 가드레일이 생깁니다."
+        },
+        "note": "직역하면 뜻이 안 통하는 업계 용어입니다 — 계정 구조·네트워크·보안 기준을 미리 깔아두는 기반 환경을 뜻합니다.\n짝 표현: **guardrails**(강제 정책), blast radius(장애 영향 범위)."
+      },
+      {
+        "term": "managed service",
+        "kr": "매니지드 서비스(운영 대행)",
+        "level": "B1",
+        "collocations": [
+          "a fully managed service",
+          "offload the operations",
+          "shared responsibility"
+        ],
+        "example": {
+          "en": "A managed service offloads patching and monitoring to us.",
+          "kr": "매니지드 서비스로 패치와 모니터링을 저희가 대신 맡습니다."
+        },
+        "note": "**fully managed**(완전 관리형)는 고객이 서버를 직접 안 만진다는 뜻입니다.\n영업 화법의 핵심 동사는 **offload**(부담을 덜어준다)입니다.\nIaaS/PaaS/SaaS와 함께 책임 범위를 설명하세요."
+      },
+      {
+        "term": "high availability",
+        "kr": "고가용성",
+        "level": "B2",
+        "collocations": [
+          "multi-AZ",
+          "failover",
+          "RTO / RPO"
+        ],
+        "example": {
+          "en": "Multi-AZ gives us failover without manual intervention.",
+          "kr": "다중 가용영역 구성이라 수동 개입 없이 장애 조치가 됩니다."
+        },
+        "note": "HA로 줄여 말합니다. **failover**(장애 시 전환)와 **disaster recovery**(재해 복구)는 다른 층위입니다.\nRTO(복구 목표 시간)·RPO(복구 목표 시점)는 반드시 숫자로 합의하세요."
+      },
+      {
+        "term": "autoscaling",
+        "kr": "오토스케일링(자동 확장)",
+        "level": "B2",
+        "collocations": [
+          "scale out automatically",
+          "handle spiky traffic",
+          "scaling policy"
+        ],
+        "example": {
+          "en": "Autoscaling handles the spiky traffic during promotions.",
+          "kr": "프로모션 기간의 급증 트래픽은 오토스케일링이 처리합니다."
+        },
+        "note": "**spiky/bursty traffic**(급증 트래픽)이 짝 표현입니다.\nscale out(대수 증가) ↔ scale up(사양 증가) 구분은 여기서도 그대로 적용됩니다."
+      },
+      {
+        "term": "data residency",
+        "kr": "데이터 소재지(국내 보관 요건)",
+        "level": "C1",
+        "collocations": [
+          "data residency requirements",
+          "in-country",
+          "cross-border transfer"
+        ],
+        "example": {
+          "en": "Their data residency requirements mean we must stay in-country.",
+          "kr": "데이터 소재지 요건 때문에 국내 리전에 있어야 합니다."
+        },
+        "note": "금융·공공 딜에서 거의 항상 나오는 제약 조건입니다.\nresidency(어디에 저장되는가)와 sovereignty(어느 나라 법의 지배를 받는가)는 다릅니다."
+      },
+      {
+        "term": "on-premises",
+        "kr": "온프레미스(자체 전산실)",
+        "level": "B1",
+        "collocations": [
+          "on-prem environment",
+          "hybrid setup",
+          "repatriation"
+        ],
+        "example": {
+          "en": "They run a hybrid setup with on-prem databases.",
+          "kr": "데이터베이스는 온프레미스로 두는 하이브리드 구성입니다."
+        },
+        "note": "**on-premise**(단수)는 흔한 오기이고 정확한 형태는 **on-premises**입니다. 구어로는 on-prem.\n클라우드에서 되돌아가는 흐름은 repatriation."
+      },
+      {
+        "term": "SLA",
+        "kr": "서비스 수준 협약",
+        "level": "B1",
+        "collocations": [
+          "meet the SLA",
+          "breach the SLA",
+          "99.9% uptime"
+        ],
+        "example": {
+          "en": "We commit to 99.9% uptime under the SLA.",
+          "kr": "SLA상 99.9% 가동률을 보장합니다."
+        },
+        "note": "약속을 지키는 것은 **meet/hit** the SLA, 어기는 것은 **breach/miss**입니다.\n보상은 service credits(요금 크레딧)로 처리하는 것이 일반적입니다."
+      },
+      {
+        "term": "well-architected review",
+        "kr": "아키텍처 점검(모범사례 진단)",
+        "level": "C1",
+        "collocations": [
+          "run a review",
+          "remediation items",
+          "best practices"
+        ],
+        "example": {
+          "en": "The review surfaced twelve remediation items, mostly on security.",
+          "kr": "점검에서 개선 항목 12개가 나왔고 대부분 보안이었습니다."
+        },
+        "note": "무료 진단으로 다음 프로젝트를 여는 전형적인 영업 도구입니다.\n발견 사항은 **findings**, 개선 조치는 **remediation**이라고 부릅니다."
+      }
+    ]
+  },
+  {
+    "key": "finops",
+    "label": "FinOps · 비용",
+    "desc": "TCO·약정 할인·비용 최적화와 과금 구조를 논의할 때 쓰는 표현",
+    "entries": [
+      {
+        "term": "TCO",
+        "kr": "총소유비용",
+        "level": "B2",
+        "collocations": [
+          "a TCO comparison",
+          "over three years",
+          "hidden costs"
+        ],
+        "example": {
+          "en": "The three-year TCO is 22% lower than the current setup.",
+          "kr": "3년 총소유비용이 현재 구성보다 22% 낮습니다."
+        },
+        "note": "total cost of ownership. 단순 요금(price)이 아니라 **인건비·라이선스·전력·유지보수까지 합산**한 개념이라 설득력이 큽니다.\n짝 지표: ROI, payback period."
+      },
+      {
+        "term": "committed spend",
+        "kr": "약정 사용액",
+        "level": "C1",
+        "collocations": [
+          "a committed spend agreement",
+          "commit to $X over N years",
+          "discount tier"
+        ],
+        "example": {
+          "en": "A three-year committed spend unlocks the next discount tier.",
+          "kr": "3년 약정 사용액을 걸면 다음 할인 구간이 열립니다."
+        },
+        "note": "'약정'을 contract로만 말하면 금액 약정이라는 뜻이 안 삽니다 — **commitment / committed spend**가 정확합니다.\n미달분 정산은 **true-up**, 초과분은 overage."
+      },
+      {
+        "term": "Savings Plans / Reserved Instances",
+        "kr": "약정 할인 상품",
+        "level": "B2",
+        "collocations": [
+          "coverage and utilization",
+          "commit for one or three years",
+          "break-even point"
+        ],
+        "example": {
+          "en": "Coverage is 60%, but utilization is only 80%.",
+          "kr": "커버리지는 60%인데 사용률은 80%밖에 안 됩니다."
+        },
+        "note": "**coverage**(할인 적용 비율)와 **utilization**(약정을 얼마나 쓰는가)은 전혀 다른 지표인데 한국어로는 둘 다 '사용률'로 뭉뚱그려지기 쉽습니다.\n둘을 나눠 말하면 전문성이 바로 드러납니다."
+      },
+      {
+        "term": "rightsizing",
+        "kr": "적정 규모 조정",
+        "level": "B2",
+        "collocations": [
+          "rightsize instances",
+          "over-provisioned",
+          "idle resources"
+        ],
+        "example": {
+          "en": "Rightsizing idle instances cut 18% with no performance impact.",
+          "kr": "유휴 인스턴스를 적정화해 성능 영향 없이 18%를 줄였습니다."
+        },
+        "note": "'다운사이징'은 인력 감축 뉘앙스가 있어 비용 최적화 문맥에서는 부적절합니다 — **rightsizing**을 쓰세요.\n짝 표현: over-/under-provisioned, idle."
+      },
+      {
+        "term": "chargeback / showback",
+        "kr": "비용 전가 / 비용 가시화",
+        "level": "C1",
+        "collocations": [
+          "cost allocation tags",
+          "chargeback model",
+          "showback report"
+        ],
+        "example": {
+          "en": "We started with showback before moving to full chargeback.",
+          "kr": "전면 전가 전에 우선 비용 가시화부터 시작했습니다."
+        },
+        "note": "**showback**은 '너희 팀이 이만큼 썼다'를 보여만 주는 단계, **chargeback**은 실제로 예산에서 차감하는 단계입니다.\n전제 조건은 cost allocation tags(비용 태그) 정리."
+      },
+      {
+        "term": "egress fee",
+        "kr": "데이터 유출(외부 전송) 요금",
+        "level": "B2",
+        "collocations": [
+          "data transfer out",
+          "egress charges",
+          "inter-region traffic"
+        ],
+        "example": {
+          "en": "Most of the surprise bill came from egress charges.",
+          "kr": "예상 밖 청구서의 대부분은 외부 전송 요금이었습니다."
+        },
+        "note": "들어오는 트래픽(ingress)은 대개 무료, **나가는 트래픽(egress)** 이 과금됩니다.\n한국어로 '아웃바운드 트래픽 비용'이라고 하면 통하지만, 영어 문서에서는 egress / data transfer out이 표준입니다."
+      },
+      {
+        "term": "on-demand vs spot",
+        "kr": "온디맨드 vs 스팟",
+        "level": "B2",
+        "collocations": [
+          "spot interruption",
+          "fault-tolerant workloads",
+          "up to 90% cheaper"
+        ],
+        "example": {
+          "en": "Batch jobs run on spot since they tolerate interruption.",
+          "kr": "배치 작업은 중단을 견디니 스팟으로 돌립니다."
+        },
+        "note": "스팟은 **interruption**(회수) 가능성이 핵심 리스크라, 반드시 fault-tolerant(중단 감내) 워크로드에만 권해야 합니다.\n무턱대고 싸다고 제안하면 사고로 이어집니다."
+      },
+      {
+        "term": "funding / credits",
+        "kr": "지원금 · 크레딧",
+        "level": "B2",
+        "collocations": [
+          "migration credits",
+          "POC funding",
+          "apply for funding"
+        ],
+        "example": {
+          "en": "We can apply for migration credits to offset the PoC cost.",
+          "kr": "이관 크레딧을 신청해 PoC 비용을 상쇄할 수 있습니다."
+        },
+        "note": "'지원받다'를 support로 옮기면 기술 지원처럼 들립니다 — 금전 지원은 **funding / credits**입니다.\n동사는 **apply for**(신청) / **offset**(상쇄)."
+      },
+      {
+        "term": "consolidated billing",
+        "kr": "통합 과금",
+        "level": "B2",
+        "collocations": [
+          "a single invoice",
+          "billing account",
+          "volume discount"
+        ],
+        "example": {
+          "en": "Consolidated billing gives them one invoice and volume discounts.",
+          "kr": "통합 과금으로 청구서 하나에 물량 할인까지 받습니다."
+        },
+        "note": "계열사·부서가 많은 고객에게 효과적인 제안 포인트입니다.\ninvoice(청구서), PO(발주서), billing cycle(과금 주기)을 함께 정리해 말하세요."
+      },
+      {
+        "term": "run rate",
+        "kr": "연환산 지출 속도",
+        "level": "C1",
+        "collocations": [
+          "annual run rate",
+          "monthly cloud spend",
+          "trending up"
+        ],
+        "example": {
+          "en": "Their monthly run rate is trending up about 8% per quarter.",
+          "kr": "월간 지출 속도가 분기당 8%가량 상승 추세입니다."
+        },
+        "note": "**burn rate**(현금 소진)와 달리 run rate는 '현재 속도를 연으로 환산하면'이라는 뜻입니다.\nARR(연간 반복 매출)과 헷갈리지 않게 문맥을 분명히 하세요."
+      }
+    ]
+  },
+  {
+    "key": "konglish",
+    "label": "콩글리시 교정",
+    "desc": "한국 IT 업계에서 쓰지만 영어로는 통하지 않는 표현 바로잡기",
+    "entries": [
+      {
+        "term": "systems integration (SI)",
+        "kr": "시스템 통합(SI)",
+        "level": "B2",
+        "collocations": [
+          "a systems integrator",
+          "an SI partner",
+          "implementation partner"
+        ],
+        "example": {
+          "en": "We work with a local systems integrator on delivery.",
+          "kr": "구축은 현지 시스템 통합 업체와 함께 진행합니다."
+        },
+        "note": "**주의**: 한국에서 흔히 쓰는 'SI'는 영어권에서 그대로 말하면 잘 통하지 않습니다.\n풀어서 **systems integrator**(회사) / **systems integration**(업무)이라고 하거나, implementation partner라고 부르세요."
+      },
+      {
+        "term": "implement / build",
+        "kr": "구축하다",
+        "level": "B1",
+        "collocations": [
+          "implement the solution",
+          "build the environment",
+          "roll out"
+        ],
+        "example": {
+          "en": "We implemented the environment in six weeks.",
+          "kr": "6주 만에 환경을 구축했습니다."
+        },
+        "note": "'구축'을 **construct**로 옮기면 건설 공사처럼 들립니다.\nIT에서는 **implement / build / set up / deploy**를 씁니다.\n'구축비'는 implementation cost."
+      },
+      {
+        "term": "point of contact",
+        "kr": "담당자",
+        "level": "B1",
+        "collocations": [
+          "the main point of contact",
+          "reach out to",
+          "working-level contact"
+        ],
+        "example": {
+          "en": "Who is the main point of contact on their side?",
+          "kr": "그쪽 주 담당자가 누구신가요?"
+        },
+        "note": "'담당자'를 person in charge로 직역하면 어색하고 다소 권위적으로 들립니다 — **point of contact**(POC)가 표준입니다.\n실무자는 **working-level contact**, 임원은 executive / C-level."
+      },
+      {
+        "term": "client / customer",
+        "kr": "고객사",
+        "level": "B1",
+        "collocations": [
+          "our client",
+          "the customer's requirements",
+          "account"
+        ],
+        "example": {
+          "en": "The client asked for a phased rollout.",
+          "kr": "고객사가 단계적 출시를 요청했습니다."
+        },
+        "note": "'고객사'를 **customer company**로 직역하지 마세요 — client 또는 customer 하나면 충분합니다.\n영업 관리 단위로 말할 때는 **account**(담당 계정)."
+      },
+      {
+        "term": "vendor",
+        "kr": "벤더, 공급업체",
+        "level": "B1",
+        "collocations": [
+          "a third-party vendor",
+          "vendor lock-in",
+          "vendor management"
+        ],
+        "example": {
+          "en": "We want to avoid vendor lock-in on the database layer.",
+          "kr": "데이터베이스 계층에서는 벤더 종속을 피하고 싶습니다."
+        },
+        "note": "'벤더사'는 vendor(업체)에 '사'가 겹친 중복 표현이라 영어로는 **vendor**만 씁니다.\n**vendor lock-in**(특정 업체 종속)은 클라우드 딜의 단골 반론입니다."
+      },
+      {
+        "term": "sign-off / acceptance",
+        "kr": "검수, 승인",
+        "level": "B2",
+        "collocations": [
+          "get sign-off from",
+          "acceptance testing",
+          "formal approval"
+        ],
+        "example": {
+          "en": "We need sign-off from the client before we invoice.",
+          "kr": "청구 전에 고객사 검수 승인이 필요합니다."
+        },
+        "note": "'검수'를 inspection으로 옮기면 품질 검사처럼 들립니다 — **acceptance (testing)** 또는 **sign-off**가 정확합니다.\n사내 결재·품의는 **internal approval**."
+      },
+      {
+        "term": "maintenance and support",
+        "kr": "유지보수",
+        "level": "B1",
+        "collocations": [
+          "M&S contract",
+          "ongoing support",
+          "support tier"
+        ],
+        "example": {
+          "en": "The quote includes one year of maintenance and support.",
+          "kr": "견적에는 1년 유지보수가 포함돼 있습니다."
+        },
+        "note": "'유지보수'를 maintenance 하나로만 쓰면 하드웨어 정비처럼 들립니다 — 계약서에서는 **maintenance and support(M&S)** 로 묶어 씁니다.\n등급은 support tier(예: 24/7, business hours)."
+      },
+      {
+        "term": "place an order / issue a PO",
+        "kr": "발주하다",
+        "level": "B2",
+        "collocations": [
+          "issue a purchase order",
+          "place an order",
+          "PO number"
+        ],
+        "example": {
+          "en": "They'll issue the PO once the budget is approved.",
+          "kr": "예산 승인이 나면 발주서를 발행할 예정입니다."
+        },
+        "note": "'발주'는 **issue a PO / place an order**, '수주'는 win the deal / receive an order로 방향이 반대입니다.\n실무에서는 PO number(발주 번호)를 반드시 확인하세요."
+      },
+      {
+        "term": "align on",
+        "kr": "협의해 맞추다",
+        "level": "B2",
+        "collocations": [
+          "align on the timeline",
+          "get alignment",
+          "internal alignment"
+        ],
+        "example": {
+          "en": "Let's align on the timeline before we talk to the client.",
+          "kr": "고객사와 얘기하기 전에 일정부터 맞추시죠."
+        },
+        "note": "'협의하다'를 discuss로만 쓰면 '논의는 했지만 결론은 없음'처럼 들립니다.\n**align on**은 '합의해 같은 방향으로 맞춘다'는 뜻이라 회의 목적을 분명히 해 줍니다."
+      },
+      {
+        "term": "follow up",
+        "kr": "후속 조치하다, 팔로업하다",
+        "level": "B1",
+        "collocations": [
+          "follow up with the client",
+          "a follow-up meeting",
+          "circle back"
+        ],
+        "example": {
+          "en": "I'll follow up with them early next week.",
+          "kr": "다음 주 초에 그쪽에 후속 연락을 드리겠습니다."
+        },
+        "note": "동사는 띄어쓰기(follow up), 명사·형용사는 하이픈(a follow-up).\n'다시 연락드리겠습니다'는 **circle back** / get back to you도 자주 씁니다.\n한국식 '팔로업 치다'는 영어에 없는 표현입니다."
+      }
+    ]
+  }
 ];
 
 /** 도메인 키로 찾기 — 없으면 첫 도메인. */

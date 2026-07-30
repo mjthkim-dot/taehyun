@@ -1,6 +1,7 @@
 /**
  * 직무 어휘 — 기능 탭에 이름만 있던 '어휘' 영역이 실제로 동작하는지.
- * 계약: 도메인 4개 전환 · 카드 확장(연어·예문·주의) · 예문 표현장 저장 ·
+ * 계약: 도메인 8개(재무·법무·HR·기술 + IT 영업·클라우드·FinOps·콩글리시) 전환 ·
+ * 카드 확장(연어·예문·주의) · 예문 표현장 저장 ·
  * 자기 점검 퀴즈에서 틀리면 복습(SRS) 큐에 쌓인다.
  */
 import { BASE, check, finish, launch, seedKey } from './helpers.mjs';
@@ -22,7 +23,7 @@ check('기능 탭에 직무 어휘 카드', await page.evaluate(() => Array.from
 await page.click('.feat-card:has-text("직무 어휘")');
 await page.waitForSelector('.vocab-card', { timeout: 8000 });
 
-check('도메인 탭 4개', (await page.evaluate(() => document.querySelectorAll('.vocab-tab').length)) === 4);
+check('도메인 탭 8개', (await page.evaluate(() => document.querySelectorAll('.vocab-tab').length)) === 8);
 check('첫 도메인(재무)이 활성', (await page.evaluate(() => document.querySelector('.vocab-tab.active')?.textContent)) === '재무 · 회계');
 const firstCount = await page.evaluate(() => document.querySelectorAll('.vocab-card').length);
 check('재무 카드 10개', firstCount === 10, String(firstCount));
@@ -57,6 +58,22 @@ check('도메인 전환됨', (await page.evaluate(() => document.querySelector('
 check('전환 시 카드 접힘', (await page.evaluate(() => document.querySelectorAll('.vocab-card.open').length)) === 0);
 const techBody = await page.evaluate(() => document.body.textContent || '');
 check('기술 도메인 표제어 렌더', /deploy|latency|technical debt/.test(techBody));
+
+// IT 영업 트랙 — 실제 업무 도메인이 붙어 있는지
+await page.click('.vocab-tab:has-text("IT 영업")');
+await page.waitForTimeout(250);
+const salesBody = await page.evaluate(() => document.body.textContent || '');
+check('IT 영업 도메인 표제어 렌더', /pipeline|RFP|close a deal|win the deal/.test(salesBody));
+await page.click('.vocab-tab:has-text("FinOps")');
+await page.waitForTimeout(250);
+check('FinOps 도메인 표제어 렌더', /TCO|committed spend|rightsizing|egress/.test(await page.evaluate(() => document.body.textContent || '')));
+await page.click('.vocab-tab:has-text("콩글리시")');
+await page.waitForTimeout(250);
+const kBody = await page.evaluate(() => document.body.textContent || '');
+check('콩글리시 교정 도메인 렌더', /systems integration|point of contact|align on/.test(kBody));
+check('콩글리시 카드도 10개', (await page.evaluate(() => document.querySelectorAll('.vocab-card').length)) === 10);
+await page.click('.vocab-tab:has-text("기술 · 개발")');
+await page.waitForTimeout(250);
 
 // 자기 점검 퀴즈: 오답 → 복습 큐 적립
 await page.click('.btn.ghost-accent');

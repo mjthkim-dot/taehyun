@@ -61,7 +61,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
         { icon: '🎧', label: '듣기', sub: '딕테이션 6문항', action: { kind: 'nav', mode: 'listening' } },
         { icon: '📖', label: '읽기', sub: '레벨별 지문 + 이해 문제', action: { kind: 'nav', mode: 'reading' } },
         { icon: '✍️', label: '쓰기', sub: 'AI 첨삭', action: { kind: 'nav', mode: 'writing' } },
-        { icon: '💼', label: '직무 어휘', sub: '재무·법무·HR·기술 연어 40개', action: { kind: 'nav', mode: 'vocab' } },
+        { icon: '💼', label: '직무 어휘', sub: 'IT 영업·클라우드 등 8개 도메인 80개', action: { kind: 'nav', mode: 'vocab' } },
       ],
     },
     {
