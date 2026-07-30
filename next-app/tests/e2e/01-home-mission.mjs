@@ -26,6 +26,7 @@ await page.addInitScript(() => {
   window.SpeechRecognition = FakeSR;
   window.webkitSpeechRecognition = FakeSR;
 });
+await page.route('**/app/api/groq/validate', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ valid: true }) }));
 await page.goto(`${BASE}/app`);
 await page.waitForSelector('.mission-card', { timeout: 15000 });
 

@@ -23,6 +23,41 @@ const DEFAULT_VOICE = 'austin';
 const RATE_LIMIT_PER_MIN = 60;
 const MAX_TEXT_CHARS = 220;
 
+/**
+ * 서버→Groq 실연결 진단 — 음성 진단 화면에서 호출한다. 서버 키로 초소형
+ * 합성을 실제 시도해 Groq가 뭐라고 답하는지(모델 접근 거부 등)를 그대로
+ * 돌려준다(키 값은 절대 노출하지 않음). 클라이언트 쪽 원인과 서버/키 등급
+ * 원인을 분리하는 관측 지점.
+ */
+export async function GET(req: NextRequest) {
+  if (!rateLimit(`tts:${clientIp(req.headers)}`, RATE_LIMIT_PER_MIN, 60_000)) {
+    return tooManyRequests();
+  }
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    return Response.json({ ok: false, where: 'server-key', detail: '서버에 GROQ_API_KEY가 없어요 — 로컬 키 경로만 사용 중' });
+  }
+  const resp = await fetch('https://api.groq.com/openai/v1/audio/speech', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ model: TTS_MODEL, voice: DEFAULT_VOICE, input: 'Hi there.', response_format: 'wav' }),
+  }).catch(() => null);
+  if (!resp) {
+    return Response.json({ ok: false, where: 'network', detail: '서버에서 Groq 연결 실패' });
+  }
+  if (!resp.ok) {
+    let detail = `HTTP ${resp.status}`;
+    try {
+      detail = (await resp.json()).error?.message || detail;
+    } catch {
+      /* ignore */
+    }
+    return Response.json({ ok: false, where: 'groq', status: resp.status, detail });
+  }
+  const buf = await resp.arrayBuffer();
+  return Response.json({ ok: true, bytes: buf.byteLength, model: TTS_MODEL });
+}
+
 export async function POST(req: NextRequest) {
   if (!rateLimit(`tts:${clientIp(req.headers)}`, RATE_LIMIT_PER_MIN, 60_000)) {
     return tooManyRequests();

@@ -110,14 +110,23 @@ function markMediaPaused() {
   }
 }
 
-/** 반드시 사용자 제스처(클릭) 안에서 동기적으로 호출 — iOS 오디오 재생을 언락한다. */
+/** 오디오 언락 상태 — 한 번 성공하면 이후 primeAudio는 no-op. */
+let audioUnlocked = false;
+
+/** 반드시 사용자 제스처(클릭) 안에서 동기적으로 호출 — iOS 오디오 재생을 언락한다.
+ * 이미 언락됐으면 아무것도 안 한다 — 예전엔 매 제스처마다 play()를 다시 걸어
+ * 직전 TTS 소리가 '유령처럼' 다시 재생되는 버그가 있었다. */
 export function primeAudio() {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || audioUnlocked) return;
   try {
     const a = audioEl();
     if (!a.src) a.src = SILENT_WAV;
     const p = a.play();
-    if (p && typeof p.catch === 'function') p.catch(() => {});
+    if (p && typeof p.then === 'function') {
+      p.then(() => {
+        audioUnlocked = true;
+      }).catch(() => {});
+    }
   } catch {
     /* ignore */
   }
@@ -182,10 +191,13 @@ function speakWithBrowser(text: string, lang: string, rate: number, onend?: () =
 const ttsCache = new Map<string, string>(); // `${voice}:${text}` -> objectURL
 const ttsInflight = new Map<string, Promise<string | null>>(); // 진행 중인 요청(중복 합치기)
 
-// 네트워크가 느리거나 응답이 없을 때 무한정 멈춰 있지 않도록 — 이 시간 안에 응답이
-// 없으면 포기하고 브라우저 음성으로 폴백한다(전체 재생이 "1번째 줄에서 멈춘 것처럼"
-// 보이는 또 다른 원인이었다 — fetch에 타임아웃이 없어 응답이 없으면 영원히 대기했음).
-const TTS_TIMEOUT_MS = 8000;
+// 타임아웃을 두 단계로 분리한다:
+// - 헤더(응답 시작)까지 8초 — 서버가 죽었는지 판단.
+// - 본문(오디오 전체) 다운로드는 30초 — Orpheus WAV(48kHz)는 문장당 수백 KB~1MB라
+//   모바일 회선에선 8초로 부족했고, 다 받는 중에 abort돼 무음 폴백으로 떨어졌다
+//   ("소리가 안 난다"의 실제 원인 후보).
+const TTS_HEADER_TIMEOUT_MS = 8000;
+const TTS_BODY_TIMEOUT_MS = 30000;
 
 /**
  * Groq에서 음성을 받아 objectURL을 돌려준다(캐시). 실패·타임아웃 시 null.
@@ -210,7 +222,7 @@ export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE, opts?: 
   const input = tag ? `${tag} ${text}` : text;
   const job = (async (): Promise<string | null> => {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TTS_TIMEOUT_MS);
+    let timer = setTimeout(() => controller.abort(), TTS_HEADER_TIMEOUT_MS);
     try {
       const resp = await fetch('/app/api/tts', {
         method: 'POST',
@@ -218,6 +230,9 @@ export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE, opts?: 
         body: JSON.stringify({ text: input, voice, key: key === SERVER_GROQ_SENTINEL ? undefined : key }),
         signal: controller.signal,
       });
+      // 헤더가 도착했으면 본문 다운로드용 긴 타이머로 교체
+      clearTimeout(timer);
+      timer = setTimeout(() => controller.abort(), TTS_BODY_TIMEOUT_MS);
       if (!resp.ok) return null;
       const blob = await resp.blob();
       // 빈/손상 응답(예: rate-limit 직전의 잘린 본문)을 캐싱하면 재생 시 onended가 오지
@@ -267,6 +282,7 @@ export function playUrl(url: string, rate: number, onended?: () => void): Promis
     a.onerror = finish;
   }
   const p = a.play();
+  if (p && typeof p.then === 'function') p.then(() => { audioUnlocked = true; }).catch(() => {});
   // 잠금화면에서도 계속 재생되도록 "재생 중" 미디어 세션을 활성화한다.
   activateMediaSession();
   return p && typeof p.then === 'function' ? p : Promise.resolve();

@@ -109,6 +109,25 @@ export async function* groqStream(
   }
 }
 
+/**
+ * 키 유효성 검증 — 등록 시·앱 시작 시 호출해 "무효 키의 조용한 실패"를 막는다.
+ * true 유효 / false 무효(401·403) / null 판단 불가(네트워크 등 — 경고하지 말 것).
+ */
+export async function validateGroqKey(key?: string): Promise<boolean | null> {
+  try {
+    const resp = await fetch('/app/api/groq/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: key || undefined }),
+    });
+    if (!resp.ok) return null;
+    const j = await resp.json();
+    return j.valid === true ? true : j.valid === false ? false : null;
+  } catch {
+    return null;
+  }
+}
+
 /** 비스트리밍 완성 (배경 교정·CAF·번역) */
 export async function groqComplete(
   messages: { role: string; content: string }[],
