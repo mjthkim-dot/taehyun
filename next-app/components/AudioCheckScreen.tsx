@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { APP_VERSION } from '../lib/version';
 import { groqKey, SERVER_GROQ_SENTINEL } from '../lib/state';
+import { validateGroqKey } from '../lib/groq';
 import { primeAudio, playUrl } from './SpeakButton';
 
 interface StepResult {
@@ -85,13 +86,15 @@ export default function AudioCheckScreen() {
     } catch {
       /* 네트워크 실패는 3단계에서 드러난다 */
     }
+    let keyValid: boolean | null = null;
+    if (local && local !== SERVER_GROQ_SENTINEL) keyValid = await validateGroqKey(local);
     push({
       name: 'Groq 키',
-      ok: !!local || serverKey,
+      ok: keyValid === false ? false : !!local || serverKey,
       detail: local
         ? local === SERVER_GROQ_SENTINEL
           ? '서버 키 사용'
-          : `로컬 키 등록됨(${local.slice(0, 6)}…)`
+          : `로컬 키 등록됨(${local.slice(0, 6)}…)${keyValid === true ? ' · 유효 확인' : keyValid === false ? ' · ⚠️ Groq에서 거부(만료/폐기) — console.groq.com에서 재발급 필요' : ''}`
         : serverKey
           ? '서버 키 있음'
           : '키 없음 — 신경망 음성을 쓸 수 없어요(회화 탭에서 무료 키 등록)',

@@ -16,6 +16,9 @@ function wavBuf() {
 const browser = await launch();
 const page = await browser.newPage();
 page.on('pageerror', (e) => console.log('  [pageerror]', e.message));
+// 키 검증은 실 Groq 호출이므로 목으로 대체(가짜 테스트 키는 당연히 401이 난다 —
+// 검증 로직이 작동한다는 뜻. 여기선 '유효한 키' 시나리오를 고정한다)
+await page.route('**/app/api/groq/validate', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ valid: true }) }));
 await page.route('**/app/api/tts', (route) => {
   if (route.request().method() === 'GET') {
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, bytes: 20480, model: 'canopylabs/orpheus-v1-english' }) });
@@ -52,7 +55,8 @@ check('7단계 전부 결과 표시', rows.length >= 7, String(rows.length));
 check('장치 출력(비프) 단계 존재', !!rows.find((r) => r.name === '장치 출력(비프)'));
 check('서버→Groq 실연결 통과(목)', rows.find((r) => r.name === '서버→Groq 실연결')?.ok === true);
 check('환경 단계에 버전 포함', !!rows.find((r) => r.name === '환경')?.detail.includes('v0.'));
-check('키 단계 통과(시드 키)', rows.find((r) => r.name === 'Groq 키')?.ok === true);
+const keyRow = rows.find((r) => r.name === 'Groq 키');
+check('키 단계 통과 + 유효 확인 표기', keyRow?.ok === true && keyRow.detail.includes('유효 확인'), keyRow?.detail);
 const tts = rows.find((r) => r.name === 'TTS 서버 호출');
 check('TTS 호출 200 + 크기 표시', tts?.ok === true && /KB/.test(tts.detail), tts?.detail);
 check('신경망 재생 단계 결과 존재', !!rows.find((r) => r.name === '신경망 음성 재생'));

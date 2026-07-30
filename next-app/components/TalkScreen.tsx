@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ALL_LESSONS, LESSONS, CEFR_NEXT, cefrOf, type Lesson } from '../lib/lessons';
 import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, store, saveChatLog, bumpSpoken } from '../lib/state';
-import { groqStream, groqComplete, GroqError } from '../lib/groq';
+import { groqStream, groqComplete, validateGroqKey, GroqError } from '../lib/groq';
 import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, parseAiText } from '../lib/talkPrompts';
 import { takeMissionTalkContext, type MissionTalkCtx } from '../lib/dailyMission';
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS } from './SpeakButton';
@@ -84,6 +84,8 @@ function speak(text: string, onend?: () => void) {
 export default function TalkScreen({ lessonId }: { lessonId: number }) {
   const [ready, setReady] = useState(false);
   const [keyInput, setKeyInput] = useState('');
+  const [keyChecking, setKeyChecking] = useState(false);
+  const [keyError, setKeyError] = useState('');
   const [hasKey, setHasKey] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   // 홈 미션에서 넘어온 상황 — 있으면 레슨 시나리오 대신 이 상황으로 대화한다.
@@ -524,11 +526,23 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     addPhrase({ en: text, kr: '', lesson: lesson.id });
   }
 
-  function saveKey() {
-    if (!keyInput.trim()) return;
-    saveGroqKey(keyInput.trim());
+  async function saveKey() {
+    const k = keyInput.trim();
+    if (!k || keyChecking) return;
+    setKeyChecking(true);
+    setKeyError('');
+    // 무효한 키를 조용히 받아들이면 모든 AI 기능이 소리 없이 401로 죽는다
+    // (실제 발생한 사고) — 등록 전에 Groq에 실검증한다.
+    const valid = await validateGroqKey(k);
+    setKeyChecking(false);
+    if (valid === false) {
+      setKeyError('이 키는 Groq에서 거부됐어요(만료·폐기됐을 수 있음). console.groq.com에서 새 키를 발급해 주세요.');
+      return;
+    }
+    saveGroqKey(k);
     setHasKey(true);
     setKeyInput('');
+    setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: valid === true ? 'Groq 키 확인 완료 — AI 회화·음성이 활성화됐어요.' : 'Groq 키를 저장했어요(네트워크 문제로 검증은 건너뜀).' }]);
   }
 
   const helperChips = [...new Set([...(lesson.examples || []).slice(0, 2).map((e) => e.en), ...TALK_STARTERS])].slice(0, 6);
@@ -542,6 +556,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
           <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.6 }}>
             console.groq.com 에서 무료로 발급받은 키를 붙여넣으면 AI 회화·교정·CAF 분석이 모두 활성화됩니다.
           </div>
+          {keyError && <div style={{ fontSize: '0.76rem', color: 'var(--red)', lineHeight: 1.5, marginBottom: 8 }}>{keyError}</div>}
           <div style={{ display: 'flex', gap: 8 }}>
             <input
               className="text-input"
@@ -551,8 +566,8 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
               onChange={(e) => setKeyInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && saveKey()}
             />
-            <button className="btn primary" style={{ flex: '0 0 auto' }} onClick={saveKey}>
-              등록
+            <button className="btn primary" style={{ flex: '0 0 auto' }} onClick={saveKey} disabled={keyChecking}>
+              {keyChecking ? '확인 중…' : '등록'}
             </button>
           </div>
         </div>

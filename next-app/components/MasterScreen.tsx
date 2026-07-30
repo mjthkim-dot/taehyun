@@ -6,7 +6,8 @@
  */
 import { useEffect, useState } from 'react';
 import { APP_NAME_KO, APP_TAGLINE_KO } from '../lib/brand';
-import { getProfile, calcStreak, todayCount, spokenToday, dueWeak, groqKey, isPlaced, getPhrases, DAILY_GOAL } from '../lib/state';
+import { getProfile, calcStreak, todayCount, spokenToday, dueWeak, groqKey, isPlaced, getPhrases, DAILY_GOAL, SERVER_GROQ_SENTINEL } from '../lib/state';
+import { validateGroqKey } from '../lib/groq';
 import DailyMissionCard from './DailyMissionCard';
 import DailyQuests from './DailyQuests';
 import { consumeFreezesForGaps, getFreezeCount } from '../lib/habits';
@@ -27,9 +28,19 @@ export default function MasterScreen({
   const [tick, setTick] = useState(0);
   // 앱을 연 시점에 공백일을 프리즈로 메워 스트릭을 보호하고, 메웠으면 배너로 알린다.
   const [frozenFilled, setFrozenFilled] = useState(0);
+  // 등록된 키가 Groq에서 거부되는 상태(만료·폐기)를 홈에서 바로 알린다 —
+  // 무효 키의 '조용한 401'이 음성 무음 사고의 최종 원인이었다. 세션당 1회만 검증.
+  const [keyInvalid, setKeyInvalid] = useState(false);
   useEffect(() => {
     setFrozenFilled(consumeFreezesForGaps().length);
     setReady(true);
+    const k = groqKey();
+    if (k && k !== SERVER_GROQ_SENTINEL && sessionStorage.getItem('va_key_checked') !== k) {
+      validateGroqKey(k).then((valid) => {
+        sessionStorage.setItem('va_key_checked', k);
+        if (valid === false) setKeyInvalid(true);
+      });
+    }
   }, []);
   if (!ready) return null;
   const freeze = getFreezeCount();
@@ -117,6 +128,18 @@ export default function MasterScreen({
           </div>
           <button className="btn primary" style={{ flexShrink: 0, fontSize: '0.78rem', padding: '7px 12px' }} onClick={() => onNavigate('drill')}>
             ▶ 시작
+          </button>
+        </div>
+      )}
+
+      {keyInvalid && (
+        <div style={{ background: 'rgba(224,56,58,0.08)', border: '1px solid var(--red)', borderRadius: 14, padding: '13px 16px', marginBottom: 14 }}>
+          <div style={{ fontSize: '0.88rem', fontWeight: 800, marginBottom: 3, color: 'var(--red)' }}>등록된 Groq 키가 더 이상 유효하지 않아요</div>
+          <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            키가 만료되거나 폐기되면 AI 회화·음성이 조용히 실패합니다. console.groq.com에서 새 키를 발급한 뒤 회화 탭에서 다시 등록해 주세요.
+          </div>
+          <button className="btn primary" style={{ marginTop: 10, fontSize: '0.78rem', padding: '8px 14px' }} onClick={() => onNavigate('talk')}>
+            새 키 등록하러 가기 →
           </button>
         </div>
       )}
