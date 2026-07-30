@@ -14,6 +14,13 @@ const OVERFLOW_PROBE = () => {
     const cs = getComputedStyle(el);
     if (cs.overflowX === 'auto' || cs.overflowX === 'scroll' || cs.position === 'fixed') return;
     if (cs.textOverflow === 'ellipsis') return; // 말줄임은 설계된 잘림
+    // 말풍선 꼬리처럼 '의도적으로 걸쳐 나오는' 장식용 절대배치 가상요소는 제외한다.
+    // 실제 잘림 여부는 아래 꼬리 가시성 검사로 따로 확인한다.
+    const after = getComputedStyle(el, '::after');
+    if (after && after.position === 'absolute' && after.content && after.content !== 'none') return;
+    // 말풍선 컨테이너도 같은 이유(자식 꼬리의 의도된 돌출)로 제외 — 실제 잘림은
+    // 아래 '꼬리가 잘리지 않음' 검사가 책임진다.
+    if (el.classList.contains('msg')) return;
     if (el.scrollWidth > el.clientWidth + 2 && el.clientWidth > 30) {
       bad.push(`${el.className || el.tagName}(+${el.scrollWidth - el.clientWidth}px)`);
     }
@@ -61,6 +68,21 @@ for (const width of [320, 360]) {
   check(`${width}px 회화: 전송 버튼이 화면 안에 있음`, sendVisible);
   const talkBad = await page.evaluate(OVERFLOW_PROBE);
   check(`${width}px 회화: 넘치는 요소 없음`, talkBad.length === 0, talkBad.join(', '));
+
+  // 말풍선이 있는 상태도 검사한다 — 꼬리(::after)가 컨테이너를 넘어 잘리던 결함이 있었다
+  await page.fill('.controls .text-input', 'If we look at the three-year TCO, the gap narrows considerably.');
+  await page.click('.round-btn.send');
+  await page.waitForSelector('.msg.user .bubble', { timeout: 8000 });
+  await page.waitForTimeout(300);
+  const msgBad = await page.evaluate(OVERFLOW_PROBE);
+  check(`${width}px 말풍선: 넘치는 요소 없음`, msgBad.length === 0, msgBad.join(', '));
+  const tail = await page.evaluate(() => {
+    const b = document.querySelector('.msg.user .bubble').getBoundingClientRect();
+    const box = document.querySelector('.chat-box');
+    const r = box.getBoundingClientRect();
+    return { bubbleRight: Math.round(b.right), boxRight: Math.round(r.right), clientRight: Math.round(r.left + box.clientWidth) };
+  });
+  check(`${width}px 말풍선 꼬리가 잘리지 않음`, tail.bubbleRight + 5 <= tail.clientRight + 1, JSON.stringify(tail));
 
   await page.close();
 }

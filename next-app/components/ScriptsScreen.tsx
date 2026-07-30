@@ -33,6 +33,7 @@ export default function ScriptsScreen({ onNavigate }: { onNavigate: (m: Mode) =>
       title: s.label,
       desc: s.talkPrompt,
       examples: s.steps.flatMap((st) => st.lines).slice(0, 3).map((l) => ({ en: l.en, kr: l.kr })),
+      checklist: s.checklist,
     });
     onNavigate('talk');
   }

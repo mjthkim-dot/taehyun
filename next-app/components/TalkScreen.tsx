@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ALL_LESSONS, LESSONS, CEFR_NEXT, cefrOf, type Lesson } from '../lib/lessons';
 import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, store, saveChatLog, bumpSpoken } from '../lib/state';
 import { groqStream, groqComplete, validateGroqKey, GroqError } from '../lib/groq';
-import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, parseAiText } from '../lib/talkPrompts';
+import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, buildScenarioReviewPrompt, parseAiText } from '../lib/talkPrompts';
 import { takeMissionTalkContext, type MissionTalkCtx } from '../lib/dailyMission';
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS } from './SpeakButton';
 import { MicIcon, SendIcon } from './icons';
@@ -38,7 +38,17 @@ type ChatMsg =
   | { id: number; kind: 'user'; text: string; time: string; correction?: 'pending' | Correction | null }
   | { id: number; kind: 'ai'; text: string; time: string; streaming?: boolean; translation?: string | null; translating?: boolean }
   | { id: number; kind: 'system'; text: string }
-  | { id: number; kind: 'caf'; cefr: string; result: CafResult };
+  | { id: number; kind: 'caf'; cefr: string; result: CafResult }
+  | { id: number; kind: 'review'; title: string; items: ReviewItem[]; summary: string };
+
+/** 상황 점검 결과 한 줄 — 체크 항목 + AI 판정 */
+interface ReviewItem {
+  label: string;
+  hint: string;
+  done: boolean;
+  evidence: string;
+  tip: string;
+}
 
 const TALK_STARTERS = [
   'Could you repeat that?',
@@ -99,6 +109,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [bgCorrectOn, setBgCorrectOn] = useState(true);
   const [cafBusy, setCafBusy] = useState(false);
+  const [reviewBusy, setReviewBusy] = useState(false);
 
   const lesson = ALL_LESSONS.find((l) => l.id === lessonId) ?? LESSONS[LESSONS.length - 1];
   const historyRef = useRef<{ role: string; content: string }[]>([]);
@@ -473,6 +484,60 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     }
   }
 
+  /**
+   * 상황 점검 — 미팅 스크립트에서 넘어온 롤플레이를 체크리스트로 채점한다.
+   * CAF(언어 능력)와 달리 '영업 행동을 했는가'를 보고, 근거는 학습자 발화에서 인용시킨다.
+   */
+  async function reviewScenario() {
+    const checklist = missionCtx?.checklist;
+    if (!checklist || !checklist.length || reviewBusy) return;
+    const utterances = historyRef.current.filter((h) => h.role === 'user').map((h) => h.content);
+    const transcript = utterances.join('\n');
+    if (transcript.split(/\s+/).filter(Boolean).length < 5) {
+      setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: '상황 점검은 먼저 몇 마디 나눈 뒤에 가능합니다.' }]);
+      return;
+    }
+    setReviewBusy(true);
+    try {
+      const raw = JSON.parse(
+        (await groqComplete([{ role: 'user', content: buildScenarioReviewPrompt(missionCtx.title, checklist, transcript) }], {
+          temperature: 0.2,
+          maxTokens: 900,
+          json: true,
+        })) || '{}'
+      );
+      const byKey = new Map<string, { done?: boolean; evidence?: string; tip_ko?: string }>(
+        (raw.items || []).map((r: { key?: string }) => [String(r.key || ''), r])
+      );
+      const items: ReviewItem[] = checklist.map((c) => {
+        const r = byKey.get(c.key) || {};
+        return {
+          label: c.label,
+          hint: c.hint,
+          done: r.done === true,
+          evidence: String(r.evidence || '').trim(),
+          tip: String(r.tip_ko || '').trim(),
+        };
+      });
+      setMessages((prev) => [
+        ...prev,
+        { id: nextId(), kind: 'review', title: missionCtx.title, items, summary: String(raw.summary_ko || '').trim() },
+      ]);
+    } catch (err) {
+      const e = err as Error;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          kind: 'system',
+          text: e instanceof GroqError && e.message === 'NO_GROQ_KEY' ? '⚡ 상황 점검을 위해 무료 Groq 키를 등록하세요.' : '상황 점검에 실패했어요. 잠시 후 다시 시도해 주세요.',
+        },
+      ]);
+    } finally {
+      setReviewBusy(false);
+    }
+  }
+
   async function analyzeCaf() {
     const utterances = historyRef.current.filter((h) => h.role === 'user').map((h) => h.content);
     const transcript = utterances.join(' ');
@@ -605,6 +670,32 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
               </div>
             );
           }
+          if (m.kind === 'review') {
+            const doneCount = m.items.filter((it) => it.done).length;
+            return (
+              <div className="msg" key={m.id}>
+                <div className="review-card">
+                  <div className="review-head">
+                    <span className="review-title">상황 점검 — {m.title}</span>
+                    <span className="review-score">
+                      {doneCount}/{m.items.length}
+                    </span>
+                  </div>
+                  {m.summary && <div className="review-summary">{m.summary}</div>}
+                  {m.items.map((it, i) => (
+                    <div className={`review-row${it.done ? ' done' : ''}`} key={i}>
+                      <span className="review-mark">{it.done ? '✓' : '✗'}</span>
+                      <div className="review-body">
+                        <div className="review-label">{it.label}</div>
+                        {it.evidence && <div className="review-evidence">&ldquo;{it.evidence}&rdquo;</div>}
+                        <div className="review-tip">{it.tip || it.hint}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          }
           if (m.kind === 'caf') {
             return <CafCard key={m.id} cefr={m.cefr} result={m.result} onSave={savePhrase} />;
           }
@@ -702,6 +793,11 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
           <button className="mini-btn" onClick={analyzeCaf} disabled={cafBusy}>
             {cafBusy ? '분석중' : 'CAF'}
           </button>
+          {!!missionCtx?.checklist?.length && (
+            <button className="mini-btn accent" onClick={reviewScenario} disabled={reviewBusy}>
+              {reviewBusy ? '점검중' : '상황 점검'}
+            </button>
+          )}
         </div>
         <div className="controls">
           {/* placeholder는 좁은 화면에서 잘리지 않는 길이로 — 마이크 사용법은 옆 버튼이 안내한다 */}

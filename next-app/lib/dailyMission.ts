@@ -448,6 +448,8 @@ export interface MissionTalkCtx {
   title: string;
   desc: string;
   examples: MissionPhrase[];
+  /** 롤플레이 후 점검 기준(미팅 스크립트에서 넘어올 때만 채워진다) */
+  checklist?: { key: string; label: string; hint: string }[];
 }
 
 export function setMissionTalkContext(m: BusinessMission) {

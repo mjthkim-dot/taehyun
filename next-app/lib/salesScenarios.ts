@@ -20,6 +20,14 @@ export interface ScriptStep {
   lines: ScriptLine[];
 }
 
+export interface ScenarioCheckItem {
+  key: string;
+  /** 점검 질문(한국어) */
+  label: string;
+  /** 이럴 때 이렇게 말했어야 한다는 힌트 */
+  hint: string;
+}
+
 export interface SalesScenario {
   key: string;
   label: string;
@@ -32,6 +40,8 @@ export interface SalesScenario {
   dialogue: { sp: string; en: string; kr: string }[];
   /** AI가 맡을 상대 역할 지시(회화 탭으로 전달) */
   talkPrompt: string;
+  /** 롤플레이 후 채점 기준 — 표현 암기가 아니라 '대화 흐름을 지켰는가'를 본다 */
+  checklist: ScenarioCheckItem[];
 }
 
 export const SALES_SCENARIOS: SalesScenario[] = [
@@ -153,7 +163,34 @@ export const SALES_SCENARIOS: SalesScenario[] = [
         "kr": "그럴게요. 시작하시죠."
       }
     ],
-    "talkPrompt": "당신은 한국 IT 기업의 인프라 담당 팀장입니다. 오늘 클라우드 도입을 검토하기 위해 파트너사 영업 담당(학습자)과 첫 미팅을 합니다. 학습자가 오프닝을 이끌도록 두고, 짧게 응답하며 아젠다에 '이관 일정'을 추가해 달라고 요청하세요. 지나치게 협조적이지 말고 현실적인 톤을 유지하세요."
+    "talkPrompt": "당신은 한국 IT 기업의 인프라 담당 팀장입니다. 오늘 클라우드 도입을 검토하기 위해 파트너사 영업 담당(학습자)과 첫 미팅을 합니다. 학습자가 오프닝을 이끌도록 두고, 짧게 응답하며 아젠다에 '이관 일정'을 추가해 달라고 요청하세요. 지나치게 협조적이지 말고 현실적인 톤을 유지하세요.",
+    "checklist": [
+      {
+        "key": "thanks",
+        "label": "감사·아이스브레이킹으로 열었는가",
+        "hint": "Thanks for making the time today. / How has your week been?"
+      },
+      {
+        "key": "agenda",
+        "label": "오늘 아젠다를 먼저 제시했는가",
+        "hint": "Let me quickly walk you through today's agenda."
+      },
+      {
+        "key": "ask_add",
+        "label": "상대에게 아젠다 추가를 물었는가",
+        "hint": "Is there anything you'd like to add to the agenda?"
+      },
+      {
+        "key": "time",
+        "label": "종료 시간을 확인했는가",
+        "hint": "We have thirty minutes — does that still work for you?"
+      },
+      {
+        "key": "open_q",
+        "label": "질문을 언제든 하라고 열어뒀는가",
+        "hint": "Feel free to jump in anytime."
+      }
+    ]
   },
   {
     "key": "discovery",
@@ -294,7 +331,34 @@ export const SALES_SCENARIOS: SalesScenario[] = [
         "kr": "네, 그리고 그에 따르는 비용 급증도요."
       }
     ],
-    "talkPrompt": "당신은 이커머스 회사의 인프라 팀장입니다. 현재 대부분 온프레미스이고 프로모션 기간마다 수동으로 서버를 늘려 힘들어합니다. 예산은 아직 확정되지 않았고, 결정에는 CTO와 재무팀이 관여합니다. 학습자(영업 담당)의 질문에 사실적으로 답하되, 먼저 정보를 다 주지 말고 질문받은 것만 답하세요."
+    "talkPrompt": "당신은 이커머스 회사의 인프라 팀장입니다. 현재 대부분 온프레미스이고 프로모션 기간마다 수동으로 서버를 늘려 힘들어합니다. 예산은 아직 확정되지 않았고, 결정에는 CTO와 재무팀이 관여합니다. 학습자(영업 담당)의 질문에 사실적으로 답하되, 먼저 정보를 다 주지 말고 질문받은 것만 답하세요.",
+    "checklist": [
+      {
+        "key": "setup",
+        "label": "현재 환경을 먼저 물었는가",
+        "hint": "Could you walk me through your current setup?"
+      },
+      {
+        "key": "pain",
+        "label": "문제(pain point)를 구체적으로 캤는가",
+        "hint": "What's the biggest pain point with the current setup?"
+      },
+      {
+        "key": "impact",
+        "label": "영향을 시간·비용 등 숫자로 물었는가",
+        "hint": "How much time does your team spend on that each month?"
+      },
+      {
+        "key": "decision",
+        "label": "의사결정 구조나 예산 상태를 확인했는가",
+        "hint": "Who else would be involved? / Is there a budget set aside?"
+      },
+      {
+        "key": "summary",
+        "label": "들은 내용을 요약해 확인받았는가",
+        "hint": "Let me make sure I've got this right — is that fair?"
+      }
+    ]
   },
   {
     "key": "architecture",
@@ -414,7 +478,34 @@ export const SALES_SCENARIOS: SalesScenario[] = [
         "kr": "알겠습니다. 도식으로 보내주실 수 있을까요?"
       }
     ],
-    "talkPrompt": "당신은 고객사 CFO입니다. 기술 배경이 없고 비용과 위험에만 관심이 있습니다. 학습자가 아키텍처를 설명하면 어려운 용어가 나올 때마다 쉽게 설명해 달라고 요청하고, 단점과 비용 영향을 반드시 되물으세요."
+    "talkPrompt": "당신은 고객사 CFO입니다. 기술 배경이 없고 비용과 위험에만 관심이 있습니다. 학습자가 아키텍처를 설명하면 어려운 용어가 나올 때마다 쉽게 설명해 달라고 요청하고, 단점과 비용 영향을 반드시 되물으세요.",
+    "checklist": [
+      {
+        "key": "highlevel",
+        "label": "큰 그림부터 제시했는가",
+        "hint": "At a high level, there are three parts to this."
+      },
+      {
+        "key": "plain",
+        "label": "비기술 눈높이로 조절했는가(약어를 풀어 설명)",
+        "hint": "I'll keep this non-technical. / Think of it as a front door..."
+      },
+      {
+        "key": "link",
+        "label": "구성 요소를 고객의 문제와 연결했는가",
+        "hint": "This directly addresses the manual scaling you mentioned."
+      },
+      {
+        "key": "tradeoff",
+        "label": "단점·트레이드오프를 먼저 공개했는가",
+        "hint": "The trade-off is a slightly higher baseline cost."
+      },
+      {
+        "key": "check",
+        "label": "이해를 확인했는가",
+        "hint": "Does that make sense so far?"
+      }
+    ]
   },
   {
     "key": "objection",
@@ -534,7 +625,34 @@ export const SALES_SCENARIOS: SalesScenario[] = [
         "kr": "2년 약정이 가능하시면 가격을 다시 볼 수 있습니다."
       }
     ],
-    "talkPrompt": "당신은 고객사 구매 담당자입니다. 경쟁사 견적이 20% 낮다는 점을 근거로 가격을 압박합니다. 학습자가 총소유비용이나 리스크로 설득하려 하면 쉽게 수긍하지 말고 재무팀을 설득할 근거를 계속 요구하세요. 다만 합리적인 교환 조건을 제시하면 검토하겠다고 답하세요."
+    "talkPrompt": "당신은 고객사 구매 담당자입니다. 경쟁사 견적이 20% 낮다는 점을 근거로 가격을 압박합니다. 학습자가 총소유비용이나 리스크로 설득하려 하면 쉽게 수긍하지 말고 재무팀을 설득할 근거를 계속 요구하세요. 다만 합리적인 교환 조건을 제시하면 검토하겠다고 답하세요.",
+    "checklist": [
+      {
+        "key": "acknowledge",
+        "label": "반론을 먼저 인정했는가",
+        "hint": "That's a fair point — thanks for being direct."
+      },
+      {
+        "key": "compare",
+        "label": "비교 기준을 되물었는가",
+        "hint": "When you say it's expensive, what are you comparing it to?"
+      },
+      {
+        "key": "reframe",
+        "label": "가격에서 TCO·리스크로 기준을 옮겼는가",
+        "hint": "If we look at the three-year TCO, the gap narrows considerably."
+      },
+      {
+        "key": "trade",
+        "label": "할인 대신 교환 조건을 제시했는가",
+        "hint": "If you can commit for two years, we could revisit the pricing."
+      },
+      {
+        "key": "respect",
+        "label": "경쟁사를 깎아내리지 않았는가",
+        "hint": "리스크가 어디에 남는지만 사실로 짚었는가"
+      }
+    ]
   },
   {
     "key": "poc",
@@ -654,7 +772,34 @@ export const SALES_SCENARIOS: SalesScenario[] = [
         "kr": "그럼 그걸 달성하면 다음 단계는 어떻게 될까요?"
       }
     ],
-    "talkPrompt": "당신은 고객사 기술 리더입니다. PoC에는 관심이 있지만 팀 리소스가 부족해 부담을 느낍니다. 기간·필요 리소스·성공 기준을 구체적으로 캐물으세요. 학습자가 성공 기준을 숫자로 합의하려 하면 협조하되, 다음 단계 확약은 신중하게 답하세요."
+    "talkPrompt": "당신은 고객사 기술 리더입니다. PoC에는 관심이 있지만 팀 리소스가 부족해 부담을 느낍니다. 기간·필요 리소스·성공 기준을 구체적으로 캐물으세요. 학습자가 성공 기준을 숫자로 합의하려 하면 협조하되, 다음 단계 확약은 신중하게 답하세요.",
+    "checklist": [
+      {
+        "key": "frame",
+        "label": "검증을 고객의 리스크 감소로 제안했는가",
+        "hint": "Why don't we prove it on your data?"
+      },
+      {
+        "key": "scope",
+        "label": "범위를 좁혔는가",
+        "hint": "We'd scope it to one workload."
+      },
+      {
+        "key": "duration",
+        "label": "기간을 명시했는가",
+        "hint": "Two weeks should be enough to get a clear signal."
+      },
+      {
+        "key": "criteria",
+        "label": "성공 기준을 숫자로 합의했는가",
+        "hint": "Let's agree on the success criteria. / What number would make this a success?"
+      },
+      {
+        "key": "next",
+        "label": "성공 시 다음 단계를 확약받았는가",
+        "hint": "If we hit those numbers, what would the next step look like?"
+      }
+    ]
   },
   {
     "key": "exec",
@@ -771,6 +916,33 @@ export const SALES_SCENARIOS: SalesScenario[] = [
         "kr": "근거 숫자를 가져오시면 검토하겠습니다."
       }
     ],
-    "talkPrompt": "당신은 시간이 없는 임원(C-level)입니다. 배경 설명이 길어지면 결론을 물어 끊고, 형용사로 말하면 숫자를 요구하세요. 학습자가 요청을 뭉뚱그리면 인원·기간·금액을 특정하라고 되물으세요. 답변은 짧고 직설적으로 하세요."
+    "talkPrompt": "당신은 시간이 없는 임원(C-level)입니다. 배경 설명이 길어지면 결론을 물어 끊고, 형용사로 말하면 숫자를 요구하세요. 학습자가 요청을 뭉뚱그리면 인원·기간·금액을 특정하라고 되물으세요. 답변은 짧고 직설적으로 하세요.",
+    "checklist": [
+      {
+        "key": "headline",
+        "label": "첫 문장에 결론을 넣었는가",
+        "hint": "I'll start with the headline: ..."
+      },
+      {
+        "key": "numbers",
+        "label": "근거를 숫자로 말했는가",
+        "hint": "Cost per environment came down 18% quarter over quarter."
+      },
+      {
+        "key": "bad_news",
+        "label": "나쁜 소식도 감추지 않았는가",
+        "hint": "behind on adoption — 격차를 먼저 밝혔는가"
+      },
+      {
+        "key": "hedge",
+        "label": "반론에 헤징으로 대응했는가",
+        "hint": "That could well be a factor, though I'd want to verify it."
+      },
+      {
+        "key": "ask",
+        "label": "요청을 인원·기간·금액으로 특정했는가",
+        "hint": "My ask is two more engineers for one quarter."
+      }
+    ]
   }
 ];
