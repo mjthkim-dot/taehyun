@@ -8,7 +8,7 @@
  */
 import { useState } from 'react';
 import { APP_VERSION } from '../lib/version';
-import { groqKey, SERVER_GROQ_SENTINEL } from '../lib/state';
+import { groqKey, SERVER_GROQ_SENTINEL, clearGroqKey } from '../lib/state';
 import { validateGroqKey } from '../lib/groq';
 import { primeAudio, playUrl } from './SpeakButton';
 
@@ -78,7 +78,7 @@ export default function AudioCheckScreen() {
     }
 
     // 2) Groq 키
-    const local = groqKey();
+    let local = groqKey();
     let serverKey = false;
     try {
       const r = await fetch('/app/api/groq');
@@ -88,16 +88,26 @@ export default function AudioCheckScreen() {
     }
     let keyValid: boolean | null = null;
     if (local && local !== SERVER_GROQ_SENTINEL) keyValid = await validateGroqKey(local);
+    // 기기 키가 거부됐지만 서버 키가 있으면 실패가 아니다 — 기기 키는 fallback일 뿐이고
+    // 서버 라우트는 서버 키를 우선 사용한다. 여기서 정리해 이후 단계도 서버 키로 태운다.
+    const healed = keyValid === false && serverKey;
+    if (healed) {
+      clearGroqKey();
+      local = SERVER_GROQ_SENTINEL;
+      keyValid = null;
+    }
     push({
       name: 'Groq 키',
       ok: keyValid === false ? false : !!local || serverKey,
-      detail: local
-        ? local === SERVER_GROQ_SENTINEL
-          ? '서버 키 사용'
-          : `로컬 키 등록됨(${local.slice(0, 6)}…)${keyValid === true ? ' · 유효 확인' : keyValid === false ? ' · ⚠️ Groq에서 거부(만료/폐기) — console.groq.com에서 재발급 필요' : ''}`
-        : serverKey
-          ? '서버 키 있음'
-          : '키 없음 — 신경망 음성을 쓸 수 없어요(회화 탭에서 무료 키 등록)',
+      detail: healed
+        ? '이 기기에 저장된 옛 키가 Groq에서 거부돼 정리했어요 — 서버에 등록된 키로 계속합니다'
+        : local
+          ? local === SERVER_GROQ_SENTINEL
+            ? '서버 키 사용'
+            : `로컬 키 등록됨(${local.slice(0, 6)}…)${keyValid === true ? ' · 유효 확인' : keyValid === false ? ' · ⚠️ Groq에서 거부(만료/폐기) — console.groq.com에서 재발급 필요' : ''}`
+          : serverKey
+            ? '서버 키 있음'
+            : '키 없음 — 신경망 음성을 쓸 수 없어요(회화 탭에서 무료 키 등록)',
     });
 
     // 2.5) 서버→Groq 실연결 — 서버 키로 Groq에 초소형 합성을 직접 시도해

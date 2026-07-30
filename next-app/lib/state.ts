@@ -299,6 +299,20 @@ export function saveGroqKey(key: string) {
   store('va_groq_key', key.trim());
 }
 
+/** 서버(배포 환경변수)에 키가 있는지 — 빌드 시점에 구워진 플래그. */
+export function hasServerGroqKey(): boolean {
+  return process.env.NEXT_PUBLIC_GROQ_SERVER === '1';
+}
+
+/**
+ * 기기에 저장된 키를 지운다. 서버 키가 있는 배포에서 기기의 옛 키가 만료되면
+ * 그 키가 서버 키를 가리는(client 우선순위) 탓에 '유효하지 않다'는 오경보가 뜬다.
+ * 이때 조용히 정리해 서버 키 경로로 되돌리는 자가 치유에 쓴다.
+ */
+export function clearGroqKey() {
+  store('va_groq_key', '');
+}
+
 /* ── 표현장(저장한 문장) ── */
 export interface SavedPhrase {
   en: string;

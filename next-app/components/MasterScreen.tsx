@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { APP_NAME_KO, APP_TAGLINE_KO } from '../lib/brand';
-import { getProfile, calcStreak, todayCount, spokenToday, dueWeak, groqKey, isPlaced, getPhrases, DAILY_GOAL, SERVER_GROQ_SENTINEL } from '../lib/state';
+import { getProfile, calcStreak, todayCount, spokenToday, dueWeak, groqKey, isPlaced, getPhrases, DAILY_GOAL, SERVER_GROQ_SENTINEL, hasServerGroqKey, clearGroqKey } from '../lib/state';
 import { validateGroqKey } from '../lib/groq';
 import DailyMissionCard from './DailyMissionCard';
 import DailyQuests from './DailyQuests';
@@ -31,6 +31,8 @@ export default function MasterScreen({
   // 등록된 키가 Groq에서 거부되는 상태(만료·폐기)를 홈에서 바로 알린다 —
   // 무효 키의 '조용한 401'이 음성 무음 사고의 최종 원인이었다. 세션당 1회만 검증.
   const [keyInvalid, setKeyInvalid] = useState(false);
+  // 서버 키가 있는 배포에서 기기의 만료된 키를 자동 정리했을 때 알리는 안내(경고 아님).
+  const [keyHealed, setKeyHealed] = useState(false);
   useEffect(() => {
     setFrozenFilled(consumeFreezesForGaps().length);
     setReady(true);
@@ -38,7 +40,15 @@ export default function MasterScreen({
     if (k && k !== SERVER_GROQ_SENTINEL && sessionStorage.getItem('va_key_checked') !== k) {
       validateGroqKey(k).then((valid) => {
         sessionStorage.setItem('va_key_checked', k);
-        if (valid === false) setKeyInvalid(true);
+        if (valid !== false) return;
+        // 기기 키가 거부됐다. 서버 키가 있는 배포라면 기기 키는 없어도 되는 fallback이므로,
+        // 사용자에게 숙제를 주지 않고 조용히 지워 서버 키 경로로 되돌린다.
+        if (hasServerGroqKey()) {
+          clearGroqKey();
+          setKeyHealed(true);
+        } else {
+          setKeyInvalid(true);
+        }
       });
     }
   }, []);
@@ -129,6 +139,12 @@ export default function MasterScreen({
           <button className="btn primary" style={{ flexShrink: 0, fontSize: '0.78rem', padding: '7px 12px' }} onClick={() => onNavigate('drill')}>
             ▶ 시작
           </button>
+        </div>
+      )}
+
+      {keyHealed && (
+        <div className="freeze-note">
+          이 기기에 저장돼 있던 만료된 Groq 키를 정리했어요 — 이제 서버에 등록된 키로 AI 회화·음성이 동작합니다.
         </div>
       )}
 
