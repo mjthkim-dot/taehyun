@@ -62,6 +62,19 @@ body {
   text-rendering: optimizeLegibility;
   letter-spacing: -0.011em; /* Pretendard는 살짝 조이면 더 단단하게 읽힌다 */
   font-feature-settings: 'ss03', 'cv03'; /* 둥근 따옴표·숫자 등 가독 변형 */
+  /* 한국어 줄바꿈: 기본값(break 가능)은 "AI 스|피킹 코치"처럼 어절 중간을 잘라
+   * 가독성을 크게 떨어뜨린다. keep-all로 어절(단어) 단위로만 끊고, 그래도
+   * 한 줄에 못 들어가는 긴 토큰(URL·API 키 등)은 break-word로 흘린다. */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* 제목은 마지막 줄에 한 단어만 떨어지는(고아 단어) 모양을 피한다 — 지원 브라우저에서만 적용. */
+h1, h2, h3, h4,
+.mission-title,
+.home-hero-title,
+.study-card h3 {
+  text-wrap: pretty;
 }
 
 /* 숫자가 흔들리지 않게 — 통계·진도·타이머 등 표 형태 정렬 */
@@ -231,7 +244,7 @@ button {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 700;
   cursor: pointer;
   border-radius: 15px;
@@ -932,7 +945,7 @@ button {
   font-variant-numeric: tabular-nums;
 }
 .gauge-label {
-  font-size: 0.66rem;
+  font-size: 0.7rem;
   font-weight: 700;
   color: var(--text-muted);
   margin-top: 3px;
@@ -1271,7 +1284,7 @@ button {
   font-weight: 700;
 }
 .feat-card .sub {
-  font-size: 0.67rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
   margin-top: 2px;
 }
@@ -1503,13 +1516,13 @@ button {
   background: rgba(26,143,92,0.08); border: 1px solid rgba(26,143,92,0.28); border-left: 3px solid var(--green);
   border-radius: 0 10px 10px 0; padding: 9px 13px; font-size: 0.82rem; line-height: 1.6; color: var(--green-dk); margin-top: 6px; width: 100%;
 }
-.msg-meta { font-size: 0.68rem; color: var(--text-muted); padding: 0 4px; display: flex; align-items: center; gap: 4px; }
+.msg-meta { font-size: 0.72rem; color: var(--text-muted); padding: 0 4px; display: flex; align-items: center; gap: 4px; }
 
 .bg-correct { align-self: stretch; margin-top: 5px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .bgc-head { font-size: 0.76rem; font-weight: 700; padding: 7px 11px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
 .bgc-head.ok { color: var(--green-dk); }
 .bgc-head.warn { color: var(--yellow); background: rgba(194,117,12,0.07); }
-.bgc-toggle { margin-left: auto; font-size: 0.68rem; color: var(--text-muted); font-weight: 400; }
+.bgc-toggle { margin-left: auto; font-size: 0.72rem; color: var(--text-muted); font-weight: 400; }
 .bgc-body { display: none; padding: 2px 11px 9px; font-size: 0.8rem; line-height: 1.6; }
 .bg-correct.open .bgc-body { display: block; }
 .bgc-row { margin: 5px 0; }
@@ -1535,6 +1548,9 @@ button {
   padding: 7px 12px; border-radius: 16px; font-size: 0.8rem; font-weight: 600;
   cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text);
   white-space: nowrap; transition: all .15s; flex-shrink: 0;
+  /* 예문 전체가 칩으로 들어오면 화면 밖으로 흘러 잘린 것처럼 보인다 —
+   * 말줄임으로 끊어 '스크롤되는 목록'임을 분명히 한다(탭하면 전체 문장이 입력됨). */
+  max-width: 68%; overflow: hidden; text-overflow: ellipsis;
 }
 .helper-chip:hover { border-color: var(--primary); background: var(--primary-soft); }
 .helper-chip.hint { border-color: var(--yellow); color: var(--yellow); }
@@ -1554,7 +1570,9 @@ button {
 
 .controls { display: flex; gap: 8px; align-items: center; max-width: 100%; }
 .text-input {
-  flex: 1; background: var(--surface); border: 2px solid var(--border); color: var(--text);
+  /* input은 내재 최소 너비(약 20자)를 갖기 때문에 flex:1만으로는 줄어들지 않고
+   * 좁은 화면에서 옆 버튼을 화면 밖으로 밀어낸다 — min-width:0으로 풀어준다. */
+  flex: 1; min-width: 0; background: var(--surface); border: 2px solid var(--border); color: var(--text);
   border-radius: 999px; padding: 11px 16px; font-size: 0.9rem; outline: none;
 }
 .text-input:focus { border-color: var(--primary); }
@@ -2665,10 +2683,23 @@ body,
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   font-size: 0.82rem;
   font-weight: 800;
   color: var(--text);
   margin: 16px 0 8px;
+  line-height: 1.45;
+}
+/* 라벨은 줄바꿈을 허용하고(좁은 화면), 우측 액션 칩은 한 줄로 유지한다 —
+ * 칩이 두 줄로 접히면 라벨과 겹쳐 보여 깨진 것처럼 읽혔다. */
+.mission-step-label > span {
+  flex: 1;
+  min-width: 0;
+}
+.mission-step-label .mission-mini-next,
+.mission-step-label .mission-mini {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 .mission-mini-next,
 .mission-mini {
@@ -2972,7 +3003,7 @@ body,
   border-color: var(--green);
 }
 .mission-mastered {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 800;
   color: var(--green-dk);
   margin-left: 2px;
@@ -3026,7 +3057,7 @@ body,
   margin-bottom: 6px;
 }
 .deep-register {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 800;
   padding: 2px 8px;
   border-radius: 999px;
@@ -3049,7 +3080,7 @@ body,
 .deep-var:last-child { border-bottom: none; }
 .deep-var-tone {
   flex: 0 0 52px;
-  font-size: 0.64rem;
+  font-size: 0.7rem;
   font-weight: 800;
   color: var(--text-muted);
   padding-top: 2px;
@@ -3071,7 +3102,7 @@ body,
 }
 .deep-reply-who {
   flex: 0 0 30px;
-  font-size: 0.64rem;
+  font-size: 0.7rem;
   font-weight: 800;
   color: var(--text-muted);
   padding-top: 2px;
@@ -3114,7 +3145,7 @@ body,
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 0.66rem;
+  font-size: 0.72rem;
   color: var(--green-dk);
 }
 .deep-recall-kr { font-size: 0.86rem; font-weight: 700; margin-bottom: 8px; }
@@ -3171,7 +3202,7 @@ body,
   gap: 8px;
 }
 .path-level-badge {
-  font-size: 0.66rem;
+  font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   color: #fff;
@@ -3266,7 +3297,7 @@ body,
   padding-top: 2px;
 }
 .path-here {
-  font-size: 0.64rem;
+  font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.03em;
   color: var(--primary-dk);
@@ -3457,7 +3488,7 @@ body,
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 800;
   padding: 4px 10px;
   border-radius: 999px;
@@ -3477,7 +3508,7 @@ body,
   color: var(--green-dk);
 }
 .buildup-hint {
-  font-size: 0.64rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
   margin-left: auto;
 }

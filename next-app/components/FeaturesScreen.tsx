@@ -34,7 +34,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
   const askCount = getAskHistory().length;
   const placed = isPlaced();
   const key = groqKey();
-  const keySub = key ? (key === SERVER_GROQ_SENTINEL ? '서버 키로 동작 중 · 상태 확인' : `기기 키 ${key.slice(0, 7)}… · 교체/삭제`) : '아직 없음 — AI 기능이 꺼져 있어요';
+  const keySub = key ? (key === SERVER_GROQ_SENTINEL ? '서버 키로 동작 중' : '기기 키 등록됨 · 교체/삭제') : '아직 없음 · AI 기능 꺼짐';
 
   const sections: FeatSection[] = [
     {

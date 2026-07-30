@@ -19,7 +19,9 @@ await page.waitForSelector('.home-hero', { timeout: 15000 });
 await page.waitForTimeout(500);
 
 check('프리즈 소모 배너 표시', !!(await page.evaluate(() => document.querySelector('.freeze-note'))));
-const streakN = await page.evaluate(() => document.querySelector('.home-hero-streak .n')?.textContent || '');
+// 스트릭 표시는 헤더 배지(🔥n) 하나로 통일했다 — 히어로의 중복 배지는 좁은 화면
+// 제목 줄바꿈을 유발해 제거했다.
+const streakN = await page.evaluate(() => document.querySelector('.streak-chip')?.textContent || '');
 check('스트릭이 3일로 보존(2일 연습+프리즈 1일)', streakN.includes('3'), streakN);
 const freezeLeft = await page.evaluate(() => JSON.parse(localStorage.getItem('va_freeze') || '{}').count);
 check('프리즈 1개 소모됨(0 남음)', freezeLeft === 0);

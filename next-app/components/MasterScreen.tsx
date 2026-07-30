@@ -77,15 +77,14 @@ export default function MasterScreen({
     <div className="study-screen">
       <div className="home-hero">
         <div className="home-hero-avatar">EC</div>
+        {/* 히어로에서 스트릭 배지를 뺐다 — 헤더(🔥n)와 아래 목표 카드에 이미 두 번
+            나오는데, 좁은 화면에서 이 박스가 제목 폭을 잡아먹어 "AI 스|피킹"처럼
+            어절이 잘리는 원인이었다. 제목은 브랜드명만, 부제에 한 줄로 모은다. */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="home-hero-title">{APP_NAME_KO} — {APP_TAGLINE_KO}</div>
+          <div className="home-hero-title">{APP_NAME_KO}</div>
           <div className="home-hero-sub">
-            CEFR <b>{prof.cefr}</b> (GSE {prof.gse}) 진행 중
+            {APP_TAGLINE_KO} · CEFR <b>{prof.cefr}</b> (GSE {prof.gse})
           </div>
-        </div>
-        <div className="home-hero-streak">
-          <div className="n">🔥{streak}</div>
-          <div className="l">일 연속{freeze > 0 ? ` · ❄️${freeze}` : ''}</div>
         </div>
       </div>
 
@@ -125,6 +124,7 @@ export default function MasterScreen({
           <div style={{ fontSize: '0.86rem', fontWeight: 800 }}>{goalReached ? '오늘 목표 달성!' : '오늘 말한 문장'}</div>
           <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: 2 }}>
             소리 내어 <b style={{ color: 'var(--text)' }}>{spoken}</b> / {DAILY_GOAL}문장 · 연습 {done}회 · 🔥 {streak}일 연속
+            {freeze > 0 ? ` · ❄️ 프리즈 ${freeze}` : ''}
           </div>
         </div>
       </div>

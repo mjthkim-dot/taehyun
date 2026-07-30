@@ -208,7 +208,7 @@ export default function DailyMissionCard({ onNavigate, onProgress }: { onNavigat
 
       {/* 2) 말하기 도전 — 통과 점수(60점)를 넘기면 해당 표현의 '말' 단계가 채워진다 */}
       <div className="mission-step-label">
-        ② 빌드업 말하기 — 구간마다 {SPEAK_PASS_SCORE}점 이상이면 다음으로
+        <span>② 빌드업 말하기 · {SPEAK_PASS_SCORE}점 통과</span>
         {mission.phrases.length > 1 && (
           <button className="mission-mini-next" onClick={() => setPracticeIdx((i) => (i + 1) % mission.phrases.length)}>
             다른 문장 →
