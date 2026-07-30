@@ -451,7 +451,15 @@ export interface MissionTalkCtx {
 }
 
 export function setMissionTalkContext(m: BusinessMission) {
-  store(TALK_KEY, { title: m.title, desc: m.talkPrompt, examples: m.phrases.slice(0, 3) });
+  setTalkContext({ title: m.title, desc: m.talkPrompt, examples: m.phrases.slice(0, 3) });
+}
+
+/**
+ * 회화 탭으로 넘길 상황을 직접 지정한다(미션 외 화면에서도 쓰는 범용 진입점).
+ * 미팅 스크립트 → AI 롤플레이 연습이 이 경로를 탄다.
+ */
+export function setTalkContext(ctx: MissionTalkCtx) {
+  store(TALK_KEY, ctx);
 }
 
 /** 저장된 미션 상황을 꺼내고 비운다(한 번만 소비). 없으면 null. */

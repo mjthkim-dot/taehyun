@@ -31,6 +31,7 @@ import LegalScreen from '../components/LegalScreen';
 import AudioCheckScreen from '../components/AudioCheckScreen';
 import ApiKeyScreen from '../components/ApiKeyScreen';
 import VocabScreen from '../components/VocabScreen';
+import ScriptsScreen from '../components/ScriptsScreen';
 import ListeningScreen from '../components/ListeningScreen';
 import ReadingScreen from '../components/ReadingScreen';
 import WritingScreen from '../components/WritingScreen';
@@ -74,6 +75,7 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
   audiocheck: { title: '음성 진단', render: () => <AudioCheckScreen /> },
   apikey: { title: 'AI 키 등록', render: () => <ApiKeyScreen /> },
   vocab: { title: '직무 어휘', render: () => <VocabScreen /> },
+  scripts: { title: '미팅 스크립트', render: (c) => <ScriptsScreen onNavigate={c.setMode} /> },
   listening: { title: '듣기', render: () => <ListeningScreen /> },
   reading: { title: '읽기', render: () => <ReadingScreen /> },
   writing: { title: '쓰기', render: () => <WritingScreen /> },

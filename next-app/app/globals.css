@@ -4349,3 +4349,134 @@ body,
 }
 .vocab-quiz-feedback .ex-kr { font-size: 0.78rem; color: var(--text-muted); margin-top: 3px; }
 .vocab-quiz-feedback .note-line { font-size: 0.74rem; color: var(--text-muted); margin-top: 8px; }
+
+/* ── 미팅 스크립트(ScriptsScreen) ────────────────────────────
+   목록은 큰 탭 카드, 상세는 단계 → 표현 → 실수 → 모범 대화 순서.
+   액센트는 'AI와 연습하기' CTA 하나에만 준다(화면당 하나 원칙). */
+.script-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 15px 16px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  color: var(--text);
+  transition: border-color 0.15s, transform 0.12s var(--ease-out-back);
+}
+.script-card:active { transform: scale(0.985); }
+@media (hover: hover) {
+  .script-card:hover { border-color: var(--primary); }
+}
+.script-card-ic { font-size: 1.6rem; flex: 0 0 auto; line-height: 1.2; }
+.script-card-body { flex: 1; min-width: 0; }
+.script-card-label { font-size: 0.95rem; font-weight: 800; }
+.script-card-desc { font-size: 0.77rem; color: var(--text-muted); line-height: 1.55; margin-top: 3px; }
+.script-card-meta { font-size: 0.72rem; color: var(--primary); font-weight: 700; margin-top: 6px; }
+
+.script-back { width: auto; padding: 8px 14px; font-size: 0.78rem; margin-bottom: 12px; }
+.script-situation { font-size: 0.8rem; color: var(--text-muted); line-height: 1.6; }
+.script-goal {
+  font-size: 0.82rem;
+  line-height: 1.6;
+  margin-top: 12px;
+  padding: 11px 13px;
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  border-left: 3px solid var(--primary);
+}
+.script-goal-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+.script-practice { width: 100%; margin-top: 14px; }
+
+.script-step-no {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 800;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.script-purpose {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--border);
+  margin-bottom: 4px;
+}
+.script-line { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.script-line:last-child { border-bottom: none; padding-bottom: 0; }
+.script-en {
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.55;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.script-kr { font-size: 0.79rem; color: var(--text-muted); margin-top: 4px; }
+.script-note {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-top: 8px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border-strong);
+}
+.script-save {
+  margin-top: 9px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.script-save:disabled { opacity: 0.55; cursor: default; }
+
+.script-pitfalls { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 7px; }
+.script-pitfalls li { font-size: 0.79rem; color: var(--text-muted); line-height: 1.6; }
+.script-pitfalls li::marker { color: var(--yellow); }
+
+.script-dialogue { display: flex; flex-direction: column; gap: 10px; }
+.script-turn { display: flex; gap: 10px; align-items: flex-start; }
+.script-sp {
+  flex: 0 0 34px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  padding-top: 2px;
+}
+.script-turn.me .script-sp { color: var(--primary); }
+.script-turn-body { flex: 1; min-width: 0; }
+.script-turn-en {
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.55;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.script-turn-kr { font-size: 0.76rem; color: var(--text-muted); margin-top: 2px; }
