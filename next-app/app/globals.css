@@ -4153,3 +4153,199 @@ body,
 [data-theme='dark'] .vo-status {
   color: var(--primary-light);
 }
+
+/* ── 직무 어휘(VocabScreen) ──────────────────────────────────
+   연어 칩 + 예문 + 주의 노트로 구성된 확장형 카드. 액센트는 활성 탭과
+   정답 표시에만 쓰고, 카드 자체는 무채색 유리로 눌러 목록이 시끄럽지 않게 한다. */
+.vocab-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  margin-bottom: 8px;
+}
+.vocab-tabs::-webkit-scrollbar { display: none; }
+.vocab-tab {
+  flex: 0 0 auto;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.vocab-tab.active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.vocab-domain-desc {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin-bottom: 12px;
+}
+
+.vocab-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.vocab-card.open {
+  border-color: var(--border-strong);
+}
+.vocab-head {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 12px 14px;
+  cursor: pointer;
+  color: var(--text);
+}
+.vocab-term-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.vocab-term {
+  font-size: 0.95rem;
+  font-weight: 800;
+  flex: 1;
+  min-width: 0;
+}
+.vocab-level {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+.vocab-kr {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+.vocab-body {
+  padding: 0 14px 14px;
+}
+.vocab-sec-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--primary);
+  margin: 12px 0 6px;
+}
+.vocab-collos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.vocab-collo {
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.vocab-ex {
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.55;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.vocab-ex-kr {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+.vocab-note {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  border-left: 2px solid var(--border-strong);
+  padding-left: 10px;
+}
+.vocab-save {
+  width: 100%;
+  margin-top: 14px;
+  font-size: 0.8rem;
+}
+.vocab-saved-note {
+  font-size: 0.76rem;
+  color: var(--primary);
+  margin-top: 10px;
+  font-weight: 700;
+}
+
+/* 자기 점검 퀴즈 */
+.vocab-quiz-meta {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.vocab-quiz-q {
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.4;
+  margin: 10px 0 16px;
+}
+.vocab-quiz-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.vocab-opt {
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.vocab-opt:disabled { cursor: default; }
+.vocab-opt.right {
+  border-color: var(--green);
+  color: var(--green-dk);
+  background: var(--green-soft);
+}
+.vocab-opt.wrong {
+  border-color: var(--red);
+  color: var(--red);
+}
+.vocab-quiz-feedback {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.vocab-quiz-feedback .ok { font-size: 0.86rem; font-weight: 800; color: var(--green-dk); }
+.vocab-quiz-feedback .bad { font-size: 0.86rem; font-weight: 800; color: var(--red); }
+.vocab-quiz-feedback .ex {
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.vocab-quiz-feedback .ex-kr { font-size: 0.78rem; color: var(--text-muted); margin-top: 3px; }
+.vocab-quiz-feedback .note-line { font-size: 0.74rem; color: var(--text-muted); margin-top: 8px; }

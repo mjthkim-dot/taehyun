@@ -317,7 +317,9 @@ export function clearGroqKey() {
 export interface SavedPhrase {
   en: string;
   kr: string;
-  lesson?: number;
+  /** 출처 — 회차 레슨은 숫자 id, 그 외 화면은 'vocab:tech'처럼 문자열 태그.
+   *  약점 노트(WeakItem.lesson)와 동일한 규칙으로 맞춘다. */
+  lesson?: number | string;
 }
 
 export function getPhrases() {

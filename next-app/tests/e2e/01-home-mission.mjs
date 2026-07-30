@@ -115,7 +115,7 @@ const xpTxt = await page.evaluate(() => document.querySelector('.quests-xp')?.te
 check('XP 적립 표시(+50 이상)', /\+\d+ XP/.test(xpTxt) && parseInt(xpTxt.replace(/\D/g, ''), 10) >= 50, xpTxt);
 
 // ── 학습 경로(Path): 노드 렌더 + current 강조 + 탭하면 레슨으로 이동 ──
-check('경로 노드 46개(전 유닛)', (await page.evaluate(() => document.querySelectorAll('.path-node').length)) === 46);
+check('경로 노드 48개(전 유닛)', (await page.evaluate(() => document.querySelectorAll('.path-node').length)) === 48);
 check('current 노드는 정확히 1개', (await page.evaluate(() => document.querySelectorAll('.path-node.current').length)) === 1);
 await page.locator('.path-node.current').click();
 await page.waitForTimeout(500);

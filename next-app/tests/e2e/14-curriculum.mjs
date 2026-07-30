@@ -35,12 +35,14 @@ const REQUIRED = [
   ['비교 심화', /비교 심화/],
   ['도치·강조 구문', /도치|강조 구문/],
   ['발음(강세·연음)', /발음 ①|발음 ②/],
+  ['격식 문서체(레지스터)', /격식 문서체|레지스터/],
+  ['완곡·헤징 화법', /헤징|완곡/],
 ];
 for (const [label, re] of REQUIRED) {
   check(`커리큘럼에 ${label} 포함`, re.test(all));
 }
 
-check('경로 노드가 46개', titles.length === 46, String(titles.length));
+check('경로 노드가 48개', titles.length === 48, String(titles.length));
 
 // 모든 노드가 실제 레슨으로 연결되는지 — 콘텐츠 없는 노드를 탭하면 빈 화면이 된다.
 // 새로 추가한 유닛 중 하나(전치사)를 실제로 열어 본문·예문이 렌더되는지 확인한다.
@@ -52,6 +54,9 @@ check('탭하면 레슨 화면으로 이동', (await page.evaluate(() => documen
 const body = await page.evaluate(() => document.body.textContent || '');
 check('전치사 레슨 본문 렌더', /at 7|시간 전치사|on Monday/.test(body));
 check('전치사 레슨에 장소 설명 포함', /장소 전치사|on the table/.test(body));
+// intro·note의 **볼드**가 리터럴로 새면 안 된다(과거 실제 결함)
+check('레슨 본문에 리터럴 ** 없음', !body.includes('**'));
+check('레슨 설명의 볼드가 <b>로 렌더', (await page.evaluate(() => document.querySelectorAll('.sec-intro b, .note b').length)) >= 2);
 
 await browser.close();
 finish('14-curriculum');

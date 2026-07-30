@@ -27,6 +27,7 @@ export type Mode =
   | 'legal'
   | 'audiocheck'
   | 'apikey'
+  | 'vocab'
   | 'business';
 
 const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [

@@ -6329,6 +6329,236 @@
           }
         ]
       }
+    },
+    {
+      "id": 606,
+      "master": "C2",
+      "title": "격식 문서체 & 레지스터",
+      "sections": [
+        {
+          "title": "구어체를 문서체로 올리는 세 가지 장치",
+          "intro": "C2에서 갈리는 것은 어려운 단어가 아니라 **레지스터(격식 수준) 조절 능력**입니다. 같은 내용을 상대와 매체에 맞춰 올리고 내릴 수 있어야 합니다. 문서체의 핵심 장치는 ① 명사화 ② 구동사→라틴계 동사 ③ 수동·비인칭 주어입니다.",
+          "points": [
+            {
+              "en": "명사화(nominalization) — 동작을 명사로",
+              "kr": "We decided → Our decision",
+              "note": "구어: **We decided** to delay the launch.\n문서: **The decision to delay** the launch was based on test results.\n동작을 명사로 바꾸면 문장이 객관적이고 압축적으로 들립니다.\n다만 과하면 읽기 어려워지므로 **한 문장에 하나** 정도가 적당합니다."
+            },
+            {
+              "en": "구동사 → 라틴계 단일 동사",
+              "kr": "put off → postpone",
+              "note": "put off → **postpone** / set up → **establish** / find out → **determine**\ngo over → **review** / cut down → **reduce** / look into → **investigate**\n구동사는 친근하고 라틴계 동사는 격식 있습니다 — 이메일 상대에 따라 골라 쓰세요."
+            },
+            {
+              "en": "수동태·비인칭 주어로 주체를 흐린다",
+              "kr": "It was agreed that...",
+              "note": "**It was agreed that** the scope would be reduced.(누가 합의했는지 드러내지 않음)\n**It should be noted that** / **It is recommended that**\n책임 소재를 부드럽게 처리하거나 객관성을 강조할 때 씁니다. 반대로 책임을 분명히 해야 할 때는 능동태로 되돌리세요."
+            }
+          ]
+        },
+        {
+          "title": "이메일 레지스터 — 세 단계로 조절한다",
+          "intro": "같은 요청도 **캐주얼 · 중립 · 격식** 세 단계로 표현이 갈립니다. 상대의 직급·친밀도·사안의 무게로 판단합니다.",
+          "points": [
+            {
+              "en": "요청: Can you → Could you → I would appreciate it if",
+              "kr": "격식 3단계",
+              "note": "캐주얼: **Can you** send it today?\n중립: **Could you** send it by end of day?\n격식: **I would appreciate it if you could** send it at your earliest convenience.\n격식이 올라갈수록 문장이 길어지고 조건절이 늘어납니다."
+            },
+            {
+              "en": "맺음말과 첫인사의 짝",
+              "kr": "Best regards / Yours sincerely",
+              "note": "캐주얼: Hi Jamie — Thanks! / Cheers,\n중립: Hello Jamie — **Best regards**,\n격식: Dear Mr. Kim — **Yours sincerely**,\n이름을 모를 때(Dear Sir or Madam)는 **Yours faithfully**(영국식)가 짝입니다."
+            },
+            {
+              "en": "나쁜 소식은 완충 → 사실 → 대안 순서로",
+              "kr": "Unfortunately, ... However, ...",
+              "note": "**I'm afraid** there's been a delay.(완충)\n**The vendor changed the API without notice.**(사실)\n**However, we can still deliver the core scope by Friday.**(대안)\n한국어 이메일보다 **대안 제시**를 훨씬 강하게 기대합니다."
+            }
+          ]
+        }
+      ],
+      "examples": [
+        {
+          "en": "The decision to delay the launch was based on test results.",
+          "kr": "출시를 연기한 결정은 테스트 결과에 근거했습니다."
+        },
+        {
+          "en": "We have postponed the review until the audit is complete.",
+          "kr": "감사가 완료될 때까지 검토를 연기했습니다."
+        },
+        {
+          "en": "It should be noted that the figures are provisional.",
+          "kr": "해당 수치는 잠정치임을 유념하시기 바랍니다."
+        },
+        {
+          "en": "I would appreciate it if you could confirm by Thursday.",
+          "kr": "목요일까지 확인해 주시면 감사하겠습니다."
+        },
+        {
+          "en": "I'm afraid there has been a delay on the vendor's side.",
+          "kr": "안타깝게도 업체 측에서 지연이 발생했습니다."
+        },
+        {
+          "en": "However, we can still deliver the core scope this week.",
+          "kr": "다만 핵심 범위는 이번 주에 전달할 수 있습니다."
+        }
+      ],
+      "homework": "같은 요청 하나를 캐주얼·중립·격식 3단계로 다시 쓰고, 구동사 3개를 라틴계 동사로 바꿔 보기",
+      "scenario": {
+        "title": "격식 이메일 구술하기",
+        "desc": "AI가 상대 임원입니다. 지연 사실과 대안을 격식체로 전달해 보세요."
+      },
+      "dialogue": {
+        "title": "지연 통보와 대안 제시",
+        "lines": [
+          {
+            "sp": "A",
+            "en": "Could you update me on the delivery date?",
+            "kr": "납기 일정에 대해 업데이트해 주시겠습니까?"
+          },
+          {
+            "sp": "B",
+            "en": "I'm afraid there has been a delay on the vendor's side.",
+            "kr": "안타깝게도 업체 측에서 지연이 발생했습니다."
+          },
+          {
+            "sp": "A",
+            "en": "What is the revised timeline?",
+            "kr": "수정된 일정은 어떻게 됩니까?"
+          },
+          {
+            "sp": "B",
+            "en": "It is currently estimated at two additional weeks.",
+            "kr": "현재 2주 추가로 추정됩니다."
+          },
+          {
+            "sp": "A",
+            "en": "That is difficult for us to accept.",
+            "kr": "그건 저희가 받아들이기 어렵습니다."
+          },
+          {
+            "sp": "B",
+            "en": "Understood. However, we can deliver the core scope first.",
+            "kr": "이해했습니다. 다만 핵심 범위는 먼저 전달할 수 있습니다."
+          }
+        ]
+      }
+    },
+    {
+      "id": 607,
+      "master": "C2",
+      "title": "완곡·헤징 & 협상 화법",
+      "sections": [
+        {
+          "title": "헤징(hedging) — 단정을 피해 여지를 남긴다",
+          "intro": "영어권 비즈니스에서 단정적인 표현은 무례하거나 위험하게 들립니다. **틀릴 여지를 미리 확보하는 완충 장치**가 헤징이며, 원어민 임원의 말에서 가장 자주 관찰되는 특징입니다.",
+          "points": [
+            {
+              "en": "확신의 강도를 조절하는 부사·동사",
+              "kr": "seem, tend to, appear, suggest",
+              "note": "The data **suggests** a downward trend.(단정: The data shows → 완화: suggests)\nCosts **tend to** rise in Q4. / It **appears** that the issue is isolated.\n**arguably, broadly, relatively, somewhat**도 같은 역할을 합니다."
+            },
+            {
+              "en": "추측 조동사로 여지를 남긴다",
+              "kr": "may, might, could well",
+              "note": "This **may** require additional review.\nThat **could well** be the root cause.(가능성이 꽤 있다)\n**I suspect**(그럴 것 같다) / **I'd imagine**(아마도) — 부드러운 추정 표현입니다."
+            },
+            {
+              "en": "숫자와 기한에는 반드시 완충을",
+              "kr": "around, in the region of, no later than",
+              "note": "It'll cost **in the region of** 50 million won.(대략)\nWe're looking at **roughly** two weeks.\n확정할 때는 반대로 분명하게 — **no later than** Friday(늦어도 금요일)."
+            }
+          ]
+        },
+        {
+          "title": "외교적 반대와 협상 표현",
+          "intro": "반대할 때도 관계를 유지하는 정형 표현이 있습니다. **동의 → 유보 → 대안** 순서를 지키면 강한 반대도 협조적으로 들립니다.",
+          "points": [
+            {
+              "en": "동의 후 유보 — Yes, but의 고급 형태",
+              "kr": "I see your point, although...",
+              "note": "**I see your point, although** the timeline worries me.\n**That's a fair point. That said,** the cost impact is significant.\n**I'm not sure I'd go that far** — 강한 반대를 부드럽게 표현하는 관용구입니다."
+            },
+            {
+              "en": "완곡한 거절과 조건 붙이기",
+              "kr": "I'd rather not / on the condition that",
+              "note": "**I'd rather not** commit to that today.(거절보다 부드럽게 유보)\nWe could agree **on the condition that** the specs are frozen.\n**In principle, yes — provided that** the budget holds.('원칙적으로 찬성, 단 조건부')"
+            },
+            {
+              "en": "교환 조건을 제시하는 협상 정형구",
+              "kr": "If you ..., we could ...",
+              "note": "**If you can** move the deadline, **we could** absorb the extra testing.\n**Would you be open to** a phased delivery?\n**Where does that leave us?** — 교착 상태에서 다음 단계를 유도하는 표현입니다."
+            }
+          ]
+        }
+      ],
+      "examples": [
+        {
+          "en": "The data suggests a downward trend rather than a one-off dip.",
+          "kr": "데이터는 일시적 하락보다 하향 추세를 시사합니다."
+        },
+        {
+          "en": "That could well be the root cause, though I'd want to verify it.",
+          "kr": "그게 근본 원인일 수 있지만, 확인해 보고 싶습니다."
+        },
+        {
+          "en": "We're looking at roughly two weeks, no later than the 20th.",
+          "kr": "대략 2주 정도이고, 늦어도 20일까지입니다."
+        },
+        {
+          "en": "I see your point, although the cost impact concerns me.",
+          "kr": "말씀하신 취지는 알겠습니다만, 비용 영향이 우려됩니다."
+        },
+        {
+          "en": "I'd rather not commit to that until the review is done.",
+          "kr": "검토가 끝나기 전까지는 확정하지 않는 게 좋겠습니다."
+        },
+        {
+          "en": "If you can move the deadline, we could absorb the extra testing.",
+          "kr": "마감을 옮겨 주시면 추가 테스트는 저희가 감당할 수 있습니다."
+        }
+      ],
+      "homework": "최근 협의 상황 하나를 골라 ① 헤징한 의견 ② 외교적 반대 ③ 교환 조건 제안을 각각 한 문장으로 써 보기",
+      "scenario": {
+        "title": "조건 협상하기",
+        "desc": "AI가 까다로운 고객입니다. 헤징과 외교적 반대를 써서 조건을 협상해 보세요."
+      },
+      "dialogue": {
+        "title": "가격과 범위 협상",
+        "lines": [
+          {
+            "sp": "A",
+            "en": "We'd need a 20% discount to move forward.",
+            "kr": "진행하려면 20% 할인이 필요합니다."
+          },
+          {
+            "sp": "B",
+            "en": "I see your point, although that would be difficult at this scope.",
+            "kr": "취지는 알겠습니다만, 이 범위에서는 어렵습니다."
+          },
+          {
+            "sp": "A",
+            "en": "So there's no flexibility at all?",
+            "kr": "그러면 전혀 여지가 없다는 말씀인가요?"
+          },
+          {
+            "sp": "B",
+            "en": "I'd rather not rule it out. It may be possible with a longer term.",
+            "kr": "배제하고 싶지는 않습니다. 계약 기간을 늘리면 가능할 수 있습니다."
+          },
+          {
+            "sp": "A",
+            "en": "Where does that leave us on the timeline?",
+            "kr": "그러면 일정은 어떻게 되는 겁니까?"
+          },
+          {
+            "sp": "B",
+            "en": "If you can commit to two years, we could start next month.",
+            "kr": "2년으로 확정해 주시면 다음 달에 시작할 수 있습니다."
+          }
+        ]
+      }
     }
   ],
   "SCENARIO_LIBRARY": [
