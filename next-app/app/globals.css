@@ -4066,11 +4066,11 @@ body,
   color: var(--primary);
 }
 
-/* ── 알림 카드(note) ─────────────────────────────────────────────
+/* ── 알림 카드(notice) ─────────────────────────────────────────────
    기존 홈 배너들은 컴포넌트 안에서 rgba 색면을 인라인으로 칠했다. 다크 캔버스에선
    그 색면이 탁한 갈색/적갈색 박스로 보여 화면을 어지럽힌다. 색면을 없애고
    '중립 유리 표면 + 좌측 컬러 레일 + 컬러 제목'으로 상태를 전달한다. */
-.note {
+.notice {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -4082,38 +4082,38 @@ body,
   margin-bottom: 14px;
   box-shadow: var(--shadow-card);
 }
-.note.block {
+.notice.block {
   display: block;
 }
-.note-ic {
+.notice-ic {
   font-size: 1.35rem;
   flex-shrink: 0;
   line-height: 1;
 }
-.note-body {
+.notice-body {
   flex: 1;
   min-width: 0;
 }
-.note-title {
+.notice-title {
   font-size: 0.88rem;
   font-weight: 800;
   margin-bottom: 3px;
 }
-.note-desc {
+.notice-desc {
   font-size: 0.76rem;
   color: var(--text-muted);
   line-height: 1.6;
 }
-.note-action {
+.notice-action {
   flex-shrink: 0;
 }
-.note.warn { border-left-color: var(--yellow); }
-.note.warn .note-title { color: var(--yellow); }
-.note.danger { border-left-color: var(--red); }
-.note.danger .note-title { color: var(--red); }
-.note.accent { border-left-color: var(--primary); }
-.note.accent .note-title { color: var(--primary); }
-[data-theme='dark'] .note {
+.notice.warn { border-left-color: var(--yellow); }
+.notice.warn .notice-title { color: var(--yellow); }
+.notice.danger { border-left-color: var(--red); }
+.notice.danger .notice-title { color: var(--red); }
+.notice.accent { border-left-color: var(--primary); }
+.notice.accent .notice-title { color: var(--primary); }
+[data-theme='dark'] .notice {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0) 45%), var(--surface);
 }
 

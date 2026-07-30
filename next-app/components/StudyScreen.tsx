@@ -71,7 +71,11 @@ export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenPro
       {(lesson.sections ?? []).map((sec, i) => (
         <div className="study-card" key={i}>
           <h3>{sec.title}</h3>
-          {sec.intro && <div className="sec-intro">{sec.intro}</div>}
+          {sec.intro && (
+            <div className="sec-intro">
+              <Note text={sec.intro} />
+            </div>
+          )}
           {sec.points.map((p, j) => (
             <div className="point" key={j}>
               <div className="en">{p.en}</div>
@@ -106,7 +110,11 @@ export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenPro
       {lesson.freeTalk && (
         <div className="study-card freetalk-card">
           <h3>프리토킹 — 내 이야기로 말하기</h3>
-          {lesson.freeTalk.intro && <div className="sec-intro">{lesson.freeTalk.intro}</div>}
+          {lesson.freeTalk.intro && (
+            <div className="sec-intro">
+              <Note text={lesson.freeTalk.intro} />
+            </div>
+          )}
           {lesson.freeTalk.topics.map((t, i) => (
             <div className="point" key={i}>
               <div className="topic-label">{t.topic}</div>

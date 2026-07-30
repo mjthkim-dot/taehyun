@@ -139,13 +139,13 @@ export default function MasterScreen({
       </div>
 
       {streak > 0 && done === 0 && (
-        <div className="note warn">
-          <div className="note-ic">🔥</div>
-          <div className="note-body">
-            <div className="note-title">{streak}일 연속 학습이 오늘 끊길 수 있어요</div>
-            <div className="note-desc">단 1문장만 연습해도 스트릭이 이어집니다.</div>
+        <div className="notice warn">
+          <div className="notice-ic">🔥</div>
+          <div className="notice-body">
+            <div className="notice-title">{streak}일 연속 학습이 오늘 끊길 수 있어요</div>
+            <div className="notice-desc">단 1문장만 연습해도 스트릭이 이어집니다.</div>
           </div>
-          <button className="btn ghost-accent compact note-action" onClick={() => onNavigate('drill')}>
+          <button className="btn ghost-accent compact notice-action" onClick={() => onNavigate('drill')}>
             시작
           </button>
         </div>
@@ -158,9 +158,9 @@ export default function MasterScreen({
       )}
 
       {keyInvalid && (
-        <div className="note danger block">
-          <div className="note-title">등록된 Groq 키가 더 이상 유효하지 않아요</div>
-          <div className="note-desc">
+        <div className="notice danger block">
+          <div className="notice-title">등록된 Groq 키가 더 이상 유효하지 않아요</div>
+          <div className="notice-desc">
             키가 만료되거나 폐기되면 AI 회화·음성이 조용히 실패합니다. console.groq.com에서 새 키를 발급한 뒤 기능 탭 → AI 키 등록에서 다시 등록해 주세요.
           </div>
           <button className="btn ghost-accent compact" style={{ marginTop: 11 }} onClick={() => onNavigate('apikey')}>
@@ -170,22 +170,22 @@ export default function MasterScreen({
       )}
 
       {!groqKey() && (
-        <div className="note danger">
-          <div className="note-ic">🔑</div>
-          <div className="note-body">
-            <div className="note-title">AI 강사 연결이 필요해요</div>
-            <div className="note-desc">무료 Groq 키를 등록하면 AI 회화·번역·피드백이 모두 켜집니다.</div>
+        <div className="notice danger">
+          <div className="notice-ic">🔑</div>
+          <div className="notice-body">
+            <div className="notice-title">AI 강사 연결이 필요해요</div>
+            <div className="notice-desc">무료 Groq 키를 등록하면 AI 회화·번역·피드백이 모두 켜집니다.</div>
           </div>
-          <button className="btn ghost-accent compact note-action" onClick={() => onNavigate('apikey')}>
+          <button className="btn ghost-accent compact notice-action" onClick={() => onNavigate('apikey')}>
             키 등록
           </button>
         </div>
       )}
 
       {!isPlaced() && (
-        <div className="note accent block">
-          <div className="note-title">먼저 내 레벨을 진단해 보세요</div>
-          <div className="note-desc">18문항 배치고사로 A1~C2 레벨을 파악하고, 말하기·듣기·읽기·쓰기 시작점을 자동으로 맞춥니다.</div>
+        <div className="notice accent block">
+          <div className="notice-title">먼저 내 레벨을 진단해 보세요</div>
+          <div className="notice-desc">18문항 배치고사로 A1~C2 레벨을 파악하고, 말하기·듣기·읽기·쓰기 시작점을 자동으로 맞춥니다.</div>
           <button className="btn ghost-accent compact" style={{ marginTop: 11 }} onClick={() => onNavigate('features')}>
             배치고사 보러 가기 →
           </button>
