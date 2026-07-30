@@ -7,7 +7,7 @@
  * "곧 추가됩니다" 안내만 보여준다 — 거짓으로 완성된 척하지 않는다.
  */
 import { useEffect, useState } from 'react';
-import { dueWeak, getPhrases, isPlaced } from '../lib/state';
+import { dueWeak, getPhrases, isPlaced, groqKey, SERVER_GROQ_SENTINEL } from '../lib/state';
 import { getAskHistory } from '../lib/askPrompts';
 import type { Mode } from './NavBar';
 
@@ -33,8 +33,14 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
   const phraseCount = getPhrases().length;
   const askCount = getAskHistory().length;
   const placed = isPlaced();
+  const key = groqKey();
+  const keySub = key ? (key === SERVER_GROQ_SENTINEL ? '서버 키로 동작 중 · 상태 확인' : `기기 키 ${key.slice(0, 7)}… · 교체/삭제`) : '아직 없음 — AI 기능이 꺼져 있어요';
 
   const sections: FeatSection[] = [
+    {
+      title: 'AI 연결',
+      cards: [{ icon: '🔑', label: 'AI 키 등록', sub: keySub, action: { kind: 'nav', mode: 'apikey' } }],
+    },
     {
       title: '내 레벨',
       cards: [

@@ -3688,3 +3688,85 @@ body,
 .ac-name { font-size: 0.84rem; font-weight: 800; color: var(--text); }
 .ac-detail { font-size: 0.74rem; color: var(--text-muted); line-height: 1.55; margin-top: 2px; word-break: break-all; }
 .ac-row.fail .ac-detail { color: var(--red); }
+
+/* ── AI 키 등록(ApiKeyScreen) ── */
+.key-status {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 13px 15px;
+}
+.key-status.on {
+  background: var(--green-soft);
+  border-color: var(--green);
+}
+.key-status-head {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.key-status.on .key-status-head { color: var(--green-dk); }
+.key-status-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.key-status-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+.key-status-list b {
+  font-weight: 800;
+  color: var(--text);
+  text-align: right;
+  word-break: break-all;
+}
+.key-status-note {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin-top: 9px;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+}
+.key-status-note.bad { color: var(--red); }
+.key-msg {
+  font-size: 0.76rem;
+  line-height: 1.55;
+  margin-top: 11px;
+  padding: 9px 12px;
+  border-radius: 10px;
+}
+.key-msg.bad { color: var(--red); background: rgba(224, 56, 58, 0.08); border: 1px solid rgba(224, 56, 58, 0.35); }
+.key-msg.ok { color: var(--green-dk); background: var(--green-soft); border: 1px solid var(--green); }
+.key-help {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.key-help-title {
+  font-size: 0.8rem;
+  font-weight: 800;
+  margin-bottom: 7px;
+}
+.key-help ol {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.key-help li {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+.key-help a { color: var(--primary); font-weight: 700; }

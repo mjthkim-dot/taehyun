@@ -26,6 +26,7 @@ export type Mode =
   | 'backup'
   | 'legal'
   | 'audiocheck'
+  | 'apikey'
   | 'business';
 
 const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [

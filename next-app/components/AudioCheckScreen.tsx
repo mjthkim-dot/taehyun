@@ -107,7 +107,7 @@ export default function AudioCheckScreen() {
             : `로컬 키 등록됨(${local.slice(0, 6)}…)${keyValid === true ? ' · 유효 확인' : keyValid === false ? ' · ⚠️ Groq에서 거부(만료/폐기) — console.groq.com에서 재발급 필요' : ''}`
           : serverKey
             ? '서버 키 있음'
-            : '키 없음 — 신경망 음성을 쓸 수 없어요(회화 탭에서 무료 키 등록)',
+            : '키 없음 — 신경망 음성을 쓸 수 없어요(기능 탭 → AI 키 등록)',
     });
 
     // 2.5) 서버→Groq 실연결 — 서버 키로 Groq에 초소형 합성을 직접 시도해

@@ -29,6 +29,7 @@ import ReminderScheduler from '../components/ReminderScheduler';
 import BackupScreen from '../components/BackupScreen';
 import LegalScreen from '../components/LegalScreen';
 import AudioCheckScreen from '../components/AudioCheckScreen';
+import ApiKeyScreen from '../components/ApiKeyScreen';
 import ListeningScreen from '../components/ListeningScreen';
 import ReadingScreen from '../components/ReadingScreen';
 import WritingScreen from '../components/WritingScreen';
@@ -70,6 +71,7 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
   backup: { title: '백업 · 복원', render: () => <BackupScreen /> },
   legal: { title: '약관 · 개인정보', render: () => <LegalScreen /> },
   audiocheck: { title: '음성 진단', render: () => <AudioCheckScreen /> },
+  apikey: { title: 'AI 키 등록', render: () => <ApiKeyScreen /> },
   listening: { title: '듣기', render: () => <ListeningScreen /> },
   reading: { title: '읽기', render: () => <ReadingScreen /> },
   writing: { title: '쓰기', render: () => <WritingScreen /> },

@@ -152,9 +152,9 @@ export default function MasterScreen({
         <div style={{ background: 'rgba(224,56,58,0.08)', border: '1px solid var(--red)', borderRadius: 14, padding: '13px 16px', marginBottom: 14 }}>
           <div style={{ fontSize: '0.88rem', fontWeight: 800, marginBottom: 3, color: 'var(--red)' }}>등록된 Groq 키가 더 이상 유효하지 않아요</div>
           <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-            키가 만료되거나 폐기되면 AI 회화·음성이 조용히 실패합니다. console.groq.com에서 새 키를 발급한 뒤 회화 탭에서 다시 등록해 주세요.
+            키가 만료되거나 폐기되면 AI 회화·음성이 조용히 실패합니다. console.groq.com에서 새 키를 발급한 뒤 기능 탭 → AI 키 등록에서 다시 등록해 주세요.
           </div>
-          <button className="btn primary" style={{ marginTop: 10, fontSize: '0.78rem', padding: '8px 14px' }} onClick={() => onNavigate('talk')}>
+          <button className="btn primary" style={{ marginTop: 10, fontSize: '0.78rem', padding: '8px 14px' }} onClick={() => onNavigate('apikey')}>
             새 키 등록하러 가기 →
           </button>
         </div>
@@ -169,8 +169,8 @@ export default function MasterScreen({
               무료 Groq 키를 등록하면 AI 회화·번역·피드백이 모두 활성화됩니다. (ChatGPT/Gemini급 · 무료)
             </div>
           </div>
-          <button className="btn primary" style={{ flexShrink: 0, fontSize: '0.78rem', padding: '7px 12px' }} onClick={() => onNavigate('talk')}>
-            ⚙️ 키 등록
+          <button className="btn primary" style={{ flexShrink: 0, fontSize: '0.78rem', padding: '7px 12px' }} onClick={() => onNavigate('apikey')}>
+            키 등록
           </button>
         </div>
       )}
