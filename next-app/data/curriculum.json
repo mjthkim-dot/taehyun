@@ -52,6 +52,11 @@
         "lessonId": 1
       },
       {
+        "lessonId": 106,
+        "title": "발음 ① 강세 & 리듬",
+        "sub": "내용어 강세 / PREsent·preSENT / 억양 ↗↘"
+      },
+      {
         "lessonId": 105,
         "title": "의문문 & 부가의문문",
         "sub": "What do you...? / did + 원형 / ..., isn't it?"
@@ -132,6 +137,16 @@
         "sub": "pick up / turn it on / put off / come up with"
       },
       {
+        "lessonId": 308,
+        "title": "관사 심화",
+        "sub": "a designer / the report / by bus·무관사"
+      },
+      {
+        "lessonId": 309,
+        "title": "발음 ② 연음 & 축약",
+        "sub": "pick it up / gonna / -s·-ed 세 가지 소리"
+      },
+      {
         "lessonId": 304,
         "title": "여행 & 길 찾기",
         "sub": "Where is...? / Turn left / Take the subway"
@@ -181,6 +196,11 @@
         "sub": "because / although / so that / unless"
       },
       {
+        "lessonId": 409,
+        "title": "비교 심화",
+        "sub": "much faster / twice as ... as / the 비교급"
+      },
+      {
         "lessonId": 404,
         "title": "관용어 & 어휘 확장",
         "sub": "piece of cake / Under the weather"
@@ -208,6 +228,11 @@
         "lessonId": 506,
         "title": "분사구문 & 명사절",
         "sub": "Having reviewed... / What I mean is / whether"
+      },
+      {
+        "lessonId": 507,
+        "title": "도치 & 강조 구문",
+        "sub": "Not only did we... / It was ... that / do 강조"
       },
       {
         "lessonId": 502,

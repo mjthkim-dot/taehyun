@@ -1779,6 +1779,121 @@
       }
     },
     {
+      "id": 106,
+      "master": "A2",
+      "title": "발음 ① 강세 & 리듬",
+      "sections": [
+        {
+          "title": "영어는 강세 박자, 한국어는 음절 박자",
+          "intro": "한국어는 모든 음절을 **같은 길이**로 또박또박 발음합니다(음절 박자). 영어는 강세 음절만 **길고 세게**, 나머지는 짧게 흘립니다(강세 박자). 발음이 정확해도 이 리듬이 없으면 원어민이 못 알아듣는 이유가 여기 있습니다.",
+          "points": [
+            {
+              "en": "내용어는 세게, 기능어는 흘린다",
+              "kr": "명사·동사·형용사·부사 ↔ 관사·전치사·대명사",
+              "note": "I **WANT** to **GO** to the **STORE**.\n대문자 부분(내용어)만 세게, to·the는 거의 들리지 않게 흘립니다.\n기능어의 모음은 대개 **슈와(ə)** 로 약화됩니다 — to는 '투'가 아니라 '트'에 가깝습니다."
+            },
+            {
+              "en": "단어 강세 위치가 뜻을 바꾼다",
+              "kr": "PREsent(선물) ↔ preSENT(발표하다)",
+              "note": "**RE**cord(기록·명사) ↔ re**CORD**(녹음하다·동사)\n**IN**crease(증가) ↔ in**CREASE**(증가하다)\n명사는 앞, 동사는 뒤에 강세가 오는 쌍이 많습니다."
+            },
+            {
+              "en": "한국어식 음절 추가를 줄인다",
+              "kr": "strike는 3음절이 아니라 1음절",
+              "note": "strike를 '스트라이크'(5음절)로 발음하면 전혀 다른 소리가 됩니다 — **strike**(1음절).\nmilk(밀크 X → milk), desk(데스크 X → desk)\n어말 자음 뒤에 **'ㅡ' 모음을 붙이지 않는 것**이 핵심입니다."
+            }
+          ]
+        },
+        {
+          "title": "문장 강세로 의미를 조절한다",
+          "intro": "같은 문장도 **어디에 강세를 두느냐**로 뜻이 달라집니다. 회의에서 강조하고 싶은 단어에 힘을 주는 훈련은 문법보다 즉각적인 효과가 있습니다.",
+          "points": [
+            {
+              "en": "강조하고 싶은 단어에 힘을 준다",
+              "kr": "I sent it YESTERDAY.",
+              "note": "**I** sent it yesterday.(다른 사람이 아니라 내가)\nI **sent** it yesterday.(보냈다는 사실을 강조)\nI sent it **yesterday**.(오늘이 아니라 어제)"
+            },
+            {
+              "en": "새 정보에 강세, 아는 정보는 약하게",
+              "kr": "질문의 답이 강세를 받는다",
+              "note": "Who called? — **JAMIE** called.\nWhen did she call? — She called **THIS MORNING**.\n상대가 이미 아는 부분은 힘을 빼는 게 자연스럽습니다."
+            },
+            {
+              "en": "억양: Yes/No 질문은 올리고, WH 질문은 내린다",
+              "kr": "↗ / ↘",
+              "note": "Are you coming? ↗ (올림)\nWhere are you going? ↘ (내림)\n올림·내림을 뒤집으면 되묻거나 의심하는 뉘앙스가 되니 주의하세요."
+            }
+          ]
+        }
+      ],
+      "examples": [
+        {
+          "en": "I want to go to the store.",
+          "kr": "가게에 가고 싶어요. (WANT·GO·STORE만 세게)"
+        },
+        {
+          "en": "Could you present the record to the team?",
+          "kr": "그 기록을 팀에 발표해 주실 수 있어요?"
+        },
+        {
+          "en": "I sent it yesterday, not today.",
+          "kr": "오늘이 아니라 어제 보냈어요."
+        },
+        {
+          "en": "Jamie called this morning.",
+          "kr": "제이미가 오늘 아침에 전화했어요."
+        },
+        {
+          "en": "Are you joining the meeting?",
+          "kr": "회의에 참여하시나요? (끝을 올려서)"
+        },
+        {
+          "en": "Where should we start?",
+          "kr": "어디서 시작해야 할까요? (끝을 내려서)"
+        }
+      ],
+      "homework": "쉐도잉 탭에서 예문 6개를 강세 부분만 세게 3번씩 따라 말하고, 녹음해 비교하기",
+      "scenario": {
+        "title": "강세 바꿔 말하기",
+        "desc": "AI가 같은 문장을 다른 강세로 말해 달라고 요청합니다. 강조점을 바꿔 대답해 보세요."
+      },
+      "dialogue": {
+        "title": "회의 시간 다시 확인하기",
+        "lines": [
+          {
+            "sp": "A",
+            "en": "Did you say the meeting is at three?",
+            "kr": "회의가 3시라고 하셨어요?"
+          },
+          {
+            "sp": "B",
+            "en": "At two, not three.",
+            "kr": "3시가 아니라 2시예요."
+          },
+          {
+            "sp": "A",
+            "en": "Two? I thought Jamie said three.",
+            "kr": "2시요? 제이미가 3시라고 한 것 같은데요."
+          },
+          {
+            "sp": "B",
+            "en": "Jamie said three for the review, not the meeting.",
+            "kr": "제이미는 리뷰가 3시라고 했어요, 회의가 아니고요."
+          },
+          {
+            "sp": "A",
+            "en": "Got it. So where do we start?",
+            "kr": "알겠어요. 그럼 어디서 시작하죠?"
+          },
+          {
+            "sp": "B",
+            "en": "Let's start with the numbers.",
+            "kr": "숫자부터 시작하죠."
+          }
+        ]
+      }
+    },
+    {
       "id": 201,
       "master": "A1",
       "title": "인사 & 자기소개",
@@ -3435,6 +3550,236 @@
       }
     },
     {
+      "id": 308,
+      "master": "B1",
+      "title": "관사 심화 — a · the · 무관사",
+      "sections": [
+        {
+          "title": "왜 한국인에게 관사가 어려운가",
+          "intro": "한국어에는 관사가 없어 **아예 빼먹는 실수**가 가장 많습니다(I'm designer / Let me send email). 규칙은 세 가지 질문으로 정리됩니다 — **① 셀 수 있나 ② 상대가 아는 것인가 ③ 관용적으로 무관사인가**.",
+          "points": [
+            {
+              "en": "a/an: 셀 수 있는 것을 처음 언급할 때",
+              "kr": "I'm a designer. (I'm designer X)",
+              "note": "직업·역할에는 반드시 a/an이 필요합니다 — I'm **a** designer / She's **an** engineer.\n한 개짜리 가산 명사를 맨몸으로 쓰면 문장이 성립하지 않습니다.\nLet me send **an** email.(email은 셀 수 있는 명사)"
+            },
+            {
+              "en": "the: 상대가 어느 것인지 아는 경우",
+              "kr": "the report I sent",
+              "note": "① 앞에서 언급했거나 ② 상황상 하나뿐이거나 ③ 뒤에서 한정될 때 the를 씁니다.\n**the** sun / **the** CEO of our company / **the** file you asked for\n최상급·서수도 the — **the** best option, **the** first step."
+            },
+            {
+              "en": "불가산 명사에는 a를 붙일 수 없다",
+              "kr": "an information (X) → a piece of information",
+              "note": "information, advice, feedback, equipment, work, research는 셀 수 없습니다.\n세고 싶으면 단위를 빌립니다 — **a piece of** advice / **two pieces of** feedback\nan advice(X) / advices(X) → **some advice**(O)"
+            }
+          ]
+        },
+        {
+          "title": "무관사(zero article) — 관사를 쓰지 않는 자리",
+          "intro": "관용적으로 관사를 **쓰지 않는** 표현들이 있습니다. 여기에 the를 넣으면 어색하거나 뜻이 달라집니다.",
+          "points": [
+            {
+              "en": "장소·수단·식사의 관용 표현",
+              "kr": "go to work / by bus / have lunch",
+              "note": "go to **work**, go to **school**, go to **bed**(목적·활동을 뜻할 때)\nby **bus**, by **car**, by **email**(수단)\nhave **breakfast/lunch/dinner**\n건물 자체를 가리키면 the가 붙습니다 — I waited in **the** school."
+            },
+            {
+              "en": "복수·불가산으로 일반화할 때",
+              "kr": "Managers need data. (The managers X)",
+              "note": "부류 전체를 말할 때는 **복수 무관사**가 자연스럽습니다.\n**Customers** expect fast replies.\n**Feedback** helps us improve.\nthe를 붙이면 '그 특정 매니저들'로 좁아집니다."
+            },
+            {
+              "en": "고유명사와 직책",
+              "kr": "Korea / CEO Kim / in charge of",
+              "note": "국가·도시·사람 이름은 무관사 — **Korea**, **Seoul**\n직책+이름도 무관사 — I met **CEO Kim**.\n관용구: in **charge** of, on **purpose**, at **risk**, in **person**"
+            }
+          ]
+        }
+      ],
+      "examples": [
+        {
+          "en": "I'm a designer on the platform team.",
+          "kr": "저는 플랫폼팀 디자이너입니다."
+        },
+        {
+          "en": "Could you send me the report you mentioned?",
+          "kr": "말씀하신 그 보고서를 보내주실 수 있어요?"
+        },
+        {
+          "en": "Let me give you a piece of advice.",
+          "kr": "조언 하나 드릴게요."
+        },
+        {
+          "en": "I go to work by bus every morning.",
+          "kr": "매일 아침 버스로 출근해요."
+        },
+        {
+          "en": "Customers expect fast replies these days.",
+          "kr": "요즘 고객들은 빠른 답변을 기대해요."
+        },
+        {
+          "en": "She is in charge of the entire project.",
+          "kr": "그녀가 프로젝트 전체를 담당합니다."
+        }
+      ],
+      "homework": "내 직업·하루 일과·최근 업무를 a/an·the·무관사를 구분해 6문장으로 쓰고, 관사를 뺀 버전과 비교하기",
+      "scenario": {
+        "title": "자기 역할 소개하기",
+        "desc": "AI가 처음 만난 파트너입니다. 직업·담당 업무를 관사에 신경 써서 소개해 보세요."
+      },
+      "dialogue": {
+        "title": "처음 만난 파트너와 인사",
+        "lines": [
+          {
+            "sp": "A",
+            "en": "What do you do here?",
+            "kr": "여기서 어떤 일을 하세요?"
+          },
+          {
+            "sp": "B",
+            "en": "I'm a product manager. I'm in charge of onboarding.",
+            "kr": "저는 프로덕트 매니저예요. 온보딩을 담당합니다."
+          },
+          {
+            "sp": "A",
+            "en": "Could you give me some advice on the launch?",
+            "kr": "출시에 관해 조언을 좀 주실 수 있어요?"
+          },
+          {
+            "sp": "B",
+            "en": "Sure. Users usually need clearer first steps.",
+            "kr": "네. 사용자들은 보통 더 명확한 첫 단계를 원해요."
+          },
+          {
+            "sp": "A",
+            "en": "That's a good point. I'll send an email tonight.",
+            "kr": "좋은 지적이에요. 오늘 밤에 이메일 보낼게요."
+          },
+          {
+            "sp": "B",
+            "en": "Great. I go to bed early, so I'll read it tomorrow.",
+            "kr": "좋아요. 저는 일찍 자니까 내일 읽을게요."
+          }
+        ]
+      }
+    },
+    {
+      "id": 309,
+      "master": "B1",
+      "title": "발음 ② 연음 & 축약",
+      "sections": [
+        {
+          "title": "연음(linking) — 단어는 따로 발음되지 않는다",
+          "intro": "원어민이 빠르게 말하는 것처럼 들리는 이유는 속도가 아니라 **단어를 이어 붙이기** 때문입니다. 듣기가 안 되는 원인 1위이기도 합니다. 규칙을 알면 듣기와 말하기가 동시에 좋아집니다.",
+          "points": [
+            {
+              "en": "자음 + 모음 → 이어진다",
+              "kr": "pick it up → 피끼럽",
+              "note": "앞 단어의 끝 자음이 뒤 단어의 첫 모음에 붙습니다.\n**pick it up** → pi-ki-tup / **turn it on** → tur-ni-ton\n**an hour** → a-nour / **a lot of** → a-lo-tof"
+            },
+            {
+              "en": "같은 소리가 겹치면 하나로",
+              "kr": "want to → wanna",
+              "note": "**want to** → wanna / **going to** → gonna / **got to** → gotta\n**next time** → nex time(t 하나 생략)\n**good day** → goo day\n격식 문서에는 쓰지 않지만, 듣기에서는 반드시 알아야 합니다."
+            },
+            {
+              "en": "미국식 /t/는 'ㄹ'처럼 약해진다",
+              "kr": "water → 워러",
+              "note": "모음 사이의 t는 부드러운 d/ㄹ로 바뀝니다(flapping).\n**water** → wa-der / **better** → be-der / **later** → la-der\n**What are you** → wha-daya"
+            }
+          ]
+        },
+        {
+          "title": "어미 발음과 기능어 약화",
+          "intro": "-s와 -ed는 **철자는 하나지만 소리는 세 가지**입니다. 이걸 뭉개면 복수·과거가 상대에게 전달되지 않습니다.",
+          "points": [
+            {
+              "en": "-s는 /s/ · /z/ · /ɪz/",
+              "kr": "books /s/ · jobs /z/ · pages /ɪz/",
+              "note": "무성음 뒤: /s/ — book**s**, map**s**, want**s**\n유성음·모음 뒤: /z/ — job**s**, day**s**, need**s**\ns·z·sh·ch·ge 뒤: /ɪz/ — page**s**, watch**es**, use**s**"
+            },
+            {
+              "en": "-ed는 /t/ · /d/ · /ɪd/",
+              "kr": "worked /t/ · played /d/ · needed /ɪd/",
+              "note": "무성음 뒤: /t/ — work**ed**, ask**ed**, stopp**ed**\n유성음·모음 뒤: /d/ — play**ed**, call**ed**, mov**ed**\nt·d 뒤: /ɪd/ — need**ed**, want**ed**, start**ed**(여기만 음절이 늘어남)"
+            },
+            {
+              "en": "기능어는 슈와(ə)로 약화된다",
+              "kr": "for → fər, and → ən",
+              "note": "**for** you → fər you / **and** then → ən then / **of** course → ə course\nfor를 '포'라고 또박또박 발음하면 오히려 알아듣기 어렵습니다.\n**약하게 흘리는 것**이 정확한 발음입니다."
+            }
+          ]
+        }
+      ],
+      "examples": [
+        {
+          "en": "Can you pick it up on your way?",
+          "kr": "오는 길에 그거 가져올 수 있어요? (피끼럽)"
+        },
+        {
+          "en": "I'm going to turn it on now.",
+          "kr": "지금 그걸 켤게요. (거너 터니론)"
+        },
+        {
+          "en": "What are you working on later?",
+          "kr": "나중에 뭐 작업하세요? (와다야)"
+        },
+        {
+          "en": "She needed a lot of feedback.",
+          "kr": "그녀는 피드백이 많이 필요했어요. (니디드 / 얼라러브)"
+        },
+        {
+          "en": "We asked for more time and they agreed.",
+          "kr": "시간을 더 요청했고 그들이 동의했어요. (애스크트 / 퍼)"
+        },
+        {
+          "en": "It started later than we expected.",
+          "kr": "예상보다 늦게 시작했어요. (스타리드 / 레이더)"
+        }
+      ],
+      "homework": "예문 6개를 연음 표시대로 3번씩 소리 내어 읽고, 쉐도잉 탭에서 점수를 비교하기",
+      "scenario": {
+        "title": "빠른 대화 따라잡기",
+        "desc": "AI가 연음이 많은 문장으로 말합니다. 되묻지 않고 알아듣고 답해 보세요."
+      },
+      "dialogue": {
+        "title": "급한 부탁 주고받기",
+        "lines": [
+          {
+            "sp": "A",
+            "en": "What are you up to in an hour?",
+            "kr": "한 시간 뒤에 뭐 하세요?"
+          },
+          {
+            "sp": "B",
+            "en": "Not much. Do you need a hand?",
+            "kr": "별거 없어요. 도움 필요하세요?"
+          },
+          {
+            "sp": "A",
+            "en": "I've got to pick it up before five.",
+            "kr": "5시 전에 그걸 가져와야 해요."
+          },
+          {
+            "sp": "B",
+            "en": "I'm going to be out anyway, so I'll get it.",
+            "kr": "어차피 나갈 거니까 제가 가져올게요."
+          },
+          {
+            "sp": "A",
+            "en": "That'd be better. It started later than planned.",
+            "kr": "그게 낫겠네요. 계획보다 늦게 시작했어요."
+          },
+          {
+            "sp": "B",
+            "en": "No worries. I'll text you in a bit.",
+            "kr": "걱정 마세요. 조금 뒤에 문자할게요."
+          }
+        ]
+      }
+    },
+    {
       "id": 401,
       "master": "B2",
       "title": "가정법",
@@ -4399,6 +4744,121 @@
       }
     },
     {
+      "id": 409,
+      "master": "B2",
+      "title": "비교 심화 — 강조 · 배수 · 상관비교",
+      "sections": [
+        {
+          "title": "비교급을 강조하고 정도를 조절한다",
+          "intro": "very는 비교급을 강조하지 못합니다(very better X). 비즈니스 대화에서 차이의 **크기**를 표현하려면 전용 부사를 써야 합니다.",
+          "points": [
+            {
+              "en": "much · far · a lot + 비교급 (큰 차이)",
+              "kr": "much faster / far better",
+              "note": "This option is **much** cheaper.(훨씬 저렴하다)\n**far** more efficient / **a lot** faster / **significantly** higher\nvery cheaper(X) → **much** cheaper(O)"
+            },
+            {
+              "en": "slightly · a bit · marginally (작은 차이)",
+              "kr": "slightly higher",
+              "note": "Costs were **slightly** higher than last quarter.\n**a bit** slower / **marginally** better\n보고서에서 과장을 피하고 싶을 때 유용합니다."
+            },
+            {
+              "en": "비교 대상을 정확히 맞춘다",
+              "kr": "than mine / than yours",
+              "note": "My team's output is higher than **yours**.(than you X — 팀 vs 사람 비교가 되어버림)\nSales in Korea grew faster than **in Japan**.(전치사까지 맞춰야 합니다)\nthan 뒤의 형태가 앞과 짝이 맞는지 확인하세요."
+            }
+          ]
+        },
+        {
+          "title": "배수 · 상관비교 · 최상급 대체",
+          "intro": "숫자를 다루는 대화에서는 **배수 표현**이, 제안·설득에서는 **상관비교(the 비교급 the 비교급)** 가 자주 쓰입니다.",
+          "points": [
+            {
+              "en": "배수: twice as ... as / three times more",
+              "kr": "두 배 / 세 배",
+              "note": "It's **twice as expensive as** the old plan.(예전 안의 두 배 비싸다)\nWe got **three times more** traffic.(세 배 더)\n**half as** long(절반 길이) / **10% higher than**(10% 높다)"
+            },
+            {
+              "en": "the 비교급, the 비교급 — ~할수록 ~하다",
+              "kr": "The sooner, the better.",
+              "note": "**The sooner** we decide, **the better** the outcome.\n**The more** data we collect, **the more** accurate it gets.\n짧게 줄여 **The sooner the better**만 써도 자연스럽습니다."
+            },
+            {
+              "en": "최상급 대신 부드럽게 — one of the ...est",
+              "kr": "가장 ~한 것 중 하나",
+              "note": "It's **one of the fastest-growing** markets.(복수 명사 주의)\n**not as ... as**로 완곡하게 — This isn't **as** urgent **as** the other task.\n**less ... than**도 부드러운 표현입니다 — less risky than expected."
+            }
+          ]
+        }
+      ],
+      "examples": [
+        {
+          "en": "This option is much cheaper than the current one.",
+          "kr": "이 안이 현재 안보다 훨씬 저렴해요."
+        },
+        {
+          "en": "Costs were slightly higher than last quarter.",
+          "kr": "비용이 지난 분기보다 약간 높았어요."
+        },
+        {
+          "en": "Our growth was faster than in the other region.",
+          "kr": "우리 성장률이 다른 지역보다 빨랐어요."
+        },
+        {
+          "en": "The new plan is twice as expensive as the old one.",
+          "kr": "새 요금제는 예전 것의 두 배 비싸요."
+        },
+        {
+          "en": "The sooner we decide, the better the outcome.",
+          "kr": "빨리 결정할수록 결과가 좋아요."
+        },
+        {
+          "en": "It's one of the fastest-growing markets in Asia.",
+          "kr": "아시아에서 가장 빠르게 성장하는 시장 중 하나예요."
+        }
+      ],
+      "homework": "우리 팀 지표 두 개를 골라 much/slightly·배수·the 비교급 the 비교급으로 각각 비교 문장 만들기",
+      "scenario": {
+        "title": "두 안 비교해 설득하기",
+        "desc": "AI에게 두 가지 방안을 비교해 설명하고, 하나를 추천해 보세요."
+      },
+      "dialogue": {
+        "title": "두 가지 방안 비교하기",
+        "lines": [
+          {
+            "sp": "A",
+            "en": "Which option would you recommend?",
+            "kr": "어느 안을 추천하시겠어요?"
+          },
+          {
+            "sp": "B",
+            "en": "The second one. It's much faster to implement.",
+            "kr": "두 번째요. 구현이 훨씬 빨라요."
+          },
+          {
+            "sp": "A",
+            "en": "Isn't it twice as expensive as the first?",
+            "kr": "첫 번째보다 두 배 비싸지 않나요?"
+          },
+          {
+            "sp": "B",
+            "en": "Only slightly higher once we include support costs.",
+            "kr": "지원 비용까지 넣으면 약간만 높아요."
+          },
+          {
+            "sp": "A",
+            "en": "The sooner we launch, the better for the client.",
+            "kr": "빨리 출시할수록 고객에게 좋죠."
+          },
+          {
+            "sp": "B",
+            "en": "Exactly. And it's less risky than it looks.",
+            "kr": "맞아요. 그리고 보기보다 위험이 적어요."
+          }
+        ]
+      }
+    },
+    {
       "id": 501,
       "master": "C1",
       "title": "동명사 & 부정사 뉘앙스",
@@ -5121,6 +5581,121 @@
             "sp": "B",
             "en": "That said, I'm confident we can commit by Friday.",
             "kr": "그렇긴 하지만, 금요일까지는 확정할 수 있다고 봅니다."
+          }
+        ]
+      }
+    },
+    {
+      "id": 507,
+      "master": "C1",
+      "title": "도치 & 강조 구문",
+      "sections": [
+        {
+          "title": "부정어·한정어를 앞세우면 어순이 뒤집힌다",
+          "intro": "문장 앞에 부정어나 한정 표현을 두면 **주어와 조동사의 순서가 바뀝니다**(도치). 발표·보고에서 한 문장만 도치해도 밀도가 확 올라가는 고급 장치입니다.",
+          "points": [
+            {
+              "en": "Not only ... but also — 도치가 필수",
+              "kr": "Not only did we...",
+              "note": "**Not only did we** finish early, **but** we **also** cut costs.\n앞에 Not only가 오면 뒤는 **의문문 어순(did we finish)** 이 됩니다.\nNot only we finished(X) → **Not only did we finish**(O)"
+            },
+            {
+              "en": "Never · Rarely · Little + 도치",
+              "kr": "Never have I seen...",
+              "note": "**Never have I seen** such a fast response.\n**Rarely does** a client reply within an hour.\n**Little did they know** how big the impact would be.\n부정 부사가 문두로 나가면 조동사가 주어 앞으로 옵니다."
+            },
+            {
+              "en": "Only + 부사구 + 도치",
+              "kr": "Only after the review did we...",
+              "note": "**Only after the review did we** notice the gap.\n**Only then did** the numbers make sense.\n**Only by testing can we** be sure.\n'~한 뒤에야 비로소'라는 뉘앙스를 만듭니다."
+            }
+          ]
+        },
+        {
+          "title": "강조 구문 — 초점을 옮긴다",
+          "intro": "말하고 싶은 부분을 **문장의 앞자리로 끌어내는** 장치입니다. 같은 정보라도 초점이 달라져 설득력이 생깁니다.",
+          "points": [
+            {
+              "en": "It is/was ... that — 분열문(cleft)",
+              "kr": "It was the pricing that changed their mind.",
+              "note": "**It was the pricing that** changed their mind.(마음을 바꾼 건 다름 아닌 가격)\n**It wasn't the deadline that** worried us, but the scope.\n강조하고 싶은 요소를 It is와 that 사이에 넣습니다."
+            },
+            {
+              "en": "What ... is — what 분열문",
+              "kr": "What we need is more data.",
+              "note": "**What we need is** more data.\n**What surprised me was** how fast they replied.\n**All I'm asking for is** two more days.\n요청·주장을 부드럽지만 분명하게 만들어 줍니다."
+            },
+            {
+              "en": "do/does/did로 동사를 강조",
+              "kr": "I do think it matters.",
+              "note": "I **do** think this matters.(정말로 그렇게 생각한다)\nShe **did** send the file — check your spam folder.\n상대가 의심하거나 반대할 때 **가장 자연스러운 반박 장치**입니다."
+            }
+          ]
+        }
+      ],
+      "examples": [
+        {
+          "en": "Not only did we finish early, but we also cut costs.",
+          "kr": "일찍 끝냈을 뿐 아니라 비용까지 줄였습니다."
+        },
+        {
+          "en": "Never have I seen such a fast response from a client.",
+          "kr": "고객이 이렇게 빨리 답한 건 본 적이 없습니다."
+        },
+        {
+          "en": "Only after the review did we notice the gap.",
+          "kr": "리뷰를 한 뒤에야 그 격차를 발견했습니다."
+        },
+        {
+          "en": "It was the pricing that changed their mind.",
+          "kr": "그들의 마음을 바꾼 건 가격이었습니다."
+        },
+        {
+          "en": "What we need is clearer ownership.",
+          "kr": "우리에게 필요한 것은 더 명확한 담당 구분입니다."
+        },
+        {
+          "en": "I do think this deserves another look.",
+          "kr": "이건 정말 다시 봐야 한다고 생각합니다."
+        }
+      ],
+      "homework": "최근 성과 하나를 Not only 도치로, 주장 하나를 What ... is로, 반박 하나를 do 강조로 각각 써 보기",
+      "scenario": {
+        "title": "성과 발표하고 반박하기",
+        "desc": "AI가 회의적인 청중입니다. 도치와 강조 구문을 써서 성과를 설명하고 반론에 답해 보세요."
+      },
+      "dialogue": {
+        "title": "성과 보고와 반론",
+        "lines": [
+          {
+            "sp": "A",
+            "en": "The results look modest to me.",
+            "kr": "결과가 제게는 평범해 보이네요."
+          },
+          {
+            "sp": "B",
+            "en": "Not only did we hit the target, but we also cut costs.",
+            "kr": "목표를 달성했을 뿐 아니라 비용까지 줄였습니다."
+          },
+          {
+            "sp": "A",
+            "en": "Wasn't the timeline the real problem?",
+            "kr": "진짜 문제는 일정이 아니었나요?"
+          },
+          {
+            "sp": "B",
+            "en": "It wasn't the timeline that slowed us, but the scope.",
+            "kr": "우리를 늦춘 건 일정이 아니라 범위였습니다."
+          },
+          {
+            "sp": "A",
+            "en": "So what would you change next time?",
+            "kr": "그럼 다음엔 무엇을 바꾸시겠어요?"
+          },
+          {
+            "sp": "B",
+            "en": "What we need is earlier alignment. I do think that's the key.",
+            "kr": "필요한 것은 더 이른 합의입니다. 그게 핵심이라고 정말 생각합니다."
           }
         ]
       }
