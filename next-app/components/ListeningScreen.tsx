@@ -123,7 +123,7 @@ export default function ListeningScreen() {
                 cursor: 'pointer',
                 border: `1px solid ${c === level ? 'var(--primary)' : 'var(--border)'}`,
                 background: c === level ? 'var(--primary)' : 'var(--surface)',
-                color: c === level ? '#fff' : 'var(--text-muted)',
+                color: c === level ? 'var(--on-primary)' : 'var(--text-muted)',
               }}
             >
               {c}

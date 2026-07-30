@@ -97,7 +97,7 @@ Keep vocabulary and grammar appropriate for ${level}. "a" is the index (0-based)
                 cursor: 'pointer',
                 border: `1px solid ${c === level ? 'var(--primary)' : 'var(--border)'}`,
                 background: c === level ? 'var(--primary)' : 'var(--surface)',
-                color: c === level ? '#fff' : 'var(--text-muted)',
+                color: c === level ? 'var(--on-primary)' : 'var(--text-muted)',
               }}
             >
               {c}
@@ -153,7 +153,7 @@ Keep vocabulary and grammar appropriate for ${level}. "a" is the index (0-based)
                   } else if (picked) {
                     border = 'var(--primary)';
                     bg = 'var(--primary)';
-                    color = '#fff';
+                    color = 'var(--on-primary)';
                   }
                   return (
                     <button

@@ -148,7 +148,7 @@ export default function PlacementScreen({ onDone }: { onDone?: () => void }) {
                     cursor: 'pointer',
                     border: `1px solid ${on ? 'var(--primary)' : 'var(--border)'}`,
                     background: on ? 'var(--primary)' : 'var(--surface2)',
-                    color: on ? '#fff' : 'var(--text)',
+                    color: on ? 'var(--on-primary)' : 'var(--text)',
                   }}
                 >
                   {opt}

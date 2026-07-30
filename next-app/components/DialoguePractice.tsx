@@ -275,7 +275,7 @@ export default function DialoguePractice({ dialogue: original, lessonId }: { dia
               cursor: 'pointer',
               border: `1px solid ${tab === t ? 'var(--primary)' : 'var(--border)'}`,
               background: tab === t ? 'var(--primary)' : 'var(--surface2)',
-              color: tab === t ? '#fff' : 'var(--text-muted)',
+              color: tab === t ? 'var(--on-primary)' : 'var(--text-muted)',
             }}
           >
             {label}

@@ -9,12 +9,19 @@
   --border: #ebe9e4;
   --border-strong: #dcdad3;
   --ink: #191817; /* 주요 행동(CTA)의 잉크 블랙 — Calm Premium의 중심 */
-  --primary: #ea580c;
-  --primary-light: #f97316;
-  --primary-dk: #c2410c;
+  /* 라이트 액센트는 AA(4.5:1)를 넘는 톤으로 — #ea580c는 흰 글자 대비 3.56:1,
+     배경 위 작은 글자 대비 3.7:1로 둘 다 기준 미달이었다. 한 단 낮춰 둘 다 통과. */
+  --primary: #c2410c;
+  --primary-light: #ea580c;
+  --primary-dk: #9a3412;
+  /* CTA 채움면의 대표 단색(그라디언트 대신 계산·대비 검증에 쓰는 기준색) */
+  --primary-surface: #191817;
   --primary-soft: #fdefe4;
   --green: #1a8f5c;
   --green-soft: #e9f8ef;
+  /* --primary 면 위에 올라가는 글자색. 라이트(주황 면)는 흰색, 다크(민트 면)는
+     짙은 잉크여야 읽힌다 — 선택된 칩/탭이 전부 이 토큰을 쓴다. */
+  --on-primary: #ffffff;
   --yellow: #c2750c;
   --red: #e0383a;
   --text: #1b1a18;
@@ -569,7 +576,7 @@ button {
 
 .speaking-practice .mic {
   background: var(--grad-primary);
-  color: white;
+  color: var(--on-primary);
   border: none;
   border-radius: 999px;
   padding: 11px 22px;
@@ -661,7 +668,7 @@ button {
 }
 .btn.primary {
   background: var(--grad-primary);
-  color: white;
+  color: var(--on-primary);
   border: 1px solid #121110;
   /* 위쪽 하이라이트 + 코랄 글로우로 입체감 */
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 8px 18px -10px rgba(25, 24, 23, 0.45);
@@ -690,7 +697,7 @@ button {
   font-weight: 800;
   cursor: pointer;
   background: var(--grad-primary);
-  color: white;
+  color: var(--on-primary);
   border: none;
   box-shadow: 0 8px 18px -10px rgba(25, 24, 23, 0.4);
   transition: transform 0.1s, filter 0.15s;
@@ -1066,7 +1073,7 @@ button {
   padding: 4px 11px;
   border-radius: 999px;
   background: var(--primary);
-  color: white;
+  color: var(--on-primary);
   flex-shrink: 0;
 }
 .level-badge.done {
@@ -1422,7 +1429,7 @@ button {
   word-break: break-word;
   box-shadow: var(--shadow-press);
 }
-.msg.user .bubble { position: relative; background: var(--grad-primary); color: white; border-bottom-right-radius: 4px; box-shadow: var(--shadow-press), var(--glow-primary); }
+.msg.user .bubble { position: relative; background: var(--grad-primary); color: var(--on-primary); border-bottom-right-radius: 4px; box-shadow: var(--shadow-press), var(--glow-primary); }
 .msg.ai .bubble { position: relative; background: var(--surface2); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
 .msg.system .bubble { background: transparent; color: var(--text-muted); font-size: 0.76rem; text-align: center; }
 
@@ -1584,10 +1591,10 @@ button {
   box-shadow: 0 3px 0 var(--border);
 }
 .round-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--border); }
-.round-btn.listening { background: var(--grad-primary); box-shadow: 0 3px 0 var(--primary-dk), 0 0 0 0 rgba(255,90,54,0.5); animation: talk-pulse 1.2s infinite; color: white; }
-.round-btn.speaking { background: var(--green); box-shadow: 0 3px 0 var(--green-dk); color: white; }
+.round-btn.listening { background: var(--grad-primary); box-shadow: 0 3px 0 var(--primary-dk), 0 0 0 0 rgba(255,90,54,0.5); animation: talk-pulse 1.2s infinite; color: var(--on-primary); }
+.round-btn.speaking { background: var(--green); box-shadow: 0 3px 0 var(--green-dk); color: var(--on-primary); }
 .round-btn.processing { opacity: 0.6; }
-.round-btn.send { background: var(--grad-primary); color: white; box-shadow: 0 3px 0 var(--primary-dk), var(--glow-primary); }
+.round-btn.send { background: var(--grad-primary); color: var(--on-primary); box-shadow: 0 3px 0 var(--primary-dk), var(--glow-primary); }
 @keyframes talk-pulse {
   0%,100% { box-shadow: 0 3px 0 var(--primary-dk), 0 0 0 0 rgba(255,90,54,0.5); }
   50% { box-shadow: 0 3px 0 var(--primary-dk), 0 0 0 10px rgba(255,90,54,0); }
@@ -1829,51 +1836,70 @@ body,
   transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
 }
 
+/* Dark Studio(기본 테마) — 차갑고 깊은 캔버스 + 민트 네온 액센트.
+   기존의 웜 차콜/오렌지 다크를 대체한다. 액센트는 '지금 중요한 것' 한 곳에만
+   쓰고(진행·활성·CTA), 나머지는 무채색으로 눌러 시선이 흩어지지 않게 한다. */
 [data-theme='dark'] {
   color-scheme: dark;
-  --bg: #131211;
-  --surface: #1b1a18;
-  --surface2: #242220;
-  --border: #2e2c29;
-  --border-strong: #3b3934;
-  --ink: #2e2c29; /* 다크의 CTA는 살짝 떠 있는 차콜 패널 */
-  --primary: #fb923c;
-  --primary-light: #fdba74;
-  --primary-dk: #fdba74; /* 다크에선 강조 텍스트도 밝게 */
-  --primary-soft: #33261a;
-  --green: #34d399;
-  --green-soft: #16271e;
-  --green-dk: #6ee7b7;
-  --yellow: #e0a34e;
-  --red: #f06a6c;
-  --text: #f1efea;
-  --text-muted: #a29d95;
-  /* 어두운 배경에선 그림자가 잘 안 보이므로 더 짙게 + 코랄 글로우 강조 */
+  --bg: #0a0c0e;
+  --surface: #13171b;
+  --surface2: #1b2026;
+  --elev: #232a31; /* 한 단계 더 떠 있는 면(칩·인셋 패널) */
+  --border: rgba(255, 255, 255, 0.075);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --ink: #1b2026;
+  --primary: #2fe3a4; /* 민트 네온 — 진행/활성/CTA */
+  --primary-light: #6cf3c4;
+  --primary-surface: #21d69a; /* 민트 CTA 면의 대표 단색 */
+  --primary-dk: #7df2cd; /* 다크에선 강조 텍스트도 밝게 */
+  --primary-soft: rgba(47, 227, 164, 0.12);
+  --green: #2fe3a4;
+  --green-soft: rgba(47, 227, 164, 0.1);
+  --green-dk: #7df2cd;
+  --yellow: #f5b544;
+  --red: #ff6b70;
+  --text: #eaf0f4;
+  --text-muted: #8c99a6;
+  --on-primary: #04231a; /* 민트 면 위 글자 */
+  /* 다크에선 그림자보다 '표면 위 하이라이트 + 깊은 낙하'가 입체를 만든다 */
   --shadow-card:
-    0 1px 1px rgba(0, 0, 0, 0.35),
-    0 4px 10px -4px rgba(0, 0, 0, 0.5),
-    0 16px 34px -16px rgba(0, 0, 0, 0.66);
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 2px 6px -2px rgba(0, 0, 0, 0.6),
+    0 18px 40px -20px rgba(0, 0, 0, 0.8);
   --shadow-card-hover:
-    0 2px 6px rgba(0, 0, 0, 0.4),
-    0 12px 24px -8px rgba(0, 0, 0, 0.55),
-    0 30px 52px -20px rgba(0, 0, 0, 0.55);
-  --shadow-press: 0 1px 2px rgba(0, 0, 0, 0.45);
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 4px 12px -4px rgba(0, 0, 0, 0.65),
+    0 30px 60px -24px rgba(0, 0, 0, 0.85);
+  --shadow-press: 0 1px 2px rgba(0, 0, 0, 0.6);
   --shadow-float:
-    0 6px 16px -6px rgba(0, 0, 0, 0.5),
-    0 22px 46px -22px rgba(0, 0, 0, 0.7);
-  --glow-primary: 0 0 0 4px rgba(251, 146, 60, 0.2);
+    0 8px 20px -8px rgba(0, 0, 0, 0.7),
+    0 26px 60px -26px rgba(0, 0, 0, 0.9);
+  --glow-primary: 0 0 0 4px rgba(47, 227, 164, 0.18);
+  /* 액센트 글로우 — 민트 면이 스스로 빛나 보이게 하는 핵심 장치 */
+  --glow-accent: 0 6px 26px -8px rgba(47, 227, 164, 0.55);
 }
 
 [data-theme='dark'] {
-  /* CTA 표면: 다크에선 배경보다 살짝 밝은 차콜 패널이 '주요 행동'으로 읽힌다 */
-  --grad-primary: linear-gradient(135deg, #3a3833, #2b2926 60%, #232220);
-  --grad-primary-sheen: linear-gradient(135deg, #44423c, #2b2926 55%, #232220);
+  /* CTA: 다크 스튜디오의 주요 행동은 '빛나는 민트 면'이다(텍스트는 짙은 잉크) */
+  --grad-primary: linear-gradient(135deg, #4bf0b8, #21d69a 60%, #12c08a);
+  --grad-primary-sheen: linear-gradient(135deg, #63f5c6, #29dda2 55%, #16c992);
 }
+/* 오로라 — 위쪽 민트 블룸 + 아래쪽 차가운 블루로 깊이를 만든다(고정 레이어) */
 [data-theme='dark'] body::before {
-  background: none;
+  background:
+    radial-gradient(72% 40% at 50% -6%, rgba(47, 227, 164, 0.11), transparent 70%),
+    radial-gradient(60% 38% at 85% 104%, rgba(88, 130, 255, 0.08), transparent 72%);
 }
-[data-theme='dark'] .btn.primary {
-  border-color: #44423c;
+[data-theme='dark'] .btn.primary,
+[data-theme='dark'] .start-drill-btn,
+[data-theme='dark'] .mission-cta {
+  color: #04231a; /* 민트 위에는 짙은 잉크 텍스트가 가장 또렷하다 */
+  border-color: transparent;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), var(--glow-accent);
+}
+[data-theme='dark'] .btn.primary:hover,
+[data-theme='dark'] .start-drill-btn:hover {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 10px 34px -8px rgba(47, 227, 164, 0.7);
 }
 [data-theme='dark'] .home-hero-avatar {
   background: #ecebe7;
@@ -3284,9 +3310,9 @@ body,
   height: 40px;
   flex-basis: 40px;
   margin-left: -4px;
-  background: var(--grad-primary);
-  border-color: transparent;
-  color: #fff;
+  background: var(--surface);
+  border-color: var(--primary);
+  color: var(--primary);
   box-shadow: 0 0 0 5px var(--primary-soft);
 }
 .path-info {
@@ -3567,9 +3593,10 @@ body,
     0 24px 60px -22px rgba(234, 88, 12, 0.55),
     inset 0 2px 14px rgba(255, 255, 255, 0.5);
 }
+/* Dark Studio의 상징 — 민트 오브. 코어에서 바깥으로 빛이 새어나오게 */
 [data-theme='dark'] .vo-orb {
-  background: radial-gradient(circle at 32% 28%, #ffedd5, #fb923c 46%, #9a3412 100%);
-  box-shadow: 0 24px 60px -22px rgba(251, 146, 60, 0.4), inset 0 2px 12px rgba(255, 255, 255, 0.28);
+  background: radial-gradient(circle at 32% 28%, #d9fff2, #2fe3a4 46%, #067a56 100%);
+  box-shadow: 0 24px 70px -18px rgba(47, 227, 164, 0.55), inset 0 2px 14px rgba(255, 255, 255, 0.35);
 }
 .vo-orb-core {
   position: absolute;
@@ -3801,3 +3828,328 @@ body,
   line-height: 1.55;
 }
 .key-help a { color: var(--primary); font-weight: 700; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Dark Studio — 구조 레이어
+   토큰만으로는 안 되는 '스튜디오' 특유의 표현을 여기서 얹는다:
+   ① 유리질 표면(면 위 하이라이트) ② 활성 요소의 발광 ③ 거대한 숫자 타이포
+   ④ 액센트는 진행/활성/CTA 한 곳에만. 라이트 테마는 건드리지 않는다.
+   ═══════════════════════════════════════════════════════════════ */
+
+[data-theme='dark'] .app-header {
+  background: linear-gradient(180deg, rgba(10, 12, 14, 0.92), rgba(10, 12, 14, 0.68));
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+[data-theme='dark'] .app-header h1 {
+  letter-spacing: -0.02em;
+}
+[data-theme='dark'] .home-hero-avatar,
+[data-theme='dark'] .app-header-brand {
+  background: linear-gradient(140deg, #232a31, #13171b);
+  color: var(--primary-light);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 0 1px rgba(47, 227, 164, 0.18);
+}
+[data-theme='dark'] .app-version {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: transparent;
+  color: var(--text-muted);
+}
+[data-theme='dark'] .streak-chip {
+  background: rgba(245, 181, 68, 0.12);
+  border-color: rgba(245, 181, 68, 0.28);
+  color: var(--yellow);
+  box-shadow: none;
+}
+[data-theme='dark'] .theme-toggle {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: transparent;
+}
+
+/* 하단 네비 — 어두운 유리 + 활성 탭만 민트로 발광 */
+[data-theme='dark'] .mode-tabs {
+  background: linear-gradient(180deg, rgba(19, 23, 27, 0.72), rgba(8, 10, 12, 0.96));
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+[data-theme='dark'] .mode-tab.active {
+  background: rgba(47, 227, 164, 0.1);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px rgba(47, 227, 164, 0.22);
+}
+[data-theme='dark'] .mode-tab.active .ic {
+  opacity: 1;
+  filter: drop-shadow(0 0 8px rgba(47, 227, 164, 0.55));
+}
+
+/* 카드 — 표면 위 얇은 하이라이트로 '유리판' 느낌 */
+[data-theme='dark'] .study-card,
+[data-theme='dark'] .home-hero,
+[data-theme='dark'] .feat-card,
+[data-theme='dark'] .quests-card,
+[data-theme='dark'] .stat-card,
+[data-theme='dark'] .path-wrap {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0) 42%), var(--surface);
+  border-color: var(--border);
+}
+
+/* 오늘의 미션 — 화면의 주인공. 좌측 민트 레일 + 상단 스포트라이트 */
+[data-theme='dark'] .mission-card {
+  position: relative;
+  background:
+    radial-gradient(120% 70% at 0% 0%, rgba(47, 227, 164, 0.09), transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) 45%),
+    var(--surface);
+  border-color: rgba(47, 227, 164, 0.16);
+  overflow: hidden;
+}
+/* 좌측 민트 레일 — 카드가 길어도 상단에서만 짧게 빛나야 '액센트'로 읽힌다
+   (카드 끝까지 내리면 그냥 굵은 테두리처럼 보인다) */
+[data-theme='dark'] .mission-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 150px;
+  width: 3px;
+  background: linear-gradient(180deg, var(--primary), rgba(47, 227, 164, 0));
+}
+[data-theme='dark'] .mission-kicker {
+  color: var(--primary);
+  letter-spacing: 0.08em;
+}
+[data-theme='dark'] .mission-phrase {
+  background: var(--surface2);
+  border-color: var(--border);
+}
+[data-theme='dark'] .mission-phrase.recalling {
+  border-color: rgba(47, 227, 164, 0.3);
+}
+
+/* 진행 표시(바·링) — 민트 + 글로우 */
+[data-theme='dark'] .mission-progress-fill,
+[data-theme='dark'] .quest-bar-fill,
+[data-theme='dark'] .gauge-fill {
+  background: linear-gradient(90deg, #21d69a, #6cf3c4);
+  box-shadow: 0 0 14px -2px rgba(47, 227, 164, 0.6);
+}
+
+/* ── 오늘의 지표: 거대한 숫자 타이포(스튜디오의 시각적 앵커) ── */
+.stat-hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-card);
+}
+.stat-hero-ring {
+  flex: 0 0 auto;
+  line-height: 0;
+}
+.stat-hero-body {
+  flex: 1;
+  min-width: 0;
+}
+.stat-hero-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.stat-hero-num {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+}
+.stat-hero-num b {
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text);
+}
+.stat-hero-num span {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+.stat-hero-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 5px;
+  line-height: 1.5;
+}
+[data-theme='dark'] .stat-hero {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0) 45%), var(--surface);
+}
+[data-theme='dark'] .stat-hero.reached .stat-hero-num b {
+  color: var(--primary);
+  text-shadow: 0 0 26px rgba(47, 227, 164, 0.5);
+}
+[data-theme='dark'] .stat-hero-ring svg circle:last-of-type {
+  filter: drop-shadow(0 0 6px rgba(47, 227, 164, 0.6));
+}
+
+/* 기능 타일 — 아이콘 판을 어둡게 눌러 이모지가 '떠 있는 조각'으로 보이게 */
+[data-theme='dark'] .feat-card .ic {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+[data-theme='dark'] .feat-card:hover {
+  border-color: rgba(47, 227, 164, 0.28);
+}
+
+/* 학습 경로 — 완료 노드는 민트, 현재 노드는 발광 */
+[data-theme='dark'] .path-node.done .path-dot {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #04231a;
+}
+[data-theme='dark'] .path-node.current .path-dot {
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(47, 227, 164, 0.14), 0 0 22px -4px rgba(47, 227, 164, 0.65);
+}
+
+/* 대화 버블 — 내 말은 민트 잉크, AI는 무채색 유리 */
+[data-theme='dark'] .msg.user .bubble {
+  background: var(--grad-primary);
+  color: #04231a;
+  border-color: transparent;
+}
+[data-theme='dark'] .msg.ai .bubble {
+  background: var(--surface2);
+  border-color: var(--border);
+}
+
+/* 입력·마이크·전송 — 민트 발광은 활성 상태에만 */
+[data-theme='dark'] .text-input {
+  background: var(--surface2);
+  border-color: var(--border);
+}
+[data-theme='dark'] .text-input:focus {
+  border-color: rgba(47, 227, 164, 0.55);
+}
+[data-theme='dark'] .round-btn {
+  background: var(--surface2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+/* 위의 중립 .round-btn 규칙이 같은 특정도로 뒤에 오므로, 활성 상태는 여기서 되살린다.
+   회화 화면의 주요 행동은 '전송' — 민트는 여기 하나에만 준다. */
+[data-theme='dark'] .round-btn.listening,
+[data-theme='dark'] .round-btn.send {
+  background: var(--grad-primary);
+  color: var(--on-primary);
+  box-shadow: 0 0 0 0 rgba(47, 227, 164, 0.5), var(--glow-accent);
+}
+[data-theme='dark'] .round-btn.speaking {
+  background: var(--green);
+  color: var(--on-primary);
+  box-shadow: var(--glow-accent);
+}
+
+/* 음성 오버레이 오브 — 앱의 상징. 민트 글로우로 통일 */
+[data-theme='dark'] .vo-orb {
+  box-shadow: 0 0 60px -6px rgba(47, 227, 164, 0.5);
+}
+
+/* 진단 화면의 통과/실패 마크 */
+[data-theme='dark'] .ac-row.ok .ac-mark {
+  background: rgba(47, 227, 164, 0.14);
+  border-color: rgba(47, 227, 164, 0.4);
+  color: var(--primary);
+}
+
+/* ── 알림 카드(note) ─────────────────────────────────────────────
+   기존 홈 배너들은 컴포넌트 안에서 rgba 색면을 인라인으로 칠했다. 다크 캔버스에선
+   그 색면이 탁한 갈색/적갈색 박스로 보여 화면을 어지럽힌다. 색면을 없애고
+   '중립 유리 표면 + 좌측 컬러 레일 + 컬러 제목'으로 상태를 전달한다. */
+.note {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 13px 16px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-card);
+}
+.note.block {
+  display: block;
+}
+.note-ic {
+  font-size: 1.35rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.note-body {
+  flex: 1;
+  min-width: 0;
+}
+.note-title {
+  font-size: 0.88rem;
+  font-weight: 800;
+  margin-bottom: 3px;
+}
+.note-desc {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+.note-action {
+  flex-shrink: 0;
+}
+.note.warn { border-left-color: var(--yellow); }
+.note.warn .note-title { color: var(--yellow); }
+.note.danger { border-left-color: var(--red); }
+.note.danger .note-title { color: var(--red); }
+.note.accent { border-left-color: var(--primary); }
+.note.accent .note-title { color: var(--primary); }
+[data-theme='dark'] .note {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0) 45%), var(--surface);
+}
+
+/* 보조 행동 버튼 — 민트 fill은 화면당 '한 개'만. 나머지는 유령(ghost) 버튼으로
+   내려서 시선의 위계를 만든다. */
+.btn.ghost {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  box-shadow: none;
+}
+.btn.ghost:hover {
+  background: var(--surface2);
+  border-color: var(--border-strong);
+}
+.btn.ghost-accent {
+  background: transparent;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  box-shadow: none;
+  font-weight: 800;
+}
+.btn.ghost-accent:hover {
+  background: var(--primary-soft);
+}
+.btn.compact {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  font-size: 0.78rem;
+}
+
+/* 오브 확산 링·상태 색도 민트로 통일(다크 전용) */
+[data-theme='dark'] .vo-orb.listening::before,
+[data-theme='dark'] .vo-orb.listening::after {
+  border-color: rgba(47, 227, 164, 0.4);
+}
+[data-theme='dark'] .vo-status {
+  color: var(--primary-light);
+}

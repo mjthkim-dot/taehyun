@@ -100,44 +100,53 @@ export default function MasterScreen({
       {/* 데일리 퀘스트 — 오늘 할 일 3개와 XP */}
       <DailyQuests refreshKey={tick} />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: 14 }}>
-        <svg width="64" height="64" viewBox="0 0 64 64" style={{ flex: '0 0 auto' }}>
-          <circle cx="32" cy="32" r={R} fill="none" stroke="var(--surface2)" strokeWidth="7" />
-          <circle
-            cx="32"
-            cy="32"
-            r={R}
-            fill="none"
-            stroke={goalReached ? 'var(--green)' : 'var(--primary)'}
-            strokeWidth="7"
-            strokeLinecap="round"
-            strokeDasharray={C.toFixed(1)}
-            strokeDashoffset={off.toFixed(1)}
-            transform="rotate(-90 32 32)"
-            style={{ transition: 'stroke-dashoffset 0.5s' }}
-          />
-          <text x="32" y="37" textAnchor="middle" fontSize="15" fontWeight="800" fill="var(--text)">
-            {goalReached ? '✓' : spoken}
-          </text>
-        </svg>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '0.86rem', fontWeight: 800 }}>{goalReached ? '오늘 목표 달성!' : '오늘 말한 문장'}</div>
-          <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: 2 }}>
-            소리 내어 <b style={{ color: 'var(--text)' }}>{spoken}</b> / {DAILY_GOAL}문장 · 연습 {done}회 · 🔥 {streak}일 연속
-            {freeze > 0 ? ` · ❄️ 프리즈 ${freeze}` : ''}
+      {/* 오늘의 지표 — 화면의 시각적 앵커. 링은 얇게, 숫자는 크게(스튜디오 타이포) */}
+      <div className={`stat-hero${goalReached ? ' reached' : ''}`}>
+        <div className="stat-hero-ring">
+          <svg width="72" height="72" viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r={R} fill="none" stroke="var(--surface2)" strokeWidth="4" />
+            <circle
+              cx="32"
+              cy="32"
+              r={R}
+              fill="none"
+              stroke={goalReached ? 'var(--green)' : 'var(--primary)'}
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeDasharray={C.toFixed(1)}
+              strokeDashoffset={off.toFixed(1)}
+              transform="rotate(-90 32 32)"
+              style={{ transition: 'stroke-dashoffset 0.5s' }}
+            />
+            {/* 링 안 숫자는 뺐다 — 옆의 큰 숫자와 중복이라 링은 순수 그래픽으로 둔다 */}
+            {goalReached && (
+              <text x="32" y="38" textAnchor="middle" fontSize="20" fontWeight="800" fill="var(--green)">
+                ✓
+              </text>
+            )}
+          </svg>
+        </div>
+        <div className="stat-hero-body">
+          <div className="stat-hero-label">{goalReached ? '오늘 목표 달성' : '오늘 말한 문장'}</div>
+          <div className="stat-hero-num">
+            <b>{spoken}</b>
+            <span>/ {DAILY_GOAL}</span>
+          </div>
+          <div className="stat-hero-sub">
+            연습 {done}회 · 🔥 {streak}일 연속{freeze > 0 ? ` · ❄️ ${freeze}` : ''}
           </div>
         </div>
       </div>
 
       {streak > 0 && done === 0 && (
-        <div style={{ background: 'linear-gradient(135deg,rgba(194,117,12,0.16),rgba(194,117,12,0.04))', border: '1px solid var(--yellow)', borderRadius: 14, padding: '12px 16px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ fontSize: '1.5rem', flexShrink: 0 }}>🔥</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '0.86rem', fontWeight: 800 }}>{streak}일 연속 학습이 오늘 끊길 수 있어요</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>단 1문장만 연습해도 스트릭이 이어집니다. 지금 바로 시작해요!</div>
+        <div className="note warn">
+          <div className="note-ic">🔥</div>
+          <div className="note-body">
+            <div className="note-title">{streak}일 연속 학습이 오늘 끊길 수 있어요</div>
+            <div className="note-desc">단 1문장만 연습해도 스트릭이 이어집니다.</div>
           </div>
-          <button className="btn primary" style={{ flexShrink: 0, fontSize: '0.78rem', padding: '7px 12px' }} onClick={() => onNavigate('drill')}>
-            ▶ 시작
+          <button className="btn ghost-accent compact note-action" onClick={() => onNavigate('drill')}>
+            시작
           </button>
         </div>
       )}
@@ -149,60 +158,57 @@ export default function MasterScreen({
       )}
 
       {keyInvalid && (
-        <div style={{ background: 'rgba(224,56,58,0.08)', border: '1px solid var(--red)', borderRadius: 14, padding: '13px 16px', marginBottom: 14 }}>
-          <div style={{ fontSize: '0.88rem', fontWeight: 800, marginBottom: 3, color: 'var(--red)' }}>등록된 Groq 키가 더 이상 유효하지 않아요</div>
-          <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+        <div className="note danger block">
+          <div className="note-title">등록된 Groq 키가 더 이상 유효하지 않아요</div>
+          <div className="note-desc">
             키가 만료되거나 폐기되면 AI 회화·음성이 조용히 실패합니다. console.groq.com에서 새 키를 발급한 뒤 기능 탭 → AI 키 등록에서 다시 등록해 주세요.
           </div>
-          <button className="btn primary" style={{ marginTop: 10, fontSize: '0.78rem', padding: '8px 14px' }} onClick={() => onNavigate('apikey')}>
+          <button className="btn ghost-accent compact" style={{ marginTop: 11 }} onClick={() => onNavigate('apikey')}>
             새 키 등록하러 가기 →
           </button>
         </div>
       )}
 
       {!groqKey() && (
-        <div style={{ background: 'linear-gradient(135deg,rgba(224,56,58,0.12),rgba(224,56,58,0.04))', border: '1px solid rgba(224,56,58,0.45)', borderRadius: 14, padding: '13px 16px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ fontSize: '1.3rem', flexShrink: 0 }}>🔑</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '0.88rem', fontWeight: 800, marginBottom: 2 }}>AI 강사 연결이 필요해요</div>
-            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-              무료 Groq 키를 등록하면 AI 회화·번역·피드백이 모두 활성화됩니다. (ChatGPT/Gemini급 · 무료)
-            </div>
+        <div className="note danger">
+          <div className="note-ic">🔑</div>
+          <div className="note-body">
+            <div className="note-title">AI 강사 연결이 필요해요</div>
+            <div className="note-desc">무료 Groq 키를 등록하면 AI 회화·번역·피드백이 모두 켜집니다.</div>
           </div>
-          <button className="btn primary" style={{ flexShrink: 0, fontSize: '0.78rem', padding: '7px 12px' }} onClick={() => onNavigate('apikey')}>
+          <button className="btn ghost-accent compact note-action" onClick={() => onNavigate('apikey')}>
             키 등록
           </button>
         </div>
       )}
 
       {!isPlaced() && (
-        <div style={{ background: 'linear-gradient(135deg,rgba(255,90,54,0.14),rgba(255,90,54,0.04))', border: '1px solid var(--primary)', borderRadius: 14, padding: '15px 16px', marginBottom: 14 }}>
-          <div style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: 4 }}>먼저 내 레벨을 진단해 보세요</div>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 10 }}>
-            18문항 배치고사로 A1~C2 레벨을 파악하고, 말하기·듣기·읽기·쓰기 시작점을 자동으로 맞춥니다.
-          </div>
-          <button className="start-drill-btn" onClick={() => onNavigate('features')}>
+        <div className="note accent block">
+          <div className="note-title">먼저 내 레벨을 진단해 보세요</div>
+          <div className="note-desc">18문항 배치고사로 A1~C2 레벨을 파악하고, 말하기·듣기·읽기·쓰기 시작점을 자동으로 맞춥니다.</div>
+          <button className="btn ghost-accent compact" style={{ marginTop: 11 }} onClick={() => onNavigate('features')}>
             배치고사 보러 가기 →
           </button>
         </div>
       )}
 
+      {/* 화면의 유일한 채워진 CTA — 나머지 보조 행동은 모두 ghost로 내린다 */}
       <div style={{ marginBottom: 14 }}>
         <button className="start-drill-btn" onClick={onStartToday}>
           오늘의 훈련 시작{dueCount ? ` — 복습 ${Math.min(dueCount, 5)}문항 포함` : ' (랜덤 10문항)'}
         </button>
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-          <button className="btn" style={{ flex: 1, background: 'linear-gradient(135deg,rgba(26,143,92,0.16),rgba(26,143,92,0.05))', borderColor: 'rgba(26,143,92,0.5)' }} onClick={() => onNavigate('features')}>
+          <button className="btn ghost" style={{ flex: 1 }} onClick={() => onNavigate('features')}>
             숙제 도우미
           </button>
-          <button className="btn" style={{ flex: 1, background: 'linear-gradient(135deg,rgba(194,117,12,0.16),rgba(194,117,12,0.05))', borderColor: 'rgba(194,117,12,0.5)' }} onClick={() => onNavigate('features')}>
+          <button className="btn ghost" style={{ flex: 1 }} onClick={() => onNavigate('features')}>
             암기 카드{dueCount ? ` (${dueCount})` : ''}
           </button>
         </div>
-        <button className="btn" style={{ width: '100%', marginTop: 8 }} onClick={() => onNavigate('features')}>
+        <button className="btn ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => onNavigate('features')}>
           4대 영역 훈련 (듣기·읽기·쓰기·어휘) →
         </button>
-        <button className="btn" style={{ width: '100%', marginTop: 8 }} onClick={() => onNavigate('features')}>
+        <button className="btn ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => onNavigate('features')}>
           내 표현장 ({phraseCount})
         </button>
       </div>

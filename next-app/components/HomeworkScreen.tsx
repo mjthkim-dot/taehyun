@@ -287,7 +287,7 @@ Return JSON: {"results":[{"idx":0,"correct":true,"feedback":"Korean feedback","c
               cursor: 'pointer',
               border: `1px solid ${mode === 'full' ? 'var(--primary)' : 'var(--border)'}`,
               background: mode === 'full' ? 'var(--primary)' : 'var(--surface)',
-              color: mode === 'full' ? '#fff' : 'var(--text-muted)',
+              color: mode === 'full' ? 'var(--on-primary)' : 'var(--text-muted)',
             }}
           >
             ✅ 정답 + 풀이
@@ -303,7 +303,7 @@ Return JSON: {"results":[{"idx":0,"correct":true,"feedback":"Korean feedback","c
               cursor: 'pointer',
               border: `1px solid ${mode === 'hint' ? 'var(--primary)' : 'var(--border)'}`,
               background: mode === 'hint' ? 'var(--primary)' : 'var(--surface)',
-              color: mode === 'hint' ? '#fff' : 'var(--text-muted)',
+              color: mode === 'hint' ? 'var(--on-primary)' : 'var(--text-muted)',
             }}
           >
             💡 힌트로 스스로 풀기

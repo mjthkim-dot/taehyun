@@ -98,10 +98,10 @@ await page.click('.mission-complete');
 await page.waitForTimeout(300);
 check('완료 배너', !!(await page.evaluate(() => document.querySelector('.mission-done-banner'))));
 // 발화 카운터(스픽식): 빌드업 발화들이 '오늘 말한 문장'으로 집계돼 링에 반영
-const ringSpoken = await page.evaluate(() => parseInt(document.querySelector('svg text')?.textContent || '0', 10));
+const ringSpoken = await page.evaluate(() => parseInt(document.querySelector('.stat-hero-num b')?.textContent || '0', 10));
 const storedSpoken = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem('va_spoken') || '{}'); return v.count || 0; });
 check('발화 집계 3문장 이상', storedSpoken >= 3, `spoken=${storedSpoken}`);
-check('목표 링 = 발화 수', ringSpoken === storedSpoken, `ring=${ringSpoken} spoken=${storedSpoken}`);
+check('오늘의 지표 숫자 = 발화 수', ringSpoken === storedSpoken, `표시=${ringSpoken} spoken=${storedSpoken}`);
 
 // ── 데일리 퀘스트: 3종 렌더 + 미션 완주 반영 + XP 적립 ──
 check('퀘스트 3종 렌더', (await page.evaluate(() => document.querySelectorAll('.quest-row').length)) === 3);
