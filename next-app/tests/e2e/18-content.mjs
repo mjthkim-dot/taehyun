@@ -42,6 +42,12 @@ check(`모든 포인트 설명 ${MIN_NOTE}자 이상`, thinNote.length === 0, th
 check(`레슨별 설명 평균 ${MIN_NOTE_AVG}자 이상`, thinAvg.length === 0, thinAvg.slice(0, 8).join(', '));
 
 /* ── 구성 요소 ── */
+// 섹션이 하나뿐이면 '목록만 있고 실전 적용이 없는' 얇은 구성이 된다
+const singleSection = withSections.filter((l) => l.sections.length < 2).map((l) => l.id);
+check('모든 레슨이 섹션 2개 이상', singleSection.length === 0, singleSection.join(', '));
+const fewPoints = withSections.filter((l) => l.sections.flatMap((s) => s.points).length < 5).map((l) => l.id);
+check('레슨마다 포인트 5개 이상', fewPoints.length === 0, fewPoints.join(', '));
+
 const noExample = withSections.filter((l) => (l.examples || []).length < 3).map((l) => l.id);
 check('레슨마다 예문 3개 이상', noExample.length === 0, noExample.join(', '));
 const noDialogue = withSections.filter((l) => !(l.dialogue?.lines || []).length).map((l) => l.id);

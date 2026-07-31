@@ -2192,6 +2192,11 @@
               "en": "my / your / his / her / our / their + 명사",
               "kr": "This is my bag (소유격)",
               "note": "명사 앞에 붙여 **누구의 것**인지 표시.\n• **my** bag(내), **your** car(네), **his/her** name(그의/그녀의), **our/their** house(우리/그들의)\nfriends(친구들)와 friend**'s**(친구의)는 아포스트로피 하나로 갈립니다.\n사물의 소유는 of를 더 자주 씁니다 — the name **of** the file."
+            },
+            {
+              "en": "this / that / these / those — 가리키는 말",
+              "kr": "이것/저것 · 이것들/저것들",
+              "note": "가까우면 **this(단수) / these(복수)**, 멀면 **that / those**.\n관사와 함께 쓸 수 없습니다 — ❌ the this book(X) → ✅ **this** book.\n전화·소개에서도 씁니다 — **This is** Jun.(전화에서 '저는 준입니다')\n❌ These is my friends(X) → ✅ **These are** my friends."
             }
           ]
         }
@@ -2220,6 +2225,14 @@
         {
           "en": "Their children are very smart.",
           "kr": "그들의 아이들은 매우 똑똑해요."
+        },
+        {
+          "en": "These are my colleagues.",
+          "kr": "이분들은 제 동료들이에요."
+        },
+        {
+          "en": "Could you pass me that file?",
+          "kr": "그 파일 좀 건네주시겠어요?"
         }
       ],
       "homework": "내 방에 있는 물건 10개를 a/an/the/my를 붙여 말해보기",
@@ -2317,6 +2330,11 @@
               "en": "의문: Are you...? Is she...? — Yes, I am / No, she isn't",
               "kr": "be동사를 앞으로",
               "note": "be동사를 **문장 맨 앞**으로 옮기면 질문이 됩니다.\n• **Are you** tired? — Yes, I **am**. / No, I'm **not**.\n• **Is she** a doctor? — Yes, she **is**.\n❌ Are you a student? — Yes, I do.(X) → ✅ **Yes, I am.**\nbe동사 질문에는 be동사로 답합니다. do/does로 답하는 것은 일반동사 질문일 때입니다."
+            },
+            {
+              "en": "과거형: was / were",
+              "kr": "~였다 / ~에 있었다",
+              "note": "I·he·she·it → **was**, you·we·they → **were**.\nI **was** tired yesterday. / They **were** at the office.\n부정은 **wasn't / weren't**, 의문은 be동사를 앞으로 — **Were you** there?\n❌ I was went(X) — 일반동사 과거와 섞지 마세요."
             }
           ]
         }
@@ -2345,6 +2363,14 @@
         {
           "en": "I'm happy, but I'm a little tired.",
           "kr": "저는 기쁘지만 조금 피곤해요."
+        },
+        {
+          "en": "They were at the office yesterday.",
+          "kr": "그들은 어제 사무실에 있었어요."
+        },
+        {
+          "en": "Were you in the meeting this morning?",
+          "kr": "오늘 아침 회의에 계셨어요?"
         }
       ],
       "homework": "나/가족/친구를 be동사로 소개하는 문장 10개 만들기",
@@ -3808,6 +3834,11 @@
               "en": "If I were you, I wouldn't buy it.",
               "kr": "내가 너라면 (were 사용!)",
               "note": "**if절에서 be동사는 주어에 상관없이 were**를 씁니다(문법 규칙).\n✓ **If I were** (×If I was)\n조언할 때 자주 쓰이는 패턴:\n\"**If I were you, I would...**\"\n가정법에서는 주어가 I·he여도 **were**를 씁니다 — If I **were** you.\n구어에서 was도 쓰이지만, 조언 관용구 If I were you는 항상 were입니다."
+            },
+            {
+              "en": "wish + 과거형 — 지금 사실이 아쉬울 때",
+              "kr": "~라면 좋을 텐데",
+              "note": "가정법과 같은 원리로 **한 칸 뒤로 물린 시제**를 씁니다.\nI **wish** I **had** more time.(지금 시간이 없어 아쉽다)\nI **wish** I **were** better at this.(가정법이라 were)\n과거 일이 아쉬우면 한 칸 더 — I wish I **had known** earlier.(그때 알았더라면)\n❌ I wish I have more time(X)."
             }
           ]
         },
@@ -3847,6 +3878,14 @@
         {
           "en": "If she had called me, I would have helped her.",
           "kr": "그녀가 전화했었다면 도와줬을 텐데."
+        },
+        {
+          "en": "I wish I had more time to prepare.",
+          "kr": "준비할 시간이 더 있으면 좋을 텐데요."
+        },
+        {
+          "en": "I wish I had known about it earlier.",
+          "kr": "그걸 더 일찍 알았더라면 좋았을 텐데요."
         }
       ],
       "homework": "\"If I were...\" 로 시작하는 상상 문장 5개 만들기",
@@ -4046,7 +4085,7 @@
       "title": "간접화법",
       "sections": [
         {
-          "title": "말 전달하기",
+          "title": "① 말 전달하기",
           "intro": "간접화법의 핵심은 **시제와 대명사를 한 칸씩 옮기는 것**입니다. 한국어는 '~라고 했어요'로 원문을 그대로 옮겨도 되지만, 영어는 전달 시점 기준으로 시제를 뒤로 물려야 자연스럽습니다.",
           "points": [
             {
@@ -4063,6 +4102,27 @@
               "en": "They asked if I could come.",
               "kr": "의문은 if/whether로",
               "note": "의문문은 간접화법에서 **if/whether + 주어 + 동사** 어순으로 바꿉니다.\n\"Can you come?\" → They asked **if I could come.**\n⚠️ 어순이 평서문이 됩니다: ×if could I come → ✓if I could come\n의문문 전달은 **if / whether** + 평서문 어순입니다.\n❌ They asked if could I come(X) → ✅ They asked **if I could** come."
+            }
+          ]
+        },
+        {
+          "title": "② 시제·대명사 옮기기와 예외",
+          "intro": "간접화법의 어려움은 표현이 아니라 **좌표 이동**에 있습니다. 말한 사람·시점·장소가 바뀌면 시제·대명사·시간 표현을 한꺼번에 옮겨야 하고, 하나라도 남겨두면 문장이 어긋납니다. 다만 지금도 사실인 내용은 옮기지 않는 예외가 있습니다.",
+          "points": [
+            {
+              "en": "시간·장소 표현도 함께 옮긴다 — today → that day",
+              "kr": "오늘 → 그날",
+              "note": "시제만 바꾸고 시간 표현을 그대로 두면 문장이 모순됩니다.\n**today → that day / tomorrow → the next day / yesterday → the day before / here → there / this → that**\n예: 'I'll call you tomorrow' → He said he **would** call me **the next day**."
+            },
+            {
+              "en": "지금도 사실이면 시제를 옮기지 않는다",
+              "kr": "변하지 않는 사실·현재도 유효한 내용",
+              "note": "규칙을 기계적으로 적용하면 오히려 어색해집니다.\nShe said the office **opens** at nine.(지금도 9시에 연다)\nHe said he **lives** in Busan.(지금도 산다)\n반대로 이미 끝난 일이면 옮깁니다 — He said he **was** busy(그때)."
+            },
+            {
+              "en": "전달 동사를 바꿔 뉘앙스를 준다",
+              "kr": "said 대신 explained, admitted, pointed out",
+              "note": "said만 반복하면 보고서가 단조로워집니다.\n**explained**(설명했다) / **pointed out**(짚었다) / **admitted**(인정했다) / **suggested**(제안했다) / **warned**(경고했다)\n예: The vendor **admitted** they had missed the deadline."
             }
           ]
         }
@@ -4091,6 +4151,18 @@
         {
           "en": "My boss told me not to be late again.",
           "kr": "상사가 다시 늦지 말라고 했어요."
+        },
+        {
+          "en": "She said the office opens at nine.",
+          "kr": "사무실이 9시에 연다고 했어요."
+        },
+        {
+          "en": "He told me he would call the next day.",
+          "kr": "그가 다음 날 전화하겠다고 했어요."
+        },
+        {
+          "en": "The vendor admitted they had missed the deadline.",
+          "kr": "업체가 마감을 놓쳤다고 인정했습니다."
         }
       ],
       "homework": "오늘 들은 말 3개를 간접화법으로 바꿔 말해보기",
@@ -4160,7 +4232,7 @@
       "title": "관용어 & 어휘 확장",
       "sections": [
         {
-          "title": "자주 쓰는 관용어",
+          "title": "① 자주 쓰는 관용어",
           "intro": "관용어는 **단어를 따로 해석하면 뜻이 나오지 않습니다**. 통째로 외워야 하고, 무엇보다 **어울리는 상황**을 알아야 합니다 — 격식 있는 회의에서 쓰면 어색한 표현이 적지 않습니다.",
           "points": [
             {
@@ -4189,6 +4261,27 @@
               "note": "옛날 수술 중 마취 없이 총알을 깨물며 고통을 참은 데서 유래.\n**하기 싫지만 어쩔 수 없이 해야 할 때** 씁니다.\n\"I had to **bite the bullet** and apologize.\""
             }
           ]
+        },
+        {
+          "title": "② 관용어를 안전하게 쓰는 법",
+          "intro": "관용어는 아는 것과 **쓰는 것**의 위험도가 다릅니다. 상황·격식·상대 문화권에 따라 그대로 쓰면 어색하거나 오해를 부르는 표현이 적지 않습니다. 실무에서는 '알아듣기'를 우선하고, 쓰는 것은 안전한 몇 개부터 시작하는 편이 낫습니다.",
+          "points": [
+            {
+              "en": "스포츠·군사 비유는 문화권에 따라 안 통한다",
+              "kr": "ballpark figure / touch base / bite the bullet",
+              "note": "미국식 스포츠 비유는 비영어권 상대에게는 전달되지 않는 경우가 많습니다.\n**ballpark figure**(대략적 수치) → 안전한 대체: **a rough estimate**\n**touch base**(연락하다) → **follow up** / **check in**\n국제 회의에서는 평이한 표현이 오히려 프로답게 들립니다."
+            },
+            {
+              "en": "격식 문서에는 관용어를 넣지 않는다",
+              "kr": "제안서·계약서·공식 이메일",
+              "note": "❌ It's a piece of cake를 제안서에 쓰면 가벼워 보입니다.\n✅ **straightforward** / **low-risk** / **well within our capability**\n관용어는 구두 발표나 친밀한 대화에서 한두 개만 쓰는 것이 적당합니다."
+            },
+            {
+              "en": "비즈니스에서 안전한 관용어",
+              "kr": "on the same page / down the road / a win-win",
+              "note": "국제 회의에서도 대체로 통하고 오해가 적은 표현들입니다.\n**Are we on the same page?**(같은 이해인가요?)\n**down the road**(나중에) / **a win-win**(양쪽 다 이득)\n**circle back**(다시 논의하다) / **bandwidth**(여력) — 단, 남발하면 공허하게 들립니다."
+            }
+          ]
         }
       ],
       "examples": [
@@ -4215,6 +4308,18 @@
         {
           "en": "You really hit the nail on the head with that comment.",
           "kr": "그 말로 정말 정곡을 찔렀네요."
+        },
+        {
+          "en": "Could you give me a rough estimate?",
+          "kr": "대략적인 수치를 주실 수 있을까요?"
+        },
+        {
+          "en": "Are we on the same page about the scope?",
+          "kr": "범위에 대해 같은 이해를 하고 있는 거죠?"
+        },
+        {
+          "en": "We can revisit that down the road.",
+          "kr": "그건 나중에 다시 볼 수 있습니다."
         }
       ],
       "homework": "오늘 배운 관용어 5개로 각각 나만의 문장 만들기",
@@ -4284,7 +4389,7 @@
       "title": "토론 & 의견 표현",
       "sections": [
         {
-          "title": "논리 전개",
+          "title": "① 논리 전개",
           "intro": "토론에서는 **주장 → 근거 → 반론 인정 → 결론** 구조가 기본입니다. 한국어는 결론을 뒤에 두는 경향이 있지만, 영어는 앞에 두고 근거로 받치는 순서라야 설득력 있게 들립니다.",
           "points": [
             {
@@ -4306,6 +4411,27 @@
               "en": "To sum up, the pros outweigh the cons.",
               "kr": "요약: 장점이 단점보다 많다",
               "note": "결론 연결어: **To sum up / In conclusion / All in all**\n**pros** = 장점(찬성 이유), **cons** = 단점(반대 이유)\n\"The pros **outweigh** the cons.\" = 장점이 단점보다 크다.\n결론 신호어: **To sum up / In conclusion / Overall**.\n❌ In conclusion을 발표 중간에 쓰면 청중이 끝난 줄 압니다 — 마지막에만."
+            }
+          ]
+        },
+        {
+          "title": "② 반론 다루기와 근거 제시",
+          "intro": "토론의 승부는 주장이 아니라 **반론을 다루는 방식**에서 갈립니다. 상대 의견을 먼저 정확히 요약하고 인정한 뒤 반박하면 설득력이 올라가고, 근거는 숫자·출처와 함께 제시해야 무게가 실립니다.",
+          "points": [
+            {
+              "en": "상대 논지를 먼저 요약한다 — If I understand correctly, ...",
+              "kr": "제가 이해한 게 맞다면…",
+              "note": "요약을 먼저 하면 상대가 방어를 풀고, 오해도 그 자리에서 정리됩니다.\n**If I understand correctly, your concern is the cost.**\n**So what you're saying is ~, is that right?**\n요약이 틀렸다면 상대가 고쳐주므로 손해가 없습니다."
+            },
+            {
+              "en": "인정 후 반박 — That's valid, but the data suggests otherwise",
+              "kr": "일리 있습니다만, 데이터는 다르게 말합니다",
+              "note": "❌ 곧바로 That's wrong으로 받으면 논의가 감정 싸움이 됩니다.\n✅ **That's a valid concern, but** ~ / **I take your point, though** ~\n**I'd push back gently on that** — 정중하게 반대할 때 원어민이 자주 쓰는 표현입니다."
+            },
+            {
+              "en": "근거는 숫자·출처와 함께",
+              "kr": "According to our own data, ...",
+              "note": "**According to** the vendor's benchmark, ~ / **Based on** last quarter's numbers, ~\n형용사(significant, huge)만 쓰면 근거로 인정받지 못합니다 — **18% lower**처럼 수치로 말하세요.\n확실치 않으면 **roughly / approximately**로 완충합니다."
             }
           ]
         }
@@ -4334,6 +4460,18 @@
         {
           "en": "All in all, I think the proposal is worth trying.",
           "kr": "전반적으로 그 제안은 시도해 볼 만한 것 같아요."
+        },
+        {
+          "en": "If I understand correctly, your concern is the cost.",
+          "kr": "제가 이해한 게 맞다면, 우려하시는 건 비용이군요."
+        },
+        {
+          "en": "That's a valid concern, but the data suggests otherwise.",
+          "kr": "타당한 우려입니다만, 데이터는 다르게 말합니다."
+        },
+        {
+          "en": "According to last quarter's numbers, costs fell 18%.",
+          "kr": "지난 분기 수치에 따르면 비용이 18% 줄었습니다."
         }
       ],
       "homework": "찬반이 갈리는 주제 1개를 골라 찬성 2 + 반대 2 + 결론 1문장 만들기",
@@ -4864,7 +5002,7 @@
       "title": "동명사 & 부정사 뉘앙스",
       "sections": [
         {
-          "title": "의미가 달라지는 동사",
+          "title": "① 의미가 달라지는 동사",
           "intro": "같은 동사인데 뒤에 오는 형태에 따라 **뜻이 정반대가 되는** 무리가 있습니다. 규칙이 아니라 개념으로 기억하세요 — **to부정사는 아직 하지 않은 앞의 일**, **-ing는 이미 벌어진 뒤의 일**을 가리킵니다. 이 감각 하나면 대부분의 쌍이 정리됩니다.",
           "points": [
             {
@@ -4886,6 +5024,27 @@
               "en": "try to open (애써 시도) vs try opening (시험삼아 해보다)",
               "kr": "",
               "note": "**try + to부정사** = ~하려고 애쓰다 (어려워서 노력 필요)\n**try + 동명사** = 혹시 되나 시험삼아 해보다\n예: \"I **tried to open** the jar but it was stuck.\" (열려고 했지만 안 됐다)\nvs \"**Try opening** the window — it might help.\" (창문 열어 봐)"
+            }
+          ]
+        },
+        {
+          "title": "② 동사 뒤 형태가 고정된 무리",
+          "intro": "뜻이 갈리는 동사와 달리, **뒤에 오는 형태가 아예 정해진** 동사들이 있습니다. 여기서는 규칙이 아니라 목록으로 익혀야 하고, 한국어로는 둘 다 자연스럽게 들리기 때문에 틀려도 스스로 알아채기 어렵습니다.",
+          "points": [
+            {
+              "en": "-ing만 오는 동사 — enjoy, avoid, consider, suggest",
+              "kr": "즐기다·피하다·고려하다·제안하다",
+              "note": "❌ I enjoy to read(X) → ✅ I enjoy **reading**.\n같은 무리: **avoid, mind, finish, keep, practice, recommend, suggest**\n❌ He suggested to postpone(X) → ✅ He suggested **postponing** / He suggested **that we postpone**."
+            },
+            {
+              "en": "to부정사만 오는 동사 — decide, agree, offer, refuse",
+              "kr": "결정하다·동의하다·제안하다·거절하다",
+              "note": "❌ We decided moving(X) → ✅ We decided **to move**.\n같은 무리: **want, hope, plan, promise, manage, afford, fail**\n❌ They refused signing(X) → ✅ They refused **to sign**."
+            },
+            {
+              "en": "사역·지각 동사 뒤에는 원형 — make/let/have + 동사원형",
+              "kr": "~하게 하다 / 허락하다",
+              "note": "❌ It makes me to think(X) → ✅ It **makes me think**.\n**let him go** / **have someone review it**\n단, help는 둘 다 됩니다 — help me **(to) understand**.\n지각동사도 원형·-ing: I saw him **leave**(전체) / I saw him **leaving**(진행 중)."
             }
           ]
         }
@@ -4914,6 +5073,18 @@
         {
           "en": "I'll never forget meeting you for the first time.",
           "kr": "처음 당신을 만났던 걸 절대 잊지 못할 거예요."
+        },
+        {
+          "en": "He suggested postponing the review.",
+          "kr": "그는 리뷰를 미루자고 제안했습니다."
+        },
+        {
+          "en": "We decided to move the deadline.",
+          "kr": "마감을 옮기기로 결정했습니다."
+        },
+        {
+          "en": "That makes me think we need more data.",
+          "kr": "그걸 보면 데이터가 더 필요하다는 생각이 듭니다."
         }
       ],
       "homework": "stop/remember/regret/try 각각 두 가지 뜻으로 문장 8개 만들기",
@@ -5113,7 +5284,7 @@
       "title": "발표 & 프레젠테이션",
       "sections": [
         {
-          "title": "발표 흐름 표현",
+          "title": "① 발표 흐름 표현",
           "intro": "발표는 내용보다 **구조 신호어**가 이해도를 좌우합니다. 지금 어디쯤인지 청중이 알 수 있도록 도입·전개·근거·결론마다 표시를 주는 것이 핵심이고, 이 표현들은 통째로 외워두면 긴장한 상태에서도 나옵니다.",
           "points": [
             {
@@ -5135,6 +5306,27 @@
               "en": "In conclusion... / Do you have any questions?",
               "kr": "마무리 & 질의응답",
               "note": "**발표 마무리**:\n\"**In conclusion** / To sum up / To wrap up, ...\" 으로 결론.\n\"**Thank you for your attention.**\"\n\"Does anyone have any **questions**?\" 로 마무리합니다."
+            }
+          ]
+        },
+        {
+          "title": "② 질문·돌발 상황 다루기",
+          "intro": "발표의 실제 난이도는 본문이 아니라 **Q&A**에 있습니다. 준비한 문장이 통하지 않는 구간이라, 모를 때·못 들었을 때·시간이 없을 때 쓸 문장을 미리 정해두면 무너지지 않습니다.",
+          "points": [
+            {
+              "en": "질문을 되짚어 시간을 번다 — So the question is whether ...",
+              "kr": "질문을 다시 정리하며 시간 벌기",
+              "note": "질문을 반복하면 청중 전체가 듣게 되고, 답을 정리할 시간도 생깁니다.\n**That's a great question.** / **So, if I understand correctly, you're asking about ~**\n못 들었을 때: **Sorry, could you repeat the last part?**"
+            },
+            {
+              "en": "모를 때 솔직하게 넘기는 문장",
+              "kr": "I don't have that number with me",
+              "note": "❌ 지어내면 신뢰가 한 번에 무너집니다.\n✅ **I don't have that number with me — let me follow up by email.**\n**That's outside my area, but I can connect you with the right person.**\n후속 약속을 붙이면 오히려 신뢰가 올라갑니다."
+            },
+            {
+              "en": "시간·흐름 관리 — In the interest of time, ...",
+              "kr": "시간 관계상 ~",
+              "note": "**In the interest of time, let's take the rest offline.**(나머지는 따로)\n**I'll come back to that at the end.**(뒤에서 다루겠습니다)\n**Let me park that for now.**(일단 보류하겠습니다) — 회의에서 매우 자주 쓰입니다."
             }
           ]
         }
@@ -5163,6 +5355,18 @@
         {
           "en": "Thank you for your attention. Any questions?",
           "kr": "경청해 주셔서 감사합니다. 질문 있으신가요?"
+        },
+        {
+          "en": "So the question is whether we can deliver by June.",
+          "kr": "그러니까 질문은 6월까지 가능하냐는 거군요."
+        },
+        {
+          "en": "I don't have that number with me — let me follow up.",
+          "kr": "그 수치는 지금 없어서, 따로 알려드리겠습니다."
+        },
+        {
+          "en": "In the interest of time, let's take the rest offline.",
+          "kr": "시간 관계상 나머지는 따로 논의하시죠."
         }
       ],
       "homework": "내 업무/취미를 주제로 1분 발표 대본 작성 + 녹음",
@@ -5233,7 +5437,7 @@
       "title": "뉘앙스 & 화용론",
       "sections": [
         {
-          "title": "부드럽게 말하기 (hedging)",
+          "title": "① 부드럽게 말하기 (hedging)",
           "intro": "영어권 비즈니스에서 **직설은 무례**로 읽히기 쉽습니다. 한국어의 '좀 그렇네요' 같은 완충을 영어에서는 정형화된 표현으로 처리하며, 이 장치를 쓰느냐 마느냐가 원어민 눈에는 태도의 차이로 보입니다.",
           "points": [
             {
@@ -5255,6 +5459,27 @@
               "en": "To be honest, it wasn't great.",
               "kr": "솔직히 말하면",
               "note": "\"**To be honest / Frankly speaking / To tell you the truth...**\" = 솔직히 말하자면.\n부드러운 부정적 평가를 할 때 앞에 이 표현을 붙이면 충격이 완화됩니다."
+            }
+          ]
+        },
+        {
+          "title": "② 나쁜 소식과 거절을 전하는 법",
+          "intro": "완곡어법이 가장 필요한 순간은 **거절·지연·문제 보고**입니다. 한국어의 '어렵습니다'를 It's difficult로 옮기면 상대는 '가능하지만 힘들다'로 알아듣고 기다립니다 — 안 되는 것은 분명히, 다만 부드럽게 말해야 합니다.",
+          "points": [
+            {
+              "en": "완충 → 사실 → 대안 순서로",
+              "kr": "I'm afraid ... / However, we can ...",
+              "note": "**I'm afraid** we won't make Friday.(완충 + 사실)\n**However, we can deliver the core scope by then.**(대안)\n대안 없이 사실만 전하면 무책임하게 들립니다 — 영어권에서는 대안 제시를 훨씬 강하게 기대합니다."
+            },
+            {
+              "en": "거절은 분명하게, 표현은 부드럽게",
+              "kr": "That won't be possible, but ...",
+              "note": "❌ It's difficult(한국식 완곡)은 '가능하다'로 오해됩니다.\n✅ **That won't be possible this quarter, but ~**\n✅ **I'd rather not commit to that today.**(유보)\n애매하게 남기면 상대는 계속 기다리고, 결국 신뢰를 잃습니다."
+            },
+            {
+              "en": "책임을 인정하되 과하게 사과하지 않는다",
+              "kr": "Apologies for the delay — here's the plan",
+              "note": "**I apologize for the delay.** 한 번이면 충분하고, 반복하면 오히려 미덥지 않게 들립니다.\n사과 뒤에는 반드시 조치를 붙이세요 — **Here's what we're doing to fix it.**\n❌ I'm so sorry를 여러 번 반복하는 것은 영어권에서 프로답지 않게 들립니다."
             }
           ]
         }
@@ -5283,6 +5508,18 @@
         {
           "en": "To be honest, the food was a bit tricky to eat.",
           "kr": "솔직히 음식이 먹기에 좀 까다로웠어요."
+        },
+        {
+          "en": "I'm afraid we won't make Friday.",
+          "kr": "죄송하지만 금요일은 맞추기 어렵습니다."
+        },
+        {
+          "en": "However, we can deliver the core scope by then.",
+          "kr": "다만 핵심 범위는 그때까지 전달할 수 있습니다."
+        },
+        {
+          "en": "That won't be possible this quarter.",
+          "kr": "이번 분기에는 어렵습니다."
         }
       ],
       "homework": "직설적인 문장 5개를 완곡한 영어식 표현으로 바꿔 말하기",
@@ -5352,7 +5589,7 @@
       "title": "복합 담화 & 응집성",
       "sections": [
         {
-          "title": "담화 연결어",
+          "title": "① 담화 연결어",
           "intro": "긴 말을 조리 있게 이어가려면 **연결어가 논리의 이정표** 역할을 해야 합니다. 한국어는 '그리고'로 대부분 이어가지만, 영어는 추가·대조·인과·예시마다 다른 표현을 쓰고, 잘못 고르면 앞뒤 논리가 어긋나 보입니다.",
           "points": [
             {
@@ -5381,6 +5618,27 @@
               "note": "한 가지를 더 자세히 설명하고 싶을 때:\n\"**Let me elaborate on...**\"\n\"**To expand on that...**\"\n\"**What I mean is...**\" = 제가 뜻하는 바는..."
             }
           ]
+        },
+        {
+          "title": "② 문단을 잇는 실제 기술",
+          "intro": "연결어를 아는 것과 **글이 매끄럽게 읽히는 것**은 다릅니다. 원어민 글이 자연스러운 이유는 접속부사보다 **앞 문장의 정보를 받아 다음 문장을 시작하는 방식** 때문입니다. 이 감각을 익히면 연결어를 덜 쓰고도 훨씬 잘 이어집니다.",
+          "points": [
+            {
+              "en": "아는 정보 → 새 정보 순서로 문장을 시작한다",
+              "kr": "앞 문장 끝을 다음 문장 앞에 받기",
+              "note": "영어는 문장 앞에 **이미 나온 정보**, 뒤에 **새 정보**를 둡니다.\n예: We migrated the billing system. **That migration** exposed two gaps.\n연결어를 붙이지 않아도 자연스럽게 이어지는 이유가 이것입니다."
+            },
+            {
+              "en": "대명사·지시어로 반복을 줄인다 — this, that, such",
+              "kr": "this approach / such cases",
+              "note": "같은 명사를 반복하면 글이 무거워집니다.\n**this approach / that decision / such cases / the latter**\n단, this만 홀로 쓰면 무엇을 가리키는지 모호해지므로 **this + 명사**로 받는 것이 안전합니다."
+            },
+            {
+              "en": "연결어는 과하면 오히려 방해가 된다",
+              "kr": "문단마다 하나면 충분",
+              "note": "❌ Moreover, Furthermore, In addition을 연달아 쓰면 형식적으로 들립니다.\n한 문단에 접속부사는 **하나** 정도가 적당하고, 나머지는 정보 순서로 잇습니다.\n발표에서는 반대로 신호어를 더 분명히 주는 것이 좋습니다 — 청중은 되돌아 읽을 수 없기 때문입니다."
+            }
+          ]
         }
       ],
       "examples": [
@@ -5407,6 +5665,18 @@
         {
           "en": "On the contrary, the results were better than expected.",
           "kr": "오히려 결과는 예상보다 더 좋았어요."
+        },
+        {
+          "en": "That migration exposed two gaps in our process.",
+          "kr": "그 이관 작업에서 프로세스의 허점 두 가지가 드러났습니다."
+        },
+        {
+          "en": "This approach keeps the risk contained.",
+          "kr": "이 방식은 리스크를 제한된 범위에 둡니다."
+        },
+        {
+          "en": "In contrast, the second option scales better.",
+          "kr": "반면 두 번째 안이 확장성이 더 좋습니다."
         }
       ],
       "homework": "연결어 5개를 모두 사용해 한 가지 주제로 짧은 스피치 만들기",
@@ -5706,7 +5976,7 @@
       "title": "원어민 관용 표현",
       "sections": [
         {
-          "title": "네이티브 일상 표현",
+          "title": "① 네이티브 일상 표현",
           "intro": "관용 표현은 **직역하면 뜻이 나오지 않습니다**. 뜻보다 중요한 것은 쓰는 자리로, 캐주얼한 표현을 격식 있는 회의에서 쓰면 가볍게 보일 수 있습니다. 먼저 알아듣는 것을 목표로 하고, 쓰는 것은 편한 자리부터 시작하세요.",
           "points": [
             {
@@ -5735,6 +6005,27 @@
               "note": "서서히가 아니라 **단번에 완전히 끊다**.\n\"I quit smoking **cold turkey**.\" (담배를 단번에 끊었다)\n반대 표현:\n**gradually** = 서서히\n**wean off** = 조금씩 줄여가며 끊다\ncold turkey는 **부사처럼** 씁니다 — He quit smoking **cold turkey**.\n❌ He did cold turkey(X)."
             }
           ]
+        },
+        {
+          "title": "② 알아듣기 우선 — 자주 나오지만 헷갈리는 표현",
+          "intro": "관용 표현은 **쓰는 것보다 알아듣는 것**이 먼저입니다. 특히 회의 중 흘러가듯 나오는 짧은 표현들은 뜻을 모르면 흐름 전체를 놓치게 됩니다. 여기 있는 표현들은 직역하면 정반대로 이해되기 쉬운 것들입니다.",
+          "points": [
+            {
+              "en": "I'm not going to lie / To be fair",
+              "kr": "솔직히 말하면 / 공정하게 말하자면",
+              "note": "**I'm not going to lie**은 거짓말 이야기가 아니라 '솔직히 말해'라는 도입부입니다.\n**To be fair**는 상대 편을 조금 들어주며 균형을 잡는 표현입니다.\n비슷한 도입: **Honestly** / **Look**, ~(약간 단호한 시작)."
+            },
+            {
+              "en": "It is what it is / Let's play it by ear",
+              "kr": "어쩔 수 없죠 / 상황 봐서 정하죠",
+              "note": "**It is what it is** — 바꿀 수 없는 상황을 받아들일 때. 체념보다는 담담한 수용에 가깝습니다.\n**Let's play it by ear** — 미리 정하지 말고 상황 보며 가자.\n회의 마무리에서 자주 들리는 두 표현입니다."
+            },
+            {
+              "en": "I'll let you go / No worries either way",
+              "kr": "이만 끊을게요 / 어느 쪽이든 괜찮아요",
+              "note": "**I'll let you go**는 상대를 배려하는 형식의 **통화 종료 신호**입니다 — 무례한 표현이 아닙니다.\n**No worries either way**는 선택지를 줄 때 부담을 덜어주는 마무리로, 이메일에서도 자주 씁니다."
+            }
+          ]
         }
       ],
       "examples": [
@@ -5761,6 +6052,18 @@
         {
           "en": "Hang in there, the results come out tomorrow.",
           "kr": "조금만 버텨, 결과가 내일 나와."
+        },
+        {
+          "en": "To be fair, they did warn us in advance.",
+          "kr": "공정하게 말하면, 그쪽이 미리 알려주긴 했어요."
+        },
+        {
+          "en": "It is what it is — let's move on.",
+          "kr": "어쩔 수 없죠, 넘어갑시다."
+        },
+        {
+          "en": "Let's play it by ear and decide on Friday.",
+          "kr": "상황 봐서 금요일에 정하죠."
         }
       ],
       "homework": "오늘 배운 표현 5개를 내 실제 상황에 맞게 바꿔 말하고 녹음",
@@ -5973,6 +6276,11 @@
               "en": "meet the deadline = 마감을 맞추다",
               "kr": "",
               "note": "비즈니스 필수 표현:\n\"We need to **meet the deadline** by Friday.\"\n**Behind schedule** = 일정보다 늦고 있다\n**On track** = 계획대로 진행 중\n**Ahead of schedule** = 일정보다 앞서 있다\n마감은 meet(맞추다) / miss(놓치다) / push back(미루다)와 짝을 이룹니다.\n❌ keep the deadline은 어색합니다 → ✅ **meet** the deadline."
+            },
+            {
+              "en": "procurement / compliance / audit",
+              "kr": "구매·조달 / 규정 준수 / 감사",
+              "note": "계약 단계에서 반드시 등장하는 세 단어입니다.\n**procurement**(구매 부서·조달 절차) — go through **procurement**\n**compliance**(규정 준수) — 전치사는 with: in compliance **with** the policy\n**audit**(감사) — pass an **audit** / an internal **audit**\n한국식 '구매팀'은 purchasing team도 통하지만 문서에서는 **procurement**가 표준입니다."
             }
           ]
         },
@@ -6017,6 +6325,14 @@
         {
           "en": "This database has a much larger bandwidth than before.",
           "kr": "이 데이터베이스는 이전보다 훨씬 큰 대역폭을 가지고 있어요."
+        },
+        {
+          "en": "It still has to go through procurement.",
+          "kr": "아직 구매 절차를 거쳐야 합니다."
+        },
+        {
+          "en": "The setup is in compliance with their policy.",
+          "kr": "이 구성은 그쪽 정책을 준수합니다."
         }
       ],
       "homework": "내 업무를 영어로 설명하는 문장 5개 (전문 용어 포함)",
@@ -6087,7 +6403,7 @@
       "title": "유머 & 은유",
       "sections": [
         {
-          "title": "은유 & 직유",
+          "title": "① 은유 & 직유",
           "intro": "은유는 어휘가 아니라 **사고 방식**입니다. 원어민의 글과 발표에는 비유가 촘촘히 깔려 있어, 이를 알아듣지 못하면 문장은 이해해도 뉘앙스를 놓칩니다. 직유(like/as)와 은유(직접 단정)의 차이도 함께 익히세요.",
           "points": [
             {
@@ -6109,6 +6425,27 @@
               "en": "the life of the party = 분위기 메이커",
               "kr": "",
               "note": "파티(모임)에 활기를 불어넣는 사람.\n\"She's **the life of the party**!\"\n반대: **\"a wallflower\"** = 벽에 붙어 파티에 녹아들지 못하는 수줍은 사람.\n사람을 칭찬하는 표현이라 자리 분위기를 밝게 만듭니다.\n반대 표현: **a wet blanket**(분위기 깨는 사람)."
+            }
+          ]
+        },
+        {
+          "title": "② 유머와 자기 낮추기",
+          "intro": "영어권 비즈니스에서 유머는 분위기를 푸는 도구이자 **위험 요소**이기도 합니다. 가장 안전한 형태는 자기 자신을 소재로 삼는 것이고, 상대·문화·외모를 소재로 삼는 농담은 어떤 자리에서도 피해야 합니다.",
+          "points": [
+            {
+              "en": "자기 낮추기(self-deprecating)가 가장 안전하다",
+              "kr": "I'm still on my first coffee.",
+              "note": "자신을 가볍게 소재 삼으면 긴장이 풀리고 위험도 없습니다.\n**I'm still on my first coffee, so bear with me.**\n**I promise the slides are better than my jokes.**\n과하면 자신 없어 보이므로 한 번이면 충분합니다."
+            },
+            {
+              "en": "반응하는 유머 — 받아치기",
+              "kr": "That's one way to put it.",
+              "note": "직접 농담을 던지기보다 상대의 말에 가볍게 받아치는 편이 자연스럽습니다.\n**That's one way to put it.** / **I'll take that as a compliment.**\n**Fair enough.**(수긍하며 넘기기)"
+            },
+            {
+              "en": "피해야 할 소재와 안전한 마무리",
+              "kr": "정치·종교·외모·국적",
+              "note": "❌ 정치·종교·외모·국적·나이는 어떤 자리에서도 피합니다.\n농담이 통하지 않았을 때의 안전한 회수: **Anyway, moving on.** / **Tough crowd — let's get back to it.**\n웃음을 강요하지 말고 곧바로 본론으로 돌아가는 것이 프로다운 마무리입니다."
             }
           ]
         }
@@ -6137,6 +6474,18 @@
         {
           "en": "Compared to her, he's a wallflower at parties.",
           "kr": "그녀에 비하면 그는 파티에서 수줍어하는 사람이야."
+        },
+        {
+          "en": "I'm still on my first coffee, so bear with me.",
+          "kr": "아직 커피 한 잔째라, 조금만 양해해 주세요."
+        },
+        {
+          "en": "That's one way to put it.",
+          "kr": "그렇게 볼 수도 있겠네요."
+        },
+        {
+          "en": "Anyway, moving on to the numbers.",
+          "kr": "어쨌든, 숫자로 넘어가겠습니다."
         }
       ],
       "homework": "내 일상을 은유/직유 3개로 표현해 보기 (My job is... / I am as ... as ...)",
