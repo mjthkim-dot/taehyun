@@ -7,7 +7,7 @@
       "sections": [
         {
           "title": "① 현재형 문장 만들기 (주어 + 동사)",
-          "intro": "영어 문장의 기본 뼈대는 '주어(누가) + 동사(무엇을 한다)'입니다. 평소·반복되는 일은 모두 현재형으로 말해요. 한국어 '나는 밥을 먹는다'처럼요.",
+          "intro": "현재형은 '지금 하고 있는 일'이 아니라 **습관·사실**을 말하는 시제입니다. 한국어에는 3인칭 단수에서만 동사가 바뀌는 규칙이 없어 -s를 빠뜨리는 실수가 끝까지 남습니다 — 주어를 말할 때마다 '지금 이게 he/she/it인가'를 한 번 확인하는 습관을 들이세요.",
           "points": [
             {
               "en": "I / You / We / They + 동사원형",
@@ -48,12 +48,12 @@
         },
         {
           "title": "② 발음 포인트 — 모음 A",
-          "intro": "한국어에 없는 소리는 입 모양을 따라 하면 금방 좋아집니다. 오늘은 가장 자주 나오는 모음 'A'부터.",
+          "intro": "한국어에 없는 모음이 영어 듣기·말하기의 첫 장벽입니다. 특히 **/æ/(cat)와 /e/(bed)** 를 둘 다 '애'로 발음하면 단어가 구분되지 않습니다. 소리를 흉내 내기보다 **입 모양을 먼저** 만들면 훨씬 빨리 교정됩니다.",
           "points": [
             {
               "en": "A 소리: 입을 크게 벌린 '애' — apple, at, and, cat",
               "kr": "턱을 아래로 떨어뜨리듯 크게",
-              "note": "한국어 '에'보다 입을 **더 크게** 벌려 '애~'에 가깝게 냅니다. 손가락 두 개가 세로로 들어갈 만큼 입을 벌려보세요.\n• apple(애플), cat(캣), bad(배드)"
+              "note": "한국어 '에'보다 입을 **더 크게** 벌려 '애~'에 가깝게 냅니다. 손가락 두 개가 세로로 들어갈 만큼 입을 벌려보세요.\n• apple(애플), cat(캣), bad(배드)\n❌ cat을 '캣'처럼 짧게 닫지 말고 턱을 아래로 열어 **/æ/** 를 길게 냅니다.\n짝으로 번갈아 소리 내면 차이가 잡힙니다: bad/bed, sat/set, man/men."
             },
             {
               "en": "발음은 '입 모양 먼저, 소리는 따라온다'",
@@ -180,12 +180,12 @@
       "sections": [
         {
           "title": "① 관사 a / an / the",
-          "intro": "관사는 명사(사물 이름) 앞에 붙는 작은 단어예요. 한국어엔 없어서 가장 헷갈리지만, 규칙은 단순합니다: '아무거나 하나'면 a/an, '바로 그것'이면 the.",
+          "intro": "관사는 '아무거나 하나(a/an)'와 '서로 아는 그것(the)'의 구분입니다. 한국어에 대응하는 말이 없어 감으로 찍게 되는데, **처음 꺼내는 것은 a, 이미 등장했거나 상황상 하나뿐인 것은 the**라는 두 기준만 지켜도 대부분 맞습니다.",
           "points": [
             {
               "en": "a + 자음 소리로 시작: a book, a car, a coffee",
               "kr": "여럿 중 막연한 '하나'",
-              "note": "처음 언급하거나 '아무거나 하나'일 때 **a**를 씁니다.\n• I have **a** book. (책 한 권이 있다 — 어떤 책인지는 중요하지 않음)"
+              "note": "처음 언급하거나 '아무거나 하나'일 때 **a**를 씁니다.\n• I have **a** book. (책 한 권이 있다 — 어떤 책인지는 중요하지 않음)\n❌ I need advice와 달리 셀 수 있는 명사는 관사 없이 홀로 못 씁니다 — ❌ I bought car(X) → ✅ I bought **a** car.\n처음 꺼내는 것에는 항상 a/an을 붙인다고 생각하세요."
             },
             {
               "en": "an + 모음 소리로 시작: an apple, an hour, an electronic shaver",
@@ -206,7 +206,7 @@
         },
         {
           "title": "② to 부정사 — '~하기 위해'",
-          "intro": "'to + 동사'는 행동의 목적(왜 했는지)을 덧붙일 때 씁니다.",
+          "intro": "to부정사는 '**왜** 그 행동을 했는지'를 붙이는 장치입니다. 한국어의 '~하러 / ~하기 위해'에 해당하고, 이 하나만 익혀도 문장 길이가 눈에 띄게 늘어납니다.",
           "points": [
             {
               "en": "to + 동사원형 = ~하기 위해서 (목적)",
@@ -217,27 +217,27 @@
         },
         {
           "title": "③ 과거 시제 — 어제 한 일",
-          "intro": "이미 끝난 일은 동사를 '과거형'으로 바꿔 말합니다. 한국어 '먹었다, 갔다'처럼요.",
+          "intro": "과거 시제는 **동사 형태 하나로** 과거임을 표시합니다. 한국어는 '어제'만 붙여도 과거가 되지만, 영어는 시간 표현이 있어도 동사를 반드시 과거형으로 바꿔야 합니다.",
           "points": [
             {
               "en": "규칙 동사: 동사 + -ed (worked, played, studied)",
               "kr": "대부분 -ed를 붙임",
-              "note": "보통은 끝에 **-ed**를 붙입니다.\n• work→work**ed**, play→play**ed**, watch→watch**ed**\n• 끝이 e면 -d만: like→like**d**"
+              "note": "보통은 끝에 **-ed**를 붙입니다.\n• work→work**ed**, play→play**ed**, watch→watch**ed**\n• 끝이 e면 -d만: like→like**d**\n-ed의 소리는 세 가지입니다: work**ed** /t/, play**ed** /d/, need**ed** /ɪd/.\n❌ 모두 '-드'로 뭉개면 과거임이 전달되지 않습니다."
             },
             {
               "en": "불규칙 동사: 통째로 바뀜 (ate, drank, went, saw)",
               "kr": "암기 필요",
-              "note": "자주 쓰는 동사는 모양이 확 바뀝니다. 외워두세요.\n• eat→**ate**, go→**went**, drink→**drank**, see→**saw**, have→**had**"
+              "note": "자주 쓰는 동사는 모양이 확 바뀝니다. 외워두세요.\n• eat→**ate**, go→**went**, drink→**drank**, see→**saw**, have→**had**\n불규칙 동사는 규칙이 없어 **소리로 외우는 것**이 빠릅니다 — go-went-gone, see-saw-seen.\n하루 5개씩 소리 내어 반복하면 2주면 주요 동사는 잡힙니다."
             },
             {
               "en": "과거 부정문: didn't + 동사원형",
               "kr": "I didn't eat.",
-              "note": "'안 했다'는 **didn't**. 이때 동사는 다시 **원형**으로!\n• I **didn't eat** dinner. (ate ❌ → eat ✓)"
+              "note": "'안 했다'는 **didn't**. 이때 동사는 다시 **원형**으로!\n• I **didn't eat** dinner. (ate ❌ → eat ✓)\n❌ I didn't went(X) → ✅ I **didn't go** — did가 이미 과거라 뒤는 원형입니다.\n같은 이유로 ❌ Did you saw(X) → ✅ **Did you see**."
             },
             {
               "en": "과거 의문문: Did + 주어 + 동사원형?",
               "kr": "Did you eat?",
-              "note": "'~했어?'는 맨 앞에 **Did**. 역시 동사는 **원형**.\n• **Did** you **go** there? (거기 갔어?)"
+              "note": "'~했어?'는 맨 앞에 **Did**. 역시 동사는 **원형**.\n• **Did** you **go** there? (거기 갔어?)\n짧은 대답은 did로 받습니다 — Did you eat? — **Yes, I did. / No, I didn't.**\n❌ Yes, I ate처럼 동사를 반복할 필요는 없습니다."
             },
             {
               "en": "be동사 과거형: was / were",
@@ -248,12 +248,12 @@
         },
         {
           "title": "④ 감사 표현 — grateful",
-          "intro": "감사한 마음을 구체적으로 말하는 두 가지 틀입니다.",
+          "intro": "감사 표현은 상대(사람)와 이유(사물·행동)에 **붙는 전치사가 다릅니다**. to와 for를 뒤바꾸는 실수가 잦아, 짝으로 묶어 외우는 것이 안전합니다.",
           "points": [
             {
               "en": "I'm grateful to + 사람 (+ for ~)",
               "kr": "사람에게 감사",
-              "note": "**사람**에게 고마울 땐 **to**.\n• I'm grateful **to my parents** for their support. (부모님께 감사하다)"
+              "note": "**사람**에게 고마울 땐 **to**.\n• I'm grateful **to my parents** for their support. (부모님께 감사하다)\n감사의 **대상(사람)**에는 to — I'm grateful **to** you.\n❌ grateful for you는 사람을 사물처럼 다루는 느낌이라 어색합니다."
             },
             {
               "en": "I'm grateful for + 명사/동명사(-ing)",
@@ -386,7 +386,7 @@
       "sections": [
         {
           "title": "① I am looking forward to ~ (기대돼요)",
-          "intro": "'~가 기대된다, 손꼽아 기다린다'는 원어민이 정말 자주 쓰는 표현입니다. 핵심은 뒤에 오는 to의 정체예요.",
+          "intro": "'기대된다'를 표현하는 가장 자연스러운 표현이자, **to 뒤에 동사원형이 오지 않는** 대표적인 함정입니다. 여기서 to는 부정사가 아니라 전치사이므로 뒤에는 명사나 -ing가 옵니다.",
           "points": [
             {
               "en": "여기서 to는 '전치사' → 뒤에 명사 또는 동사+ing",
@@ -406,7 +406,7 @@
             {
               "en": "시간 표현: on the weekend / on Saturday",
               "kr": "요일·주말 앞엔 on",
-              "note": "요일과 '주말'에는 전치사 **on**을 씁니다.\n• **on** Saturday, **on** the weekend, **on** Monday morning"
+              "note": "요일과 '주말'에는 전치사 **on**을 씁니다.\n• **on** Saturday, **on** the weekend, **on** Monday morning\n주말은 미국식 **on the weekend**, 영국식 **at the weekend**로 갈립니다.\n다음 주말처럼 next가 붙으면 전치사를 뺍니다 — ❌ on next weekend(X) → ✅ **next weekend**."
             },
             {
               "en": "can't wait to + 동사원형 — '기대돼서 못 기다리겠다'",
@@ -422,17 +422,17 @@
         },
         {
           "title": "② 발음 — F와 I",
-          "intro": "한국인이 가장 어려워하는 두 소리. 입과 혀 위치만 잡으면 됩니다.",
+          "intro": "F와 짧은 I는 한국어에 없는 소리라 각각 P와 이(ee)로 대체되기 쉽습니다. **입술과 혀의 위치**를 정해두고 연습하면 상대가 되묻는 횟수가 크게 줄어듭니다.",
           "points": [
             {
               "en": "F: 윗니로 아랫입술을 살짝 물고 바람 — food, fat, coffee",
               "kr": "'ㅍ'가 아니라 바람 새는 소리",
-              "note": "F는 **윗니가 아랫입술에 닿은 채** 바람을 '흐~' 내보내는 소리예요. 한국어 'ㅍ'(입술만 붙였다 떼기)와 완전히 다릅니다.\n• **f**ood(푸드 ❌, f~우드), cof**f**ee"
+              "note": "F는 **윗니가 아랫입술에 닿은 채** 바람을 '흐~' 내보내는 소리예요. 한국어 'ㅍ'(입술만 붙였다 떼기)와 완전히 다릅니다.\n• **f**ood(푸드 ❌, f~우드), cof**f**ee\nF는 윗니가 아랫입술에 닿아야 소리가 납니다 — 닿지 않으면 P로 들립니다.\n대조 연습: fan/pan, coffee/copy, life/lipe."
             },
             {
               "en": "I(짧은 이): '이'와 '에'의 중간 — is, sit, this",
               "kr": "입에 힘 빼고 짧게",
-              "note": "긴 '이~'(ee)가 아니라 **짧고 힘 뺀** 소리입니다. 입을 살짝만 벌려요.\n• s**i**t(앉다)와 s**ea**t(좌석)을 구분: sit은 짧게 '싯', seat은 길게 '시~ㅌ'"
+              "note": "긴 '이~'(ee)가 아니라 **짧고 힘 뺀** 소리입니다. 입을 살짝만 벌려요.\n• s**i**t(앉다)와 s**ea**t(좌석)을 구분: sit은 짧게 '싯', seat은 길게 '시~ㅌ'\n짧은 I는 턱에 힘을 빼고 짧게 — 길게 늘이면 ee가 됩니다.\n대조 연습: sit/seat, ship/sheep, live/leave."
             }
           ]
         }
@@ -554,7 +554,7 @@
       "sections": [
         {
           "title": "① 카페 주문 표현",
-          "intro": "카페에서 바로 쓰는 실전 문장입니다. '주문 → 사이즈/온도 → 옵션' 순서만 기억하세요.",
+          "intro": "카페 주문은 **정해진 문장 몇 개**로 끝납니다. 매번 새로 조립하려 하지 말고 통째로 외워두면 긴장되는 상황에서도 바로 나옵니다. 공손함은 please 하나면 충분합니다.",
           "points": [
             {
               "en": "Can I get a cappuccino? / I'll have an Americano.",
@@ -575,27 +575,27 @@
         },
         {
           "title": "② 핵심 어휘 (오늘의 대화문에 나와요)",
-          "intro": "아래 대화문 'Catching Up with a Friend'에 나오는 표현입니다. 뜻을 알고 들으면 훨씬 잘 들려요.",
+          "intro": "여기 나오는 표현들은 원어민 일상 대화의 빈출 어휘입니다. 뜻만 알면 듣기는 되지만 **직접 쓰려면 함께 오는 전치사·형태**까지 알아야 하므로, 예문 통째로 익히세요.",
           "points": [
             {
               "en": "How have you been? — 그동안 어떻게 지냈어?",
               "kr": "오랜만에 만났을 때 인사",
-              "note": "오랜만에 만난 사람에게 쓰는 인사. 답은 **I've been good/busy.** (잘/바쁘게 지냈어)"
+              "note": "오랜만에 만난 사람에게 쓰는 인사. 답은 **I've been good/busy.** (잘/바쁘게 지냈어)\n오랜만에 만난 사이에서만 씁니다 — 어제 본 사람에게 쓰면 어색합니다.\n답: **Pretty good, you?** / **Busy, but good.**"
             },
             {
               "en": "sleep in — (일부러) 늦잠 자다",
               "kr": "I'm looking forward to sleeping in.",
-              "note": "알람 없이 푹 자는 것. (oversleep=실수로 늦잠과 다름)\n• I love **sleeping in** on Sundays."
+              "note": "알람 없이 푹 자는 것. (oversleep=실수로 늦잠과 다름)\n• I love **sleeping in** on Sundays.\n일부러 늦잠을 자는 것이 sleep in, 못 일어난 것은 **oversleep**입니다.\n❌ I slept in and missed the bus는 뉘앙스가 어긋납니다 → ✅ I **overslept**."
             },
             {
               "en": "binge-watch — 정주행하다",
               "kr": "드라마를 몰아 보다",
-              "note": "한 작품을 몰아서 보는 것.\n• I **binge-watched** the whole season. (한 시즌을 정주행했어)"
+              "note": "한 작품을 몰아서 보는 것.\n• I **binge-watched** the whole season. (한 시즌을 정주행했어)\n몰아 보는 것은 binge-watch, 한 편씩 보는 것은 그냥 watch입니다.\nI **binge-watched** the whole season last night."
             },
             {
               "en": "improve — (실력이) 늘다, 나아지다",
               "kr": "My English improves every day.",
-              "note": "조금씩 좋아지는 것.\n• My cooking is **improving**. (요리 실력이 늘고 있어)"
+              "note": "조금씩 좋아지는 것.\n• My cooking is **improving**. (요리 실력이 늘고 있어)\n실력이 느는 것은 improve — My English **is improving**.\n❌ My English is uping(X). 대상 없이 자동사로도 씁니다."
             }
           ]
         }
@@ -726,7 +726,7 @@
       "sections": [
         {
           "title": "① 미래 시제 — be going to / gonna",
-          "intro": "앞으로 할 일은 'be going to + 동사원형'으로 말합니다. 원어민은 실제 대화에서 going to를 거의 항상 gonna로 줄여 발음해요.",
+          "intro": "앞으로 할 일은 **be going to + 동사원형**으로 말합니다. 원어민은 실제 대화에서 going to를 거의 항상 **gonna**로 줄여 발음하기 때문에, 교과서 발음만 알고 있으면 들리지 않습니다. 쓸 때는 going to, 말할 때는 gonna로 **입과 손을 분리**해 익히세요.",
           "points": [
             {
               "en": "I'm going to + 동사원형 → 실제 발음은 'I'm gonna ~'",
@@ -751,7 +751,7 @@
             {
               "en": "요일·주말 앞에는 항상 on — on Sunday",
               "kr": "I'm gonna rest on Sunday.",
-              "note": "요일과 '주말' 앞에는 전치사 **on**.\n• on Monday, on Sunday, on the weekend"
+              "note": "요일과 '주말' 앞에는 전치사 **on**.\n• on Monday, on Sunday, on the weekend\n요일·주말·날짜 앞에는 on — **on** Sunday, **on** the weekend(미국식).\n❌ in Sunday(X) / ❌ at Sunday(X). 다음 주말처럼 next가 붙으면 전치사를 뺍니다 — **next** weekend."
             },
             {
               "en": "will vs be going to — 뉘앙스 비교",
@@ -767,7 +767,7 @@
         },
         {
           "title": "② 발음 — 알파벳 사운드 정리 & r 사운드",
-          "intro": "그동안 연습한 소리를 한 번에 정리합니다. 특히 r 사운드와 문장 끝 억양에 주의하세요.",
+          "intro": "그동안 연습한 소리를 한 번에 정리합니다. 한국어에 없는 **r**과, 문장 끝을 습관적으로 올리는 억양이 가장 큰 두 가지 교정 포인트입니다. 소리 하나하나보다 **문장 전체의 리듬**을 잡는 것이 전달력에 더 큰 영향을 줍니다.",
           "points": [
             {
               "en": "r: 혀를 입천장 어디에도 안 닿게 — 과장해서 굴려요",
@@ -782,12 +782,12 @@
             {
               "en": "I(짧은 이): 앞혀 내리고 '에/이' 중간 — is는 '에즈'에 가깝게",
               "kr": "is, sit, this",
-              "note": "짧고 힘 뺀 소리. is를 '이즈'보다 **'에즈'**에 가깝게.\n• s**i**t / th**i**s / **i**sn't"
+              "note": "짧고 힘 뺀 소리. is를 '이즈'보다 **'에즈'**에 가깝게.\n• s**i**t / th**i**s / **i**sn't\n짧은 I는 턱에 힘을 빼고 짧게 냅니다 — 길게 늘이면 ee가 됩니다.\n대조 연습: sit/seat, ship/sheep, live/leave, is/ease."
             },
             {
               "en": "문장 끝 억양: 평서문은 내려요 (drink 같은 끝맺음 올리지 않기)",
               "kr": "I drink coffee.↘",
-              "note": "평서문은 끝을 **내려야** 자연스럽습니다. 무심코 끝을 올리면 의문문처럼 들려요."
+              "note": "평서문은 끝을 **내려야** 자연스럽습니다. 무심코 끝을 올리면 의문문처럼 들려요.\n평서문은 끝을 **내려야** 확신 있게 들립니다. 끝을 올리면 되묻는 뉘앙스가 됩니다.\n반대로 Yes/No 질문은 올립니다 — Are you coming? ↗ / Where are you going? ↘"
             }
           ]
         }
@@ -914,7 +914,7 @@
       "sections": [
         {
           "title": "① 오늘 잡은 발음·문법 실수",
-          "intro": "인터뷰 PT를 읽으면서 반복해서 나온 실수들이에요. 작지만 원어민 귀엔 크게 들리니 꼭 고쳐요.",
+          "intro": "인터뷰 자료를 읽으면서 반복해서 나온 실수들입니다. 하나하나는 사소해 보이지만 **원어민 귀에는 크게 들리고**, 특히 복수형 -s와 관사는 준비된 사람과 아닌 사람을 가르는 신호로 읽힙니다. 내용을 더 채우기 전에 이 셋부터 고치는 것이 효율이 높습니다.",
           "points": [
             {
               "en": "복수형 -s를 빼먹지 않기",
@@ -935,7 +935,7 @@
         },
         {
           "title": "② 발표 말고 ‘대화’처럼 — 전달력",
-          "intro": "내용은 준비됐어요. 이제 읽는 느낌을 줄이고, 진짜 사람에게 말하듯 자연스럽게 전달하는 연습이에요.",
+          "intro": "내용은 이미 준비돼 있습니다. 이제 남은 것은 **읽는 느낌을 지우는 일**입니다. 원고를 외워 말하면 표정과 속도가 굳어 오히려 준비가 덜 돼 보이므로, 키워드만 잡고 그 자리에서 문장을 만드는 연습으로 바꿔야 합니다.",
           "points": [
             {
               "en": "읽지 말고, 생각을 말하듯",
@@ -955,13 +955,13 @@
             {
               "en": "손짓·눈짓(제스처) 활용",
               "kr": "가만히 있기보다 손짓을 곁들이면 설득력이 올라감",
-              "note": "화상 인터뷰라도 손짓·눈짓이 있으면 훨씬 설득력 있게 들려요. 핵심 문장에서 자연스럽게 손을 쓰는 연습을 해두기."
+              "note": "화상 인터뷰라도 손짓·눈짓이 있으면 훨씬 설득력 있게 들려요. 핵심 문장에서 자연스럽게 손을 쓰는 연습을 해두기.\n손은 가슴 높이에서 자연스럽게 — 너무 크면 산만하고, 아예 없으면 긴장해 보입니다.\n화면 인터뷰라면 카메라를 사람 눈이라 생각하고 보세요(화면 속 얼굴이 아니라 렌즈)."
             }
           ]
         },
         {
           "title": "③ 인터뷰 구성 & 전략",
-          "intro": "외국계 영어 인터뷰의 흐름과, 흔한 탈락 포인트를 보완할 전략이에요.",
+          "intro": "외국계 인터뷰는 흐름이 대체로 정해져 있습니다. **어디에 시간이 배분되는지**를 알면 준비의 우선순위가 달라지고, 특히 마지막 Q&A에서 판이 갈리는 경우가 많습니다.",
           "points": [
             {
               "en": "45분 인터뷰 = 아이스브레이킹 15분 + PT 15분 + Q&A 10분",
@@ -976,7 +976,7 @@
             {
               "en": "자신감 + 위트, 외운 티는 안 나게",
               "kr": "“내가 너희 회사를 일으키겠다”는 기세로",
-              "note": "내용을 완전히 소화해서, 살짝만 참고하며 자신감 있게. 자기소개 앞부분(이름·소속·담당 고객사 수)은 특히 임팩트 있게 전달해 첫인상을 잡기."
+              "note": "내용을 완전히 소화해서, 살짝만 참고하며 자신감 있게. 자기소개 앞부분(이름·소속·담당 고객사 수)은 특히 임팩트 있게 전달해 첫인상을 잡기.\n외운 티를 없애는 가장 쉬운 방법은 **첫 문장만 준비하고 나머지는 키워드로** 가는 것입니다.\n막혔을 때 쓸 문장을 미리 정해두면 침묵이 길어지지 않습니다 — **That's a good question, let me think for a second.**"
             }
           ]
         }
@@ -1105,7 +1105,7 @@
       "sections": [
         {
           "title": "① 현재 진행형 — 지금 하고 있는 일",
-          "intro": "'지금 이 순간' 하고 있는 일은 'be동사 + 동사ing'로 말합니다. 한국어 '~하는 중이다'예요.",
+          "intro": "현재 진행형은 '**지금 이 순간**'을 말합니다. 한국어는 '먹어'와 '먹고 있어'를 상황에 따라 섞어 쓰지만, 영어는 습관(현재형)과 지금(진행형)을 분명히 구분하므로 둘을 바꿔 쓰면 뜻이 달라집니다.",
           "points": [
             {
               "en": "am / is / are + 동사ing",
@@ -1115,7 +1115,7 @@
             {
               "en": "진행형 의문문: What are you doing?",
               "kr": "지금 뭐 해?",
-              "note": "be동사를 앞으로 보냅니다.\n• **Are you** working now? (지금 일해?)\n• **What are you** doing? (뭐 하는 중이야?)"
+              "note": "be동사를 앞으로 보냅니다.\n• **Are you** working now? (지금 일해?)\n• **What are you** doing? (뭐 하는 중이야?)\n❌ What do you doing?(X) → ✅ **What are you doing?**\n진행형 질문은 be동사를 앞으로 보냅니다(do 아님)."
             },
             {
               "en": "현재형 vs 진행형 — 평소 vs 지금",
@@ -1125,18 +1125,18 @@
             {
               "en": "right now / at the moment — '지금 당장'을 강조하는 표현",
               "kr": "I'm working right now, can I call you back?",
-              "note": "진행형과 함께 쓰면 '지금 이 순간'이 더 분명해집니다.\n• I'm busy **right now**. / I'm cooking dinner **at the moment**."
+              "note": "진행형과 함께 쓰면 '지금 이 순간'이 더 분명해집니다.\n• I'm busy **right now**. / I'm cooking dinner **at the moment**.\nright now / at the moment는 **진행형과 짝**입니다.\n습관을 말할 때는 쓰지 않습니다 — ❌ I usually work right now(X)."
             }
           ]
         },
         {
           "title": "② 미래 — be going to / will",
-          "intro": "앞으로의 일은 두 가지로 말합니다. '미리 정한 계획'이냐 '지금 막 정한 것'이냐로 구분해요.",
+          "intro": "미래는 **이미 정한 계획(be going to)** 과 **말하면서 정한 결정(will)** 으로 갈립니다. 한국어 '~할 거야' 하나에 두 뜻이 다 들어 있어 구분이 어렵지만, '언제 정했는가'를 기준으로 삼으면 간단합니다.",
           "points": [
             {
               "en": "be going to + 동사원형 = ~할 예정 (이미 정한 계획)",
               "kr": "I am going to meet my friend tomorrow.",
-              "note": "전부터 **계획해 둔** 일.\n• I'm **going to** visit my parents this weekend. (이미 그러기로 함)"
+              "note": "전부터 **계획해 둔** 일.\n• I'm **going to** visit my parents this weekend. (이미 그러기로 함)\n이미 정해둔 계획에 씁니다 — I'm **going to** visit Japan next month(표를 이미 샀음).\n구어에서는 **gonna**로 줄여 발음합니다."
             },
             {
               "en": "will + 동사원형 = ~할게/~할 거야 (즉석 결정·예측)",
@@ -1146,7 +1146,7 @@
             {
               "en": "정리: 계획=going to, 즉흥=will",
               "kr": "둘 다 미래지만 뉘앙스가 다름",
-              "note": "헷갈리면: 달력에 **이미 적어둔** 일이면 going to, **방금 떠올린** 일이면 will."
+              "note": "헷갈리면: 달력에 **이미 적어둔** 일이면 going to, **방금 떠올린** 일이면 will.\n레스토랑에서 메뉴를 보고 즉석에서 정하면 will — **I'll have** the pasta.\n미리 정해온 것이면 going to가 자연스럽습니다."
             },
             {
               "en": "현재진행형으로 가까운 미래 약속 말하기",
@@ -1251,7 +1251,7 @@
       "sections": [
         {
           "title": "① 빈도 부사 — 얼마나 자주",
-          "intro": "어떤 일을 얼마나 자주 하는지를 한 단어로 표현합니다. 비율 순서대로 익혀두세요.",
+          "intro": "빈도 부사는 '얼마나 자주'를 한 단어로 압축합니다. 한국어는 '가끔', '자주'를 문장 앞뒤 어디에 놓아도 되지만, **영어는 위치가 정해져 있어** 자리를 틀리면 어색하게 들립니다.",
           "points": [
             {
               "en": "always(100%) > usually > often > sometimes > rarely > never(0%)",
@@ -1277,12 +1277,12 @@
         },
         {
           "title": "② 빈도 묻고 답하기",
-          "intro": "상대의 습관을 묻고, 구체적인 횟수로 답하는 법.",
+          "intro": "얼마나 자주 하는지 묻고 답하는 것은 스몰토크의 단골 주제입니다. **횟수 표현(once a week)** 을 함께 익혀야 답이 자연스러워집니다.",
           "points": [
             {
               "en": "How often do you + 동사원형?",
               "kr": "얼마나 자주 ~하세요?",
-              "note": "빈도를 묻는 정해진 질문 틀.\n• **How often do you** exercise? (얼마나 자주 운동해?)"
+              "note": "빈도를 묻는 정해진 질문 틀.\n• **How often do you** exercise? (얼마나 자주 운동해?)\n얼마나 자주인지 묻는 표준 질문입니다 — How often **do you** exercise?\n❌ How often are you exercise(X) — 일반동사에는 do/does를 씁니다."
             },
             {
               "en": "횟수 답: once / twice / three times + a day(week, month)",
@@ -1292,7 +1292,7 @@
             {
               "en": "hardly ever — '거의 안 한다' (rarely와 비슷)",
               "kr": "I hardly ever eat fast food.",
-              "note": "rarely와 거의 같은 뜻이지만 회화에서 더 자주 들립니다.\n• I **hardly ever** watch TV these days. (요즘 TV를 거의 안 봐)"
+              "note": "rarely와 거의 같은 뜻이지만 회화에서 더 자주 들립니다.\n• I **hardly ever** watch TV these days. (요즘 TV를 거의 안 봐)\nhardly ever는 그 자체가 부정이라 not과 함께 쓰지 않습니다.\n❌ I don't hardly ever go(X) → ✅ I **hardly ever** go."
             }
           ]
         }
@@ -1392,12 +1392,12 @@
       "sections": [
         {
           "title": "① 입장 & 주문",
-          "intro": "식당 흐름은 '자리 → 추천/주문'으로 이어집니다. 정중한 주문 표현 I'd like를 익혀두세요.",
+          "intro": "식당 영어는 **정해진 대사의 주고받기**입니다. 점원이 던지는 질문이 거의 고정돼 있어, 그 질문들을 미리 알아두면 당황하지 않습니다. 주문은 I'd like 하나로 대부분 해결됩니다.",
           "points": [
             {
               "en": "A table for two, please. — 두 명 자리 부탁해요",
               "kr": "인원수만 바꾸면 됨",
-              "note": "들어가서 인원수를 말합니다. 숫자만 바꾸면 끝.\n• A table **for two**, please. / **for three**, please."
+              "note": "들어가서 인원수를 말합니다. 숫자만 바꾸면 끝.\n• A table **for two**, please. / **for three**, please.\n인원수를 먼저 말하는 것이 관례입니다 — **A table for two, please.**\n예약이 있으면 I have a **reservation** under Kim."
             },
             {
               "en": "I'd like the pasta, please. — 파스타로 할게요",
@@ -1407,7 +1407,7 @@
             {
               "en": "What do you recommend? — 추천 메뉴가 뭐예요?",
               "kr": "고민될 때 점원에게",
-              "note": "메뉴가 고민될 때 점원에게 물어보세요. 대화를 자연스럽게 이어주는 한마디."
+              "note": "메뉴가 고민될 때 점원에게 물어보세요. 대화를 자연스럽게 이어주는 한마디.\n점원의 추천을 물을 때 가장 자연스러운 한마디입니다.\n메뉴가 궁금할 땐 **What's this like?** / **What's in it?**(재료)."
             },
             {
               "en": "Are you ready to order? — 점원이 주문 받을 때 묻는 말",
@@ -1418,22 +1418,22 @@
         },
         {
           "title": "② 요청 & 계산",
-          "intro": "식사 중 요청과 마무리 계산 표현. Could I ~?로 더 정중하게.",
+          "intro": "요청과 계산은 **공손함의 수위**가 관건입니다. 한국어의 '~주세요'를 give me로 직역하면 무례하게 들리므로, Could I get ~ 형태를 기본값으로 삼으세요.",
           "points": [
             {
               "en": "Could I get some water? — 물 좀 주시겠어요?",
               "kr": "Could I = Can I보다 정중",
-              "note": "추가 요청은 **Could I get ~?** 가 부드럽습니다.\n• **Could I get** some napkins? (냅킨 좀 주시겠어요?)"
+              "note": "추가 요청은 **Could I get ~?** 가 부드럽습니다.\n• **Could I get** some napkins? (냅킨 좀 주시겠어요?)\n❌ Give me water(X)는 명령처럼 들립니다 → ✅ **Could I get** some water?\n리필은 **Could I get a refill?**"
             },
             {
               "en": "Can we get the bill, please? — 계산서 주세요",
               "kr": "미국=check, 영국=bill",
-              "note": "식사 후 계산서를 청합니다. 미국에선 보통 **check**.\n• Can we get the **check**, please? (미국식)"
+              "note": "식사 후 계산서를 청합니다. 미국에선 보통 **check**.\n• Can we get the **check**, please? (미국식)\n미국에서는 bill보다 **check**를 더 자주 씁니다 — Can we get the **check**?\n카드 결제는 Can I pay **by card**?"
             },
             {
               "en": "It was delicious! — 정말 맛있었어요!",
               "kr": "나갈 때 한마디",
-              "note": "만족했을 때 점원에게 건네는 인사. 분위기가 좋아져요."
+              "note": "만족했을 때 점원에게 건네는 인사. 분위기가 좋아져요.\n계산할 때 한마디 덧붙이면 인상이 좋아집니다.\n확장: **Everything was great, thank you.** / **We really enjoyed it.**"
             },
             {
               "en": "How would you like that cooked? — 굽기 정도 묻기",
@@ -1675,17 +1675,17 @@
             {
               "en": "WH + do/does + 주어 + 동사원형 — What do you do?",
               "kr": "무슨 일 하세요?",
-              "note": "**의문사 → 조동사 → 주어 → 동사원형** 순서입니다.\nWhere do you live? / Why does she look tired?\ndoes 다음에는 반드시 **원형** — Why does she looks(X)."
+              "note": "**의문사 → 조동사 → 주어 → 동사원형** 순서입니다.\nWhere do you live? / Why does she look tired?\ndoes 다음에는 반드시 **원형** — Why does she looks(X).\n❌ You are from where?(X) — 의문사는 문장 맨 앞입니다.\n주어가 없는 질문도 있습니다 — **Who called?**(Who가 주어라 do 불필요)."
             },
             {
               "en": "과거는 did + 동사원형 — Where did you go?",
               "kr": "어디 갔었어요?",
-              "note": "did가 이미 과거를 표시하므로 뒤 동사는 **원형**입니다.\nDid you went(X) → **Did you go**(O)\nWhat did you say? / When did it start?"
+              "note": "did가 이미 과거를 표시하므로 뒤 동사는 **원형**입니다.\nDid you went(X) → **Did you go**(O)\nWhat did you say? / When did it start?\n❌ Where you went?(X) → ✅ **Where did you go?**\n과거 의문문은 did가 시제를 맡고 동사는 원형으로 돌아갑니다."
             },
             {
               "en": "간접의문문은 어순을 되돌린다 — Do you know what time it is?",
               "kr": "지금 몇 시인지 아세요?",
-              "note": "질문이 문장 안에 들어가면 **평서문 어순(주어+동사)**으로 돌아갑니다.\nDo you know what time is it(X) → **what time it is**(O)\nCould you tell me where the exit is?"
+              "note": "질문이 문장 안에 들어가면 **평서문 어순(주어+동사)**으로 돌아갑니다.\nDo you know what time is it(X) → **what time it is**(O)\nCould you tell me where the exit is?\n간접의문문은 회의에서 정중하게 물을 때 특히 유용합니다.\n**Could you tell me** where the meeting is? / **Do you know** when it starts?"
             }
           ]
         },
@@ -1696,17 +1696,17 @@
             {
               "en": "긍정 → 부정 — You're coming, aren't you?",
               "kr": "오시는 거죠?",
-              "note": "앞 문장의 **be동사·조동사를 그대로 가져와 부정형**으로 붙입니다.\nShe can drive, can't she? / They finished, didn't they?"
+              "note": "앞 문장의 **be동사·조동사를 그대로 가져와 부정형**으로 붙입니다.\nShe can drive, can't she? / They finished, didn't they?\n축약형이 그대로 부가의문문이 됩니다 — You're coming, **aren't you**?\n❌ You are coming, are not you?(X) — 부가의문문은 반드시 축약합니다."
             },
             {
               "en": "부정 → 긍정 — You didn't tell him, did you?",
               "kr": "그에게 말 안 했죠?",
-              "note": "앞이 부정이면 뒤는 **긍정**입니다.\nIt isn't ready, is it? / You haven't eaten, have you?"
+              "note": "앞이 부정이면 뒤는 **긍정**입니다.\nIt isn't ready, is it? / You haven't eaten, have you?\n❌ You didn't tell him, didn't you?(X) — 앞이 부정이면 뒤는 **긍정**입니다.\n✅ You didn't tell him, **did you**?"
             },
             {
               "en": "스몰토크 필수 — It's cold today, isn't it?",
               "kr": "오늘 춥죠?",
-              "note": "원어민 스몰토크의 문 여는 표현입니다. 정보를 묻는 게 아니라 **공감을 구하는 신호**라, 가볍게 Yes, it is! 정도로 답하면 됩니다."
+              "note": "원어민 스몰토크의 문 여는 표현입니다. 정보를 묻는 게 아니라 **공감을 구하는 신호**라, 가볍게 Yes, it is! 정도로 답하면 됩니다.\n답은 짧게 받는 것이 자연스럽습니다 — It's cold today, isn't it? — **It really is.**\n❌ Yes, it is cold today처럼 문장을 되풀이할 필요는 없습니다."
             }
           ]
         }
@@ -1790,17 +1790,17 @@
             {
               "en": "내용어는 세게, 기능어는 흘린다",
               "kr": "명사·동사·형용사·부사 ↔ 관사·전치사·대명사",
-              "note": "I **WANT** to **GO** to the **STORE**.\n대문자 부분(내용어)만 세게, to·the는 거의 들리지 않게 흘립니다.\n기능어의 모음은 대개 **슈와(ə)** 로 약화됩니다 — to는 '투'가 아니라 '트'에 가깝습니다."
+              "note": "I **WANT** to **GO** to the **STORE**.\n대문자 부분(내용어)만 세게, to·the는 거의 들리지 않게 흘립니다.\n기능어의 모음은 대개 **슈와(ə)** 로 약화됩니다 — to는 '투'가 아니라 '트'에 가깝습니다.\n❌ 모든 단어를 같은 세기로 또박또박 말하면 오히려 알아듣기 어렵습니다.\n연습법: 내용어에만 손가락으로 박자를 치면서 읽으면 리듬이 잡힙니다."
             },
             {
               "en": "단어 강세 위치가 뜻을 바꾼다",
               "kr": "PREsent(선물) ↔ preSENT(발표하다)",
-              "note": "**RE**cord(기록·명사) ↔ re**CORD**(녹음하다·동사)\n**IN**crease(증가) ↔ in**CREASE**(증가하다)\n명사는 앞, 동사는 뒤에 강세가 오는 쌍이 많습니다."
+              "note": "**RE**cord(기록·명사) ↔ re**CORD**(녹음하다·동사)\n**IN**crease(증가) ↔ in**CREASE**(증가하다)\n명사는 앞, 동사는 뒤에 강세가 오는 쌍이 많습니다.\n명사·동사 쌍은 실무 단어에도 많습니다 — **CON**tract(계약) / con**TRACT**(수축하다).\n사전에서 강세 표시(ˈ)를 함께 확인하는 습관을 들이세요."
             },
             {
               "en": "한국어식 음절 추가를 줄인다",
               "kr": "strike는 3음절이 아니라 1음절",
-              "note": "strike를 '스트라이크'(5음절)로 발음하면 전혀 다른 소리가 됩니다 — **strike**(1음절).\nmilk(밀크 X → milk), desk(데스크 X → desk)\n어말 자음 뒤에 **'ㅡ' 모음을 붙이지 않는 것**이 핵심입니다."
+              "note": "strike를 '스트라이크'(5음절)로 발음하면 전혀 다른 소리가 됩니다 — **strike**(1음절).\nmilk(밀크 X → milk), desk(데스크 X → desk)\n어말 자음 뒤에 **'ㅡ' 모음을 붙이지 않는 것**이 핵심입니다.\n받침처럼 발음하는 습관이 원인입니다 — desk를 '데스크'가 아니라 **desk** 한 덩어리로.\n연습: milk, help, film, world — 끝 자음을 붙여 한 박자에 끝내기."
             }
           ]
         },
@@ -1811,17 +1811,17 @@
             {
               "en": "강조하고 싶은 단어에 힘을 준다",
               "kr": "I sent it YESTERDAY.",
-              "note": "**I** sent it yesterday.(다른 사람이 아니라 내가)\nI **sent** it yesterday.(보냈다는 사실을 강조)\nI sent it **yesterday**.(오늘이 아니라 어제)"
+              "note": "**I** sent it yesterday.(다른 사람이 아니라 내가)\nI **sent** it yesterday.(보냈다는 사실을 강조)\nI sent it **yesterday**.(오늘이 아니라 어제)\n강세를 옮기면 상대가 되묻지 않아도 의도가 전달됩니다.\n회의에서 유용 — I said **Thursday**, not Tuesday."
             },
             {
               "en": "새 정보에 강세, 아는 정보는 약하게",
               "kr": "질문의 답이 강세를 받는다",
-              "note": "Who called? — **JAMIE** called.\nWhen did she call? — She called **THIS MORNING**.\n상대가 이미 아는 부분은 힘을 빼는 게 자연스럽습니다."
+              "note": "Who called? — **JAMIE** called.\nWhen did she call? — She called **THIS MORNING**.\n상대가 이미 아는 부분은 힘을 빼는 게 자연스럽습니다.\n새 정보가 문장 뒤에 오는 것이 영어의 기본 어순이라, 자연히 뒤쪽에 강세가 실립니다.\n답할 때 이미 나온 말은 힘을 빼고 짧게 넘기세요."
             },
             {
               "en": "억양: Yes/No 질문은 올리고, WH 질문은 내린다",
               "kr": "↗ / ↘",
-              "note": "Are you coming? ↗ (올림)\nWhere are you going? ↘ (내림)\n올림·내림을 뒤집으면 되묻거나 의심하는 뉘앙스가 되니 주의하세요."
+              "note": "Are you coming? ↗ (올림)\nWhere are you going? ↘ (내림)\n올림·내림을 뒤집으면 되묻거나 의심하는 뉘앙스가 되니 주의하세요.\n억양이 뜻을 바꿉니다 — Really? ↗(놀람) vs Really. ↘(수긍).\n한국어 습관대로 문장 끝을 올리면 확신 없어 보이니 평서문은 반드시 내리세요."
             }
           ]
         }
@@ -1900,43 +1900,43 @@
       "sections": [
         {
           "title": "① 기본 인사",
-          "intro": "처음 만나거나 안부를 물을 때 쓰는 가장 기본적인 표현입니다. 시간대와 상황에 맞춰 골라 쓰면 됩니다.",
+          "intro": "인사는 문법보다 **타이밍과 되묻기**가 중요합니다. 한국어는 '안녕하세요' 하나로 모든 시간대를 덮지만 영어는 시간대별로 갈리고, How are you?는 진짜 질문이 아니라 **인사말**이라 컨디션을 길게 설명하면 어색해집니다. 짧게 답하고 되묻는 흐름을 통째로 외우세요.",
           "points": [
             {
               "en": "Hello! / Hi! / Good morning!",
               "kr": "기본 인사 — 아침엔 Good morning",
-              "note": "**Hi**는 친근하게 아무 때나, **Hello**는 조금 더 정중하게. 시간대 인사도 있어요.\n• Good **morning**(오전) / Good **afternoon**(오후) / Good **evening**(저녁)"
+              "note": "**Hi**는 친근하게 아무 때나, **Hello**는 조금 더 정중하게. 시간대 인사도 있어요.\n• Good **morning**(오전) / Good **afternoon**(오후) / Good **evening**(저녁)\n❌ Good night은 인사가 아니라 **작별 인사**입니다 — 밤에 만났을 때는 Good **evening**.\n캐주얼한 사이: Hey / Hi there / What's up?"
             },
             {
               "en": "Nice to meet you.",
               "kr": "만나서 반가워요 (처음 만났을 때)",
-              "note": "**처음** 만난 사람에게만 씁니다. 헤어질 땐 과거형으로 **Nice to meet you.**가 아니라 **It was nice meeting you.**\n• 상대가 먼저 말하면: Nice to meet you, **too**."
+              "note": "**처음** 만난 사람에게만 씁니다. 헤어질 땐 과거형으로 **Nice to meet you.**가 아니라 **It was nice meeting you.**\n• 상대가 먼저 말하면: Nice to meet you, **too**.\n❌ 두 번째 만남에 Nice to meet you(X) → ✅ **Good to see you again.**\n비즈니스 첫 만남에서는 **Pleased to meet you**가 더 격식 있습니다."
             },
             {
               "en": "How are you? — I'm good, thanks. And you?",
               "kr": "안부 묻고 답하기",
-              "note": "안부를 물으면 답하고 **되물어 주는** 게 자연스러워요.\n• I'm **good** / **great** / **not bad**, thanks. **And you?**"
+              "note": "안부를 물으면 답하고 **되물어 주는** 게 자연스러워요.\n• I'm **good** / **great** / **not bad**, thanks. **And you?**\n❌ I'm fine, thank you. And you?만 반복하면 교과서처럼 들립니다.\n자연스러운 답: **Pretty good.** / **Not too bad.** / **Can't complain.**"
             }
           ]
         },
         {
           "title": "② 자기소개",
-          "intro": "이름 → 출신 → 좋아하는 것 순서로 말하면 짧고 깔끔한 자기소개가 됩니다.",
+          "intro": "자기소개는 **이름 → 출신 → 관심사** 순서면 충분합니다. 한국어처럼 나이·소속·직급을 먼저 말하면 영어권에서는 부담스럽게 들릴 수 있어, 첫 만남에서는 가볍게 열고 상대가 물으면 더 말하는 것이 관례입니다.",
           "points": [
             {
               "en": "My name is... / I'm...",
               "kr": "이름 말하기",
-              "note": "둘 다 같은 뜻. **I'm + 이름**이 더 캐주얼합니다.\n• **My name is** Jun. = **I'm** Jun."
+              "note": "둘 다 같은 뜻. **I'm + 이름**이 더 캐주얼합니다.\n• **My name is** Jun. = **I'm** Jun.\n남을 소개할 때는 **This is + 이름**을 씁니다(❌ He is my colleague로 시작하지 않음).\n첫 만남에 성까지 붙이면 다소 딱딱하니 이름만으로 충분합니다."
             },
             {
               "en": "I'm from Seoul, Korea.",
               "kr": "출신 말하기",
-              "note": "출신지는 **I'm from + 장소**.\n• I'm **from** Busan. / Where are you **from**? (어디서 왔어요?)"
+              "note": "출신지는 **I'm from + 장소**.\n• I'm **from** Busan. / Where are you **from**? (어디서 왔어요?)\n❌ I'm come from Seoul(X) → ✅ **I'm from** Seoul 또는 **I come from** Seoul.\n지금 사는 곳은 **I live in** Seoul로 구분합니다."
             },
             {
               "en": "I like / enjoy + 동사ing",
               "kr": "I like watching movies (좋아하는 것)",
-              "note": "좋아하는 활동은 동사에 **-ing**.\n• I like **watching** movies. / I enjoy **cooking**. (like 뒤엔 to부정사도 가능: like to watch)"
+              "note": "좋아하는 활동은 동사에 **-ing**.\n• I like **watching** movies. / I enjoy **cooking**. (like 뒤엔 to부정사도 가능: like to watch)\n❌ I like watch movies(X) → ✅ I like **watching** / I like **to watch**.\n관심사를 말한 뒤 **How about you?**로 넘기면 대화가 끊기지 않습니다."
             }
           ]
         }
@@ -2035,38 +2035,38 @@
       "sections": [
         {
           "title": "① 숫자 & 나이",
-          "intro": "숫자는 회화의 기본 재료입니다. 특히 13과 30처럼 헷갈리는 발음을 정확히 구분해 보세요.",
+          "intro": "13과 30처럼 **-teen과 -ty**는 한국인이 가장 자주 오해받는 숫자 쌍입니다. 소리의 차이가 아니라 **강세 위치**가 다르다는 점이 핵심이고, 전화번호·가격·수량을 말할 때 이 하나로 의미가 완전히 바뀝니다.",
           "points": [
             {
               "en": "thirteen(13) vs thirty(30) — 강세가 핵심",
               "kr": "-teen은 뒤를, -ty는 앞을 강하게",
-              "note": "둘을 가르는 건 **강세 위치**입니다.\n• thir**TEEN**(13) — 뒤를 세게, 끝을 길게\n• **THIR**ty(30) — 앞을 세게, 끝은 약하게\n같은 패턴: fourteen↔forty, fifteen↔fifty"
+              "note": "둘을 가르는 건 **강세 위치**입니다.\n• thir**TEEN**(13) — 뒤를 세게, 끝을 길게\n• **THIR**ty(30) — 앞을 세게, 끝은 약하게\n같은 패턴: fourteen↔forty, fifteen↔fifty\n숫자를 확인받아야 할 땐 자릿수로 풀어 말하는 것이 실무에서 흔합니다 — thirteen을 **one-three**로.\n❌ 두 소리를 뭉개면 상대가 반드시 되묻습니다."
             },
             {
               "en": "I am thirty years old.",
               "kr": "나이 말하기",
-              "note": "나이는 **be동사 + 숫자 + years old**.\n• How old are you? — I'm **thirty (years old)**. (years old는 생략 가능)"
+              "note": "나이는 **be동사 + 숫자 + years old**.\n• How old are you? — I'm **thirty (years old)**. (years old는 생략 가능)\n❌ I have thirty years(X) — 나이는 **be동사**로 말합니다.\n✅ I **am** thirty (years old). / How old **are** you?"
             }
           ]
         },
         {
           "title": "② 시간 & 날짜",
-          "intro": "약속을 잡으려면 시간·요일·날짜를 말할 수 있어야 해요. 전치사 짝꿍을 함께 외우세요.",
+          "intro": "시간과 날짜는 **전치사와 한 덩어리**로 다닙니다. 한국어는 '~에' 하나면 되지만 영어는 at(시각)·on(날짜·요일)·in(월·연도)으로 갈리므로, 숫자만 외우지 말고 전치사까지 붙여서 익혀야 실전에서 나옵니다.",
           "points": [
             {
               "en": "What time is it? — It's three thirty.",
               "kr": "시간 묻고 답하기 (3:30)",
-              "note": "시간은 **시 + 분** 순서로 그냥 읽으면 됩니다.\n• 3:30 → **three thirty** / 7:15 → **seven fifteen**\n• 정각은 o'clock: 5:00 → **five o'clock**"
+              "note": "시간은 **시 + 분** 순서로 그냥 읽으면 됩니다.\n• 3:30 → **three thirty** / 7:15 → **seven fifteen**\n• 정각은 o'clock: 5:00 → **five o'clock**\n❌ It's three half(X) → ✅ It's **half past three** 또는 three **thirty**.\n15분은 quarter past, 45분은 quarter to로도 말합니다."
             },
             {
               "en": "What day is it today? — It's Friday.",
               "kr": "요일 묻기 / Monday~Sunday",
-              "note": "요일은 항상 **대문자**로 시작.\n• Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday\n• 요일 앞 전치사는 **on**: **on** Friday"
+              "note": "요일은 항상 **대문자**로 시작.\n• Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday\n• 요일 앞 전치사는 **on**: **on** Friday\n요일에는 **on** — on Friday.\n단, 오늘·내일·어제는 전치사를 쓰지 않습니다(❌ on today) — **today / tomorrow / yesterday**."
             },
             {
               "en": "My birthday is on May 5th.",
               "kr": "날짜 앞엔 on / 서수(5th) 사용",
-              "note": "날짜는 **서수**(다섯 번째)로 읽습니다.\n• May **5th**(fifth), June **1st**(first), March **3rd**(third)\n• 특정 날짜 앞엔 **on**: **on** May 5th"
+              "note": "날짜는 **서수**(다섯 번째)로 읽습니다.\n• May **5th**(fifth), June **1st**(first), March **3rd**(third)\n• 특정 날짜 앞엔 **on**: **on** May 5th\n날짜는 서수로 읽습니다 — May **fifth**.\n미국식(May 5)과 영국식(5 May)의 순서가 달라, 이메일에서는 **May 5, 2026**처럼 월 이름을 쓰면 오해가 없습니다."
             }
           ]
         }
@@ -2165,33 +2165,33 @@
       "sections": [
         {
           "title": "① 관사 a / an / the",
-          "intro": "한국어엔 없는 개념이라 어렵게 느껴지지만, \"아무거나 하나\"면 a/an, \"바로 그것\"이면 the로 기억하세요.",
+          "intro": "관사는 한국어에 없는 개념이라 **아예 빼먹는 실수**가 압도적으로 많습니다. 규칙을 통째로 외우기보다 '듣는 사람이 어느 것인지 아는가'를 매번 자문하세요 — 모르면 a/an, 서로 알면 the입니다.",
           "points": [
             {
               "en": "a + 자음 소리: a book / an + 모음 소리: an apple",
               "kr": "막연한 하나",
-              "note": "여럿 중 **아무거나 하나**일 때. 뒤 단어가 모음 소리면 **an**.\n• **a** book, **a** car / **an** apple, **an** hour(h 묵음 → an)"
+              "note": "여럿 중 **아무거나 하나**일 때. 뒤 단어가 모음 소리면 **an**.\n• **a** book, **a** car / **an** apple, **an** hour(h 묵음 → an)\n❌ I'm designer(X) → ✅ I'm **a** designer — 직업 앞 관사 누락이 한국인 최다 오류입니다.\n**철자가 아니라 소리** 기준이라 an hour(h 묵음), a university(유~ 소리)처럼 예외가 생깁니다."
             },
             {
               "en": "the: 서로 아는 특정한 것",
               "kr": "Please close the door (그 문)",
-              "note": "말하는 사람과 듣는 사람이 **둘 다 아는** 그것.\n• Please close **the** door. (지금 여기 있는 그 문)\n• 세상에 하나뿐인 것: **the** sun, **the** sky"
+              "note": "말하는 사람과 듣는 사람이 **둘 다 아는** 그것.\n• Please close **the** door. (지금 여기 있는 그 문)\n• 세상에 하나뿐인 것: **the** sun, **the** sky\n❌ Please close door(X) → ✅ close **the** door.\n앞에서 한 번 언급한 것도 the — I bought **a** book. **The** book was great."
             }
           ]
         },
         {
           "title": "② 복수형 & 소유격",
-          "intro": "둘 이상이면 명사에 -s를 붙이고, \"누구의 것\"인지는 소유격으로 표현합니다.",
+          "intro": "영어는 **수를 반드시 표시**합니다. 한국어는 '사과 세 개'처럼 숫자만 붙이면 되지만 영어는 명사 자체를 복수형으로 바꿔야 하고, 이걸 빠뜨리면 문장이 곧바로 어색해집니다.",
           "points": [
             {
               "en": "복수형: books, apples / -es: boxes, watches",
               "kr": "둘 이상이면 -s/-es",
-              "note": "보통 **-s**, 끝이 s·x·ch·sh면 **-es**.\n• book→book**s**, box→box**es**, watch→watch**es**\n• 불규칙: child→**children**, man→**men**, foot→**feet**"
+              "note": "보통 **-s**, 끝이 s·x·ch·sh면 **-es**.\n• book→book**s**, box→box**es**, watch→watch**es**\n• 불규칙: child→**children**, man→**men**, foot→**feet**\n❌ two book(X) → ✅ two **books**.\n셀 수 없는 명사는 복수로 만들지 않습니다 — ❌ informations, advices → ✅ **information**, **advice**."
             },
             {
               "en": "my / your / his / her / our / their + 명사",
               "kr": "This is my bag (소유격)",
-              "note": "명사 앞에 붙여 **누구의 것**인지 표시.\n• **my** bag(내), **your** car(네), **his/her** name(그의/그녀의), **our/their** house(우리/그들의)"
+              "note": "명사 앞에 붙여 **누구의 것**인지 표시.\n• **my** bag(내), **your** car(네), **his/her** name(그의/그녀의), **our/their** house(우리/그들의)\nfriends(친구들)와 friend**'s**(친구의)는 아포스트로피 하나로 갈립니다.\n사물의 소유는 of를 더 자주 씁니다 — the name **of** the file."
             }
           ]
         }
@@ -2290,33 +2290,33 @@
       "sections": [
         {
           "title": "① be동사 — am / is / are",
-          "intro": "be동사는 \"~이다 / ~에 있다 / ~한 상태다\"를 나타내는 가장 기본 동사입니다. 주어마다 짝이 정해져 있어요.",
+          "intro": "be동사는 '~이다 / ~에 있다'를 담당합니다. 한국어는 '나는 학생'처럼 동사를 생략해도 말이 되지만, **영어 문장에는 동사가 반드시 하나 있어야** 하므로 be동사를 빠뜨리면 문장이 성립하지 않습니다.",
           "points": [
             {
               "en": "I am / You are / He·She·It is / We·They are",
               "kr": "주어마다 짝이 정해져 있어요",
-              "note": "주어에 맞는 be동사를 외워두세요.\n• **I am**(I'm) / **You are**(You're) / **He/She/It is**(He's) / **We/They are**(We're)"
+              "note": "주어에 맞는 be동사를 외워두세요.\n• **I am**(I'm) / **You are**(You're) / **He/She/It is**(He's) / **We/They are**(We're)\n❌ He are(X) / They is(X) — 주어와 수를 맞추세요.\n회화에서는 거의 항상 줄여 씁니다: **I'm, you're, he's, they're**."
             },
             {
               "en": "뒤에 명사·형용사: I am a student / I am tired",
               "kr": "직업·상태·기분 표현",
-              "note": "be동사 뒤에 **직업**(명사)이나 **상태·기분**(형용사)을 붙입니다.\n• I am **a teacher**. (직업) / I am **happy**. (기분) / She is **kind**. (성격)"
+              "note": "be동사 뒤에 **직업**(명사)이나 **상태·기분**(형용사)을 붙입니다.\n• I am **a teacher**. (직업) / I am **happy**. (기분) / She is **kind**. (성격)\n❌ I am student(X) → ✅ I am **a** student(직업·역할엔 관사).\n형용사 앞에는 관사가 없습니다 — I am **tired**(O)."
             }
           ]
         },
         {
           "title": "② 부정 & 의문",
-          "intro": "\"아니다\"는 not을 넣고, \"~이니?\"는 be동사를 맨 앞으로 보냅니다.",
+          "intro": "부정과 의문은 be동사를 **그대로 활용**합니다. 일반동사처럼 do/does를 데려오지 않는다는 점이 핵심이고, 이 둘을 섞는 것이 초급에서 가장 흔한 실수입니다.",
           "points": [
             {
               "en": "부정: I'm not / isn't / aren't",
               "kr": "They are not busy",
-              "note": "be동사 뒤에 **not**.\n• I'm **not** tired. / She **isn't**(is not) here. / They **aren't**(are not) busy."
+              "note": "be동사 뒤에 **not**.\n• I'm **not** tired. / She **isn't**(is not) here. / They **aren't**(are not) busy.\n❌ I not tired(X) → ✅ I'm **not** tired.\nisn't/aren't 자리에 **'s not / 're not**도 똑같이 쓰입니다 — He's not ready."
             },
             {
               "en": "의문: Are you...? Is she...? — Yes, I am / No, she isn't",
               "kr": "be동사를 앞으로",
-              "note": "be동사를 **문장 맨 앞**으로 옮기면 질문이 됩니다.\n• **Are you** tired? — Yes, I **am**. / No, I'm **not**.\n• **Is she** a doctor? — Yes, she **is**."
+              "note": "be동사를 **문장 맨 앞**으로 옮기면 질문이 됩니다.\n• **Are you** tired? — Yes, I **am**. / No, I'm **not**.\n• **Is she** a doctor? — Yes, she **is**.\n❌ Are you a student? — Yes, I do.(X) → ✅ **Yes, I am.**\nbe동사 질문에는 be동사로 답합니다. do/does로 답하는 것은 일반동사 질문일 때입니다."
             }
           ]
         }
@@ -2415,38 +2415,38 @@
       "sections": [
         {
           "title": "① 가족 어휘",
-          "intro": "가족을 소개하려면 구성원 단어와 \"몇 명인지\" 말하는 법이 필요해요.",
+          "intro": "가족 어휘는 단어보다 **범위**가 다릅니다. 한국어는 형·오빠·누나·언니를 구분하지만 영어는 brother·sister 하나로 묶고, 나이 차이를 말하고 싶을 때만 older/younger를 덧붙입니다.",
           "points": [
             {
               "en": "mother / father / sister / brother / parents",
               "kr": "가족 구성원",
-              "note": "캐주얼하게는 **mom/dad**.\n• 손위/손아래 구분이 필요하면: **older** sister(누나·언니), **younger** brother(남동생)\n• parents(부모), grandparents(조부모)"
+              "note": "캐주얼하게는 **mom/dad**.\n• 손위/손아래 구분이 필요하면: **older** sister(누나·언니), **younger** brother(남동생)\n• parents(부모), grandparents(조부모)\nelder brother는 영국식 문어체이고, 회화에서는 **older brother**가 자연스럽습니다.\n함께 익힐 어휘: parents(부모), siblings(형제자매), in-laws(시댁·처가)."
             },
             {
               "en": "There are four people in my family.",
               "kr": "가족 수 말하기",
-              "note": "인원수는 **There are + 숫자 + people in my family**.\n• There **are** four people... / 한 명이면 There **is** one person..."
+              "note": "인원수는 **There are + 숫자 + people in my family**.\n• There **are** four people... / 한 명이면 There **is** one person...\n❌ My family is four people(X) → ✅ **There are four people in my family.**\n또는 I **have** two siblings처럼 have로 말합니다."
             }
           ]
         },
         {
           "title": "② 사람 묘사 — be / has / look like",
-          "intro": "외모와 성격을 말하는 세 가지 틀: 성격·상태는 be, 가진 특징은 has, 닮음은 look like.",
+          "intro": "사람을 묘사할 때는 **be(성격·상태) / have(신체 특징) / look like(닮음)** 세 동사를 구분해 씁니다. 한국어는 '~이다'로 대부분 해결되지만 영어는 대상에 따라 동사가 갈립니다.",
           "points": [
             {
               "en": "He is tall / short / funny / kind",
               "kr": "be + 형용사로 묘사",
-              "note": "키·성격·인상은 **be + 형용사**.\n• He **is** tall. / She **is** funny. / They **are** friendly."
+              "note": "키·성격·인상은 **be + 형용사**.\n• He **is** tall. / She **is** funny. / They **are** friendly.\n성격·상태는 be — He **is** kind / funny / easygoing.\n❌ He is have a good personality(X) → ✅ He **has** a good personality."
             },
             {
               "en": "She has brown eyes / long hair",
               "kr": "has로 특징 말하기",
-              "note": "눈·머리 등 **가진 특징**은 **have/has**.\n• She **has** long hair. / He **has** brown eyes. (3인칭 단수는 has)"
+              "note": "눈·머리 등 **가진 특징**은 **have/has**.\n• She **has** long hair. / He **has** brown eyes. (3인칭 단수는 has)\n신체 특징은 have — She **has** brown eyes.\n❌ She is brown eyes(X). 키·체격은 be로: She **is** tall."
             },
             {
               "en": "He looks like his father.",
               "kr": "~를 닮았다",
-              "note": "닮았다는 **look like + 사람**.\n• You **look like** your mom. (엄마 닮았네)\n• 참고: He **looks** tired.(피곤해 보여)는 like 없이 형용사"
+              "note": "닮았다는 **look like + 사람**.\n• You **look like** your mom. (엄마 닮았네)\n• 참고: He **looks** tired.(피곤해 보여)는 like 없이 형용사\nlook like + **명사**(닮았다) vs look + **형용사**(~해 보인다)를 구분하세요.\n❌ He looks like tired(X) → ✅ He **looks tired**."
             }
           ]
         }
@@ -2550,17 +2550,17 @@
             {
               "en": "at + 시각·특정 시점 — at 7 o'clock, at noon",
               "kr": "7시에 / 정오에",
-              "note": "**가장 좁은 '점' 같은 시간**에는 at을 씁니다.\nat 3 p.m. / at midnight / at lunchtime\n관용: **at night**(밤에) — 밤은 예외적으로 at."
+              "note": "**가장 좁은 '점' 같은 시간**에는 at을 씁니다.\nat 3 p.m. / at midnight / at lunchtime\n관용: **at night**(밤에) — 밤은 예외적으로 at.\n❌ at the morning(X) → ✅ **in** the morning / **at** night — 아침·오후는 in, 밤만 at입니다.\n식사 시각도 at: at lunchtime, at breakfast."
             },
             {
               "en": "on + 날짜·요일 — on Monday, on July 5th",
               "kr": "월요일에 / 7월 5일에",
-              "note": "**하루 단위**(요일·날짜·특정일)에는 on을 씁니다.\non my birthday / on Christmas Day\n요일에 in을 쓰는 실수가 잦습니다 — in Monday(X) → **on Monday**(O)."
+              "note": "**하루 단위**(요일·날짜·특정일)에는 on을 씁니다.\non my birthday / on Christmas Day\n요일에 in을 쓰는 실수가 잦습니다 — in Monday(X) → **on Monday**(O).\n❌ in Monday(X) / ❌ at Monday(X) → ✅ **on** Monday.\n특정일도 on — **on** my birthday, **on** Christmas Day, **on** the 5th."
             },
             {
               "en": "in + 월·연도·긴 기간 — in July, in 2026",
               "kr": "7월에 / 2026년에",
-              "note": "**하루보다 큰 덩어리 시간**에는 in을 씁니다.\nin the morning / in summer / in the 1990s\n단, **at night**만 예외로 at을 씁니다(in the night은 특수 문맥)."
+              "note": "**하루보다 큰 덩어리 시간**에는 in을 씁니다.\nin the morning / in summer / in the 1990s\n단, **at night**만 예외로 at을 씁니다(in the night은 특수 문맥).\n❌ on July(X) → ✅ **in** July.\n기간이 걸리는 일에도 in — I'll finish it **in** two weeks(2주 뒤에 완료)."
             }
           ]
         },
@@ -2571,17 +2571,17 @@
             {
               "en": "in: 둘러싸인 안 — in the box, in Seoul",
               "kr": "상자 안에 / 서울에서",
-              "note": "**공간 안쪽**에 들어 있을 때 in을 씁니다.\nin the room / in the car / in Korea\n도시·국가처럼 넓은 지역도 in."
+              "note": "**공간 안쪽**에 들어 있을 때 in을 씁니다.\nin the room / in the car / in Korea\n도시·국가처럼 넓은 지역도 in.\n❌ in the bus(X)는 버스 내부를 강조하는 특수 표현입니다 — 교통수단은 보통 **on** the bus.\n반대로 차는 **in** the car(작고 둘러싸인 공간)."
             },
             {
               "en": "on: 표면에 접촉 — on the table, on the wall",
               "kr": "탁자 위에 / 벽에",
-              "note": "**표면에 닿아 있을 때** on입니다. '위'라는 뜻보다 **접촉**이 핵심입니다.\non the floor / on page 12 / on the second floor\n그래서 벽에 붙은 것도 on the wall."
+              "note": "**표면에 닿아 있을 때** on입니다. '위'라는 뜻보다 **접촉**이 핵심입니다.\non the floor / on page 12 / on the second floor\n그래서 벽에 붙은 것도 on the wall.\n표면 접촉이라 '위'가 아니어도 on입니다 — **on** the wall, **on** the ceiling.\n문서 위치도 on — **on** page 12, **on** the list."
             },
             {
               "en": "at: 하나의 지점·장소 — at the station, at the door",
               "kr": "역에서 / 문 앞에서",
-              "note": "**만나는 지점, 활동이 일어나는 장소**에는 at을 씁니다.\nat home / at work / at the bus stop\nat school(학교에서 = 수업 중) vs in the school(건물 안)의 차이도 여기서 나옵니다."
+              "note": "**만나는 지점, 활동이 일어나는 장소**에는 at을 씁니다.\nat home / at work / at the bus stop\nat school(학교에서 = 수업 중) vs in the school(건물 안)의 차이도 여기서 나옵니다.\nat school(수업 중) vs in the school(건물 안)처럼 **활동이냐 공간이냐**로 갈립니다.\n같은 원리: at work(근무 중) / at the office(사무실이라는 지점)."
             }
           ]
         }
@@ -2660,12 +2660,12 @@
       "sections": [
         {
           "title": "① have/has + 과거분사 (현재완료)",
-          "intro": "\"지금까지 ~해 봤다 / 막 ~했다\"처럼 과거의 일이 지금과 연결될 때 씁니다. 형태는 have/has + 과거분사(p.p.).",
+          "intro": "현재완료는 한국어에 대응하는 시제가 없어 **과거형으로 대체해 버리는 실수**가 가장 많습니다. 판단 기준은 하나입니다 — 언제 일어났는지가 중요하면 과거형, **지금과 이어진 결과·경험**이 중요하면 현재완료입니다.",
           "points": [
             {
               "en": "I have been to Japan. — 가 본 적 있다 (경험)",
               "kr": "have/has + p.p.",
-              "note": "**경험**을 말할 때. been to = 가 본 적 있다.\n• I **have been** to Japan. / She **has been** to Paris. (3인칭은 has)"
+              "note": "**경험**을 말할 때. been to = 가 본 적 있다.\n• I **have been** to Japan. / She **has been** to Paris. (3인칭은 has)\n❌ I have been to Japan **last year**(X) — 구체적 시점이 있으면 과거형입니다.\n✅ I **went** to Japan last year. / I **have been** to Japan.(경험)"
             },
             {
               "en": "Have you ever eaten kimchi?",
@@ -2680,13 +2680,13 @@
             {
               "en": "I haven't watched it yet.",
               "kr": "yet(아직) — 부정문·의문문 끝에",
-              "note": "**아직** 안 했다. yet은 문장 **끝**에.\n• I haven't finished **yet**. / Have you eaten **yet**?"
+              "note": "**아직** 안 했다. yet은 문장 **끝**에.\n• I haven't finished **yet**. / Have you eaten **yet**?\nyet은 부정문·의문문에서 '아직 / 벌써'를 뜻하며 **문장 끝**에 옵니다.\n❌ I haven't yet watched it(어색) → ✅ I haven't watched it **yet**."
             }
           ]
         },
         {
           "title": "② 과거형 vs 현재완료",
-          "intro": "둘 다 지난 일이지만, \"언제\"가 중요하면 과거형, \"경험·결과\"가 중요하면 현재완료입니다.",
+          "intro": "같은 사건도 초점에 따라 시제가 갈립니다. **구체적인 시점(어제, 2020년, 지난주)이 문장에 있으면 반드시 과거형**이고, 시점 없이 '해 본 적 있다·이미 했다'를 말하면 현재완료입니다. 이 규칙 하나로 대부분의 혼동이 정리됩니다.",
           "points": [
             {
               "en": "I went to Japan in 2020. (과거 — 시점 명시)",
@@ -2696,7 +2696,7 @@
             {
               "en": "I have been to Japan. (완료 — 경험 자체)",
               "kr": "경험·결과가 지금까지 이어짐",
-              "note": "**언제인지 말 안 하고** 경험 자체를 말하면 **현재완료**.\n• I **have been** to Japan (twice). (몇 번인지는 OK, 정확한 날짜는 ❌)"
+              "note": "**언제인지 말 안 하고** 경험 자체를 말하면 **현재완료**.\n• I **have been** to Japan (twice). (몇 번인지는 OK, 정확한 날짜는 ❌)\nhave been to(가 본 적 있다)와 **have gone to**(가서 아직 안 왔다)는 뜻이 다릅니다.\nHe **has gone to** Japan = 지금 여기 없음."
             }
           ]
         }
@@ -2795,12 +2795,12 @@
       "sections": [
         {
           "title": "비교급",
-          "intro": "두 가지를 서로 비교할 때 사용합니다. 형용사의 **길이(음절 수)**에 따라 형태가 달라집니다.",
+          "intro": "비교는 **단어 길이**로 형태가 갈립니다. 짧으면 -er, 길면 more를 쓰는데, 한국어에는 이런 구분이 없어 more expensiver처럼 둘을 겹쳐 쓰는 실수가 잦습니다. 그리고 비교에는 언제나 **비교 대상(than ~)** 이 따라와야 문장이 완성됩니다.",
           "points": [
             {
               "en": "짧은 단어 + er: bigger, faster + than",
               "kr": "Seoul is bigger than Busan",
-              "note": "음절이 **1~2개**인 짧은 형용사는 끝에 **-er**을 붙이고 than으로 비교합니다.\n**big→bigger, fast→faster, old→older**\ne로 끝나면 r만(nice→nicer), 단모음+자음이면 자음을 하나 더(big→bigger, hot→hotter)."
+              "note": "음절이 **1~2개**인 짧은 형용사는 끝에 **-er**을 붙이고 than으로 비교합니다.\n**big→bigger, fast→faster, old→older**\ne로 끝나면 r만(nice→nicer), 단모음+자음이면 자음을 하나 더(big→bigger, hot→hotter).\n❌ more bigger(X) — -er와 more를 겹쳐 쓸 수 없습니다.\n비교 강조는 **much / far / a lot** + 비교급: much **bigger**."
             },
             {
               "en": "긴 단어: more + 형용사",
@@ -2810,18 +2810,18 @@
             {
               "en": "as + 형용사 + as: 만큼 ~하다",
               "kr": "He is as tall as me",
-              "note": "두 대상이 **같은 정도**임을 표현합니다.\n**as tall as me = 나만큼 키가 크다**\n부정형: **not as tall as = 나만큼 크지 않다**"
+              "note": "두 대상이 **같은 정도**임을 표현합니다.\n**as tall as me = 나만큼 키가 크다**\n부정형: **not as tall as = 나만큼 크지 않다**\n부정형은 not as ... as — This isn't **as** urgent **as** that.\n❌ not so ... as는 문어체라 회화에서는 잘 쓰지 않습니다."
             }
           ]
         },
         {
           "title": "최상급",
-          "intro": "셋 이상 중에서 가장 높은(낮은) 정도를 표현할 때 씁니다. 반드시 **the**를 붙입니다.",
+          "intro": "최상급은 **the를 반드시 붙입니다**. 관사가 없는 한국어 습관 때문에 the를 빠뜨리기 쉬운데, 범위를 밝히는 in/of까지 함께 익히면 실전에서 바로 쓸 수 있습니다.",
           "points": [
             {
               "en": "the + est / the most + 형용사",
               "kr": "the best, the most famous",
-              "note": "짧은 단어: **the + -est** → the tallest, the fastest\n긴 단어: **the most** → the most beautiful\n최상급 앞에는 **반드시 the**를 쓰세요!"
+              "note": "짧은 단어: **the + -est** → the tallest, the fastest\n긴 단어: **the most** → the most beautiful\n최상급 앞에는 **반드시 the**를 쓰세요!\n❌ He is tallest(X) → ✅ He is **the** tallest — 최상급에는 the가 필수입니다.\n범위는 in(장소·집단) / of(복수 대상): the best **in** the team, the best **of** the three."
             },
             {
               "en": "불규칙: good-better-best / bad-worse-worst",
@@ -2925,12 +2925,12 @@
       "sections": [
         {
           "title": "능력 & 요청",
-          "intro": "조동사는 동사 앞에 붙어 **가능성·허락·요청·조언·의무·추측** 등의 의미를 더합니다. 조동사 다음에는 반드시 **동사 원형**을 씁니다.",
+          "intro": "조동사는 사실을 전달하는 게 아니라 **태도(가능·허락·의무·추측)** 를 얹는 장치입니다. 뒤에는 예외 없이 **동사원형**이 오고, 조동사를 두 개 겹쳐 쓸 수 없다는 두 규칙만 지키면 형태 실수는 사라집니다.",
           "points": [
             {
               "en": "can: 능력/허락 — I can swim.",
               "kr": "~할 수 있다",
-              "note": "**can + 동사 원형**으로 능력(~할 수 있다) 또는 허락(~해도 돼)을 표현합니다.\n과거형: **could** — I could swim when I was young (어렸을 때 수영할 수 있었다)."
+              "note": "**can + 동사 원형**으로 능력(~할 수 있다) 또는 허락(~해도 돼)을 표현합니다.\n과거형: **could** — I could swim when I was young (어렸을 때 수영할 수 있었다).\n❌ I can to swim(X) / I can swimming(X) → ✅ I can **swim** — 조동사 뒤는 원형입니다.\n미래의 능력은 **will be able to**로 표현합니다(❌ will can)."
             },
             {
               "en": "Could you...?: 정중한 요청",
@@ -2941,17 +2941,17 @@
         },
         {
           "title": "조언 & 의무 & 추측",
-          "intro": "상대에게 조언할 때, 의무를 강조할 때, 가능성을 추측할 때 각각 다른 조동사를 씁니다.",
+          "intro": "조언·의무·추측은 **강도의 차이**로 갈립니다. 한국어 '~해야 한다' 하나에 should와 must가 모두 들어 있어, 세기를 잘못 고르면 지나치게 강압적으로 들립니다.",
           "points": [
             {
               "en": "should: 조언 — You should get some rest.",
               "kr": "~하는 게 좋겠다",
-              "note": "**should + 동사 원형**으로 조언 또는 권고를 표현합니다.\nmust보다 **부드러운 표현**입니다.\n부정형: **shouldn't** = ~하지 않는 게 좋겠어."
+              "note": "**should + 동사 원형**으로 조언 또는 권고를 표현합니다.\nmust보다 **부드러운 표현**입니다.\n부정형: **shouldn't** = ~하지 않는 게 좋겠어.\n❌ You should to rest(X) → ✅ You **should rest**.\n더 부드럽게: **You might want to** rest. / **It might be worth** resting."
             },
             {
               "en": "must: 의무 — I must go now.",
               "kr": "반드시 ~해야 한다",
-              "note": "**must + 동사 원형**은 강한 의무(꼭 해야 한다)를 나타냅니다.\n구어에서는 **have to**로 대체되는 경우가 많습니다.\n**mustn't** = 절대 ~해서는 안 된다 (금지)."
+              "note": "**must + 동사 원형**은 강한 의무(꼭 해야 한다)를 나타냅니다.\n구어에서는 **have to**로 대체되는 경우가 많습니다.\n**mustn't** = 절대 ~해서는 안 된다 (금지).\nmust는 화자의 강한 판단, **have to**는 외부 규정에 가깝습니다.\n❌ You mustn't come(오지 마세요·금지) ≠ You **don't have to** come(안 와도 됩니다) — 뜻이 정반대입니다."
             },
             {
               "en": "might: 추측 — It might rain tomorrow.",
@@ -3055,7 +3055,7 @@
       "sections": [
         {
           "title": "길 묻기",
-          "intro": "낯선 곳에서 길을 물을 때는 먼저 **Excuse me**로 정중하게 말을 걸어야 합니다. 길을 모를 때는 \"I'm sorry, I don't know.\"라고 솔직히 말해도 됩니다.",
+          "intro": "길 묻기는 **정중함의 시작 표현**이 절반입니다. Excuse me 없이 바로 질문하면 무례하게 들릴 수 있고, 한국어의 '저기요'를 그대로 옮긴 Hey는 피해야 합니다.",
           "points": [
             {
               "en": "Excuse me, where is the station?",
@@ -3065,7 +3065,7 @@
             {
               "en": "How far is it from here?",
               "kr": "여기서 얼마나 멀어요?",
-              "note": "거리를 물을 때 씁니다.\n답변 예시: \"It's about 500 meters.\" / \"It's a 10-minute walk.\""
+              "note": "거리를 물을 때 씁니다.\n답변 예시: \"It's about 500 meters.\" / \"It's a 10-minute walk.\"\n거리는 How far, 소요 시간은 **How long**으로 구분합니다.\n답: It's about a ten-minute **walk**.(도보 10분)"
             },
             {
               "en": "How long does it take?",
@@ -3076,12 +3076,12 @@
         },
         {
           "title": "길 안내",
-          "intro": "길을 안내할 때는 방향(turn left/right) → 직진(go straight) → 목적지(You'll see it on your left) 순서로 말합니다.",
+          "intro": "길 안내는 **동사원형으로 시작하는 명령문**이 기본입니다. 무례한 것이 아니라 안내의 표준 형식이며, 방향·거리·수단 표현을 덩어리로 익히면 듣기도 함께 좋아집니다.",
           "points": [
             {
               "en": "Turn left / right at the corner.",
               "kr": "모퉁이에서 좌/우회전",
-              "note": "**Turn left** (좌회전) / **Turn right** (우회전).\n신호등 앞이라면: \"at the traffic lights\" 로 표현합니다.\n예: \"Turn right **at the traffic lights**.\""
+              "note": "**Turn left** (좌회전) / **Turn right** (우회전).\n신호등 앞이라면: \"at the traffic lights\" 로 표현합니다.\n예: \"Turn right **at the traffic lights**.\"\n❌ Turn to left(X) → ✅ **Turn left**.\n'~에서'는 at: turn left **at** the corner / **at** the second light."
             },
             {
               "en": "Go straight for two blocks.",
@@ -3091,7 +3091,7 @@
             {
               "en": "Take subway line two to City Hall.",
               "kr": "2호선을 타세요",
-              "note": "**Take + 교통수단**으로 이동 방법을 안내합니다.\nTake the bus / Take a taxi / Take subway line 2\n내릴 역: **to + 역명** — to City Hall, to Gangnam."
+              "note": "**Take + 교통수단**으로 이동 방법을 안내합니다.\nTake the bus / Take a taxi / Take subway line 2\n내릴 역: **to + 역명** — to City Hall, to Gangnam.\n지하철은 take, 도보는 walk, 택시는 take a taxi/cab을 씁니다.\n❌ ride the subway는 미국 구어에서 쓰지만 안내문에서는 **take**가 표준입니다."
             }
           ]
         }
@@ -3191,12 +3191,12 @@
       "sections": [
         {
           "title": "의견 표현",
-          "intro": "영어 대화에서 의견을 말할 때는 **\"I think...\", \"In my opinion...\"** 같은 표현으로 시작하면 자연스럽게 주장을 펼칠 수 있습니다. 이런 표현을 **opinion marker**라 합니다.",
+          "intro": "의견을 말할 때 한국어는 '~인 것 같아요'로 완곡하게 시작하지만, 영어는 **I think를 앞에 두고 결론을 먼저** 말합니다. 근거는 그 뒤에 because로 붙이는 순서가 자연스럽습니다.",
           "points": [
             {
               "en": "I think it's a good idea.",
               "kr": "내 생각엔 ~인 것 같아",
-              "note": "가장 많이 쓰이는 의견 표현. **I think + 주어 + 동사** 구조.\n비슷한 표현:\n**I feel that...** (감정적 의견)\n**I believe that...** (강한 확신)"
+              "note": "가장 많이 쓰이는 의견 표현. **I think + 주어 + 동사** 구조.\n비슷한 표현:\n**I feel that...** (감정적 의견)\n**I believe that...** (강한 확신)\n확신의 세기를 조절하세요 — I **think**(보통) < I **believe**(강함) < I'm **sure**(확신).\n❌ I think so, I think를 반복하면 자신 없어 보입니다."
             },
             {
               "en": "In my opinion, English is important.",
@@ -3206,13 +3206,13 @@
             {
               "en": "As far as I know, ...",
               "kr": "제가 알기로는",
-              "note": "자신이 아는 한도 내에서 말할 때 씁니다.\n확신이 100%가 아닐 때 **As far as I know** 로 시작하면 자연스럽게 책임 범위를 줄일 수 있습니다."
+              "note": "자신이 아는 한도 내에서 말할 때 씁니다.\n확신이 100%가 아닐 때 **As far as I know** 로 시작하면 자연스럽게 책임 범위를 줄일 수 있습니다.\nAs far as I know는 '내가 아는 한'이라 **틀릴 여지를 남기는** 표현입니다.\n비슷한 완충: **From what I've seen**, / **Correct me if I'm wrong, but**"
             }
           ]
         },
         {
           "title": "동의 & 반대",
-          "intro": "상대방 의견에 동의하거나 반대할 때 다양한 표현을 쓰면 대화가 풍성해집니다. **\"That makes sense, but...\"** 처럼 일부 인정 후 반론을 이어가는 방식이 자연스럽습니다.",
+          "intro": "반대는 **인정 후 유보**가 원칙입니다. I disagree만 단독으로 쓰면 공격적으로 들리므로, 앞에 완충 표현을 두고 이유를 덧붙이는 형태로 말해야 관계가 상하지 않습니다.",
           "points": [
             {
               "en": "I agree with you. / I totally agree.",
@@ -3222,7 +3222,7 @@
             {
               "en": "I'm sorry, but I disagree.",
               "kr": "미안하지만 생각이 달라요 (부드러운 반대)",
-              "note": "반대 의견을 부드럽게 말하는 방법.\n\"I disagree\" 앞에 **I'm sorry, but** / **With all due respect,** 을 붙이면 훨씬 정중합니다."
+              "note": "반대 의견을 부드럽게 말하는 방법.\n\"I disagree\" 앞에 **I'm sorry, but** / **With all due respect,** 을 붙이면 훨씬 정중합니다.\n❌ I disagree.만 단독으로 쓰면 공격적으로 들립니다.\n✅ **I see your point, but** ... / **I'm not sure I agree** — 완충을 먼저 두세요."
             },
             {
               "en": "That makes sense, but...",
@@ -3577,7 +3577,7 @@
         },
         {
           "title": "무관사(zero article) — 관사를 쓰지 않는 자리",
-          "intro": "관용적으로 관사를 **쓰지 않는** 표현들이 있습니다. 여기에 the를 넣으면 어색하거나 뜻이 달라집니다.",
+          "intro": "관용적으로 관사를 **쓰지 않는** 자리가 따로 있습니다. 여기에 the를 넣으면 어색해지거나 뜻이 달라지기 때문에, 규칙으로 외우기보다 덩어리째 익혀야 합니다. 특히 장소·수단·식사 표현은 통째로 굳어 있어 변형이 통하지 않습니다.",
           "points": [
             {
               "en": "장소·수단·식사의 관용 표현",
@@ -3786,39 +3786,39 @@
       "sections": [
         {
           "title": "1차 가정 (현실 가능)",
-          "intro": "가정법은 \"만약 ~라면 ~할 텐데\"처럼 **가상의 상황**을 표현합니다.\n**가능성이 높은 미래** → 1차 가정법\n**현재 사실과 반대** → 2차 가정법\n**과거 사실과 반대** → 3차 가정법",
+          "intro": "가정법은 **현실인지 아닌지**를 시제로 표시합니다. 한국어는 '~하면'이 모든 경우를 덮지만, 영어는 실현 가능성에 따라 시제를 한 칸씩 뒤로 물려 표현합니다. 이 '시제 물리기'가 가정법의 전부입니다.",
           "points": [
             {
               "en": "If + 현재, will: If it rains, I will stay home.",
               "kr": "비가 오면 집에 있을 거야",
-              "note": "**조건절(if)에 현재 시제** + **주절에 will**.\n실제로 일어날 수 있는 가능한 상황입니다.\n패턴: **If + 현재, will + 동사 원형**\n⚠️ **if절에는 will을 쓰지 않습니다!**"
+              "note": "**조건절(if)에 현재 시제** + **주절에 will**.\n실제로 일어날 수 있는 가능한 상황입니다.\n패턴: **If + 현재, will + 동사 원형**\n⚠️ **if절에는 will을 쓰지 않습니다!**\n❌ If it **will** rain(X) — if절에는 미래 will을 쓰지 않습니다.\n✅ If it **rains**, I will stay home.(조건절 현재형 = 미래 의미)"
             }
           ]
         },
         {
           "title": "2차 가정 (현재 반대)",
-          "intro": "현재 사실과 **반대**되는 상황을 상상할 때 씁니다. 실제로는 돈이 없지만 \"만약 있다면\"처럼 가상의 현재 상황을 표현합니다.",
+          "intro": "현재 사실과 반대되는 상상은 **과거형으로 표현**합니다. 과거 이야기라서가 아니라, 현실에서 한 발 떨어졌다는 표시입니다 — 그래서 If I were(주어가 I여도 were)가 됩니다.",
           "points": [
             {
               "en": "If + 과거, would: If I had more money, I would travel.",
               "kr": "돈이 더 있다면 여행 갈 텐데",
-              "note": "**if절에 과거 시제, 주절에 would**.\n실제로는 돈이 없지만 가상으로 상상하는 것.\n패턴: **If + 과거, would + 동사 원형**\n줄여서 **I'd** 라고도 합니다."
+              "note": "**if절에 과거 시제, 주절에 would**.\n실제로는 돈이 없지만 가상으로 상상하는 것.\n패턴: **If + 과거, would + 동사 원형**\n줄여서 **I'd** 라고도 합니다.\n❌ If I have more money, I will travel(현실 가능 뉘앙스)와 구분하세요.\n지금 사실과 반대면 **과거형 + would**: If I **had** more money, I **would** travel."
             },
             {
               "en": "If I were you, I wouldn't buy it.",
               "kr": "내가 너라면 (were 사용!)",
-              "note": "**if절에서 be동사는 주어에 상관없이 were**를 씁니다(문법 규칙).\n✓ **If I were** (×If I was)\n조언할 때 자주 쓰이는 패턴:\n\"**If I were you, I would...**\""
+              "note": "**if절에서 be동사는 주어에 상관없이 were**를 씁니다(문법 규칙).\n✓ **If I were** (×If I was)\n조언할 때 자주 쓰이는 패턴:\n\"**If I were you, I would...**\"\n가정법에서는 주어가 I·he여도 **were**를 씁니다 — If I **were** you.\n구어에서 was도 쓰이지만, 조언 관용구 If I were you는 항상 were입니다."
             }
           ]
         },
         {
           "title": "3차 가정 (과거 반대)",
-          "intro": "이미 일어난 **과거 사실과 반대**되는 상황을 상상할 때 씁니다. 후회나 아쉬움을 표현할 때 가장 자주 씁니다.",
+          "intro": "이미 지나간 일에 대한 후회는 **한 칸 더 물려** had p.p.를 씁니다. 형태가 길어 어렵게 느껴지지만, 실제 대화에서 후회·아쉬움을 말할 때 매우 자주 등장합니다.",
           "points": [
             {
               "en": "If + had p.p., would have p.p.: If I had known, I would have gone.",
               "kr": "알았더라면 갔을 텐데",
-              "note": "패턴: **If + had + 과거분사, would have + 과거분사**\n\"알았더라면 갔을 텐데\" → 실제로는 몰랐고 가지 않았음.\n예: **If I had studied harder, I would have passed.**\n(열심히 했더라면 합격했을 텐데)"
+              "note": "패턴: **If + had + 과거분사, would have + 과거분사**\n\"알았더라면 갔을 텐데\" → 실제로는 몰랐고 가지 않았음.\n예: **If I had studied harder, I would have passed.**\n(열심히 했더라면 합격했을 텐데)\n형태가 길어 보이지만 후회를 말할 때 매일 쓰입니다.\n축약: If I'd known, I'd have told you.(I'd = I had / I would 둘 다)"
             }
           ]
         }
@@ -3917,17 +3917,17 @@
       "sections": [
         {
           "title": "be + 과거분사",
-          "intro": "수동태는 **\"~해진다 / ~되었다\"** 처럼 행동을 받는 쪽을 주어로 표현합니다.\n**be + 과거분사(p.p.)** 구조이며, 시제는 **be 동사**가 결정합니다.",
+          "intro": "수동태는 '누가 했는가'보다 **무슨 일이 벌어졌는가**를 앞세우는 장치입니다. 한국어의 '~되다'와 비슷하지만, 영어는 be + 과거분사라는 형태를 정확히 지켜야 하고 시제는 be동사가 담당합니다.",
           "points": [
             {
               "en": "This car was made in Korea.",
               "kr": "이 차는 한국에서 만들어졌다",
-              "note": "**과거 수동태: was/were + p.p.**\n제조·생성을 표현할 때 자주 씁니다.\n예: The cake was eaten. / The window was broken."
+              "note": "**과거 수동태: was/were + p.p.**\n제조·생성을 표현할 때 자주 씁니다.\n예: The cake was eaten. / The window was broken.\n시제는 **be동사가** 담당합니다 — is made(현재) / was made(과거) / will be made(미래).\n❌ This car was make(X) → 반드시 **과거분사**(made)."
             },
             {
               "en": "The book is read by many people.",
               "kr": "행위자는 by로",
-              "note": "**행위자**는 **by + 행위자**로 추가합니다.\n행위자가 불명확하거나 중요하지 않을 때는 by 이하를 생략합니다.\n예: \"The cake was eaten.\" (누가 먹었는지 불명)"
+              "note": "**행위자**는 **by + 행위자**로 추가합니다.\n행위자가 불명확하거나 중요하지 않을 때는 by 이하를 생략합니다.\n예: \"The cake was eaten.\" (누가 먹었는지 불명)\n행위자를 밝힐 때만 by를 붙입니다. 대부분은 생략하는 것이 자연스럽습니다.\n❌ English is spoken by people in many countries(장황) → ✅ English **is spoken** in many countries."
             },
             {
               "en": "The problem will be solved soon.",
@@ -3938,12 +3938,12 @@
         },
         {
           "title": "언제 수동태를 쓰나",
-          "intro": "수동태는 **무엇을 강조할지**에 따라 선택합니다. 행위자보다 결과·대상이 더 중요할 때 수동태가 어울립니다.",
+          "intro": "수동태는 멋있어 보이려고 쓰는 것이 아닙니다. **행위자가 불분명하거나 중요하지 않을 때, 혹은 대상을 강조할 때**만 쓰고, 그 외에는 능동태가 더 명확하고 읽기 쉽습니다.",
           "points": [
             {
               "en": "행위자가 불명확하거나 중요하지 않을 때",
               "kr": "My wallet was stolen (누가 훔쳤는지 모름)",
-              "note": "**My wallet was stolen.** (지갑을 도난당했다)\n→ 누가 훔쳤는지 모르거나 중요하지 않음.\n뉴스 기사·공식 문서에서 수동태가 많이 쓰입니다."
+              "note": "**My wallet was stolen.** (지갑을 도난당했다)\n→ 누가 훔쳤는지 모르거나 중요하지 않음.\n뉴스 기사·공식 문서에서 수동태가 많이 쓰입니다.\n책임 소재를 흐리는 데에도 쓰입니다 — Mistakes **were made**.\n반대로 책임을 분명히 해야 할 때는 능동태로 되돌리세요 — **We made** a mistake."
             },
             {
               "en": "대상을 강조하고 싶을 때",
@@ -4047,22 +4047,22 @@
       "sections": [
         {
           "title": "말 전달하기",
-          "intro": "간접화법(reported speech)은 다른 사람이 한 말을 그대로 옮기지 않고 **자신의 말로 전달**하는 방법입니다. 핵심은 **시제를 한 단계 과거로** 바꾸는 것입니다.",
+          "intro": "간접화법의 핵심은 **시제와 대명사를 한 칸씩 옮기는 것**입니다. 한국어는 '~라고 했어요'로 원문을 그대로 옮겨도 되지만, 영어는 전달 시점 기준으로 시제를 뒤로 물려야 자연스럽습니다.",
           "points": [
             {
               "en": "She said (that) she was busy.",
               "kr": "시제를 한 단계 과거로 (is→was)",
-              "note": "직접화법: \"I **am** busy.\"\n간접화법: She said (that) she **was** busy.\n현재 is → 과거 was 로 시제 이동.\n**told 뒤에는 반드시 사람 목적어**: She told **me** (that)..."
+              "note": "직접화법: \"I **am** busy.\"\n간접화법: She said (that) she **was** busy.\n현재 is → 과거 was 로 시제 이동.\n**told 뒤에는 반드시 사람 목적어**: She told **me** (that)...\n전달 시제는 한 칸 뒤로 — 'I am busy' → She said she **was** busy.\n❌ She said she is busy(구어에서는 허용되지만 시험·문서에서는 감점 요소)."
             },
             {
               "en": "He told me to wait.",
               "kr": "명령은 to부정사로",
-              "note": "명령문은 간접화법에서 **to + 동사 원형**으로 바꿉니다.\n\"Wait.\" → He told me **to wait.**\n\"Don't run.\" → She told him **not to run.**"
+              "note": "명령문은 간접화법에서 **to + 동사 원형**으로 바꿉니다.\n\"Wait.\" → He told me **to wait.**\n\"Don't run.\" → She told him **not to run.**\nsay는 뒤에 사람이 오지 않고, tell은 사람이 옵니다.\n❌ He said me(X) → ✅ He **told me** / He **said to me**."
             },
             {
               "en": "They asked if I could come.",
               "kr": "의문은 if/whether로",
-              "note": "의문문은 간접화법에서 **if/whether + 주어 + 동사** 어순으로 바꿉니다.\n\"Can you come?\" → They asked **if I could come.**\n⚠️ 어순이 평서문이 됩니다: ×if could I come → ✓if I could come"
+              "note": "의문문은 간접화법에서 **if/whether + 주어 + 동사** 어순으로 바꿉니다.\n\"Can you come?\" → They asked **if I could come.**\n⚠️ 어순이 평서문이 됩니다: ×if could I come → ✓if I could come\n의문문 전달은 **if / whether** + 평서문 어순입니다.\n❌ They asked if could I come(X) → ✅ They asked **if I could** come."
             }
           ]
         }
@@ -4161,12 +4161,12 @@
       "sections": [
         {
           "title": "자주 쓰는 관용어",
-          "intro": "관용어(idiom)는 단어를 하나씩 해석하면 뜻이 맞지 않는 표현입니다. **통째로 암기**해야 합니다. 원어민과 대화할 때 관용어를 쓰면 훨씬 자연스럽게 들립니다.",
+          "intro": "관용어는 **단어를 따로 해석하면 뜻이 나오지 않습니다**. 통째로 외워야 하고, 무엇보다 **어울리는 상황**을 알아야 합니다 — 격식 있는 회의에서 쓰면 어색한 표현이 적지 않습니다.",
           "points": [
             {
               "en": "a piece of cake = 식은 죽 먹기",
               "kr": "The test was a piece of cake",
-              "note": "케이크 한 조각처럼 **아주 쉬운 일**을 뜻합니다.\n\"The exam was **a piece of cake.**\"\n비슷한 표현: **no sweat** (땀도 안 남), **a cakewalk**."
+              "note": "케이크 한 조각처럼 **아주 쉬운 일**을 뜻합니다.\n\"The exam was **a piece of cake.**\"\n비슷한 표현: **no sweat** (땀도 안 남), **a cakewalk**.\n격식 있는 자리에서는 관용어를 남발하지 마세요 — 한두 개면 충분합니다.\n비슷한 표현: **no big deal** / **a walk in the park**."
             },
             {
               "en": "under the weather = 몸이 안 좋은",
@@ -4176,12 +4176,12 @@
             {
               "en": "break a leg = 행운을 빌어",
               "kr": "공연·시험 앞둔 사람에게",
-              "note": "연극·발표·시험 등 **중요한 순간** 앞에 쓰는 격려 표현.\n\"Good luck!\" 대신 씁니다.\n\"**Break a leg** tonight!\" (오늘 잘 해낼 수 있어!)"
+              "note": "연극·발표·시험 등 **중요한 순간** 앞에 쓰는 격려 표현.\n\"Good luck!\" 대신 씁니다.\n\"**Break a leg** tonight!\" (오늘 잘 해낼 수 있어!)\n공연·발표 직전에 쓰는 행운 표현이라 상황이 한정적입니다.\n일반적인 상황에서는 **Good luck!** / **You'll do great.**"
             },
             {
               "en": "hit the nail on the head = 정곡을 찌르다",
               "kr": "",
-              "note": "망치로 못을 정확히 박듯 **핵심을 정확히 말하다**는 뜻.\n\"You **hit the nail on the head!**\" = 바로 그거야!\n칭찬·확인 표현으로 씁니다."
+              "note": "망치로 못을 정확히 박듯 **핵심을 정확히 말하다**는 뜻.\n\"You **hit the nail on the head!**\" = 바로 그거야!\n칭찬·확인 표현으로 씁니다.\n회의에서 상대 의견에 동의할 때 아주 자연스럽습니다.\n짧은 변형: **Exactly.** / **That's spot on.**"
             },
             {
               "en": "bite the bullet = 이를 악물고 하다",
@@ -4285,17 +4285,17 @@
       "sections": [
         {
           "title": "논리 전개",
-          "intro": "논리적으로 의견을 전달하려면 **연결어(discourse marker)**를 잘 써야 합니다. 이 표현들은 발표·토론·면접에서도 상대방에게 명료한 인상을 줍니다.",
+          "intro": "토론에서는 **주장 → 근거 → 반론 인정 → 결론** 구조가 기본입니다. 한국어는 결론을 뒤에 두는 경향이 있지만, 영어는 앞에 두고 근거로 받치는 순서라야 설득력 있게 들립니다.",
           "points": [
             {
               "en": "On the one hand... / On the other hand...",
               "kr": "한편으로는 / 다른 한편으로는",
-              "note": "**한쪽 입장 → 반대 입장** 을 균형 있게 제시하는 구조.\n\"**On the one hand**, it's expensive. **On the other hand**, the quality is excellent.\""
+              "note": "**한쪽 입장 → 반대 입장** 을 균형 있게 제시하는 구조.\n\"**On the one hand**, it's expensive. **On the other hand**, the quality is excellent.\"\non the one hand로 시작했으면 **반드시 on the other hand로 받아야** 합니다.\n❌ In the other hand(X) — 전치사는 on입니다."
             },
             {
               "en": "However / Nevertheless / Despite this",
               "kr": "그러나 / 그럼에도 불구하고",
-              "note": "**역접 연결어**:\n**However** = 그러나 (가장 중립적)\n**Nevertheless** = 그럼에도 불구하고 (강한 역접)\n**Despite this** = 이럼에도 불구하고\n앞 문장과 반대되는 내용을 연결합니다."
+              "note": "**역접 연결어**:\n**However** = 그러나 (가장 중립적)\n**Nevertheless** = 그럼에도 불구하고 (강한 역접)\n**Despite this** = 이럼에도 불구하고\n앞 문장과 반대되는 내용을 연결합니다.\nhowever는 문장 앞에서 **콤마와 함께** 씁니다 — However, the cost is high.\n❌ However the cost is high(콤마 누락) / ❌ but과 함께 쓰지 않기."
             },
             {
               "en": "I strongly believe that...",
@@ -4305,7 +4305,7 @@
             {
               "en": "To sum up, the pros outweigh the cons.",
               "kr": "요약: 장점이 단점보다 많다",
-              "note": "결론 연결어: **To sum up / In conclusion / All in all**\n**pros** = 장점(찬성 이유), **cons** = 단점(반대 이유)\n\"The pros **outweigh** the cons.\" = 장점이 단점보다 크다."
+              "note": "결론 연결어: **To sum up / In conclusion / All in all**\n**pros** = 장점(찬성 이유), **cons** = 단점(반대 이유)\n\"The pros **outweigh** the cons.\" = 장점이 단점보다 크다.\n결론 신호어: **To sum up / In conclusion / Overall**.\n❌ In conclusion을 발표 중간에 쓰면 청중이 끝난 줄 압니다 — 마지막에만."
             }
           ]
         }
@@ -4865,12 +4865,12 @@
       "sections": [
         {
           "title": "의미가 달라지는 동사",
-          "intro": "일부 동사는 뒤에 **동명사(-ing)**가 오느냐 **부정사(to + 동사)**가 오느냐에 따라 **뜻이 완전히 달라집니다.** C1 핵심 문법으로, 원어민은 직관적으로 구분하지만 학습자에게는 어렵습니다.",
+          "intro": "같은 동사인데 뒤에 오는 형태에 따라 **뜻이 정반대가 되는** 무리가 있습니다. 규칙이 아니라 개념으로 기억하세요 — **to부정사는 아직 하지 않은 앞의 일**, **-ing는 이미 벌어진 뒤의 일**을 가리킵니다. 이 감각 하나면 대부분의 쌍이 정리됩니다.",
           "points": [
             {
               "en": "stop to buy (사려고 멈춤) vs stop smoking (끊음)",
               "kr": "to = 목적, -ing = 하던 행동",
-              "note": "**stop + to부정사** = ~하기 위해 하던 일을 멈추다 (목적)\n**stop + 동명사** = ~하는 것을 완전히 그만두다 (종료)\n예: \"She **stopped to check** her phone.\" (폰 보려고 멈췄다)\nvs \"She **stopped checking** her phone.\" (폰 보는 것을 끊었다)"
+              "note": "**stop + to부정사** = ~하기 위해 하던 일을 멈추다 (목적)\n**stop + 동명사** = ~하는 것을 완전히 그만두다 (종료)\n예: \"She **stopped to check** her phone.\" (폰 보려고 멈췄다)\nvs \"She **stopped checking** her phone.\" (폰 보는 것을 끊었다)\n판단 기준: **to = 아직 안 한 앞의 일 / -ing = 이미 한 뒤의 일**.\n같은 무리: forget to call(전화할 것을 잊다) vs forget calling(전화한 것을 잊다)."
             },
             {
               "en": "remember to lock (할 것을 기억) vs remember meeting (했던 것을 기억)",
@@ -4984,12 +4984,12 @@
       "sections": [
         {
           "title": "연어 (collocations)",
-          "intro": "연어(collocation)란 **원어민이 자연스럽게 함께 쓰는 단어 조합**입니다. 문법적으로 맞더라도 자연스럽지 않은 조합이 있습니다. (예: do a mistake ✗ → make a mistake ✓)",
+          "intro": "단어를 많이 아는 것과 **자연스럽게 쓰는 것**은 다릅니다. 원어민은 정해진 짝(연어)으로 말하기 때문에, do a decision처럼 짝이 틀리면 문법이 맞아도 즉시 어색하게 들립니다. 동사+명사 덩어리로 외우는 것이 어휘 학습의 지름길입니다.",
           "points": [
             {
               "en": "make a decision / make progress / make an effort",
               "kr": "do가 아니라 make!",
-              "note": "**make**와 짝을 이루는 표현들:\n✓ **make** a mistake / a decision / a suggestion / progress / a noise\n✗ do a mistake / do a decision\ndo와 헷갈리기 쉬우니 통째로 암기하세요."
+              "note": "**make**와 짝을 이루는 표현들:\n✓ **make** a mistake / a decision / a suggestion / progress / a noise\n✗ do a mistake / do a decision\ndo와 헷갈리기 쉬우니 통째로 암기하세요.\n❌ do a decision(X) / ❌ make a homework(X) — 짝이 정해져 있습니다.\n**make**: a decision, progress, an effort, a mistake / **do**: research, business, a favor."
             },
             {
               "en": "take a risk / take responsibility",
@@ -5005,12 +5005,12 @@
         },
         {
           "title": "강한 형용사",
-          "intro": "**very**를 쓰는 대신 의미가 강화된 단어 하나로 바꾸면 더 영어다운 표현이 됩니다. 이를 **extreme adjective(극단 형용사)**라고 합니다.",
+          "intro": "very를 반복하면 어휘력이 얕아 보입니다. 영어에는 **very의 의미가 이미 들어 있는 강한 형용사**가 따로 있어, 하나로 바꾸면 문장이 훨씬 세련되게 들립니다. 단, 강한 형용사에는 very를 다시 붙이지 않습니다.",
           "points": [
             {
               "en": "very good → brilliant / very angry → furious",
               "kr": "very 없이 한 단어로",
-              "note": "**very + 보통 형용사 → 극단 형용사** 변환:\nvery good → **excellent / brilliant / outstanding**\nvery bad → **terrible / awful / dreadful**\nvery angry → **furious / livid**\nvery happy → **thrilled / ecstatic**"
+              "note": "**very + 보통 형용사 → 극단 형용사** 변환:\nvery good → **excellent / brilliant / outstanding**\nvery bad → **terrible / awful / dreadful**\nvery angry → **furious / livid**\nvery happy → **thrilled / ecstatic**\n❌ very brilliant(X) — 강한 형용사에는 very를 붙이지 않습니다.\n강조하려면 **absolutely / utterly**: absolutely **brilliant**, utterly **exhausted**."
             },
             {
               "en": "very tired → exhausted / very big → enormous",
@@ -5114,12 +5114,12 @@
       "sections": [
         {
           "title": "발표 흐름 표현",
-          "intro": "발표는 **도입 → 본론 → 결론**의 3단계 구조를 따릅니다. 각 단계에서 쓰는 영어 표현을 알아 두면 더 전문적이고 자신감 있게 발표할 수 있습니다.",
+          "intro": "발표는 내용보다 **구조 신호어**가 이해도를 좌우합니다. 지금 어디쯤인지 청중이 알 수 있도록 도입·전개·근거·결론마다 표시를 주는 것이 핵심이고, 이 표현들은 통째로 외워두면 긴장한 상태에서도 나옵니다.",
           "points": [
             {
               "en": "Today I'd like to present...",
               "kr": "발표 시작",
-              "note": "**발표 시작 표현**:\n\"**Today I'd like to present/talk about/discuss...**\"\n또는 \"Good morning, everyone. My name is ___ and today I'd like to...\"\n첫 문장이 청중의 집중을 잡습니다."
+              "note": "**발표 시작 표현**:\n\"**Today I'd like to present/talk about/discuss...**\"\n또는 \"Good morning, everyone. My name is ___ and today I'd like to...\"\n첫 문장이 청중의 집중을 잡습니다.\n❌ I will presentation about(X) → ✅ I'd like to **present** ~ / **talk about** ~.\n인사 후 바로 목적을 밝히면 신뢰가 올라갑니다 — **By the end, you'll know ~**"
             },
             {
               "en": "Firstly... / Secondly... / Finally...",
@@ -5129,7 +5129,7 @@
             {
               "en": "As you can see, sales have increased.",
               "kr": "자료 가리키기",
-              "note": "**자료·슬라이드 가리키기**:\n\"**As you can see** in this graph...\"\n\"**This chart shows** that...\"\n\"**Looking at** these figures...\"\n시각 자료를 설명할 때 쓰는 표현들입니다."
+              "note": "**자료·슬라이드 가리키기**:\n\"**As you can see** in this graph...\"\n\"**This chart shows** that...\"\n\"**Looking at** these figures...\"\n시각 자료를 설명할 때 쓰는 표현들입니다.\n자료를 가리킬 때: **As you can see** / **If you look at ~** / **This chart shows ~**\n❌ Look at here(X) → ✅ **Look here** / **Take a look at this**."
             },
             {
               "en": "In conclusion... / Do you have any questions?",
@@ -5234,12 +5234,12 @@
       "sections": [
         {
           "title": "부드럽게 말하기 (hedging)",
-          "intro": "**Hedging**이란 단정적인 주장을 완화해 더 정중하거나 겸손하게 말하는 기법입니다. 영어 원어민, 특히 영국식 대화에서 의견을 직접적으로 표현하기보다 hedging 표현으로 부드럽게 전달합니다.",
+          "intro": "영어권 비즈니스에서 **직설은 무례**로 읽히기 쉽습니다. 한국어의 '좀 그렇네요' 같은 완충을 영어에서는 정형화된 표현으로 처리하며, 이 장치를 쓰느냐 마느냐가 원어민 눈에는 태도의 차이로 보입니다.",
           "points": [
             {
               "en": "I might be wrong, but I don't think that's true.",
               "kr": "단정 대신 완곡하게",
-              "note": "자신의 의견이 틀릴 수 있음을 인정하며 부드럽게 반박하는 표현.\n비슷한 패턴:\n\"**Correct me if I'm wrong, but...**\"\n\"**With all due respect,...**\""
+              "note": "자신의 의견이 틀릴 수 있음을 인정하며 부드럽게 반박하는 표현.\n비슷한 패턴:\n\"**Correct me if I'm wrong, but...**\"\n\"**With all due respect,...**\"\n❌ You're wrong.은 관계를 끊는 표현입니다.\n✅ **I might be wrong, but** ~ / **I'm not sure that's quite right.**"
             },
             {
               "en": "That's not ideal. (= 별로다)",
@@ -5249,7 +5249,7 @@
             {
               "en": "Would you mind if I opened the window?",
               "kr": "아주 정중한 부탁",
-              "note": "**\"Would you mind if + 과거 시제?\"** = 가장 정중한 부탁 방식.\n**Yes, I mind.** = 싫어요\n**No, go ahead.** = 괜찮아요 (열어도 됩니다)\n⚠️ Yes/No 응답 방향이 한국어와 반대이니 주의!"
+              "note": "**\"Would you mind if + 과거 시제?\"** = 가장 정중한 부탁 방식.\n**Yes, I mind.** = 싫어요\n**No, go ahead.** = 괜찮아요 (열어도 됩니다)\n⚠️ Yes/No 응답 방향이 한국어와 반대이니 주의!\nWould you mind ~?의 답이 헷갈립니다 — 허락은 **Not at all / Of course not**(부정으로 답함).\n❌ Yes로 답하면 '싫다'는 뜻이 됩니다."
             },
             {
               "en": "To be honest, it wasn't great.",
@@ -5353,7 +5353,7 @@
       "sections": [
         {
           "title": "담화 연결어",
-          "intro": "복잡한 생각을 전달할 때 **담화 연결어(discourse markers)**로 **논리 흐름**을 만들어 줍니다. 연결어 없이 짧은 문장만 나열하면 유아적인 느낌을 주지만, 연결어를 쓰면 C1 수준의 유창한 발화가 됩니다.",
+          "intro": "긴 말을 조리 있게 이어가려면 **연결어가 논리의 이정표** 역할을 해야 합니다. 한국어는 '그리고'로 대부분 이어가지만, 영어는 추가·대조·인과·예시마다 다른 표현을 쓰고, 잘못 고르면 앞뒤 논리가 어긋나 보입니다.",
           "points": [
             {
               "en": "Furthermore / Moreover / In addition",
@@ -5363,7 +5363,7 @@
             {
               "en": "Nevertheless / However",
               "kr": "그럼에도 / 그러나 (대조)",
-              "note": "**역접(대조) 연결**:\n**However** = 그러나 (중립적)\n**Nevertheless** = 그럼에도 (어려움에도 불구하고 계속)\n예: \"It was raining. **Nevertheless**, we went for a walk.\""
+              "note": "**역접(대조) 연결**:\n**However** = 그러나 (중립적)\n**Nevertheless** = 그럼에도 (어려움에도 불구하고 계속)\n예: \"It was raining. **Nevertheless**, we went for a walk.\"\nNevertheless는 문어체에 가깝고, 회화에서는 **still / that said**가 자연스럽습니다.\n❌ However를 but과 함께 쓰지 않습니다 — 하나만."
             },
             {
               "en": "As a result / Therefore",
@@ -5373,7 +5373,7 @@
             {
               "en": "In contrast / On the contrary",
               "kr": "대조적으로",
-              "note": "**대조 연결**:\n**In contrast** = 대조적으로 (두 가지 비교)\n**On the contrary** = 오히려, 반대로 (앞 말을 부정 후 반대 내용)\n예: \"I hate coffee. **On the contrary**, I love tea.\""
+              "note": "**대조 연결**:\n**In contrast** = 대조적으로 (두 가지 비교)\n**On the contrary** = 오히려, 반대로 (앞 말을 부정 후 반대 내용)\n예: \"I hate coffee. **On the contrary**, I love tea.\"\n**In contrast**(두 대상 비교) ↔ **On the contrary**(앞말 부정)는 뜻이 다릅니다.\n❌ 둘을 바꿔 쓰면 논리가 뒤집힙니다."
             },
             {
               "en": "Let me elaborate on this point.",
@@ -5707,7 +5707,7 @@
       "sections": [
         {
           "title": "네이티브 일상 표현",
-          "intro": "원어민은 교과서 표현보다 **줄임말·관용어·속어**를 일상적으로 씁니다. 이 표현들을 알면 원어민 대화에서 당황하지 않고, 사용하면 \"교과서 영어\"에서 벗어난 자연스러운 모습을 보일 수 있습니다.",
+          "intro": "관용 표현은 **직역하면 뜻이 나오지 않습니다**. 뜻보다 중요한 것은 쓰는 자리로, 캐주얼한 표현을 격식 있는 회의에서 쓰면 가볍게 보일 수 있습니다. 먼저 알아듣는 것을 목표로 하고, 쓰는 것은 편한 자리부터 시작하세요.",
           "points": [
             {
               "en": "I'm on the fence. = 아직 결정 못 했어",
@@ -5722,7 +5722,7 @@
             {
               "en": "Let it go. = 그냥 잊어버려",
               "kr": "",
-              "note": "이미 일어난 일에 집착하지 말라는 조언.\n비슷한 표현:\n**\"Move on.\"** = 미련을 버려\n**\"Don't dwell on it.\"** = 그 일에 연연하지 마"
+              "note": "이미 일어난 일에 집착하지 말라는 조언.\n비슷한 표현:\n**\"Move on.\"** = 미련을 버려\n**\"Don't dwell on it.\"** = 그 일에 연연하지 마\nLet it go는 상황에 따라 위로도, 다소 무심한 반응도 됩니다.\n부드러운 대안: **Don't worry about it.** / **It's not worth stressing over.**"
             },
             {
               "en": "hit the sack = 자러 가다",
@@ -5732,7 +5732,7 @@
             {
               "en": "cold turkey = 단번에 끊다",
               "kr": "I quit coffee cold turkey",
-              "note": "서서히가 아니라 **단번에 완전히 끊다**.\n\"I quit smoking **cold turkey**.\" (담배를 단번에 끊었다)\n반대 표현:\n**gradually** = 서서히\n**wean off** = 조금씩 줄여가며 끊다"
+              "note": "서서히가 아니라 **단번에 완전히 끊다**.\n\"I quit smoking **cold turkey**.\" (담배를 단번에 끊었다)\n반대 표현:\n**gradually** = 서서히\n**wean off** = 조금씩 줄여가며 끊다\ncold turkey는 **부사처럼** 씁니다 — He quit smoking **cold turkey**.\n❌ He did cold turkey(X)."
             }
           ]
         }
@@ -5831,7 +5831,7 @@
       "sections": [
         {
           "title": "격식 vs 캐주얼",
-          "intro": "같은 내용을 말해도 **상황·청중·관계**에 따라 쓰는 표현이 달라집니다. 격식(formal)과 캐주얼(informal)의 차이를 알면 직장 동료와 친구, 낯선 이에게 모두 적절하게 말할 수 있습니다.",
+          "intro": "같은 내용도 **격식 수준**에 따라 완전히 다른 문장이 됩니다. 상대의 직급·친밀도·매체(이메일·메신저·대면)에 따라 조절해야 하며, 캐주얼 표현을 고객사 이메일에 쓰는 것이 대표적인 실수입니다.",
           "points": [
             {
               "en": "격식: I would like to request a change.",
@@ -5841,7 +5841,7 @@
             {
               "en": "캐주얼: Wanna grab a bite?",
               "kr": "want to → wanna / 뭐 먹으러 갈래?",
-              "note": "**캐주얼** 단축 표현:\n**wanna** (want to) / **gonna** (going to)\n**gotta** (got to) / **hafta** (have to)\n**kinda** (kind of)\n친한 친구·가족과의 대화에서 자연스럽습니다. 격식 자리에서는 금물!"
+              "note": "**캐주얼** 단축 표현:\n**wanna** (want to) / **gonna** (going to)\n**gotta** (got to) / **hafta** (have to)\n**kinda** (kind of)\n친한 친구·가족과의 대화에서 자연스럽습니다. 격식 자리에서는 금물!\nWanna / gonna는 **말할 때만** 쓰고 이메일에는 쓰지 않습니다.\n격식 버전: Would you like to **grab lunch**? → Shall we **have lunch**?"
             },
             {
               "en": "격식: I apologize for the inconvenience.",
@@ -5852,7 +5852,7 @@
         },
         {
           "title": "절제된 표현 (understatement)",
-          "intro": "특히 **영국식 영어**에서 직접적으로 말하기보다 **축소해서 표현**하는 경향이 강합니다. 겸손하게 말하는 것처럼 보이지만 실제로는 강한 의견을 담고 있습니다.",
+          "intro": "영미권, 특히 영국식 대화에서는 **일부러 약하게 말해 강한 뜻을 전달**하는 화법이 흔합니다. 문자 그대로 받아들이면 상대의 진짜 의도(강한 불만 또는 강한 칭찬)를 놓치게 됩니다.",
           "points": [
             {
               "en": "That's not bad at all. (= 꽤 좋다)",
@@ -5862,7 +5862,7 @@
             {
               "en": "It's a bit pricey. (= 많이 비싸다)",
               "kr": "a bit으로 완화",
-              "note": "**\"a bit\"** = 약간 (완화 표현). 실제로는 \"엄청 비싸다\"지만 a bit을 써서 완화.\n\"It's **a bit** cold.\" (꽤 춥다)\n\"I'm **slightly** tired.\" (상당히 피곤하다)\n영어 특유의 완곡 표현입니다."
+              "note": "**\"a bit\"** = 약간 (완화 표현). 실제로는 \"엄청 비싸다\"지만 a bit을 써서 완화.\n\"It's **a bit** cold.\" (꽤 춥다)\n\"I'm **slightly** tired.\" (상당히 피곤하다)\n영어 특유의 완곡 표현입니다.\na bit / a little을 붙이면 실제로는 **꽤 강한 불만**인 경우가 많습니다.\nIt's a bit pricey.(= 너무 비싸다) / I'm not entirely convinced.(= 반대합니다)"
             }
           ]
         }
@@ -5962,7 +5962,7 @@
       "sections": [
         {
           "title": "비즈니스",
-          "intro": "비즈니스 영어에서는 일반 어휘 대신 **전문 용어**를 써야 전문성이 느껴집니다. 회의·이메일·발표에서 자신감 있게 쓸 수 있도록 맥락과 함께 외워 두세요.",
+          "intro": "전문 어휘는 **분야마다 같은 단어가 다른 뜻**을 갖습니다. 뜻만 외우기보다 그 분야에서 함께 쓰는 동사·전치사까지 익혀야 회의에서 바로 꺼내 쓸 수 있습니다.",
           "points": [
             {
               "en": "ROI(투자수익률) / stakeholder(이해관계자) / deadline",
@@ -5972,18 +5972,18 @@
             {
               "en": "meet the deadline = 마감을 맞추다",
               "kr": "",
-              "note": "비즈니스 필수 표현:\n\"We need to **meet the deadline** by Friday.\"\n**Behind schedule** = 일정보다 늦고 있다\n**On track** = 계획대로 진행 중\n**Ahead of schedule** = 일정보다 앞서 있다"
+              "note": "비즈니스 필수 표현:\n\"We need to **meet the deadline** by Friday.\"\n**Behind schedule** = 일정보다 늦고 있다\n**On track** = 계획대로 진행 중\n**Ahead of schedule** = 일정보다 앞서 있다\n마감은 meet(맞추다) / miss(놓치다) / push back(미루다)와 짝을 이룹니다.\n❌ keep the deadline은 어색합니다 → ✅ **meet** the deadline."
             }
           ]
         },
         {
           "title": "기술 & 의료",
-          "intro": "기술(IT) 분야와 의료 분야에는 고유한 전문 어휘가 있습니다. 해당 분야에서 일하거나 대화할 때 이 어휘들을 자연스럽게 사용할 수 있어야 합니다.",
+          "intro": "기술·의료 용어는 대부분 그대로 한국에서도 쓰이지만 **발음과 강세가 달라** 통하지 않는 경우가 많습니다. 철자보다 강세 위치를 함께 확인하세요.",
           "points": [
             {
               "en": "algorithm / bandwidth / database",
               "kr": "This algorithm is efficient",
-              "note": "**IT 핵심 용어**:\n**algorithm** = 알고리즘 (문제 해결 절차)\n**bandwidth** = 대역폭 (데이터 전송 용량)\n**database** = 데이터베이스\n발음 주의: algorithm [ˈælɡərɪðəm]"
+              "note": "**IT 핵심 용어**:\n**algorithm** = 알고리즘 (문제 해결 절차)\n**bandwidth** = 대역폭 (데이터 전송 용량)\n**database** = 데이터베이스\n발음 주의: algorithm [ˈælɡərɪðəm]\n강세 위치가 한국식 발음과 다릅니다 — **AL**gorithm, **DA**tabase, **BAND**width.\n강세를 틀리면 철자를 알아도 전달되지 않습니다."
             },
             {
               "en": "symptom(증상) / diagnosis(진단)",
@@ -6088,12 +6088,12 @@
       "sections": [
         {
           "title": "은유 & 직유",
-          "intro": "**은유(metaphor)**와 **직유(simile)**는 창의적이고 생생한 표현을 만드는 도구입니다.\n은유: \"A는 B다\" 형태로 직접 동일시\n직유: \"A는 B처럼/같이\" 형태로 비교\n원어민은 대화 중에 이 표현들을 자연스럽게 씁니다.",
+          "intro": "은유는 어휘가 아니라 **사고 방식**입니다. 원어민의 글과 발표에는 비유가 촘촘히 깔려 있어, 이를 알아듣지 못하면 문장은 이해해도 뉘앙스를 놓칩니다. 직유(like/as)와 은유(직접 단정)의 차이도 함께 익히세요.",
           "points": [
             {
               "en": "Life is a journey. / Time is money.",
               "kr": "은유 (A는 B다)",
-              "note": "**은유(metaphor)**: A = B로 직접 동일시.\n**\"Life is a journey.\"** (인생은 여행)\n**\"Time is money.\"** (시간은 돈)\n**\"The world is a stage.\"** (세상은 무대)\n추상적 개념을 구체적으로 만들어 줍니다."
+              "note": "**은유(metaphor)**: A = B로 직접 동일시.\n**\"Life is a journey.\"** (인생은 여행)\n**\"Time is money.\"** (시간은 돈)\n**\"The world is a stage.\"** (세상은 무대)\n추상적 개념을 구체적으로 만들어 줍니다.\n은유는 단정(A is B), 직유는 like/as로 비교합니다.\n발표에서 하나만 잘 써도 기억에 남습니다 — Think of it **as** a safety net."
             },
             {
               "en": "as busy as a bee = 벌처럼 바쁜",
@@ -6108,7 +6108,7 @@
             {
               "en": "the life of the party = 분위기 메이커",
               "kr": "",
-              "note": "파티(모임)에 활기를 불어넣는 사람.\n\"She's **the life of the party**!\"\n반대: **\"a wallflower\"** = 벽에 붙어 파티에 녹아들지 못하는 수줍은 사람."
+              "note": "파티(모임)에 활기를 불어넣는 사람.\n\"She's **the life of the party**!\"\n반대: **\"a wallflower\"** = 벽에 붙어 파티에 녹아들지 못하는 수줍은 사람.\n사람을 칭찬하는 표현이라 자리 분위기를 밝게 만듭니다.\n반대 표현: **a wet blanket**(분위기 깨는 사람)."
             }
           ]
         }
@@ -6207,7 +6207,7 @@
       "sections": [
         {
           "title": "스몰토크",
-          "intro": "**스몰토크(small talk)**는 깊은 주제 없이 가볍게 나누는 대화입니다. 영어권 문화에서는 엘리베이터·대기줄·파티 등 어디서든 낯선 사람과 스몰토크를 나누는 것이 자연스럽습니다.",
+          "intro": "스몰토크는 정보 교환이 아니라 **관계를 여는 의식**입니다. 그래서 답이 짧고 정해져 있으며, 진지하게 길게 답하면 오히려 어색해집니다. 짧게 답하고 되묻는 왕복이 기본 형태입니다.",
           "points": [
             {
               "en": "Lovely weather, isn't it?",
@@ -6217,7 +6217,7 @@
             {
               "en": "How was your weekend?",
               "kr": "월요일 단골 인사",
-              "note": "월요일 아침 가장 흔한 인사.\n답변 패턴: \"**It was great/relaxing/pretty busy.** I went hiking.\"\n간단히 1~2문장으로 답하고 반드시 **\"What about you?\"** 로 되물어요."
+              "note": "월요일 아침 가장 흔한 인사.\n답변 패턴: \"**It was great/relaxing/pretty busy.** I went hiking.\"\n간단히 1~2문장으로 답하고 반드시 **\"What about you?\"** 로 되물어요.\nHow was your weekend?에는 **짧게 답하고 되묻는 것**이 규칙입니다.\n✅ Pretty relaxing, thanks. **How about yours?**"
             },
             {
               "en": "What's up? — Not much.",
@@ -6228,12 +6228,12 @@
         },
         {
           "title": "문화 차이",
-          "intro": "영어를 잘해도 **문화 차이**를 모르면 실수할 수 있습니다. 특히 팁 문화, 영미권 어휘 차이 등을 알아 두면 현지에서 당황하지 않습니다.",
+          "intro": "같은 영어라도 나라에 따라 **단어와 관습이 다릅니다**. 특히 팁·호칭·거리감은 실수하면 바로 티가 나므로, 상대의 지역을 알면 표현을 맞춰 주는 것이 좋습니다.",
           "points": [
             {
               "en": "In the US, people usually tip 15-20%.",
               "kr": "팁 문화",
-              "note": "미국·캐나다에서는 레스토랑·택시·미용실 등에서 **15~20%의 팁**이 기본입니다.\n영수증에 **\"Tip\" 또는 \"Gratuity\"** 칸이 있습니다.\n팁을 안 주면 실례입니다. 반면 일본·한국에는 팁 문화가 없습니다."
+              "note": "미국·캐나다에서는 레스토랑·택시·미용실 등에서 **15~20%의 팁**이 기본입니다.\n영수증에 **\"Tip\" 또는 \"Gratuity\"** 칸이 있습니다.\n팁을 안 주면 실례입니다. 반면 일본·한국에는 팁 문화가 없습니다.\n팁 문화는 나라마다 달라 금액보다 **관습 확인**이 먼저입니다.\n한국·일본은 팁이 없다는 점을 설명해 주면 좋은 스몰토크 소재가 됩니다."
             },
             {
               "en": "elevator(미국) vs lift(영국) / apartment vs flat",
