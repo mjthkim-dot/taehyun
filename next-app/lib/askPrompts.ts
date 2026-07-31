@@ -133,3 +133,77 @@ export function removeAskHistory(phrase: string) {
 export function clearAskHistory() {
   store(ASK_HISTORY_KEY, []);
 }
+
+/* ── 본문 문맥 질문(ContextAsk) ──────────────────────────────
+ * 기존 "꾹 눌러 물어보기"는 **영어 표현을 선택해야** 열린다. 그래서 한국어 설명을
+ * 읽다 생긴 의문("왜 여기선 the를 쓰죠?")이나 본문 전체에 대한 자유 질문은 물어볼
+ * 길이 없었다. 이 경로는 **지금 보고 있는 섹션 전체를 문맥으로 넘겨** 자유 질문을
+ * 받는다. 답이 본문을 벗어나면 그렇다고 밝히게 해서 지어내기를 막는다. */
+
+/** 본문을 읽다 자주 생기는 질문 — 입력이 막막할 때 한 번에 던질 수 있게 */
+export const ASK_SUGGESTIONS = [
+  '이 부분을 쉬운 말로 다시 설명해줘',
+  '예문을 2개만 더 보여줘',
+  '실제 회의에서는 어떻게 쓰나요?',
+  '비슷한 표현과 어떻게 다른가요?',
+];
+
+export interface AskContext {
+  /** 지금 보고 있는 단락의 제목(예: "① 관사 a / an / the") */
+  title: string;
+  /** 레슨 제목 — 답변 범위를 좁히는 데 쓴다 */
+  lessonTitle?: string;
+  /** 본문 원문(도입부 + 포인트 설명) */
+  body: string;
+}
+
+/**
+ * 문맥 + 자유 질문 → Groq 메시지. 이전 문답이 있으면 이어서 답하도록 함께 넘긴다.
+ * 본문은 길 수 있으므로 잘라서 보낸다(토큰 절약 + 응답 지연 방지).
+ */
+export function buildContextAskMessages(
+  ctx: AskContext,
+  question: string,
+  prev: { q: string; a: string }[] = []
+): { role: string; content: string }[] {
+  const cefr = getProfile().cefr;
+  const system = [
+    `너는 한국인 영어 학습자(현재 레벨 CEFR ${cefr})를 돕는 1:1 영어 튜터다.`,
+    '학습자가 지금 보고 있는 교재 본문을 함께 받는다. 그 본문을 먼저 근거로 삼아 답한다.',
+    '',
+    '반드시 아래 JSON 형식만 출력한다(코드블록·설명 없이 JSON 객체 하나만):',
+    '{',
+    '  "answer_ko": "한국어 설명 (2~5문장)",',
+    '  "examples": [ { "en": "영어 예문", "ko": "한국어 뜻" } ]',
+    '}',
+    '',
+    '규칙:',
+    '- answer_ko는 반드시 한국어. 본문에 있는 내용이면 그 표현을 그대로 인용해 설명한다.',
+    '- 본문에 없는 내용을 물으면 일반 지식으로 답하되, 첫 문장에 "본문에는 없지만"이라고 밝힌다.',
+    '- 모르면 모른다고 말한다. 지어내지 않는다.',
+    '- examples는 1~3개, 학습자 레벨에 맞는 난이도로. 예문이 필요 없는 질문이면 빈 배열.',
+    '- 한국어 화자가 자주 틀리는 지점이 있으면 ❌ 틀린 예 → ✅ 맞는 예 형태로 한 줄 덧붙인다.',
+  ].join('\n');
+
+  const body = ctx.body.length > 1200 ? `${ctx.body.slice(0, 1200)}…` : ctx.body;
+  const msgs: { role: string; content: string }[] = [{ role: 'system', content: system }];
+  // 이어지는 질문이면 직전 문답(최근 2턴)을 시간 순서대로 먼저 쌓는다.
+  for (const t of prev.slice(-2)) {
+    msgs.push({ role: 'user', content: t.q }, { role: 'assistant', content: t.a });
+  }
+  msgs.push({
+    role: 'user',
+    content: [
+      ctx.lessonTitle ? `레슨: ${ctx.lessonTitle}` : '',
+      `지금 보고 있는 단락: ${ctx.title}`,
+      '=== 본문 ===',
+      body,
+      '=== 끝 ===',
+      '',
+      `학습자의 질문: ${question.trim()}`,
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  });
+  return msgs;
+}

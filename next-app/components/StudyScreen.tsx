@@ -18,6 +18,7 @@ import {
   type Dialogue,
 } from '../lib/lessons';
 import Note from './Note';
+import ContextAsk from './ContextAsk';
 import SpeakButton, { stopSpeaking } from './SpeakButton';
 import { playDialogueAudio } from './DialoguePractice';
 import { PinIcon, CheckIcon } from './icons';
@@ -87,6 +88,16 @@ export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenPro
               )}
             </div>
           ))}
+          {/* 읽다가 생긴 의문을 그 자리에서 — 이 단락 전체가 문맥으로 넘어간다 */}
+          <ContextAsk
+            ctx={{
+              title: sec.title,
+              lessonTitle: lesson.title,
+              body: [sec.intro || '', ...sec.points.map((p) => `${p.en}${p.kr ? ` (${p.kr})` : ''}\n${p.note || ''}`)]
+                .filter(Boolean)
+                .join('\n\n'),
+            }}
+          />
         </div>
       ))}
 

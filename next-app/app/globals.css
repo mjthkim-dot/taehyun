@@ -4560,3 +4560,143 @@ body,
 }
 .review-tip { font-size: 0.76rem; color: var(--text-muted); line-height: 1.6; margin-top: 3px; }
 .mini-btn.accent { border-color: var(--primary); color: var(--primary); }
+
+/* ── 본문 문맥 질문(ContextAsk) ──────────────────────────────
+   본문 카드 안에 접혀 있다가 펼쳐지는 인라인 질문창. 화면을 가리는 시트가 아니라
+   '읽던 자리 바로 아래'에 열려, 본문과 답변을 함께 보며 이어 물을 수 있다. */
+.ctx-ask-open {
+  width: 100%;
+  margin-top: 14px;
+  padding: 10px;
+  border-radius: 999px;
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.ctx-ask-open:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.ctx-ask {
+  margin-top: 14px;
+  padding: 13px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+[data-theme='dark'] .ctx-ask {
+  border-color: rgba(47, 227, 164, 0.22);
+}
+.ctx-ask-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.ctx-ask-title {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--primary);
+}
+.ctx-ask-close {
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.ctx-ask-turn {
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.ctx-ask-q {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text);
+  padding-left: 10px;
+  border-left: 2px solid var(--primary);
+  margin-bottom: 7px;
+}
+.ctx-ask-a {
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+.ctx-ask-examples {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.ctx-ask-example {
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.ctx-ask-example-en {
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ctx-ask-example-ko {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.ctx-ask-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.ctx-ask-chip {
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.ctx-ask-chip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.ctx-ask-chip:disabled { opacity: 0.5; cursor: default; }
+.ctx-ask-error {
+  font-size: 0.76rem;
+  color: var(--red);
+  line-height: 1.55;
+  margin-bottom: 8px;
+}
+.ctx-ask-input {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.ctx-ask-input .text-input {
+  font-size: 0.82rem;
+  padding: 9px 13px;
+  border-width: 1px;
+}
+.ctx-ask-send {
+  flex: 0 0 auto;
+  padding: 9px 16px;
+  font-size: 0.8rem;
+}
