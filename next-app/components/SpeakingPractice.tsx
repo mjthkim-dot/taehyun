@@ -65,6 +65,8 @@ export default function SpeakingPractice({
   const [sttState, setSttState] = useState<'idle' | 'recording' | 'transcribing'>('idle');
   /** 인식 결과가 비었을 때의 안내 — 아무 반응이 없으면 고장으로 보인다 */
   const [sttHint, setSttHint] = useState('');
+  /** 녹음 중 마이크 입력 레벨(0~1) — 소리가 잡히는지 눈으로 확인시켜 준다 */
+  const [micLevel, setMicLevel] = useState(0);
   /** 녹음을 밖에서 멈추기 위한 핸들(사용자가 '멈추기'를 누를 때) */
   const stopWhisperRef = useRef<(() => void) | null>(null);
 
@@ -164,28 +166,50 @@ export default function SpeakingPractice({
     setListening(true);
     setSttState('recording');
     try {
-      const { text } = await recordAndTranscribe({
+      const { text, reason, peak } = await recordAndTranscribe({
         prompt: currentSentence,
         onState: (st) => setSttState(st),
+        onLevel: (rms) => setMicLevel(Math.min(1, rms * 12)),
         registerStop: (fn) => {
           stopWhisperRef.current = fn;
         },
       });
       setSttState('idle');
       setListening(false);
+      setMicLevel(0);
       stopWhisperRef.current = null;
       if (text) {
         setSttHint('');
         setUserSpeech(text);
         evaluateSpeech(text);
-      } else {
-        setSttHint('소리가 잡히지 않았어요 — 마이크 권한과 볼륨을 확인하고 다시 말해보세요.');
+        return true;
       }
+      // 결과가 비었다 — 원인을 구분해 안내하고, 마이크는 잡혔는데 인식만 실패한
+      // 경우에는 브라우저 내장 인식으로 한 번 더 시도한다(여기서 포기하지 않는다).
+      if (reason === 'empty-result') {
+        setSttHint('말소리는 잡혔는데 인식하지 못했어요 — 조금 더 또렷하게 다시 말해보세요.');
+        return false; // 폴백 경로로 재시도
+      }
+      setSttHint(
+        (peak ?? 0) > 0.001
+          ? '소리가 너무 작아요 — 마이크에 가까이서 다시 말해보세요.'
+          : '마이크에서 소리가 잡히지 않았어요 — 권한과 음소거를 확인해 주세요.'
+      );
       return true;
-    } catch {
+    } catch (err) {
       setSttState('idle');
       setListening(false);
+      setMicLevel(0);
       stopWhisperRef.current = null;
+      // 원인을 숨기지 않는다 — 권한 거부와 서버 오류는 대처가 다르다
+      const msg = (err as Error)?.message || '';
+      setSttHint(
+        /NotAllowed|Permission/i.test(msg)
+          ? '마이크 권한이 거부됐어요 — 브라우저 설정에서 허용해 주세요.'
+          : msg
+            ? `음성 인식 오류: ${msg}`
+            : ''
+      );
       return false;
     }
   }, [clearAttempt, currentSentence, setListening, setUserSpeech, evaluateSpeech]);
@@ -288,6 +312,12 @@ export default function SpeakingPractice({
       >
         {sttState === 'transcribing' ? '인식 중…' : isListening ? '멈추기' : attempts > 0 ? '다시 말하기' : '말하기'}
       </button>
+
+      {sttState === 'recording' && (
+        <div className="mic-level" aria-hidden="true">
+          <i style={{ transform: `scaleX(${Math.max(0.02, micLevel)})` }} />
+        </div>
+      )}
 
       {sttHint && (
         <p className="muted" style={{ fontSize: '0.78rem', marginTop: 6, lineHeight: 1.55 }}>{sttHint}</p>

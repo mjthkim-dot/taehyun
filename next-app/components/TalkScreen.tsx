@@ -297,7 +297,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   async function startWhisperTurn(): Promise<boolean> {
     try {
       setInterim('듣고 있어요…');
-      const { text } = await recordAndTranscribe({
+      const { text, reason, peak } = await recordAndTranscribe({
         onState: (st) => setInterim(st === 'transcribing' ? '인식 중…' : '듣고 있어요…'),
         registerStop: (fn) => {
           whisperStopRef.current = fn;
@@ -311,15 +311,27 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
         bumpSpoken();
         handleSend(text);
       } else if (!isProcessingRef.current) {
+        // 마이크에 소리가 전혀 안 잡히면 조용히 반복해봐야 소용없다 — 한 번 알린다.
+        if (reason === 'no-audio' || (reason === 'silent' && (peak ?? 0) < 0.001)) {
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.kind === 'system' && last.text.includes('마이크에서 소리가')) return prev;
+            return [...prev, { id: nextId(), kind: 'system', text: '🎙️ 마이크에서 소리가 잡히지 않았어요. 권한과 음소거를 확인해 주세요.' }];
+          });
+        }
         // 아무 말도 하지 않은 채 끝났으면 조용히 다시 듣는다
         setTimeout(() => {
           if (micOnRef.current && !isProcessingRef.current) startListening();
         }, 200);
       }
       return true;
-    } catch {
+    } catch (err) {
       whisperStopRef.current = null;
       setInterim('');
+      const msg = (err as Error)?.message || '';
+      if (msg && !/NotAllowed|Permission/i.test(msg)) {
+        setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: `음성 인식 오류: ${msg}` }]);
+      }
       return false;
     }
   }

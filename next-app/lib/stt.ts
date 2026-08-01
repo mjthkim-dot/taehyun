@@ -30,6 +30,10 @@ export interface SttResult {
   text: string;
   /** 어느 경로로 인식했는지 — 진단·폴백 안내에 쓴다 */
   via: 'whisper' | 'webspeech';
+  /** 결과가 비었을 때 원인을 구분한다(무음인지, 레벨 감지가 아예 안 됐는지) */
+  reason?: 'ok' | 'no-audio' | 'silent' | 'empty-result';
+  /** 녹음 중 관측된 최대 입력 레벨 — 마이크가 죽었는지 판단하는 근거 */
+  peak?: number;
 }
 
 export class SttError extends Error {}
@@ -64,6 +68,8 @@ export async function recordAndTranscribe(opts: {
   /** 인식 힌트 — 연습 중인 문장을 주면 고유명사·전문어 정확도가 올라간다 */
   prompt?: string;
   onState?: (s: SttState) => void;
+  /** 녹음 중 마이크 입력 레벨(0~1) — 소리가 잡히는지 사용자에게 보여주는 데 쓴다 */
+  onLevel?: (rms: number) => void;
   /** 호출하면 즉시 녹음을 끝낸다 */
   registerStop?: (stop: () => void) => void;
 } = {}): Promise<SttResult> {
@@ -114,6 +120,7 @@ export async function recordAndTranscribe(opts: {
 
   const started = Date.now();
   let lastLoud = 0; // 마지막으로 소리가 감지된 시각(0 = 아직 한 번도 말하지 않음)
+  let peak = 0; // 관측된 최대 레벨 — 마이크가 아예 안 잡히는지 판단하는 근거
   const timer = setInterval(() => {
     if (stopped) return;
     const elapsed = Date.now() - started;
@@ -128,6 +135,8 @@ export async function recordAndTranscribe(opts: {
       let sum = 0;
       for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
       const rms = Math.sqrt(sum / buf.length);
+      if (rms > peak) peak = rms;
+      opts.onLevel?.(rms);
       if (rms > RMS_THRESHOLD) {
         lastLoud = Date.now();
         return;
@@ -149,10 +158,17 @@ export async function recordAndTranscribe(opts: {
   // 전송 여부는 **녹음이 실제로 담겼는가**로만 판단한다.
   // 레벨 감지는 '언제 멈출지'를 정할 뿐이며, 감지에 실패했다고 녹음을 버리면
   // 조용한 마이크·suspended 컨텍스트에서 아무 일도 일어나지 않는다(실제 결함).
-  if (blob.size < 1200) return { text: '', via: 'whisper' };
+  if (blob.size < 1200) return { text: '', via: 'whisper', reason: 'no-audio', peak };
 
   opts.onState?.('transcribing');
-  return { text: await transcribe(blob, opts.prompt), via: 'whisper' };
+  const text = await transcribe(blob, opts.prompt);
+  return {
+    text,
+    via: 'whisper',
+    // 소리는 잡혔는데 텍스트가 비면 '들리지 않은 것', 레벨 자체가 낮았으면 '무음'
+    reason: text ? 'ok' : peak > RMS_THRESHOLD ? 'empty-result' : 'silent',
+    peak,
+  };
 }
 
 /** MIME 타입에 맞는 파일명 — Whisper는 확장자로 포맷을 판별하므로 거짓말하면 안 된다. */

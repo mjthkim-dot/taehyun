@@ -221,5 +221,77 @@ check('suspended 상태여도 서버로 전송된다', iosCalls === 1, String(io
 check('iOS 녹음은 mp4 확장자로 전송', iosBody.includes('speech.mp4'), iosBody.slice(0, 0) || 'filename 확인');
 check('webm으로 속이지 않음', !iosBody.includes('speech.webm'));
 
+/* ── ⑤ 인식 결과가 비면 포기하지 않고 브라우저 인식으로 한 번 더 시도한다 ── */
+const empty = await browser.newPage();
+empty.on('pageerror', (e) => console.log('  [pageerror]', e.message));
+await empty.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ valid: true }) }));
+await empty.route('**/app/api/groq', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{}' } }] }) }));
+await empty.route('**/app/api/stt', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: '' }) }));
+await seedKey(empty);
+await empty.addInitScript(MIC_STUB);
+await empty.addInitScript(() => {
+  class FakeSR {
+    start() {
+      setTimeout(() => {
+        const results = [{ 0: { transcript: 'Second attempt worked.' }, isFinal: true, length: 1 }];
+        results.length = 1;
+        this.onresult?.({ resultIndex: 0, results });
+        this.onend?.();
+      }, 80);
+    }
+    stop() { this.onend?.(); }
+    abort() {}
+  }
+  window.SpeechRecognition = FakeSR;
+  window.webkitSpeechRecognition = FakeSR;
+});
+await empty.goto(`${BASE}/app`);
+await empty.waitForSelector('.mission-practice .mic', { timeout: 15000 });
+await empty.click('.mission-practice .mic');
+await empty.waitForFunction(() => (document.querySelector('.transcript p')?.textContent || '').includes('Second attempt'), { timeout: 20000 });
+check('빈 결과면 브라우저 인식으로 재시도', (await empty.evaluate(() => document.querySelector('.transcript p')?.textContent || '')).includes('Second attempt'));
+
+/* ── ⑥ 마이크에 소리가 전혀 없으면 원인을 안내한다(조용히 실패하지 않음) ── */
+const quiet = await browser.newPage();
+quiet.on('pageerror', (e) => console.log('  [pageerror]', e.message));
+await quiet.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ valid: true }) }));
+await quiet.route('**/app/api/groq', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{}' } }] }) }));
+let quietCalls = 0;
+await quiet.route('**/app/api/stt', (r) => {
+  quietCalls++;
+  return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: '' }) });
+});
+await seedKey(quiet);
+await quiet.addInitScript(() => {
+  navigator.mediaDevices = navigator.mediaDevices || {};
+  navigator.mediaDevices.getUserMedia = async () => ({ getTracks: () => [{ stop() {} }] });
+  class Analyser {
+    constructor() { this.fftSize = 1024; }
+    getFloatTimeDomainData(buf) { buf.fill(0); } // 완전 무음(마이크 음소거 등)
+  }
+  class Ctx {
+    constructor() { this.state = 'running'; }
+    createAnalyser() { return new Analyser(); }
+    createMediaStreamSource() { return { connect() {} }; }
+    resume() { return Promise.resolve(); }
+    close() { return Promise.resolve(); }
+  }
+  window.AudioContext = Ctx;
+  class Rec {
+    constructor() { this.mimeType = 'audio/webm'; }
+    static isTypeSupported() { return true; }
+    start() { setTimeout(() => this.ondataavailable?.({ data: new Blob([new Uint8Array(4096)], { type: 'audio/webm' }) }), 20); }
+    stop() { setTimeout(() => this.onstop?.(), 20); }
+  }
+  window.MediaRecorder = Rec;
+  delete window.SpeechRecognition;
+  delete window.webkitSpeechRecognition;
+});
+await quiet.goto(`${BASE}/app`);
+await quiet.waitForSelector('.mission-practice .mic', { timeout: 15000 });
+await quiet.click('.mission-practice .mic');
+await quiet.waitForFunction(() => (document.body.textContent || '').includes('소리가'), { timeout: 20000 });
+check('무음이면 원인을 화면에 안내', (await quiet.evaluate(() => document.body.textContent || '')).includes('소리가'));
+
 await browser.close();
 finish('20-stt');

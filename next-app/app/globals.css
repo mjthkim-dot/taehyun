@@ -4700,3 +4700,21 @@ body,
   padding: 9px 16px;
   font-size: 0.8rem;
 }
+
+/* 마이크 입력 레벨 — 녹음 중 소리가 실제로 잡히는지 눈으로 확인시켜 준다.
+   "말했는데 아무 반응이 없다"는 상황에서 마이크 문제인지 인식 문제인지 가른다. */
+.mic-level {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface2);
+  overflow: hidden;
+  margin-top: 8px;
+}
+.mic-level > i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  background: var(--primary);
+  transition: transform 0.08s linear;
+}
