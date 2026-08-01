@@ -25,13 +25,25 @@ export function finish(title) {
   process.exit(failures ? 1 : 0);
 }
 
-/** 로컬(PLAYWRIGHT_BROWSERS_PATH)·CI 어디서든 뜨도록 폴백 포함 런치. */
+/** 로컬(PLAYWRIGHT_BROWSERS_PATH)·CI 어디서든 뜨도록 폴백 포함 런치.
+ *  모든 페이지에서 첫 실행 온보딩을 기본으로 건너뛴다 — 각 테스트는 자기 기능을
+ *  검증해야지 온보딩을 통과하는 데 줄을 쓰면 안 된다.
+ *  온보딩 자체를 보려면 테스트에서 va_onboarded를 지우면 된다(22-onboarding). */
 export async function launch() {
-  try {
-    return await chromium.launch();
-  } catch {
-    return await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
-  }
+  const browser = await (async () => {
+    try {
+      return await chromium.launch();
+    } catch {
+      return await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+    }
+  })();
+  const orig = browser.newPage.bind(browser);
+  browser.newPage = async (opts) => {
+    const page = await orig(opts);
+    await page.addInitScript(() => localStorage.setItem('va_onboarded', 'true'));
+    return page;
+  };
+  return browser;
 }
 
 /** Groq 채팅 프록시 mock — 스트림/논스트림 모두 고정 응답. */

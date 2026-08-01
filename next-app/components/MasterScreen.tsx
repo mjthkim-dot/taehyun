@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { APP_NAME_KO, APP_TAGLINE_KO } from '../lib/brand';
-import { getProfile, calcStreak, todayCount, spokenToday, dueWeak, groqKey, isPlaced, getPhrases, DAILY_GOAL, SERVER_GROQ_SENTINEL, hasServerGroqKey, clearGroqKey } from '../lib/state';
+import { getProfile, calcStreak, todayCount, spokenToday, dueWeak, groqKey, isPlaced, getPhrases, DAILY_GOAL, dailyGoal, SERVER_GROQ_SENTINEL, hasServerGroqKey, clearGroqKey } from '../lib/state';
 import { validateGroqKey } from '../lib/groq';
 import DailyMissionCard from './DailyMissionCard';
 import DailyQuests from './DailyQuests';
@@ -62,8 +62,9 @@ export default function MasterScreen({
   const dueCount = dueWeak().length;
   const phraseCount = getPhrases().length;
   // 스픽 벤치마크: '공부 횟수'가 아니라 '소리 내어 말한 문장 수'를 오늘의 1급 지표로.
-  const goalPct = Math.min(spoken / DAILY_GOAL, 1);
-  const goalReached = spoken >= DAILY_GOAL;
+  const goal = dailyGoal();
+  const goalPct = Math.min(spoken / goal, 1);
+  const goalReached = spoken >= goal;
   const R = 26;
   const C = 2 * Math.PI * R;
   const off = C * (1 - goalPct);
@@ -130,7 +131,7 @@ export default function MasterScreen({
           <div className="stat-hero-label">{goalReached ? '오늘 목표 달성' : '오늘 말한 문장'}</div>
           <div className="stat-hero-num">
             <b>{spoken}</b>
-            <span>/ {DAILY_GOAL}</span>
+            <span>/ {goal}</span>
           </div>
           <div className="stat-hero-sub">
             연습 {done}회 · 🔥 {streak}일 연속{freeze > 0 ? ` · ❄️ ${freeze}` : ''}

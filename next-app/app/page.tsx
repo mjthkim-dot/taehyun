@@ -39,6 +39,7 @@ import BusinessScreen from '../components/BusinessScreen';
 import ThemeToggle from '../components/ThemeToggle';
 import UpdatePrompt from '../components/UpdatePrompt';
 import AskWidget from '../components/AskWidget';
+import Onboarding, { needsOnboarding } from '../components/Onboarding';
 import { calcStreak } from '../lib/state';
 import { APP_VERSION } from '../lib/version';
 
@@ -98,6 +99,9 @@ export default function Page() {
   const [streak, setStreak] = useState<number | null>(null);
   // 홈의 "⚡ 오늘의 훈련"으로 들어왔을 때만 true — 드릴 큐에 오늘 복습할 SRS 문장을 섞는다.
   const [autoDrill, setAutoDrill] = useState(false);
+  // 첫 실행이면 온보딩을 먼저 띄운다(마운트 후 판단 — SSR 하이드레이션 불일치 방지)
+  const [onboarding, setOnboarding] = useState(false);
+  useEffect(() => setOnboarding(needsOnboarding()), []);
 
   function setMode(m: Mode) {
     setAutoDrill(false);
@@ -113,6 +117,18 @@ export default function Page() {
 
   const screen = SCREENS[mode];
   const ctx: ScreenCtx = { lessonId, autoDrill, setLessonId, setMode, startTodayDrill };
+
+  if (onboarding) {
+    return (
+      <Onboarding
+        onDone={() => setOnboarding(false)}
+        onPlacement={() => {
+          setOnboarding(false);
+          setModeRaw('placement');
+        }}
+      />
+    );
+  }
 
   return (
     <main className="app-shell">

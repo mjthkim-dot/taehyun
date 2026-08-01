@@ -4842,3 +4842,84 @@ body,
 .wr-next:hover { border-color: var(--primary); }
 .wr-next-title { display: block; font-size: 0.84rem; font-weight: 800; }
 .wr-next-sub { display: block; font-size: 0.74rem; color: var(--text-muted); margin-top: 2px; }
+
+/* ── 첫 실행 온보딩(Onboarding) ──────────────────────────────
+   앱 셸을 대신 차지하는 전체 화면. 3단계(소개 → AI 연결 → 목표)로 짧게 끝내고,
+   모든 단계에서 건너뛸 수 있게 한다 — 온보딩이 벽이 되면 안 된다. */
+.onb {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 18px calc(env(safe-area-inset-bottom, 0px) + 24px);
+  background: var(--bg);
+}
+.onb-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 26px 22px 22px;
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+[data-theme='dark'] .onb-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) 45%), var(--surface);
+}
+.onb-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 20px; }
+.onb-dots i {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--border-strong);
+  transition: width 0.25s, background 0.25s;
+}
+.onb-dots i.on { width: 20px; border-radius: 999px; background: var(--primary); }
+.onb-logo {
+  width: 56px; height: 56px; margin: 0 auto 14px;
+  border-radius: 18px;
+  display: grid; place-items: center;
+  font-size: 0.95rem; font-weight: 800; letter-spacing: 0.04em;
+  background: var(--grad-primary);
+  color: var(--on-primary);
+}
+.onb-card h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: 6px; }
+.onb-lead { font-size: 0.86rem; color: var(--primary); font-weight: 700; margin-bottom: 14px; }
+.onb-body { font-size: 0.85rem; line-height: 1.7; color: var(--text-muted); margin-bottom: 18px; text-align: left; }
+.onb-steps {
+  text-align: left; margin: 0 0 16px; padding-left: 18px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.onb-steps li { font-size: 0.79rem; color: var(--text-muted); line-height: 1.55; }
+.onb-steps a { color: var(--primary); font-weight: 700; }
+.onb-keyrow { display: flex; gap: 8px; margin-bottom: 12px; }
+.onb-keysave { flex: 0 0 auto; padding: 11px 16px; font-size: 0.84rem; }
+.onb-err {
+  font-size: 0.78rem; color: var(--red); line-height: 1.55;
+  text-align: left; margin-bottom: 10px;
+}
+.onb-ok {
+  font-size: 0.8rem; font-weight: 700; color: var(--green-dk);
+  background: var(--green-soft); border: 1px solid var(--green);
+  border-radius: var(--radius-sm); padding: 9px 12px; margin-bottom: 14px;
+}
+.onb-goals { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.onb-goal {
+  text-align: left; padding: 13px 15px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  cursor: pointer;
+}
+.onb-goal.on { border-color: var(--primary); background: var(--primary-soft); }
+.onb-goal b { display: block; font-size: 0.9rem; font-weight: 800; }
+.onb-goal.on b { color: var(--primary); }
+.onb-goal span { display: block; font-size: 0.76rem; color: var(--text-muted); margin-top: 2px; }
+.onb-next { width: 100%; }
+.onb-skip {
+  display: block; width: 100%; margin-top: 12px;
+  background: none; border: none; cursor: pointer;
+  font-size: 0.78rem; color: var(--text-muted); font-weight: 600;
+  line-height: 1.5;
+}
+.onb-skip:hover { color: var(--primary); }

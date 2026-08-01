@@ -82,6 +82,12 @@ export function bumpSkill(skill: SkillKey, sessionGse: number) {
 
 export const DAILY_GOAL = 20;
 
+/** 사용자가 온보딩에서 고른 하루 목표(문장 수). 없으면 기본값. */
+export function dailyGoal(): number {
+  const v = load<number>('va_daily_goal', DAILY_GOAL);
+  return typeof v === 'number' && v > 0 ? v : DAILY_GOAL;
+}
+
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
