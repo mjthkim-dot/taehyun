@@ -17,6 +17,20 @@ check('groq 정상 형태·무키 → 401', (await post('/app/api/groq', { messa
 check('tts 600자 초과 → 413', (await post('/app/api/tts', { text: 'y'.repeat(700) })) === 413);
 check('tts text 없음 → 400', (await post('/app/api/tts', {})) === 400);
 
+// stt — 오디오 없음/과대/무키. multipart라 별도 헬퍼로 보낸다.
+const postForm = async (path, form) => (await fetch(`${BASE}${path}`, { method: 'POST', body: form })).status;
+check('stt 오디오 없음 → 400', (await postForm('/app/api/stt', new FormData())) === 400);
+{
+  const big = new FormData();
+  big.append('audio', new Blob([new Uint8Array(5 * 1024 * 1024)], { type: 'audio/webm' }), 'a.webm');
+  check('stt 4MB 초과 → 413', (await postForm('/app/api/stt', big)) === 413);
+}
+{
+  const ok = new FormData();
+  ok.append('audio', new Blob([new Uint8Array(2048)], { type: 'audio/webm' }), 'a.webm');
+  check('stt 정상 형태·무키 → 401', (await postForm('/app/api/stt', ok)) === 401);
+}
+
 // rate limit: 분당 30회 — 위 3회 포함 최대 40회 안에 429가 나와야 한다.
 let saw429 = false;
 for (let i = 0; i < 37; i++) {

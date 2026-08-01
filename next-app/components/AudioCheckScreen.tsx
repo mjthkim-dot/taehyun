@@ -11,6 +11,7 @@ import { APP_VERSION } from '../lib/version';
 import { groqKey, SERVER_GROQ_SENTINEL, clearGroqKey } from '../lib/state';
 import { validateGroqKey } from '../lib/groq';
 import { primeAudio, playUrl } from './SpeakButton';
+import { transcribe } from '../lib/stt';
 
 interface StepResult {
   name: string;
@@ -189,6 +190,43 @@ export default function AudioCheckScreen() {
       push({ name: '신경망 음성 재생', ok: null, detail: '건너뜀(TTS 호출 실패)' });
     }
 
+    // 4.5) 음성 인식(Whisper) — 마이크 권한 → 녹음 → 서버 변환까지 실제로 해본다.
+    //      말하기 채점이 안 될 때 원인이 마이크인지 키인지 여기서 갈린다.
+    try {
+      const hasMic = !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined';
+      if (!hasMic) {
+        push({ name: '음성 인식(마이크)', ok: null, detail: '이 브라우저는 녹음을 지원하지 않아요 — 브라우저 내장 인식으로 동작합니다' });
+      } else {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const rec = new MediaRecorder(stream);
+        const chunks: BlobPart[] = [];
+        rec.ondataavailable = (e) => e.data.size > 0 && chunks.push(e.data);
+        const blob = await new Promise<Blob>((resolve) => {
+          rec.onstop = () => resolve(new Blob(chunks, { type: rec.mimeType || 'audio/webm' }));
+          rec.start();
+          setTimeout(() => rec.stop(), 1500); // 1.5초 녹음 — "Hello, testing." 정도면 충분
+        });
+        stream.getTracks().forEach((t) => t.stop());
+        const text = await transcribe(blob, 'This is a microphone test.');
+        push({
+          name: '음성 인식(마이크)',
+          ok: true,
+          detail: text
+            ? `정상 · 인식 결과: "${text}"`
+            : `녹음 ${(blob.size / 1024).toFixed(1)}KB 전송 성공 (말을 하지 않아 결과는 비어 있음)`,
+        });
+      }
+    } catch (e) {
+      const msg = (e as Error).message || String(e);
+      push({
+        name: '음성 인식(마이크)',
+        ok: false,
+        detail: /NotAllowed|Permission/i.test(msg)
+          ? '마이크 권한이 거부됐어요 — 브라우저 설정에서 이 사이트의 마이크를 허용해 주세요'
+          : `실패: ${msg}`,
+      });
+    }
+
     // 5) 브라우저 폴백 음성 — 신경망이 죽었을 때 대신 소리를 내는 경로
     const synth = window.speechSynthesis;
     if (synth) {
@@ -237,7 +275,7 @@ export default function AudioCheckScreen() {
         <h3>음성 진단</h3>
         <p className="muted" style={{ fontSize: '0.8rem', lineHeight: 1.6, marginBottom: 12 }}>
           소리가 나지 않을 때, 오디오 체인의 어느 단계에서 끊기는지 이 기기에서 직접 확인합니다.
-          진단 중 비프음 1번과 영어 음성 2번이 재생됩니다 — 미디어 볼륨을 켜고,
+          진단 중 비프음 1번과 영어 음성 2번이 재생되고, 마이크로 1.5초 녹음합니다 — 미디어 볼륨을 켜고,
           iPhone이라면 측면 무음 스위치가 꺼져 있는지 먼저 확인하세요.
         </p>
         <button className="btn primary" style={{ width: '100%', marginBottom: 14 }} onClick={run} disabled={running}>

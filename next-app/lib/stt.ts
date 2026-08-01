@@ -1,0 +1,156 @@
+'use client';
+
+/**
+ * 음성 인식(STT) — Groq Whisper 경로.
+ *
+ * 브라우저 내장 Web Speech는 기기마다 정확도가 들쭉날쭉하고 iOS 설치형 PWA에서
+ * 아예 동작하지 않기도 한다. 그래서 **녹음 → 서버 프록시 → Whisper** 경로를
+ * 기본으로 쓰고, 마이크나 키를 쓸 수 없을 때만 기존 Web Speech로 물러난다.
+ *
+ * Whisper는 실시간 스트리밍이 아니라 **한 덩어리를 받아 변환**한다. 그래서
+ * "언제 말이 끝났는가"를 앱이 판단해야 하고, 여기서는 오디오 레벨(RMS)을 재
+ * 일정 시간 조용하면 자동으로 멈춘다(사용자가 버튼을 두 번 누르지 않아도 되게).
+ */
+import { groqKey, SERVER_GROQ_SENTINEL } from './state';
+
+/** 무음이 이만큼 이어지면 발화가 끝난 것으로 본다 */
+const SILENCE_MS = 1200;
+/** 말을 시작하기 전 기다려 주는 시간 — 이 안에 아무 소리도 없으면 종료 */
+const LEAD_SILENCE_MS = 4000;
+/** 안전장치: 아무리 길어도 여기서 끊는다(요금·용량 보호) */
+const MAX_MS = 30_000;
+/** 이 값보다 크면 '말하는 중'으로 본다. 마이크 감도 편차를 감안한 보수적 기준. */
+const RMS_THRESHOLD = 0.012;
+
+export type SttState = 'recording' | 'transcribing';
+
+export interface SttResult {
+  text: string;
+  /** 어느 경로로 인식했는지 — 진단·폴백 안내에 쓴다 */
+  via: 'whisper' | 'webspeech';
+}
+
+export class SttError extends Error {}
+
+/** 이 기기에서 Whisper 경로를 쓸 수 있는가(마이크 API + 키). */
+export function whisperAvailable(): boolean {
+  if (typeof window === 'undefined') return false;
+  const hasMic = !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined';
+  return hasMic && !!groqKey();
+}
+
+/** 서버 키만 있는 배포에서도 키 문자열을 그대로 실어 보내지 않도록 구분한다. */
+function localKeyOrUndefined(): string | undefined {
+  const k = groqKey();
+  return k && k !== SERVER_GROQ_SENTINEL ? k : undefined;
+}
+
+function pickMimeType(): string | undefined {
+  if (typeof MediaRecorder === 'undefined') return undefined;
+  // iOS Safari는 mp4(aac), 그 외는 대체로 webm(opus)을 지원한다.
+  for (const t of ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']) {
+    if (MediaRecorder.isTypeSupported?.(t)) return t;
+  }
+  return undefined;
+}
+
+/**
+ * 마이크를 열어 말이 끝날 때까지 녹음한 뒤 Whisper로 변환한다.
+ * stopSignal로 사용자가 직접 멈출 수도 있다(버튼 다시 누르기).
+ */
+export async function recordAndTranscribe(opts: {
+  /** 인식 힌트 — 연습 중인 문장을 주면 고유명사·전문어 정확도가 올라간다 */
+  prompt?: string;
+  onState?: (s: SttState) => void;
+  /** 호출하면 즉시 녹음을 끝낸다 */
+  registerStop?: (stop: () => void) => void;
+} = {}): Promise<SttResult> {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const mimeType = pickMimeType();
+  const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  const chunks: BlobPart[] = [];
+  rec.ondataavailable = (e) => {
+    if (e.data.size > 0) chunks.push(e.data);
+  };
+
+  opts.onState?.('recording');
+
+  // ── 무음 감지: 오디오 레벨을 재서 말이 끝났는지 판단한다 ──
+  const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  const audioCtx = Ctx ? new Ctx() : null;
+  const analyser = audioCtx ? audioCtx.createAnalyser() : null;
+  if (audioCtx && analyser) {
+    analyser.fftSize = 1024;
+    audioCtx.createMediaStreamSource(stream).connect(analyser);
+  }
+  const buf = analyser ? new Float32Array(analyser.fftSize) : null;
+
+  let stopped = false;
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    try {
+      rec.stop();
+    } catch {
+      /* 이미 멈춤 */
+    }
+  };
+  opts.registerStop?.(stop);
+
+  const started = Date.now();
+  let lastLoud = 0; // 마지막으로 소리가 감지된 시각(0 = 아직 한 번도 말하지 않음)
+  const timer = setInterval(() => {
+    if (stopped) return;
+    const elapsed = Date.now() - started;
+    if (elapsed > MAX_MS) return stop();
+    if (analyser && buf) {
+      analyser.getFloatTimeDomainData(buf);
+      let sum = 0;
+      for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+      const rms = Math.sqrt(sum / buf.length);
+      if (rms > RMS_THRESHOLD) {
+        lastLoud = Date.now();
+        return;
+      }
+    }
+    // 말을 시작한 뒤 조용해졌으면 종료, 시작조차 안 했으면 리드 타임까지 대기
+    if (lastLoud ? Date.now() - lastLoud > SILENCE_MS : elapsed > LEAD_SILENCE_MS) stop();
+  }, 150);
+
+  const blob = await new Promise<Blob>((resolve) => {
+    rec.onstop = () => resolve(new Blob(chunks, { type: rec.mimeType || 'audio/webm' }));
+    rec.start(250);
+  });
+
+  clearInterval(timer);
+  stream.getTracks().forEach((t) => t.stop());
+  audioCtx?.close().catch(() => {});
+
+  // 아무 말도 하지 않았으면 굳이 서버를 부르지 않는다
+  if (!lastLoud || blob.size < 1200) return { text: '', via: 'whisper' };
+
+  opts.onState?.('transcribing');
+  return { text: await transcribe(blob, opts.prompt), via: 'whisper' };
+}
+
+/** 녹음된 오디오를 서버 프록시로 보내 텍스트를 받는다. */
+export async function transcribe(blob: Blob, prompt?: string): Promise<string> {
+  const form = new FormData();
+  form.append('audio', blob, 'speech.webm');
+  const key = localKeyOrUndefined();
+  if (key) form.append('key', key);
+  if (prompt) form.append('prompt', prompt);
+
+  const resp = await fetch('/app/api/stt', { method: 'POST', body: form });
+  if (!resp.ok) {
+    let msg = `HTTP ${resp.status}`;
+    try {
+      msg = (await resp.json()).error?.message || msg;
+    } catch {
+      /* 본문 없음 */
+    }
+    throw new SttError(msg);
+  }
+  const data = await resp.json();
+  return String(data.text || '').trim();
+}

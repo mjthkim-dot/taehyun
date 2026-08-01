@@ -14,6 +14,7 @@ import { useLessonStore } from '../store/useLessonStore';
 import { speakText } from './SpeakButton';
 import { SpeakerIcon } from './icons';
 import { haptic } from '../lib/haptics';
+import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
 
 // 벤더 프리픽스 대응
 function getSpeechRecognition(): typeof SpeechRecognition | null {
@@ -59,6 +60,11 @@ export default function SpeakingPractice({
   const finalRef = useRef('');
   const langRef = useRef(lang);
   langRef.current = lang;
+
+  // Whisper 경로의 단계 — 녹음 중인지, 변환(서버 왕복) 중인지 버튼에 드러낸다.
+  const [sttState, setSttState] = useState<'idle' | 'recording' | 'transcribing'>('idle');
+  /** 녹음을 밖에서 멈추기 위한 핸들(사용자가 '멈추기'를 누를 때) */
+  const stopWhisperRef = useRef<(() => void) | null>(null);
 
   // hideTarget 모드에서 영어 정답을 드러냈는지. 문장이 바뀌면 다시 숨긴다.
   const [revealed, setRevealed] = useState(false);
@@ -145,6 +151,39 @@ export default function SpeakingPractice({
     };
   }, [setListening]);
 
+  /**
+   * Whisper 경로 — 녹음(무음 감지로 자동 종료) → 서버 프록시 → 텍스트.
+   * 실패하면 조용히 브라우저 내장 인식으로 물러난다(학습을 막지 않는 것이 우선).
+   */
+  const startWhisper = useCallback(async () => {
+    clearAttempt();
+    haptic('tap');
+    setListening(true);
+    setSttState('recording');
+    try {
+      const { text } = await recordAndTranscribe({
+        prompt: currentSentence,
+        onState: (st) => setSttState(st),
+        registerStop: (fn) => {
+          stopWhisperRef.current = fn;
+        },
+      });
+      setSttState('idle');
+      setListening(false);
+      stopWhisperRef.current = null;
+      if (text) {
+        setUserSpeech(text);
+        evaluateSpeech(text);
+      }
+      return true;
+    } catch {
+      setSttState('idle');
+      setListening(false);
+      stopWhisperRef.current = null;
+      return false;
+    }
+  }, [clearAttempt, currentSentence, setListening, setUserSpeech, evaluateSpeech]);
+
   const start = useCallback(() => {
     if (isListening) return;
     // 이전 인스턴스가 남아있다면 핸들러를 떼고 정리한 뒤 새로 만든다.
@@ -159,6 +198,23 @@ export default function SpeakingPractice({
         /* noop */
       }
     }
+    if (whisperAvailable()) {
+      // 실패 시(권한 거부 등) 곧바로 브라우저 인식으로 재시도한다
+      startWhisper().then((ok) => {
+        if (ok) return;
+        const fb = createRecognition();
+        if (!fb) return;
+        recognitionRef.current = fb;
+        finalRef.current = '';
+        try {
+          fb.start();
+          setListening(true);
+        } catch {
+          /* 이미 시작됨 */
+        }
+      });
+      return;
+    }
     const recog = createRecognition();
     if (!recog) return;
     recognitionRef.current = recog;
@@ -171,13 +227,20 @@ export default function SpeakingPractice({
     } catch {
       /* 이미 시작된 경우 무시 */
     }
-  }, [isListening, clearAttempt, setListening, createRecognition]);
+  }, [isListening, clearAttempt, setListening, createRecognition, startWhisper]);
 
   const stop = useCallback(() => {
+    // Whisper 녹음 중이면 그걸 멈추고, 아니면 브라우저 인식을 멈춘다
+    if (stopWhisperRef.current) {
+      stopWhisperRef.current();
+      return;
+    }
     recognitionRef.current?.stop();
   }, []);
 
-  const supported = getSpeechRecognition() !== null;
+  // Whisper 경로가 안 되는 기기(마이크 권한 거부·미지원)에서도 학습이 멈추지 않도록
+  // 브라우저 내장 인식이 있으면 그걸로 물러난다. 둘 다 없을 때만 안내를 띄운다.
+  const supported = whisperAvailable() || getSpeechRecognition() !== null;
 
   // hideTarget 모드: 발화해서 점수가 나오거나(accuracyScore>0) "영어 보기"를 누르기
   // 전까지는 영어 정답·듣기 버튼을 숨겨, 한국어만 보고 영어로 말하게 한다.
@@ -214,10 +277,10 @@ export default function SpeakingPractice({
       <button
         type="button"
         onClick={isListening ? stop : start}
-        disabled={!supported || !currentSentence}
+        disabled={!supported || !currentSentence || sttState === 'transcribing'}
         className={isListening ? 'mic listening' : 'mic'}
       >
-        {isListening ? '멈추기' : attempts > 0 ? '다시 말하기' : '말하기'}
+        {sttState === 'transcribing' ? '인식 중…' : isListening ? '멈추기' : attempts > 0 ? '다시 말하기' : '말하기'}
       </button>
 
       <div className="transcript">
