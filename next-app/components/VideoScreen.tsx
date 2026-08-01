@@ -239,7 +239,7 @@ export default function VideoScreen() {
                   onClick={() => seekTo(seg)}
                   style={{
                     background: i === activeIdx ? 'var(--primary)' : 'var(--surface)',
-                    color: i === activeIdx ? '#fff' : 'var(--text)',
+                    color: i === activeIdx ? 'var(--on-primary)' : 'var(--text)',
                     border: '1px solid var(--border)',
                     borderRadius: 'var(--radius-sm)',
                     padding: '9px 12px',
@@ -252,7 +252,7 @@ export default function VideoScreen() {
                     <span style={{ flex: 1 }}>{seg.text}</span>
                     <button
                       className="tr-btn"
-                      style={{ flexShrink: 0, color: i === activeIdx ? '#fff' : undefined }}
+                      style={{ flexShrink: 0, color: i === activeIdx ? 'var(--on-primary)' : undefined }}
                       onClick={(e) => {
                         e.stopPropagation();
                         translateSeg(i, seg.text);

@@ -3,15 +3,20 @@
 /**
  * 회화(talk) 화면 — voice-assistant/index.html 의 sendMessage()/buildSystemPrompt()/
  * maybeBackgroundCorrect()/analyzeCaf() 등을 포팅. 모델은 Groq 고정(WebLLM/Ollama 제외),
- * 음성 입출력은 브라우저 내장 Web Speech API만 사용한다(Whisper 로컬 모델 다운로드 제외).
+ * 음성 출력은 Groq TTS(Orpheus), 입력은 Groq Whisper를 우선 쓰고 안 되면
+ * 브라우저 내장 Web Speech로 물러난다.
  * 🎲 새 주제 생성·🔧 음성진단·미션 체크리스트는 관련 데이터가 아직 없어 이번 단계에서는 제외했다.
  */
 import { useEffect, useRef, useState } from 'react';
 import { ALL_LESSONS, LESSONS, CEFR_NEXT, cefrOf, type Lesson } from '../lib/lessons';
-import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, store, saveChatLog } from '../lib/state';
-import { groqStream, groqComplete, GroqError } from '../lib/groq';
-import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, parseAiText } from '../lib/talkPrompts';
+import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, store, saveChatLog, bumpSpoken } from '../lib/state';
+import { groqStream, groqComplete, validateGroqKey, GroqError } from '../lib/groq';
+import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, buildScenarioReviewPrompt, parseAiText } from '../lib/talkPrompts';
+import { takeMissionTalkContext, type MissionTalkCtx } from '../lib/dailyMission';
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS } from './SpeakButton';
+import { MicIcon, SendIcon } from './icons';
+import VoiceOverlay, { type VoiceState } from './VoiceOverlay';
+import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
 
 interface Correction {
   is_correct: boolean;
@@ -35,7 +40,17 @@ type ChatMsg =
   | { id: number; kind: 'user'; text: string; time: string; correction?: 'pending' | Correction | null }
   | { id: number; kind: 'ai'; text: string; time: string; streaming?: boolean; translation?: string | null; translating?: boolean }
   | { id: number; kind: 'system'; text: string }
-  | { id: number; kind: 'caf'; cefr: string; result: CafResult };
+  | { id: number; kind: 'caf'; cefr: string; result: CafResult }
+  | { id: number; kind: 'review'; title: string; items: ReviewItem[]; summary: string };
+
+/** 상황 점검 결과 한 줄 — 체크 항목 + AI 판정 */
+interface ReviewItem {
+  label: string;
+  hint: string;
+  done: boolean;
+  evidence: string;
+  tip: string;
+}
 
 const TALK_STARTERS = [
   'Could you repeat that?',
@@ -81,14 +96,22 @@ function speak(text: string, onend?: () => void) {
 export default function TalkScreen({ lessonId }: { lessonId: number }) {
   const [ready, setReady] = useState(false);
   const [keyInput, setKeyInput] = useState('');
+  const [keyChecking, setKeyChecking] = useState(false);
+  const [keyError, setKeyError] = useState('');
   const [hasKey, setHasKey] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
+  // 홈 미션에서 넘어온 상황 — 있으면 레슨 시나리오 대신 이 상황으로 대화한다.
+  const [missionCtx, setMissionCtx] = useState<MissionTalkCtx | null>(null);
   const [input, setInput] = useState('');
   const [interim, setInterim] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [micOn, setMicOn] = useState(false);
+  // 보이스 모드(ChatGPT식 음성 대화 오버레이) — 말하면 자동 전송, AI가 답하면 자동 재청취
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [aiSpeaking, setAiSpeaking] = useState(false);
   const [bgCorrectOn, setBgCorrectOn] = useState(true);
   const [cafBusy, setCafBusy] = useState(false);
+  const [reviewBusy, setReviewBusy] = useState(false);
 
   const lesson = ALL_LESSONS.find((l) => l.id === lessonId) ?? LESSONS[LESSONS.length - 1];
   const historyRef = useRef<{ role: string; content: string }[]>([]);
@@ -96,6 +119,8 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   const sessionIdRef = useRef('');
   const idRef = useRef(0);
   const recogRef = useRef<SpeechRecognition | null>(null);
+  /** Whisper 녹음을 밖에서 멈추기 위한 핸들(마이크 끄기·오브 탭·보이스 모드 종료) */
+  const whisperStopRef = useRef<(() => void) | null>(null);
   const micOnRef = useRef(false);
   // isProcessing state는 비동기로 갱신돼, 같은 틱에서 handleSend가 두 번 불리면
   // 둘 다 갱신 전의 stale 값을 보고 재진입 가드를 통과해버린다(중복 발화의 원인).
@@ -110,12 +135,24 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   }, []);
 
   // 레슨이 바뀌면 대화를 리셋하고 시나리오 인트로 카드를 다시 보여준다.
+  // 홈의 "이 상황으로 AI와 대화하기"로 들어온 경우엔 그 미션 상황을 시나리오로 쓴다.
   useEffect(() => {
     if (!ready) return;
     historyRef.current = [];
     talkStampsRef.current = [];
     sessionIdRef.current = `${lesson.id}-${Date.now()}`;
-    if (lesson.scenario) {
+    const mission = takeMissionTalkContext();
+    setMissionCtx(mission);
+    if (mission) {
+      setMessages([
+        {
+          id: ++idRef.current,
+          kind: 'intro',
+          scenario: { title: `🎯 ${mission.title}`, desc: mission.desc },
+          examples: mission.examples,
+        },
+      ]);
+    } else if (lesson.scenario) {
       setMessages([
         {
           id: ++idRef.current,
@@ -203,7 +240,10 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     }
     historyRef.current.push({ role: 'user', content: text });
 
-    const sysMsg = { role: 'system', content: buildSystemPrompt(lesson, null, prevLessons()) };
+    const sysMsg = {
+      role: 'system',
+      content: buildSystemPrompt(lesson, missionCtx ? { title: missionCtx.title, desc: missionCtx.desc } : null, prevLessons()),
+    };
     const msgs = [sysMsg, ...historyRef.current.slice(-8)];
 
     setIsProcessing(true);
@@ -218,7 +258,11 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       }
       historyRef.current.push({ role: 'assistant', content: fullText });
       updateMsg(aiId, { streaming: false });
-      speak(fullText, maybeResumeHandsFree);
+      setAiSpeaking(true);
+      speak(fullText, () => {
+        setAiSpeaking(false);
+        maybeResumeHandsFree();
+      });
       saveChatLog({
         id: sessionIdRef.current,
         date: new Date().toISOString(),
@@ -244,7 +288,84 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     }
   }
 
+  /**
+   * 한 턴 듣기 — Whisper 경로.
+   * 녹음(무음 감지로 자동 종료) → 변환 → 자동 전송까지가 한 턴이고,
+   * AI 응답과 재생이 끝나면 maybeResumeHandsFree가 다음 턴을 연다.
+   * 실패하면 false를 돌려줘 브라우저 내장 인식으로 물러난다.
+   */
+  async function startWhisperTurn(): Promise<boolean> {
+    try {
+      setInterim('듣고 있어요…');
+      // 미리보기 자막이 흐르는 동안에는 상태 문구로 덮어쓰지 않는다 —
+      // 실제 말이 잡히고 있다는 신호가 고정 문구보다 훨씬 안심된다.
+      let partial = '';
+      const { text, reason, peak } = await recordAndTranscribe({
+        onState: (st) =>
+          setInterim(st === 'transcribing' ? '인식 중…' : partial || '듣고 있어요…'),
+        onPartial: (t) => {
+          partial = t;
+          setInterim(t || '듣고 있어요…');
+        },
+        registerStop: (fn) => {
+          whisperStopRef.current = fn;
+        },
+      });
+      whisperStopRef.current = null;
+      setInterim('');
+      // 녹음 중 사용자가 마이크를 껐다면 결과를 버린다(껐는데 전송되는 일 방지)
+      if (!micOnRef.current) return true;
+      if (text) {
+        bumpSpoken();
+        handleSend(text);
+      } else if (!isProcessingRef.current) {
+        // 마이크에 소리가 전혀 안 잡히면 조용히 반복해봐야 소용없다 — 한 번 알린다.
+        if (reason === 'no-audio' || (reason === 'silent' && (peak ?? 0) < 0.001)) {
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.kind === 'system' && last.text.includes('마이크에서 소리가')) return prev;
+            return [...prev, { id: nextId(), kind: 'system', text: '🎙️ 마이크에서 소리가 잡히지 않았어요. 권한과 음소거를 확인해 주세요.' }];
+          });
+        }
+        // 아무 말도 하지 않은 채 끝났으면 조용히 다시 듣는다
+        setTimeout(() => {
+          if (micOnRef.current && !isProcessingRef.current) startListening();
+        }, 200);
+      }
+      return true;
+    } catch (err) {
+      whisperStopRef.current = null;
+      setInterim('');
+      const msg = (err as Error)?.message || '';
+      if (msg && !/NotAllowed|Permission/i.test(msg)) {
+        setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: `음성 인식 오류: ${msg}` }]);
+      }
+      return false;
+    }
+  }
+
+  /** 듣기 시작 — Whisper를 우선 쓰고, 안 되면 브라우저 내장 인식으로 물러난다. */
   function startListening() {
+    if (whisperAvailable()) {
+      startWhisperTurn().then((ok) => {
+        if (!ok && micOnRef.current) startWebSpeech();
+      });
+      return;
+    }
+    startWebSpeech();
+  }
+
+  /** 진행 중인 듣기를 멈춘다(어느 경로든). */
+  function stopListening() {
+    if (whisperStopRef.current) {
+      whisperStopRef.current();
+      whisperStopRef.current = null;
+      return;
+    }
+    recogRef.current?.stop();
+  }
+
+  function startWebSpeech() {
     // 직전 인스턴스가 아직 살아있으면(예: stop() 호출 후 onend가 비동기로 아직
     // 안 와서) 그대로 두고 또 시작하면 두 인스턴스가 동시에 같은 발화를 인식해
     // handleSend가 중복 호출된다 — 항상 먼저 정리하고 시작한다.
@@ -287,6 +408,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       setInterim(interimTxt);
       if (finalTxt.trim()) {
         gotFinal = true;
+        bumpSpoken(); // 회화 마이크 발화 집계
         setInterim('');
         handleSend(finalTxt.trim());
       }
@@ -335,7 +457,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     // 음성 인식 미지원 브라우저(예: 데스크탑 Firefox)에서는 getSpeechRecognition()이
     // null이라 startListening()이 아무것도 안 하고 조용히 끝난다 — 그런데도 마이크를
     // "듣는 중" 상태로 켜버리면 사용자는 영원히 응답 없는 화면만 보게 된다.
-    if (!micOn && !getSpeechRecognition()) {
+    if (!micOn && !whisperAvailable() && !getSpeechRecognition()) {
       setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: '🎙️ 이 브라우저는 음성 인식을 지원하지 않아요. Chrome/Edge를 사용하거나 입력창에 직접 타이핑해주세요.' }]);
       return;
     }
@@ -346,8 +468,45 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       primeAudio(); // 마이크를 켜는 클릭(제스처) 안에서 미리 오디오를 언락해둔다
       startListening();
     } else {
-      recogRef.current?.stop();
+      stopListening();
       stopSpeaking();
+    }
+  }
+
+  /** 보이스 모드 시작 — 탭 한 번으로 연속 음성 대화 세션을 연다. */
+  function enterVoiceMode() {
+    if (!whisperAvailable() && !getSpeechRecognition()) {
+      setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: '이 브라우저는 음성 인식을 지원하지 않아요. Chrome/Edge를 사용하거나 입력창에 직접 타이핑해주세요.' }]);
+      return;
+    }
+    primeAudio(); // 진입 제스처 안에서 오디오 언락
+    setVoiceMode(true);
+    setMicOn(true);
+    micOnRef.current = true;
+    startListening();
+  }
+
+  function exitVoiceMode() {
+    setVoiceMode(false);
+    micOnRef.current = false;
+    setMicOn(false);
+    stopListening();
+    stopSpeaking();
+    setAiSpeaking(false);
+  }
+
+  /** 오브 탭 — AI가 말하는 중이면 끼어들기(정지 후 바로 듣기), 멈춰 있으면 다시 듣기. */
+  function orbTap() {
+    if (aiSpeaking) {
+      stopSpeaking();
+      setAiSpeaking(false);
+      if (micOnRef.current) startListening();
+      return;
+    }
+    if (!isProcessingRef.current) {
+      micOnRef.current = true;
+      setMicOn(true);
+      startListening();
     }
   }
 
@@ -406,6 +565,60 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     }
   }
 
+  /**
+   * 상황 점검 — 미팅 스크립트에서 넘어온 롤플레이를 체크리스트로 채점한다.
+   * CAF(언어 능력)와 달리 '영업 행동을 했는가'를 보고, 근거는 학습자 발화에서 인용시킨다.
+   */
+  async function reviewScenario() {
+    const checklist = missionCtx?.checklist;
+    if (!checklist || !checklist.length || reviewBusy) return;
+    const utterances = historyRef.current.filter((h) => h.role === 'user').map((h) => h.content);
+    const transcript = utterances.join('\n');
+    if (transcript.split(/\s+/).filter(Boolean).length < 5) {
+      setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: '상황 점검은 먼저 몇 마디 나눈 뒤에 가능합니다.' }]);
+      return;
+    }
+    setReviewBusy(true);
+    try {
+      const raw = JSON.parse(
+        (await groqComplete([{ role: 'user', content: buildScenarioReviewPrompt(missionCtx.title, checklist, transcript) }], {
+          temperature: 0.2,
+          maxTokens: 900,
+          json: true,
+        })) || '{}'
+      );
+      const byKey = new Map<string, { done?: boolean; evidence?: string; tip_ko?: string }>(
+        (raw.items || []).map((r: { key?: string }) => [String(r.key || ''), r])
+      );
+      const items: ReviewItem[] = checklist.map((c) => {
+        const r = byKey.get(c.key) || {};
+        return {
+          label: c.label,
+          hint: c.hint,
+          done: r.done === true,
+          evidence: String(r.evidence || '').trim(),
+          tip: String(r.tip_ko || '').trim(),
+        };
+      });
+      setMessages((prev) => [
+        ...prev,
+        { id: nextId(), kind: 'review', title: missionCtx.title, items, summary: String(raw.summary_ko || '').trim() },
+      ]);
+    } catch (err) {
+      const e = err as Error;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          kind: 'system',
+          text: e instanceof GroqError && e.message === 'NO_GROQ_KEY' ? '⚡ 상황 점검을 위해 무료 Groq 키를 등록하세요.' : '상황 점검에 실패했어요. 잠시 후 다시 시도해 주세요.',
+        },
+      ]);
+    } finally {
+      setReviewBusy(false);
+    }
+  }
+
   async function analyzeCaf() {
     const utterances = historyRef.current.filter((h) => h.role === 'user').map((h) => h.content);
     const transcript = utterances.join(' ');
@@ -459,15 +672,27 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     addPhrase({ en: text, kr: '', lesson: lesson.id });
   }
 
-  function saveKey() {
-    if (!keyInput.trim()) return;
-    saveGroqKey(keyInput.trim());
+  async function saveKey() {
+    const k = keyInput.trim();
+    if (!k || keyChecking) return;
+    setKeyChecking(true);
+    setKeyError('');
+    // 무효한 키를 조용히 받아들이면 모든 AI 기능이 소리 없이 401로 죽는다
+    // (실제 발생한 사고) — 등록 전에 Groq에 실검증한다.
+    const valid = await validateGroqKey(k);
+    setKeyChecking(false);
+    if (valid === false) {
+      setKeyError('이 키는 Groq에서 거부됐어요(만료·폐기됐을 수 있음). console.groq.com에서 새 키를 발급해 주세요.');
+      return;
+    }
+    saveGroqKey(k);
     setHasKey(true);
     setKeyInput('');
+    setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: valid === true ? 'Groq 키 확인 완료 — AI 회화·음성이 활성화됐어요.' : 'Groq 키를 저장했어요(네트워크 문제로 검증은 건너뜀).' }]);
   }
 
   const helperChips = [...new Set([...(lesson.examples || []).slice(0, 2).map((e) => e.en), ...TALK_STARTERS])].slice(0, 6);
-  const micSupported = !!getSpeechRecognition();
+  const micSupported = whisperAvailable() || !!getSpeechRecognition();
 
   return (
     <div className="talk-screen">
@@ -477,6 +702,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
           <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.6 }}>
             console.groq.com 에서 무료로 발급받은 키를 붙여넣으면 AI 회화·교정·CAF 분석이 모두 활성화됩니다.
           </div>
+          {keyError && <div style={{ fontSize: '0.76rem', color: 'var(--red)', lineHeight: 1.5, marginBottom: 8 }}>{keyError}</div>}
           <div style={{ display: 'flex', gap: 8 }}>
             <input
               className="text-input"
@@ -486,8 +712,8 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
               onChange={(e) => setKeyInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && saveKey()}
             />
-            <button className="btn primary" style={{ flex: '0 0 auto' }} onClick={saveKey}>
-              등록
+            <button className="btn primary" style={{ flex: '0 0 auto' }} onClick={saveKey} disabled={keyChecking}>
+              {keyChecking ? '확인 중…' : '등록'}
             </button>
           </div>
         </div>
@@ -499,11 +725,11 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
             return (
               <div className="msg" key={m.id}>
                 <div className="talk-intro">
-                  <div className="ti-head">🎬 {m.scenario.title}</div>
+                  <div className="ti-head">{m.scenario.title}</div>
                   <div className="ti-desc">{m.scenario.desc}</div>
                   {m.examples.length > 0 && (
                     <>
-                      <div className="ti-sec">💬 이렇게 말해보세요</div>
+                      <div className="ti-sec">이렇게 말해보세요</div>
                       <div className="ti-ex">
                         {m.examples.map((e, i) => (
                           <div key={i}>
@@ -513,7 +739,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
                       </div>
                     </>
                   )}
-                  <div className="ti-go">🎙️ 또는 입력창으로 영어 대화를 시작해 보세요!</div>
+                  <div className="ti-go">마이크 또는 입력창으로 영어 대화를 시작해 보세요!</div>
                 </div>
               </div>
             );
@@ -522,6 +748,32 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
             return (
               <div className="msg system" key={m.id}>
                 <div className="bubble">{m.text}</div>
+              </div>
+            );
+          }
+          if (m.kind === 'review') {
+            const doneCount = m.items.filter((it) => it.done).length;
+            return (
+              <div className="msg" key={m.id}>
+                <div className="review-card">
+                  <div className="review-head">
+                    <span className="review-title">상황 점검 — {m.title}</span>
+                    <span className="review-score">
+                      {doneCount}/{m.items.length}
+                    </span>
+                  </div>
+                  {m.summary && <div className="review-summary">{m.summary}</div>}
+                  {m.items.map((it, i) => (
+                    <div className={`review-row${it.done ? ' done' : ''}`} key={i}>
+                      <span className="review-mark">{it.done ? '✓' : '✗'}</span>
+                      <div className="review-body">
+                        <div className="review-label">{it.label}</div>
+                        {it.evidence && <div className="review-evidence">&ldquo;{it.evidence}&rdquo;</div>}
+                        <div className="review-tip">{it.tip || it.hint}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             );
           }
@@ -542,13 +794,13 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
           const parsed = parseAiText(m.text);
           return (
             <div className="msg ai" key={m.id}>
-              <div className="ai-avatar" aria-hidden="true">🗣️</div>
+              <div className="ai-avatar" aria-hidden="true">AI</div>
               <div className="msg-col">
                 <div className={`bubble${m.streaming ? ' typing' : ''}`}>
                   {parsed.plain || (m.streaming ? <TypingDots /> : '')}
                   {parsed.heard.map((h, i) => (
                     <div className="correction-box" key={i}>
-                      <div className="label">🎧 발음 피드백</div>
+                      <div className="label">발음 피드백</div>
                       내가 들은 말: <span className="wrong">{h.heard}</span> → 네 의도: <span className="right">{h.intent}</span>
                       <br />
                       <span style={{ opacity: 0.85, fontSize: '0.78rem' }}>{h.note}</span>
@@ -556,7 +808,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
                   ))}
                   {parsed.explain.map((ex, i) => (
                     <div className="explain-box" key={i}>
-                      <div className="label">💡 코치 설명</div>
+                      <div className="label">코치 설명</div>
                       {ex}
                     </div>
                   ))}
@@ -565,24 +817,38 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
                   <div className="msg-meta">
                     {m.time}
                     <button className="tr-btn" disabled={m.translating} onClick={() => translate(m.id, parsed.plain)}>
-                      {m.translating ? '⏳ 번역중' : m.translation ? '🇰🇷 숨기기' : '🇰🇷 번역'}
+                      {m.translating ? '번역중' : m.translation ? '숨기기' : '번역'}
                     </button>
                     <button className="tr-btn" onClick={() => savePhrase(parsed.plain)}>
-                      📌 저장
+                      저장
                     </button>
                   </div>
                 )}
-                {m.translation && <div className="tr-box">🇰🇷 {m.translation}</div>}
+                {m.translation && <div className="tr-box">{m.translation}</div>}
               </div>
             </div>
           );
         })}
       </div>
 
+      {voiceMode && (
+        <VoiceOverlay
+          state={(aiSpeaking ? 'speaking' : isProcessing ? 'thinking' : micOn ? 'listening' : 'idle') as VoiceState}
+          interim={interim}
+          lastUser={[...messages].reverse().find((m) => m.kind === 'user')?.kind === 'user' ? ([...messages].reverse().find((m) => m.kind === 'user') as { text: string }).text : ''}
+          lastAi={(() => {
+            const m = [...messages].reverse().find((x) => x.kind === 'ai') as { text?: string } | undefined;
+            return m?.text ? parseAiText(m.text).plain : '';
+          })()}
+          onOrbTap={orbTap}
+          onClose={exitVoiceMode}
+        />
+      )}
+
       <div className="input-area">
         <div className="helper-chips">
           <button className="helper-chip hint" onClick={askForSuggestions} title="AI가 지금 상황에 맞는 영어 답변 예시를 제안해줍니다">
-            💡 뭐라고 답하지?
+            뭐라고 답하지?
           </button>
           {helperChips.map((c) => (
             <button className="helper-chip" key={c} onClick={() => sendChip(c)} title="탭하면 이 문장으로 답합니다">
@@ -600,19 +866,25 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
         )}
         <div className="mini-actions">
           <button className="mini-btn" onClick={toggleBgCorrect}>
-            ✏️ 교정 {bgCorrectOn ? 'ON' : 'OFF'}
+            교정 {bgCorrectOn ? 'ON' : 'OFF'}
           </button>
           <button className="mini-btn" onClick={requestSummary}>
-            📋 요약
+            요약
           </button>
           <button className="mini-btn" onClick={analyzeCaf} disabled={cafBusy}>
-            {cafBusy ? '⏳ 분석중' : '🎯 CAF'}
+            {cafBusy ? '분석중' : 'CAF'}
           </button>
+          {!!missionCtx?.checklist?.length && (
+            <button className="mini-btn accent" onClick={reviewScenario} disabled={reviewBusy}>
+              {reviewBusy ? '점검중' : '상황 점검'}
+            </button>
+          )}
         </div>
         <div className="controls">
+          {/* placeholder는 좁은 화면에서 잘리지 않는 길이로 — 마이크 사용법은 옆 버튼이 안내한다 */}
           <input
             className="text-input"
-            placeholder="영어로 입력하거나 🎙️로 말하세요"
+            placeholder="영어로 입력하기"
             maxLength={500}
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -625,14 +897,14 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
           />
           <button
             className={`round-btn${micOn ? ' listening' : ''}`}
-            onClick={toggleMic}
+            onClick={enterVoiceMode}
             disabled={!micSupported && !micOn}
-            title={micSupported ? '마이크로 말하기 (자동 전송)' : '이 브라우저는 음성 인식을 지원하지 않아요'}
+            title={micSupported ? '음성 대화 시작 — 말하면 자동으로 이어져요' : '이 브라우저는 음성 인식을 지원하지 않아요'}
           >
-            🎙️
+            <MicIcon />
           </button>
           <button className={`round-btn send${isProcessing ? ' processing' : ''}`} onClick={sendText} disabled={isProcessing} title="전송">
-            ➤
+            <SendIcon />
           </button>
         </div>
       </div>

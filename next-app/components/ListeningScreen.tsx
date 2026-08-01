@@ -6,6 +6,7 @@ import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/lessons';
 import { addWeakItem, bumpSkill, getProfile, markPracticedToday } from '../lib/state';
 import { LISTEN_BANK } from '../lib/contentBanks';
 import { speakText } from './SpeakButton';
+import { useSlowRate } from './SpeechRate';
 
 function shuffled<T>(arr: T[]): T[] {
   const a = arr.slice();
@@ -39,6 +40,7 @@ interface Queue {
 }
 
 export default function ListeningScreen() {
+  const slowListenRate = useSlowRate();
   const [level, setLevel] = useState<Cefr>(getProfile().cefr || 'A2');
   const [queue, setQueue] = useState<Queue | null>(null);
   const [guess, setGuess] = useState('');
@@ -123,7 +125,7 @@ export default function ListeningScreen() {
                 cursor: 'pointer',
                 border: `1px solid ${c === level ? 'var(--primary)' : 'var(--border)'}`,
                 background: c === level ? 'var(--primary)' : 'var(--surface)',
-                color: c === level ? '#fff' : 'var(--text-muted)',
+                color: c === level ? 'var(--on-primary)' : 'var(--text-muted)',
               }}
             >
               {c}
@@ -142,7 +144,7 @@ export default function ListeningScreen() {
               <button className="btn primary" style={{ flex: 1 }} onClick={() => speakText(queue.sentences[queue.idx], 'en-US')}>
                 🔊 다시 듣기
               </button>
-              <button className="btn" style={{ flex: '0 0 auto' }} onClick={() => speakText(queue.sentences[queue.idx], 'en-US', 0.6)}>
+              <button className="btn" style={{ flex: '0 0 auto' }} onClick={() => speakText(queue.sentences[queue.idx], 'en-US', slowListenRate)}>
                 🐢 느리게
               </button>
             </div>

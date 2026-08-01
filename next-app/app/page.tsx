@@ -27,6 +27,11 @@ import ShadowingScreen from '../components/ShadowingScreen';
 import RemindersScreen from '../components/RemindersScreen';
 import ReminderScheduler from '../components/ReminderScheduler';
 import BackupScreen from '../components/BackupScreen';
+import LegalScreen from '../components/LegalScreen';
+import AudioCheckScreen from '../components/AudioCheckScreen';
+import ApiKeyScreen from '../components/ApiKeyScreen';
+import VocabScreen from '../components/VocabScreen';
+import ScriptsScreen from '../components/ScriptsScreen';
 import ListeningScreen from '../components/ListeningScreen';
 import ReadingScreen from '../components/ReadingScreen';
 import WritingScreen from '../components/WritingScreen';
@@ -34,6 +39,9 @@ import BusinessScreen from '../components/BusinessScreen';
 import ThemeToggle from '../components/ThemeToggle';
 import UpdatePrompt from '../components/UpdatePrompt';
 import AskWidget from '../components/AskWidget';
+import Onboarding, { needsOnboarding } from '../components/Onboarding';
+import ServiceWorkerRegistrar from '../components/ServiceWorkerRegistrar';
+import { ErrorBoundary, StorageFullBanner } from '../components/AppErrorBoundary';
 import { calcStreak } from '../lib/state';
 import { APP_VERSION } from '../lib/version';
 
@@ -55,7 +63,7 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
   drill: { title: '드릴', render: (c) => <DrillScreen lessonId={c.lessonId} auto={c.autoDrill} /> },
   talk: { title: '회화', render: (c) => <TalkScreen lessonId={c.lessonId} /> },
   review: { title: '복습', render: () => <ReviewScreen /> },
-  progress: { title: '진도', render: () => <ProgressScreen /> },
+  progress: { title: '진도', render: (c) => <ProgressScreen onNavigate={c.setMode} onSelectLesson={c.setLessonId} /> },
   features: { title: '기능', render: (c) => <FeaturesScreen onNavigate={c.setMode} /> },
   video: { title: '영상', render: () => <VideoScreen /> },
   flashcards: { title: '암기 카드', render: (c) => <FlashcardsScreen onExit={() => c.setMode('review')} /> },
@@ -66,6 +74,11 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
   shadowing: { title: '쉐도잉', render: (c) => <ShadowingScreen lessonId={c.lessonId} /> },
   reminders: { title: '복습 알림', render: () => <RemindersScreen /> },
   backup: { title: '백업 · 복원', render: () => <BackupScreen /> },
+  legal: { title: '약관 · 개인정보', render: () => <LegalScreen /> },
+  audiocheck: { title: '음성 진단', render: () => <AudioCheckScreen /> },
+  apikey: { title: 'AI 키 등록', render: () => <ApiKeyScreen /> },
+  vocab: { title: '직무 어휘', render: (c) => <VocabScreen onNavigate={c.setMode} /> },
+  scripts: { title: '미팅 스크립트', render: (c) => <ScriptsScreen onNavigate={c.setMode} /> },
   listening: { title: '듣기', render: () => <ListeningScreen /> },
   reading: { title: '읽기', render: () => <ReadingScreen /> },
   writing: { title: '쓰기', render: () => <WritingScreen /> },
@@ -83,11 +96,14 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
 };
 
 export default function Page() {
-  const [mode, setModeRaw] = useState<Mode>('study');
+  const [mode, setModeRaw] = useState<Mode>('master');
   const [lessonId, setLessonId] = useState<number>(defaultLesson().id);
   const [streak, setStreak] = useState<number | null>(null);
   // 홈의 "⚡ 오늘의 훈련"으로 들어왔을 때만 true — 드릴 큐에 오늘 복습할 SRS 문장을 섞는다.
   const [autoDrill, setAutoDrill] = useState(false);
+  // 첫 실행이면 온보딩을 먼저 띄운다(마운트 후 판단 — SSR 하이드레이션 불일치 방지)
+  const [onboarding, setOnboarding] = useState(false);
+  useEffect(() => setOnboarding(needsOnboarding()), []);
 
   function setMode(m: Mode) {
     setAutoDrill(false);
@@ -104,11 +120,23 @@ export default function Page() {
   const screen = SCREENS[mode];
   const ctx: ScreenCtx = { lessonId, autoDrill, setLessonId, setMode, startTodayDrill };
 
+  if (onboarding) {
+    return (
+      <Onboarding
+        onDone={() => setOnboarding(false)}
+        onPlacement={() => {
+          setOnboarding(false);
+          setModeRaw('placement');
+        }}
+      />
+    );
+  }
+
   return (
     <main className="app-shell">
       <header className="app-header">
         <div className="app-header-title">
-          <span className="app-header-brand">🗣️</span>
+          <span className="app-header-brand">EC</span>
           <h1>{screen.title}</h1>
           <span className="app-version" title="앱 버전 (배포 갱신 확인용)">
             v{APP_VERSION}
@@ -125,10 +153,14 @@ export default function Page() {
       </header>
 
       <div className="app-content" key={mode}>
-        {screen.render(ctx)}
+        {/* 화면 단위로 감싼다 — 한 화면이 죽어도 셸(탭·헤더)은 살아 있어야 돌아갈 수 있다.
+            key={mode}라 화면을 옮기면 경계도 함께 초기화된다. */}
+        <ErrorBoundary onReset={() => setMode('master')}>{screen.render(ctx)}</ErrorBoundary>
       </div>
 
       <NavBar mode={mode} onChange={setMode} />
+      <StorageFullBanner />
+      <ServiceWorkerRegistrar />
       <UpdatePrompt />
       <AskWidget />
       <ReminderScheduler />

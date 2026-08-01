@@ -24,6 +24,11 @@ export type Mode =
   | 'shadowing'
   | 'reminders'
   | 'backup'
+  | 'legal'
+  | 'audiocheck'
+  | 'apikey'
+  | 'vocab'
+  | 'scripts'
   | 'business';
 
 const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [

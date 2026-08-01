@@ -7,7 +7,7 @@
  * "곧 추가됩니다" 안내만 보여준다 — 거짓으로 완성된 척하지 않는다.
  */
 import { useEffect, useState } from 'react';
-import { dueWeak, getPhrases, isPlaced } from '../lib/state';
+import { dueWeak, getPhrases, isPlaced, groqKey, SERVER_GROQ_SENTINEL } from '../lib/state';
 import { getAskHistory } from '../lib/askPrompts';
 import type { Mode } from './NavBar';
 
@@ -33,10 +33,16 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
   const phraseCount = getPhrases().length;
   const askCount = getAskHistory().length;
   const placed = isPlaced();
+  const key = groqKey();
+  const keySub = key ? (key === SERVER_GROQ_SENTINEL ? '서버 키로 동작 중' : '기기 키 등록됨 · 교체/삭제') : '아직 없음 · AI 기능 꺼짐';
 
   const sections: FeatSection[] = [
     {
-      title: '🧭 내 레벨',
+      title: 'AI 연결',
+      cards: [{ icon: '🔑', label: 'AI 키 등록', sub: keySub, action: { kind: 'nav', mode: 'apikey' } }],
+    },
+    {
+      title: '내 레벨',
       cards: [
         {
           icon: '🧭',
@@ -47,7 +53,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
       ],
     },
     {
-      title: '🎓 4대 영역 훈련',
+      title: '4대 영역 훈련',
       cards: [
         { icon: '🗣', label: '말하기', sub: 'AI 코치와 실전 대화 · CAF 분석', action: { kind: 'nav', mode: 'talk' } },
         { icon: '🦜', label: '쉐도잉', sub: '따라 말하기 · 단어별 발음 채점', action: { kind: 'nav', mode: 'shadowing' } },
@@ -55,10 +61,12 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
         { icon: '🎧', label: '듣기', sub: '딕테이션 6문항', action: { kind: 'nav', mode: 'listening' } },
         { icon: '📖', label: '읽기', sub: '레벨별 지문 + 이해 문제', action: { kind: 'nav', mode: 'reading' } },
         { icon: '✍️', label: '쓰기', sub: 'AI 첨삭', action: { kind: 'nav', mode: 'writing' } },
+        { icon: '💼', label: '직무 어휘', sub: 'IT 영업·클라우드 등 8개 도메인 80개', action: { kind: 'nav', mode: 'vocab' } },
+        { icon: '🤝', label: '미팅 스크립트', sub: '오프닝·디스커버리·가격 반론 6종 · AI 롤플레이', action: { kind: 'nav', mode: 'scripts' } },
       ],
     },
     {
-      title: '📚 숙제 & 암기',
+      title: '숙제 & 암기',
       cards: [
         { icon: '📚', label: '숙제 도우미', sub: 'AI와 함께 풀이', action: { kind: 'nav', mode: 'homework' } },
         { icon: '🃏', label: '암기 카드', sub: dueCount ? `오늘 ${dueCount}개 대기` : '카드 외우기', action: { kind: 'nav', mode: 'flashcards' } },
@@ -67,16 +75,18 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
       ],
     },
     {
-      title: '🎬 콘텐츠로 배우기',
+      title: '콘텐츠로 배우기',
       cards: [{ icon: '🎬', label: '영상 학습', sub: '유튜브로 듣기 연습 + 자막 번역', action: { kind: 'nav', mode: 'video' } }],
     },
     {
-      title: '📈 학습 관리',
+      title: '학습 관리',
       cards: [
         { icon: '📝', label: '간격 반복 복습', sub: `${dueCount}개 대기`, action: { kind: 'nav', mode: 'review' } },
         { icon: '📊', label: '진도 & 리포트', sub: 'CEFR·GSE 현황', action: { kind: 'nav', mode: 'progress' } },
         { icon: '🔔', label: '복습 알림', sub: '매일 복습 리마인더 설정', action: { kind: 'nav', mode: 'reminders' } },
         { icon: '💾', label: '백업 · 복원', sub: '학습 데이터 내보내기/가져오기', action: { kind: 'nav', mode: 'backup' } },
+        { icon: '📜', label: '약관 · 개인정보', sub: '이용약관 · 처리방침(초안)', action: { kind: 'nav', mode: 'legal' } },
+        { icon: '🩺', label: '음성 진단', sub: '소리가 안 날 때 원인 확인', action: { kind: 'nav', mode: 'audiocheck' } },
       ],
     },
   ];
@@ -104,7 +114,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
             gap: 10,
           }}
         >
-          <div style={{ fontSize: '1.3rem' }}>🚧</div>
+          <div style={{ fontSize: '1.3rem' }}></div>
           <div style={{ flex: 1, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
             <b style={{ color: 'var(--text)' }}>{soonLabel}</b>은 아직 준비 중이에요. 곧 추가될 예정입니다!
           </div>

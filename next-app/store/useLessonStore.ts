@@ -11,6 +11,8 @@
  *   npm i zustand
  */
 import { create } from 'zustand';
+import { addPronLapses, bumpSpoken } from '../lib/state';
+import { diagnose, type PronIssue } from '../lib/pronunciation';
 
 export interface WordDiff {
   w: string;
@@ -23,6 +25,8 @@ export interface LessonState {
   accuracyScore: number;
   wordDiff: WordDiff[];
   missedWords: string[];
+  /** 왜 틀렸는지 — 잘못 들린 단어를 한국어 화자의 전형적 발음 축으로 해석한 결과 */
+  pronIssues: PronIssue[];
   attempts: number;
   isListening: boolean;
 
@@ -104,22 +108,28 @@ export const useLessonStore = create<LessonState>((set) => ({
   accuracyScore: 0,
   wordDiff: [],
   missedWords: [],
+  pronIssues: [],
   attempts: 0,
   isListening: false,
 
   setCurrentSentence: (sentence) =>
-    set({ currentSentence: sentence, userSpeech: '', accuracyScore: 0, wordDiff: [], missedWords: [], attempts: 0 }),
+    set({ currentSentence: sentence, userSpeech: '', accuracyScore: 0, wordDiff: [], missedWords: [], pronIssues: [], attempts: 0 }),
   setUserSpeech: (text) => set({ userSpeech: text }),
   setAccuracyScore: (score) => set({ accuracyScore: score }),
   setListening: (v) => set({ isListening: v }),
 
   evaluateSpeech: (text) =>
     set((state) => {
+      bumpSpoken(); // 발화 1문장 집계(스픽식 지표)
       const { score, diff, missed } = computeAccuracy(state.currentSentence, text);
-      return { userSpeech: text, accuracyScore: score, wordDiff: diff, missedWords: missed, attempts: state.attempts + 1 };
+      // 완벽하게 맞힌 발화는 진단할 것이 없다 — 틀린 자리가 있을 때만 해석한다.
+      const pronIssues = missed.length ? diagnose(state.currentSentence, text) : [];
+      // 반복되는 축을 주간 리포트가 읽을 수 있게 누적한다(한 번의 오답보다 경향이 중요).
+      if (pronIssues.length) addPronLapses(pronIssues.map((p) => p.key));
+      return { userSpeech: text, accuracyScore: score, wordDiff: diff, missedWords: missed, pronIssues, attempts: state.attempts + 1 };
     }),
 
-  clearAttempt: () => set({ userSpeech: '', accuracyScore: 0, wordDiff: [], missedWords: [] }),
+  clearAttempt: () => set({ userSpeech: '', accuracyScore: 0, wordDiff: [], missedWords: [], pronIssues: [] }),
 
-  reset: () => set({ userSpeech: '', accuracyScore: 0, wordDiff: [], missedWords: [], attempts: 0, isListening: false }),
+  reset: () => set({ userSpeech: '', accuracyScore: 0, wordDiff: [], missedWords: [], pronIssues: [], attempts: 0, isListening: false }),
 }));

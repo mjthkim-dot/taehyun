@@ -33,6 +33,8 @@ interface LessonDB extends DBSchema {
   };
 }
 
+// 내부 IndexedDB 식별자 — 사용자에게 보이지 않는 값이라 리브랜딩에서 의도적으로
+// 유지한다(이름을 바꾸면 기존 기기의 저장 데이터가 통째로 고아가 된다).
 const DB_NAME = 'preply-english-coach';
 const DB_VERSION = 1;
 const STORE = 'lessons';

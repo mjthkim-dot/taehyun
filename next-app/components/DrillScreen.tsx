@@ -11,7 +11,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { ALL_LESSONS, LESSONS, CEFR_GSE, cefrOf } from '../lib/lessons';
-import { addWeakItem, bumpSkill, buildTodayQueue, gradeWeakItem, groqKey, markPracticedToday, type DrillItem, type FlashGrade } from '../lib/state';
+import { addWeakItem, bumpSkill, buildTodayQueue, gradeWeakItem, groqKey, markPracticedToday, takeDrillQueue, type DrillItem, type FlashGrade } from '../lib/state';
 import { groqComplete, GroqError } from '../lib/groq';
 import { useLessonStore } from '../store/useLessonStore';
 import SpeakingPractice from './SpeakingPractice';
@@ -35,6 +35,8 @@ export default function DrillScreen({ lessonId, auto = false }: { lessonId: numb
     [lesson]
   );
   const [items, setItems] = useState<DrillItem[]>(baseItems);
+  /** 어휘·스크립트에서 넘어온 큐의 출처 — 무엇을 연습 중인지 화면에 밝힌다 */
+  const [handoffLabel, setHandoffLabel] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
   const [scores, setScores] = useState<number[]>([]);
   const [finished, setFinished] = useState(false);
@@ -48,7 +50,15 @@ export default function DrillScreen({ lessonId, auto = false }: { lessonId: numb
   const missedWords = useLessonStore((s) => s.missedWords);
 
   useEffect(() => {
-    setItems(auto ? buildTodayQueue(lesson.examples ?? []) : baseItems);
+    // 어휘·미팅 스크립트에서 넘어온 큐가 있으면 그걸 먼저 쓴다(1회 소비).
+    const handoff = takeDrillQueue();
+    if (handoff) {
+      setHandoffLabel(handoff.label);
+      setItems(handoff.items.map((it) => ({ en: it.en, kr: it.kr, fromWeak: false })));
+    } else {
+      setHandoffLabel(null);
+      setItems(auto ? buildTodayQueue(lesson.examples ?? []) : baseItems);
+    }
     setIdx(0);
     setScores([]);
     setFinished(false);
@@ -176,6 +186,7 @@ Return JSON: {"tips":["2-3 specific Korean-language tips about likely pronunciat
 
   return (
     <div className="drill-screen">
+      {handoffLabel && <div className="drill-source">{handoffLabel} 연습 중</div>}
       <div className="drill-progress muted" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         <span>
           {idx + 1} / {items.length}

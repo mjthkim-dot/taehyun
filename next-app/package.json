@@ -1,12 +1,13 @@
 {
-  "name": "preply-english-coach",
+  "name": "my-english-coach",
   "version": "0.20.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:e2e": "node tests/e2e/run.mjs"
   },
   "dependencies": {
     "idb": "^8.0.0",
@@ -21,6 +22,7 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "next-pwa": "^5.6.0",
+    "playwright": "^1.62.0",
     "typescript": "^5.5.3"
   }
 }

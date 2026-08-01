@@ -15,14 +15,14 @@ const pretendard = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'Preply English Coach',
+  title: 'My English Coach',
   description: 'AI 영어 회화 코치 — 오프라인 학습 지원 PWA',
   manifest: 'manifest.json',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'EnglishCoach' },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#ff5a36',
+  themeColor: '#0a0c0e', // Dark Studio 캔버스 — 설치형 PWA 상태바까지 이어지게
 };
 
 /**
@@ -30,7 +30,9 @@ export const viewport: Viewport = {
  * 상태바 색(meta theme-color)까지 맞춘다. React 하이드레이션 전에 실행돼야 하므로
  * 인라인 동기 스크립트로 둔다.
  */
-const NO_FLASH = `(function(){try{var t=localStorage.getItem('theme');if(t!=='dark'&&t!=='light'){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);var m=document.querySelector('meta[name="theme-color"]');if(!m){m=document.createElement('meta');m.setAttribute('name','theme-color');document.head.appendChild(m);}m.setAttribute('content',t==='dark'?'#15110e':'#ff5a36');}catch(e){}})();`;
+/* 기본 테마는 Dark Studio — 저장된 선택이 있으면 그걸 따르고, 없으면(시스템이
+   라이트라도) 다크로 시작한다. 라이트는 헤더 토글로 언제든 전환 가능. */
+const NO_FLASH = `(function(){try{var t=localStorage.getItem('theme');if(t!=='dark'&&t!=='light'){t='dark';}document.documentElement.setAttribute('data-theme',t);var m=document.querySelector('meta[name="theme-color"]');if(!m){m=document.createElement('meta');m.setAttribute('name','theme-color');document.head.appendChild(m);}m.setAttribute('content',t==='dark'?'#0a0c0e':'#fafaf8');}catch(e){}})();`;
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

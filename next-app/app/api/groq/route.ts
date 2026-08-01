@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
+import { rateLimit, clientIp, tooManyRequests } from '../../../lib/rateLimit';
 
 /**
  * Groq Chat Completions 서버 프록시 — "No-key UX" (Phase 3).
- * 서버 환경변수 GROQ_API_KEY가 설정돼 있으면 태현은 앱에서 키를 직접 등록할 필요가
+ * 서버 환경변수 GROQ_API_KEY가 설정돼 있으면 사용자는 앱에서 키를 직접 등록할 필요가
  * 없다. 클라이언트가 로컬에 저장한 키가 있으면 그걸 fallback으로 함께 보내고,
  * 둘 다 없으면 기존과 동일하게 NO_GROQ_KEY 에러를 돌려준다.
  *
@@ -13,13 +14,30 @@ import { NextRequest } from 'next/server';
 
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
+/* ── 남용 방어(상용화 Phase 0) — IP당 호출 제한 + 입력 크기 상한 ── */
+const RATE_LIMIT_PER_MIN = 30;
+/** 대화 메시지 배열 최대 길이·전체 문자수 — 정상 사용(시스템+최근 8턴)의 여유 상한. */
+const MAX_MESSAGES = 24;
+const MAX_TOTAL_CHARS = 16000;
+const MAX_TOKENS_CAP = 1200;
+
 export async function GET() {
   return Response.json({ hasServerKey: !!process.env.GROQ_API_KEY });
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  if (!rateLimit(`groq:${clientIp(req.headers)}`, RATE_LIMIT_PER_MIN, 60_000)) {
+    return tooManyRequests();
+  }
+  const body = await req.json().catch(() => null);
   const { messages, temperature, maxTokens, json, stream, key } = body || {};
+  if (!Array.isArray(messages) || messages.length === 0 || messages.length > MAX_MESSAGES) {
+    return Response.json({ error: { message: '잘못된 요청입니다.' } }, { status: 400 });
+  }
+  const totalChars = messages.reduce((a: number, m: { content?: unknown }) => a + String(m?.content ?? '').length, 0);
+  if (totalChars > MAX_TOTAL_CHARS) {
+    return Response.json({ error: { message: '요청이 너무 깁니다.' } }, { status: 413 });
+  }
   const apiKey = process.env.GROQ_API_KEY || key;
   if (!apiKey) {
     return Response.json({ error: { message: 'NO_GROQ_KEY' } }, { status: 401 });
@@ -32,8 +50,8 @@ export async function POST(req: NextRequest) {
       model: GROQ_MODEL,
       messages,
       stream: !!stream,
-      temperature: temperature ?? 0.7,
-      max_tokens: maxTokens ?? 400,
+      temperature: Math.min(Math.max(Number(temperature ?? 0.7) || 0.7, 0), 2),
+      max_tokens: Math.min(Number(maxTokens ?? 400) || 400, MAX_TOKENS_CAP),
       ...(json ? { response_format: { type: 'json_object' } } : {}),
     }),
   }).catch(() => null);

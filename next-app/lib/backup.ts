@@ -10,7 +10,9 @@
  * 복원 시에도 같은 이유로 이 키는 받아들이지 않는다.
  */
 
-const BACKUP_APP = 'preply-english-coach';
+const BACKUP_APP = 'my-english-coach';
+/** 리브랜딩 이전 버전이 만든 백업 파일도 계속 복원할 수 있게 허용하는 앱 식별자들. */
+const LEGACY_BACKUP_APPS = new Set(['preply-english-coach']);
 const BACKUP_FORMAT = 1;
 /** 백업에서 제외할 키 — 비밀키/일회성 상태. */
 const EXCLUDED_KEYS = new Set(['va_groq_key']);
@@ -82,7 +84,8 @@ export function restoreBackup(text: string): RestoreResult {
     return { ok: false, restored: 0, message: '올바른 백업 파일이 아니에요 (JSON 형식이 아님).' };
   }
   const b = parsed as Partial<BackupFile>;
-  if (b?.app !== BACKUP_APP || typeof b.data !== 'object' || b.data == null) {
+  const appOk = b?.app === BACKUP_APP || (typeof b?.app === 'string' && LEGACY_BACKUP_APPS.has(b.app));
+  if (!appOk || typeof b?.data !== 'object' || b.data == null) {
     return { ok: false, restored: 0, message: '이 앱의 백업 파일이 아니에요.' };
   }
   if (typeof b.format === 'number' && b.format > BACKUP_FORMAT) {
@@ -102,6 +105,25 @@ export function restoreBackup(text: string): RestoreResult {
   }
   if (!restored) return { ok: false, restored: 0, message: '복원할 데이터가 없어요.' };
   return { ok: true, restored, message: `${restored}개 항목을 복원했어요. 새로고침하면 반영됩니다.` };
+}
+
+/**
+ * 모든 학습 데이터 즉시 삭제 — 개인정보처리방침의 "이용자 삭제권"을 실제로
+ * 이행하는 장치. va_* 전체(API 키 포함)와 테마, 레슨 캐시(IndexedDB)를 지운다.
+ */
+export function eraseAllData() {
+  const keys: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && (k.startsWith('va_') || EXTRA_KEYS.includes(k))) keys.push(k);
+  }
+  keys.forEach((k) => localStorage.removeItem(k));
+  try {
+    indexedDB.deleteDatabase('preply-english-coach'); // 내부 레슨 캐시(구 식별자 유지분)
+  } catch {
+    /* IndexedDB 미지원 — 무시 */
+  }
+  return keys.length;
 }
 
 /** 백업/복원 화면에 보여줄 현재 데이터 요약. */

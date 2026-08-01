@@ -22,6 +22,8 @@ import {
   SKILLS,
 } from '../lib/state';
 import { CountUp, RadarChart, GaugeRing } from './Charts';
+import WeeklyReport from './WeeklyReport';
+import type { Mode } from './NavBar';
 
 interface CafSession {
   date: number;
@@ -29,7 +31,7 @@ interface CafSession {
   caf: { complexity: number; accuracy: number; fluency: number };
 }
 
-export default function ProgressScreen() {
+export default function ProgressScreen({ onNavigate, onSelectLesson }: { onNavigate?: (m: Mode) => void; onSelectLesson?: (id: number) => void } = {}) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => setReady(true), []);
@@ -51,6 +53,8 @@ export default function ProgressScreen() {
 
   return (
     <div className="study-screen">
+      <WeeklyReport onNavigate={onNavigate} onSelectLesson={onSelectLesson} />
+
       <div className="stat-grid">
         <div className="stat-card">
           <div className="num"><CountUp value={calcStreak()} /></div>
