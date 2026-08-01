@@ -297,8 +297,16 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   async function startWhisperTurn(): Promise<boolean> {
     try {
       setInterim('듣고 있어요…');
+      // 미리보기 자막이 흐르는 동안에는 상태 문구로 덮어쓰지 않는다 —
+      // 실제 말이 잡히고 있다는 신호가 고정 문구보다 훨씬 안심된다.
+      let partial = '';
       const { text, reason, peak } = await recordAndTranscribe({
-        onState: (st) => setInterim(st === 'transcribing' ? '인식 중…' : '듣고 있어요…'),
+        onState: (st) =>
+          setInterim(st === 'transcribing' ? '인식 중…' : partial || '듣고 있어요…'),
+        onPartial: (t) => {
+          partial = t;
+          setInterim(t || '듣고 있어요…');
+        },
         registerStop: (fn) => {
           whisperStopRef.current = fn;
         },

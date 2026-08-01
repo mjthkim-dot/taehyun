@@ -61,6 +61,69 @@ function pickMimeType(): string | undefined {
 }
 
 /**
+ * 말하는 동안 보여줄 **미리보기 전용** 실시간 자막.
+ *
+ * Whisper는 녹음이 끝나야 텍스트를 돌려주므로, 말하는 내내 화면에 글자가 하나도
+ * 뜨지 않는다 — 사용자에게는 "인식이 안 되고 있다"로 보인다. 그래서 브라우저 내장
+ * 인식을 같은 마이크에 나란히 붙여 중간 결과만 흘려보낸다.
+ *
+ * 이 텍스트는 **채점에 쓰지 않는다**. 내장 인식은 문맥으로 단어를 고쳐 돌려주기
+ * 때문에 발음 진단의 근거가 될 수 없고, 여기서는 오로지 "지금 잡히고 있다"를
+ * 눈으로 보여주는 역할만 한다. 최종 판정은 언제나 Whisper 결과다.
+ *
+ * 내장 인식이 없는 브라우저(iOS Safari 등)에서는 조용히 아무 일도 하지 않는다 —
+ * 그쪽은 마이크 레벨 막대와 상태 문구가 같은 역할을 한다.
+ */
+function startLivePreview(onPartial: (text: string) => void): () => void {
+  const SR =
+    typeof window === 'undefined'
+      ? null
+      : window.SpeechRecognition ||
+        (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition ||
+        null;
+  if (!SR) return () => {};
+
+  let recog: SpeechRecognition;
+  try {
+    recog = new SR();
+  } catch {
+    return () => {};
+  }
+  recog.lang = 'en-US';
+  recog.continuous = true;
+  recog.interimResults = true;
+
+  let settled = '';
+  recog.onresult = (e: SpeechRecognitionEvent) => {
+    let live = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const r = e.results[i];
+      if (r.isFinal) settled += r[0].transcript + ' ';
+      else live += r[0].transcript;
+    }
+    onPartial((settled + live).trim());
+  };
+  // 미리보기가 실패해도 녹음은 계속돼야 한다 — 여기서 던지면 학습이 멈춘다
+  recog.onerror = () => {};
+
+  try {
+    recog.start();
+  } catch {
+    return () => {};
+  }
+
+  return () => {
+    try {
+      recog.onresult = null;
+      recog.onerror = null;
+      recog.abort();
+    } catch {
+      /* 이미 정리됨 */
+    }
+  };
+}
+
+/**
  * 마이크를 열어 말이 끝날 때까지 녹음한 뒤 Whisper로 변환한다.
  * stopSignal로 사용자가 직접 멈출 수도 있다(버튼 다시 누르기).
  */
@@ -70,6 +133,8 @@ export async function recordAndTranscribe(opts: {
   onState?: (s: SttState) => void;
   /** 녹음 중 마이크 입력 레벨(0~1) — 소리가 잡히는지 사용자에게 보여주는 데 쓴다 */
   onLevel?: (rms: number) => void;
+  /** 말하는 동안 흐르는 미리보기 자막. 채점에는 쓰지 않는다(위 startLivePreview 참고) */
+  onPartial?: (text: string) => void;
   /** 호출하면 즉시 녹음을 끝낸다 */
   registerStop?: (stop: () => void) => void;
 } = {}): Promise<SttResult> {
@@ -82,6 +147,8 @@ export async function recordAndTranscribe(opts: {
   };
 
   opts.onState?.('recording');
+  // 말하는 동안 글자가 보이도록 미리보기 자막을 나란히 띄운다(가능한 브라우저에서만)
+  const stopPreview = opts.onPartial ? startLivePreview(opts.onPartial) : () => {};
 
   // ── 무음 감지: 오디오 레벨을 재서 말이 끝났는지 판단한다 ──
   const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -152,6 +219,7 @@ export async function recordAndTranscribe(opts: {
   });
 
   clearInterval(timer);
+  stopPreview();
   stream.getTracks().forEach((t) => t.stop());
   audioCtx?.close().catch(() => {});
 

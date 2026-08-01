@@ -172,6 +172,8 @@ export default function SpeakingPractice({
         prompt: currentSentence,
         onState: (st) => setSttState(st),
         onLevel: (rms) => setMicLevel(Math.min(1, rms * 12)),
+        // 말하는 동안 글자가 흐르게 — 채점은 아래 Whisper 결과로만 한다
+        onPartial: (t) => setUserSpeech(t),
         registerStop: (fn) => {
           stopWhisperRef.current = fn;
         },
@@ -325,9 +327,17 @@ export default function SpeakingPractice({
         <p className="muted" style={{ fontSize: '0.78rem', marginTop: 6, lineHeight: 1.55 }}>{sttHint}</p>
       )}
 
-      <div className="transcript">
-        <span className="label">내 발화</span>
-        <p>{userSpeech || '…'}</p>
+      {/* 말하는 동안에도 글자가 보여야 한다 — Whisper는 녹음이 끝나야 결과를 주므로
+          그때까지 화면이 비어 있으면 인식이 죽은 것처럼 보인다. 내장 인식 미리보기가
+          되는 브라우저에서는 실시간 자막이, 안 되는 곳에서는 상태 문구가 그 자리를 채운다. */}
+      <div className={`transcript${isListening ? ' live' : ''}`}>
+        <span className="label">
+          {sttState === 'transcribing' ? '인식 중' : isListening ? '듣는 중' : '내 발화'}
+        </span>
+        <p>
+          {userSpeech ||
+            (sttState === 'transcribing' ? '방금 말한 내용을 옮기는 중…' : isListening ? '말씀하세요…' : '…')}
+        </p>
       </div>
 
       {accuracyScore > 0 && (

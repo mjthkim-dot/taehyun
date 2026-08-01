@@ -5200,3 +5200,41 @@ body,
   width: 100%;
   margin-top: 12px;
 }
+
+/* ── 실시간 자막 ──
+ * 말하는 동안 이 칸이 비어 있으면 인식이 죽은 것처럼 보인다. 듣는 중에는 테두리와
+ * 라벨로 '지금 살아 있다'를 드러내고, 글자가 들어오면 그대로 흘려보낸다. */
+.speaking-practice .transcript.live {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--primary-soft);
+  border: 1px solid var(--primary);
+}
+.speaking-practice .transcript.live .label {
+  color: var(--primary-dk);
+  font-weight: 800;
+}
+.speaking-practice .transcript.live .label::after {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: live-pulse 1.1s ease-in-out infinite;
+  vertical-align: middle;
+}
+.speaking-practice .transcript.live p {
+  margin-top: 3px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+@keyframes live-pulse {
+  0%, 100% { opacity: 0.25; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .speaking-practice .transcript.live .label::after { animation: none; opacity: 1; }
+}

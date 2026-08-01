@@ -81,6 +81,71 @@ check('오디오가 실제로 전송됨', sentPrompt.includes('speech.webm'));
 await page.waitForSelector('.score', { timeout: 10000 });
 check('인식 결과로 채점까지 이어짐', /정확도 \d+점/.test(await page.evaluate(() => document.querySelector('.score')?.textContent || '')));
 
+/* ── 말하는 동안 화면이 비어 있지 않아야 한다 ──
+ * Whisper는 녹음이 끝나야 텍스트를 준다. 그 사이 자막 칸이 비어 있으면 사용자에게는
+ * 인식이 죽은 것으로 보인다(실제로 "작동을 안 한다"는 신고의 원인). 브라우저 내장
+ * 인식을 미리보기로 나란히 돌려 말하는 중에도 글자가 흐르게 했다. */
+const preview = await browser.newPage();
+preview.on('pageerror', (e) => console.log('  [pageerror]', e.message));
+await preview.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ valid: true }) }));
+await preview.route('**/app/api/groq', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{}' } }] }) }));
+// 변환은 일부러 늦춘다 — 녹음 중 화면 상태를 관찰할 시간을 만든다
+await preview.route('**/app/api/stt', async (route) => {
+  await new Promise((r) => setTimeout(r, 2500));
+  return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: 'Final whisper text.' }) });
+});
+await seedKey(preview);
+await preview.addInitScript(MIC_STUB);
+await preview.addInitScript(() => {
+  // 내장 인식 미리보기 스텁 — 중간 결과를 흘려보낸다
+  class PreviewSR {
+    start() {
+      setTimeout(() => {
+        const mk = (t, fin) => ({ 0: { transcript: t }, isFinal: fin, length: 1 });
+        this.onresult?.({ resultIndex: 0, results: Object.assign([mk('I work with', false)], { length: 1 }) });
+      }, 120);
+    }
+    abort() {}
+    stop() {}
+  }
+  window.SpeechRecognition = PreviewSR;
+  window.webkitSpeechRecognition = PreviewSR;
+});
+await preview.goto(`${BASE}/app`);
+await preview.waitForSelector('.mission-practice .mic', { timeout: 15000 });
+await preview.click('.mission-practice .mic');
+
+// 녹음이 시작되자마자 자막 칸이 살아 있어야 한다
+await preview.waitForSelector('.transcript.live', { timeout: 8000 });
+const during = await preview.evaluate(() => ({
+  label: document.querySelector('.transcript.live .label')?.textContent?.trim() || '',
+  text: document.querySelector('.transcript.live p')?.textContent?.trim() || '',
+}));
+check('말하는 중 자막 칸이 살아 있음', !!during.label, JSON.stringify(during));
+check('말하는 중 안내나 실시간 글자가 보임', during.text.length > 0, JSON.stringify(during));
+
+// 미리보기 자막이 실제로 흐르는지
+let previewShown = true;
+try {
+  await preview.waitForFunction(() => (document.querySelector('.transcript p')?.textContent || '').includes('I work with'), null, { timeout: 8000 });
+} catch {
+  previewShown = false;
+}
+check(
+  '내장 인식 미리보기가 실시간으로 표시됨',
+  previewShown,
+  await preview.evaluate(() => document.querySelector('.transcript p')?.textContent || '')
+);
+
+// 변환 대기 중에도 빈 화면이 아니어야 한다
+await preview.waitForFunction(() => (document.querySelector('.transcript .label')?.textContent || '').includes('인식 중'), null, { timeout: 15000 });
+check('변환 대기 중 상태가 드러남', true);
+
+// 최종 판정은 Whisper 결과 — 미리보기가 채점을 오염시키면 안 된다
+await preview.waitForFunction(() => (document.querySelector('.transcript p')?.textContent || '').includes('Final whisper text'), null, { timeout: 15000 });
+check('최종 텍스트는 Whisper 결과', true);
+await preview.close();
+
 /* ── ② 마이크 거부 시 브라우저 내장 인식으로 폴백 ── */
 const fb = await browser.newPage();
 fb.on('pageerror', (e) => console.log('  [pageerror]', e.message));

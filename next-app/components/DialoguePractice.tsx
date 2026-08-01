@@ -490,6 +490,8 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
       const { text, reason } = await recordAndTranscribe({
         prompt: dialogue.lines[stepRef.current]?.en,
         onState: (st) => setPhase(st),
+        // 말하는 동안 글자가 보이게 — 채점은 Whisper 결과로만 한다
+        onPartial: (t) => setInterim(t),
         registerStop: (fn) => {
           stopWhisperRef.current = fn;
         },
@@ -637,8 +639,13 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
             </button>
             <button className="speak-mini" title="모범 발음 듣기" onClick={() => speakText(line.en, 'en-US', rate, undefined, voiceFor(line.sp))}>🔊</button>
           </div>
-          {(interim || res) && (
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>내 발화: {res?.spoken || interim}</div>
+          {/* 말하는 중에는 실시간 자막을 우선한다 — 이전 시도 결과가 남아 있으면
+              지금 잡히는 말이 가려져 인식이 멈춘 것처럼 보인다 */}
+          {(interim || res || listening) && (
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>
+              {phase === 'transcribing' ? '인식 중' : listening ? '듣는 중' : '내 발화'}:{' '}
+              {listening ? interim || '말씀하세요…' : res?.spoken || interim}
+            </div>
           )}
           {res && (
             <div style={{ marginBottom: 8 }}>
