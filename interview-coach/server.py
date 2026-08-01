@@ -63,15 +63,19 @@ STATIC_FILES = {
 }
 
 
-def _stream_llm_ndjson(handler, messages, temperature, max_tokens, model=None):
-    """llm 모듈(Groq/Ollama)의 토큰 스트림을 NDJSON으로 클라이언트에 프록시.
-    첫 청크를 먼저 당겨(next) 연결 실패가 200 OK 이후로 새지 않고 503으로 잡히게 한다."""
+def _stream_llm_ndjson(handler, messages, temperature, max_tokens, model=None, meta=None):
+    """llm 모듈의 토큰 스트림을 NDJSON으로 클라이언트에 프록시.
+    첫 청크를 먼저 당겨(next) 연결 실패가 200 OK 이후로 새지 않고 503으로 잡히게 한다.
+    meta가 있으면 토큰보다 먼저 {"meta":...} 한 줄을 보낸다 (📎 답변 근거 표시용)."""
     it = llm.stream_ndjson(messages, temperature, max_tokens, model)
     first = next(it, None)
     handler.send_response(200)
     handler.send_header("Content-Type", "application/x-ndjson")
     handler._cors()
     handler.end_headers()
+    if meta:
+        handler.wfile.write((json.dumps({"meta": meta}, ensure_ascii=False) + "\n").encode("utf-8"))
+        handler.wfile.flush()
     if first:
         handler.wfile.write(first)
         handler.wfile.flush()
@@ -156,6 +160,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         elif path in STATIC_FILES:
             self._serve_static(path, STATIC_FILES[path])
+
+        elif path == "/favicon.ico":   # 인라인 SVG — 콘솔 404 제거
+            icon = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
+                    '<rect width="32" height="32" rx="7" fill="#111"/>'
+                    '<text x="16" y="23" font-size="19" text-anchor="middle">🎤</text>'
+                    '</svg>').encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "image/svg+xml")
+            self.send_header("Content-Length", str(len(icon)))
+            self.send_header("Cache-Control", "max-age=86400")
+            self._cors()
+            self.end_headers()
+            self.wfile.write(icon)
 
         elif path == "/health":
             try:
@@ -285,12 +302,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
             if self.path == "/api/live/suggest":
                 req = json.loads(body or b"{}")
-                prompt = interview_pipeline.build_live_suggest_prompt(
+                built = interview_pipeline.build_live_suggest_prompt(
                     req.get("question", ""), req.get("cefr", "B1"),
                     req.get("context", ""), req.get("intent", "answer"))
                 # 답변 2개 + 한국어 번역 2개가 들어가므로 토큰을 넉넉히
-                _stream_llm_ndjson(self, [{"role": "user", "content": prompt}],
-                                  temperature=0.4, max_tokens=700, model=req.get("model"))
+                _stream_llm_ndjson(self, [{"role": "user", "content": built["prompt"]}],
+                                  temperature=0.4, max_tokens=700, model=req.get("model"),
+                                  meta={k: built[k] for k in
+                                        ("sources", "has_placeholder", "followup_of")})
                 return
 
             if self.path == "/api/live/summary":

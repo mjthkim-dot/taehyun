@@ -396,8 +396,12 @@ Useful phrases (reuse where natural):
 Write 2 spoken answers the candidate can read aloud (option 1: concise, 30-50
 words; option 2: stronger with STAR structure and concrete numbers, 60-90 words).
 Natural native-sounding US business English, first person, contractions.
-Where the profile/story has [placeholders], substitute plausible round numbers
-and keep them consistent.
+
+TRUTHFULNESS (critical — the candidate will say this out loud in a real interview):
+- Use ONLY numbers, company names and metrics written in the profile/stories above.
+- NEVER invent a figure. If a fact appears as a [placeholder] with no real value,
+  describe it qualitatively instead ("a major manufacturing account") — do not
+  substitute a made-up number.
 
 Return ONLY valid JSON:
 {{
@@ -774,8 +778,22 @@ INTENT_GOALS = {
 }
 
 
+_PLACEHOLDER_RE = re.compile(r"\[[^\]\n]{1,30}\]")
+
+
+def _kb_numbers(texts: list[str], limit: int = 12) -> list[str]:
+    """KB에 실제로 적힌 수치만 뽑는다 — 답변이 이 밖의 숫자를 지어내지 못하게 하는 근거."""
+    found: list[str] = []
+    for t in texts:
+        for m in re.findall(r"[0-9][0-9,.]*\s*(?:%|퍼센트|억|천만|만|명|배|개월|년|개사|건|원|억원)?", t):
+            m = m.strip()
+            if m and m not in found:
+                found.append(m)
+    return found[:limit]
+
+
 def build_live_suggest_prompt(question: str, cefr: str = "B1", context: str = "",
-                              intent: str = "answer") -> str:
+                              intent: str = "answer") -> dict:
     """면접관 발화 → 즉시 읽을 수 있는 답변 2개(+한국어 번역). intent로 의도 선택.
     context: 직전 대화(자막 로그) — 꼬리 질문(follow-up)에 맥락 있는 답변을 위해."""
     refs = _safe_retrieve(question, k_phrases=4, k_profile=4)
@@ -810,9 +828,17 @@ def build_live_suggest_prompt(question: str, cefr: str = "B1", context: str = ""
         f" resolve what a follow-up refers to):\n\"\"\"{context}\"\"\"\n"
         if context.strip() else ""
     )
+    # 🔒 지어내기 방지 — KB에 실제로 있는 수치만 쓰게 하고, 미입력([대괄호])이면
+    #    숫자를 만들지 말고 정성적 표현으로 우회시킨다 (면접에서 거짓 수치는 치명적).
+    grounded = [c for _, c in picked] + [r["text"] for r in refs["profile"]]
+    nums = _kb_numbers(grounded)
+    has_placeholder = any(_PLACEHOLDER_RE.search(t) for t in grounded)
+    numbers_line = ("Real figures available (these are the ONLY numbers you may state): "
+                    + ", ".join(nums)) if nums else "No verified figures are available."
+
     # ⚡ 지연 최소화: 사용자가 바로 읽어야 하는 답변(EN)을 가장 먼저 출력시키고
     #    메타(요지/전략)는 맨 뒤로 — 첫 유효 토큰까지의 체감 대기를 최소화한다.
-    return f"""You are a real-time interview copilot for a Korean candidate who is IN A LIVE
+    prompt = f"""You are a real-time interview copilot for a Korean candidate who is IN A LIVE
 English video interview for an IT sales (cloud/SaaS) position RIGHT NOW.
 Speed matters — the candidate is waiting to speak.
 {context_block}{followup_block}{used_block}
@@ -822,8 +848,7 @@ The interviewer just said:
 
 The candidate's goal right now: {goal}
 
-Candidate profile facts (Korean; substitute plausible round numbers for
-[placeholders], never contradict them):
+Candidate profile facts (Korean — never contradict them):
 {profile_lines}
 
 Candidate's own stories (Korean — ground answers in these real experiences):
@@ -831,6 +856,14 @@ Candidate's own stories (Korean — ground answers in these real experiences):
 {_target_block(1200)}
 Useful phrases (reuse where natural):
 {phrase_lines}
+
+TRUTHFULNESS (critical — the candidate will say this out loud in a real interview):
+{numbers_line}
+- NEVER invent a number, company name, date or metric that is not written above.
+- If a fact appears as a [placeholder] with no real value, do NOT make one up —
+  describe it qualitatively instead ("a major manufacturing account", "a
+  significant share of annual revenue").
+- Everything the candidate says must be something they can defend if probed.
 
 Respond in EXACTLY this format (plain text, no markdown), nothing else —
 the first EN line MUST come first so the candidate can start speaking:
@@ -849,6 +882,12 @@ Rules for the EN options:
   no textbook or translated-sounding phrasing.
 - The two options must take meaningfully different angles, not paraphrases.
 - If it was a follow-up, connect to what was said before instead of repeating it."""
+    return {
+        "prompt": prompt,
+        "sources": [t for t, _ in picked],       # 📎 이 답변이 근거로 쓴 내 사례
+        "has_placeholder": has_placeholder,       # ⚠️ KB에 수치가 비어 있음
+        "followup_of": followup_of,
+    }
 
 
 def build_live_report_prompt(transcript: str, metrics: dict) -> str:

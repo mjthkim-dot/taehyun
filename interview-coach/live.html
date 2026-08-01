@@ -171,6 +171,15 @@
   .lrow .en { font-size: 15px; font-weight: 700; line-height: 1.6; }
   .lrow .kr { font-size: 12.5px; color: var(--sub); line-height: 1.55; margin-top: 6px; }
   .lrow .say { background: none; border: none; cursor: pointer; font-size: 14px; flex: none; color: var(--sub); }
+  /* 📎 답변 근거 — 어떤 내 사례에서 나온 답변인지 (지어낸 답변이 아님을 보증) */
+  #c-src { display: none; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line);
+           font-size: 11.5px; color: var(--faint); line-height: 1.5; }
+  #c-src b { color: var(--sub); font-weight: 700; }
+  #c-src .warn { color: var(--danger); }
+  #card.spec { box-shadow: 0 0 0 1px var(--yellow) inset; }
+  #card .head .spec-tag { display: none; font-size: 10px; font-weight: 800; color: #111;
+      background: var(--yellow); border-radius: 4px; padding: 2px 5px; flex: none; }
+  #card.spec .head .spec-tag { display: inline-block; }
 
   /* ── 요약/번역 탭 ───────────────────────────── */
   .padview { padding: 14px; overflow-y: auto; }
@@ -314,6 +323,7 @@
     <div id="card">
       <div class="head">
         <span class="gist" id="c-gist"></span>
+        <span class="spec-tag" title="질문이 끝나기 전에 미리 생성 중 — 확정되면 자동 갱신됩니다">미리 생성</span>
         <button id="c-pin" title="고정">📌</button>
         <button id="c-close" title="닫기">✕</button>
       </div>
@@ -322,6 +332,7 @@
         <div class="body"><div class="strat" id="c-strat"></div></div>
       </div>
       <div id="c-answers"></div>
+      <div id="c-src"></div>
     </div>
   </div>
 
@@ -368,7 +379,7 @@ const feed = $('#feed');
 const log = [];                 // {who, text}
 let suggestAbort = null;
 const trQueue = [];             // 자막 번역 대기열
-let translating = false;
+let translating = 0;            // 진행 중인 번역 레인 수
 let uttCount = 0, lineSumBusy = false;
 
 // ── 질문 감지 휴리스틱 — STT가 물음표를 빠뜨려도 잡아야 한다.
@@ -395,7 +406,7 @@ function isQuestion(text) {
 }
 
 // ── NDJSON 스트림 공통 리더 ────────────────────────────────
-async function streamChat(url, payload, onToken, signal) {
+async function streamChat(url, payload, onToken, signal, onMeta) {
   const res = await fetch(url, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload), signal,
@@ -417,6 +428,7 @@ async function streamChat(url, payload, onToken, signal) {
       try {
         const obj = JSON.parse(line);
         if (obj.error) throw new Error(obj.error);
+        if (obj.meta) { onMeta?.(obj.meta); continue; }   // 📎 답변 근거 (토큰보다 먼저 옴)
         if (obj.message?.content) onToken(obj.message.content);
       } catch (e) { if (e.message && !(e instanceof SyntaxError)) throw e; }
     }
@@ -451,19 +463,24 @@ function addUtterance(text, who) {
 
 // ── 자막 번역 큐 — 영어 발화마다 바로 한국어 번역을 채운다.
 //   답변 생성과 독립적으로 동작(막히지 않음)하고, 실패 시 이유를 그 자리에 표시.
+//   면접관이 빠르게 이어 말하면 직렬 처리로는 자막 번역이 밀리므로 2개 레인을 병렬로
+//   돌린다 (각 발화의 번역은 자기 버블에 독립적으로 채워지므로 순서 무관).
+const TR_LANES = 2;
 async function processTrQueue() {
-  if (translating || !trQueue.length) return;
-  translating = true;
-  const item = trQueue.shift();
-  try {
-    let got = false;
-    await streamChat('/api/translate', { text: item.text },
-      tk => { if (!got) { item.el.textContent = ''; got = true; } item.el.textContent += tk; });
-  } catch (e) {
-    // 조용히 감추지 않고 이유를 노출 (예: LLM API 오류 403 → 키 문제라는 걸 바로 알 수 있게)
-    item.el.innerHTML = `<span style="color:var(--danger)">번역 실패: ${e.message}</span>`;
+  while (translating < TR_LANES && trQueue.length) {
+    translating++;
+    const item = trQueue.shift();
+    (async () => {
+      try {
+        let got = false;
+        await streamChat('/api/translate', { text: item.text },
+          tk => { if (!got) { item.el.textContent = ''; got = true; } item.el.textContent += tk; });
+      } catch (e) {
+        // 조용히 감추지 않고 이유를 노출 (예: LLM API 오류 403 → 키 문제라는 걸 바로 알 수 있게)
+        item.el.innerHTML = `<span style="color:var(--danger)">번역 실패: ${e.message}</span>`;
+      } finally { translating--; processTrQueue(); }
+    })();
   }
-  finally { translating = false; processTrQueue(); }
 }
 
 // ── 실시간 한 줄 요약 (상단 바) ────────────────────────────
@@ -525,37 +542,81 @@ function renderCardData(entry) {
   (entry.answers || []).forEach(a => box.appendChild(answerRow(a.en, a.kr)));
 }
 
-async function suggest(target, intent, auto) {
+// 📎 답변 근거 — 어떤 내 사례에서 나왔는지 + 수치 미입력 경고
+function renderSources(meta) {
+  const el = $('#c-src');
+  if (!meta || (!meta.sources?.length && !meta.has_placeholder)) { el.style.display = 'none'; return; }
+  const parts = [];
+  if (meta.sources?.length) parts.push(`📎 근거: <b>${meta.sources.join(' · ')}</b>`);
+  if (meta.followup_of) parts.push(`↩︎ 앞 질문 이어받음`);
+  if (meta.has_placeholder)
+    parts.push(`<span class="warn">⚠️ 내 스토리에 숫자가 비어 있어 구체적 수치는 생략됐어요 — my_story.md를 채우면 더 강해집니다</span>`);
+  el.innerHTML = parts.join(' &nbsp;·&nbsp; ');
+  el.style.display = 'block';
+}
+
+// ⚡ 투기적 선생성(speculative prefetch) — Web Speech는 말이 끝난 뒤 1~2초 지나
+//   isFinal이 오므로, 그 전에 "질문처럼 보이는" 중간 결과로 미리 생성을 시작한다.
+//   확정 문장이 도착하면: 거의 같으면 그대로 두고(=지연 0), 다르면 즉시 재생성.
+let specKey = '', specDone = '';
+const normQ = (t) => t.toLowerCase().replace(/[^a-z0-9가-힣 ]/g, '').replace(/\s+/g, ' ').trim();
+function similar(a, b) {
+  const A = new Set(normQ(a).split(' ')), B = new Set(normQ(b).split(' '));
+  if (!A.size || !B.size) return 0;
+  let inter = 0; A.forEach(w => { if (B.has(w)) inter++; });
+  return inter / Math.max(A.size, B.size);
+}
+
+async function suggest(target, intent, auto, speculative) {
   // 📌 고정 중에는 자동 감지가 카드를 덮어쓰지 않는다 (읽는 중 보호).
   //    수동 클릭(답변 버튼/퀵 액션)은 사용자 의도이므로 고정을 해제하고 진행.
   if (auto && pinned) return;
   if (!auto && pinned) { pinned = false; $('#c-pin').classList.remove('on'); }
+
+  // 확정 문장이 방금 미리 생성한(또는 생성 중인) 것과 거의 같으면 재생성하지 않는다.
+  //  → 이미 화면에 떠 있거나 스트리밍 중인 답변을 그대로 채택 = 체감 지연 0
+  if (!speculative && specKey && similar(target, specKey) >= 0.8 && (specDone || suggestAbort)) {
+    $('#card').classList.remove('spec');
+    specKey = ''; specDone = '';
+    return;
+  }
+  if (speculative) { specKey = target; specDone = ''; }
+
   if (suggestAbort) suggestAbort.abort();
   const card = $('#card');
   card.style.display = 'block';
+  card.classList.toggle('spec', !!speculative);
   // 1) 미리 준비된 맞춤 답변과 매칭되면 생성 없이 즉시 표시
   if (intent === 'answer') {
     try {
       const r = await fetch('/api/live/cached?q=' + encodeURIComponent(target));
       const d = await r.json();
-      if (d.hit) { renderCardData(d.entry); processTrQueue(); return; }
+      if (d.hit) {
+        renderCardData(d.entry);
+        if (speculative) specDone = target; else card.classList.remove('spec');
+        processTrQueue();
+        return;
+      }
     } catch { /* 캐시 실패는 무시하고 생성으로 */ }
   }
   // 2) 캐시 미스 → 실시간 생성 (답변이 먼저 스트리밍됨)
   suggestAbort = new AbortController();
+  const mySignal = suggestAbort.signal;
   $('#c-gist').textContent = target.length > 60 ? target.slice(0, 60) + '…' : target;
   $('#c-strat-row').style.display = 'none';
+  $('#c-src').style.display = 'none';
   $('#c-answers').innerHTML = '<div class="lrow"><span class="lab an">답변</span><div class="body"><div class="en">⏳ 생성 중...</div></div></div>';
   const context = log.slice(-7).map(l => `${l.who === '나' ? 'Candidate' : 'Interviewer'}: ${l.text}`).join('\n');
   let raw = '';
   try {
     await streamChat('/api/live/suggest',
       { question: target, cefr: $('#cefr').value, context, intent },
-      tk => { raw += tk; renderCard(raw); }, suggestAbort.signal);
+      tk => { raw += tk; renderCard(raw); }, mySignal, renderSources);
+    if (speculative) specDone = target; else card.classList.remove('spec');
   } catch (e) {
     if (e.name !== 'AbortError') $('#c-gist').textContent = '⚠️ ' + e.message;
   } finally {
-    suggestAbort = null;
+    if (suggestAbort?.signal === mySignal) suggestAbort = null;
     processTrQueue();
   }
 }
@@ -861,6 +922,22 @@ $('#dev-mon').addEventListener('click', () => monOn ? stopMonitor() : startMonit
 //  Google 서버로 실시간 인식. API 키/요청 한도 없음. 단, 입력 장치를
 //  지정할 수 없어 '시스템 기본 입력'만 듣는다 → 시스템 입력을 BlackHole로
 //  두면 면접관 발화가 인식된다. (내 목소리 채널은 이 모드에선 꺼짐)
+// ⚡ 중간 결과 감시 — 질문 형태가 완성되고 350ms 이상 말이 멈추면 미리 생성 시작.
+//   한 발화당 1회만, 📌 고정 중에는 건너뛴다 (요청 낭비/한도 방지).
+let specTimer = null, specLastText = '';
+function maybeSpeculate(interim) {
+  if (pinned) return;
+  const t = interim.trim();
+  if (t === specLastText) return;             // 텍스트가 자라는 동안엔 타이머만 갱신
+  specLastText = t;
+  clearTimeout(specTimer);
+  if (t.split(/\s+/).length < 5 || !isQuestion(t)) return;
+  if (specKey && similar(t, specKey) >= 0.8) return;   // 이미 이 질문으로 생성 시작함
+  specTimer = setTimeout(() => {
+    if (!pinned && isQuestion(specLastText)) suggest(specLastText, 'answer', true, true);
+  }, 350);
+}
+
 let webRec = null;
 function startWebSpeech() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -888,6 +965,7 @@ function startWebSpeech() {
       }
       interimRow.querySelector('.en').textContent = interim;   // 말하는 대로 실시간 표시
       feed.scrollTop = feed.scrollHeight;
+      maybeSpeculate(interim);        // ⚡ 말이 끝나기 전에 답변 미리 생성
     } else if (interimRow) { interimRow.remove(); interimRow = null; }
   };
   webRec.onerror = (ev) => {
@@ -981,6 +1059,8 @@ $('#btn-listen').addEventListener('click', () => isListening() ? stopListening()
 function resetSession() {
   fetch('/api/live/reset', { method: 'POST' }).catch(() => {});
   log.length = 0; uttCount = 0;
+  specKey = ''; specDone = ''; specLastText = ''; clearTimeout(specTimer);
+  $('#card').classList.remove('spec'); $('#c-src').style.display = 'none';
   feed.innerHTML = '<div class="empty" id="feed-empty"><div class="big">🎧</div>▶ 버튼을 누르면 대화가 실시간 자막 + 한국어 번역으로 표시되고<br>질문이 감지되면 답변 카드가 자동으로 뜹니다</div>';
   $('#card').style.display = 'none';
   pinned = false; $('#c-pin').classList.remove('on');
