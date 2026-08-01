@@ -213,6 +213,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             entry = interview_pipeline.cached_answer(q)
             self._send_json(200, {"hit": entry is not None, "entry": entry})
 
+        elif path == "/api/kb/health":
+            self._send_json(200, interview_pipeline.kb_health())
+
         elif path == "/api/prep/status":
             self._send_json(200, interview_pipeline.prep_status())
 

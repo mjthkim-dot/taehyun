@@ -330,6 +330,54 @@ def _safe_retrieve(query: str, k_phrases: int = 6, k_profile: int = 99) -> dict[
     }
 
 
+def kb_health() -> dict[str, Any]:
+    """📊 날리지베이스 점검 — 답변 품질의 상한을 결정하는 요소를 진단한다.
+    미입력 [대괄호]가 남아 있으면 답변에서 구체적 수치가 빠지므로(지어내지 않음),
+    라이브 전에 무엇을 채워야 하는지 정확히 알려준다."""
+    items: list[dict] = []
+    for path, label in ((PROFILE_PATH, "프로필"), (STORY_PATH, "스토리")):
+        if not path.exists():
+            continue
+        section = ""
+        for n, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            line = raw.strip()
+            if line.startswith("#"):
+                section = line.lstrip("#").strip()
+            if line.startswith(">"):       # 안내 주석은 제외
+                continue
+            for m in _PLACEHOLDER_RE.findall(line):
+                items.append({"file": label, "section": section, "line": n,
+                              "token": m, "text": line[:110]})
+
+    stories = _story_chunks()
+    filled = [s for s in stories if not _PLACEHOLDER_RE.search(s)]
+    idx = _load_index()
+    answers = _load_answers()
+    # 점수: 스토리 수(최대 40) + 미입력 없음(30) + 인덱스(15) + 사전답변(15)
+    score = min(len(stories), 6) / 6 * 40
+    score += 30 if not items else max(0, 30 - len(items) * 2)
+    score += 15 if idx.get("stories") else 0
+    score += 15 if answers else 0
+    tips: list[str] = []
+    if items:
+        tips.append(f"미입력 [대괄호] {len(items)}개 — 채우면 답변에 실제 수치가 들어갑니다 "
+                    "(지금은 지어내지 않고 정성적 표현으로 우회합니다)")
+    if len(stories) < 5:
+        tips.append(f"사례가 {len(stories)}개 — 실패/갈등/협업 사례를 추가하면 "
+                    "질문마다 다른 사례를 꺼낼 수 있어요")
+    if not idx.get("stories"):
+        tips.append("검색 인덱스 없음 — ⚡ 맞춤 답변셋 생성을 누르면 함께 만들어집니다")
+    if not answers:
+        tips.append("사전 답변셋 없음 — 만들어두면 빈출 질문이 0초로 표시됩니다")
+    return {
+        "score": round(score),
+        "stories": len(stories), "stories_filled": len(filled),
+        "placeholders": len(items), "items": items[:40],
+        "indexed": bool(idx.get("stories")), "embeddings": bool(idx.get("embed_model")),
+        "prepared_answers": len(answers), "tips": tips,
+    }
+
+
 def status() -> dict[str, Any]:
     bank = _load_bank()
     return {
@@ -820,8 +868,8 @@ def build_live_suggest_prompt(question: str, cefr: str = "B1", context: str = ""
         "\nStories the candidate ALREADY TOLD earlier in this interview — do not"
         " re-tell one as the main example; if relevant, build on it in one clause"
         " (\"like the migration case I mentioned\"): "
-        + ", ".join(t for t in _live_session["used_stories"]
-                    if t not in {p[0] for p in picked}) + "\n"
+        + ", ".join([t for t in _live_session["used_stories"]
+                     if t not in {p[0] for p in picked}][-6:]) + "\n"
         if len(_live_session["used_stories"]) > len(picked) else "")
     context_block = (
         "\nRecent conversation transcript (interviewer and candidate mixed; use it to"

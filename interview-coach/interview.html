@@ -105,6 +105,13 @@
       <button id="btn-prep" class="secondary" title="내 프로필+스토리 기반으로 전체 질문의 답변을 미리 생성 — 라이브 모드에서 즉시 표시됩니다">⚡ 맞춤 답변셋 생성</button>
     </div>
     <div class="status" id="prep-status"></div>
+    <!-- 📊 내 데이터 상태 — 답변 품질의 상한을 결정하는 요소 진단 -->
+    <details style="margin-top:12px;" id="kb-box">
+      <summary style="cursor:pointer; color:#9a9ab0; font-size:13px;">
+        📊 내 데이터 상태 <span id="kb-score"></span> — 답변 품질의 상한을 결정합니다
+      </summary>
+      <div id="kb-body" style="margin-top:10px; font-size:13px; color:#9a9ab0; line-height:1.7;"></div>
+    </details>
     <details style="margin-top:12px;">
       <summary style="cursor:pointer; color:#9a9ab0; font-size:13px;">🎯 타겟 회사 설정 — 채용공고(JD)를 붙여넣으면 예상 질문 생성 + 모든 답변이 회사 맞춤으로</summary>
       <textarea id="target-in" style="margin-top:10px;" placeholder="지원하는 회사의 채용공고(JD), 회사 소개, 제품 설명 등을 붙여넣으세요.&#10;예: [회사명] Cloud Solutions Sales Manager 채용 — 담당업무: 엔터프라이즈 고객 대상..."></textarea>
@@ -463,6 +470,30 @@ $('#btn-hint').addEventListener('click', async () => {
   } catch (e) { out.textContent = '번역 실패: ' + e.message; }
 });
 $('#hint-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#btn-hint').click(); });
+
+// ── 📊 내 데이터 상태 — 무엇을 채우면 답변이 강해지는지 정확히 알려준다 ──
+async function loadKbHealth() {
+  try {
+    const d = await (await fetch('/api/kb/health')).json();
+    const color = d.score >= 80 ? '#4ade80' : d.score >= 50 ? '#fbbf24' : '#f87171';
+    $('#kb-score').innerHTML = `<b style="color:${color}">${d.score}점</b>`;
+    const rows = [];
+    rows.push(`사례 <b>${d.stories}개</b> (수치까지 채워진 사례 ${d.stories_filled}개) · ` +
+              `검색 인덱스 ${d.indexed ? '✅' : '—'}${d.embeddings ? ' (의미검색 ✅)' : ''} · ` +
+              `사전 답변 ${d.prepared_answers}개`);
+    d.tips.forEach(t => rows.push('· ' + t));
+    if (d.items.length) {
+      const list = d.items.map(i =>
+        `<div style="margin:2px 0"><code style="color:#fbbf24">${i.token}</code> ` +
+        `<span style="color:#6b6b80">${i.file} ${i.line}행</span> — ${i.text.replace(/</g, '&lt;')}</div>`).join('');
+      rows.push(`<details style="margin-top:8px"><summary style="cursor:pointer">채워야 할 항목 ${d.placeholders}개 보기</summary>` +
+                `<div style="margin-top:6px; max-height:260px; overflow:auto; font-size:12px">${list}</div></details>`);
+    }
+    $('#kb-body').innerHTML = rows.join('<br>');
+    if (d.score < 80) $('#kb-box').open = true;      // 보완할 게 있으면 펼쳐서 보여줌
+  } catch { $('#kb-body').textContent = '상태를 불러오지 못했습니다.'; }
+}
+loadKbHealth();
 
 // 음성 목록은 비동기 로드되므로 미리 요청해 둔다
 speechSynthesis.getVoices();
