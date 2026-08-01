@@ -10,14 +10,15 @@
  */
 import { useMemo, useState } from 'react';
 import { VOCAB_DOMAINS, type VocabEntry } from '../lib/domainVocab';
-import { addPhrase, addWeakItem } from '../lib/state';
+import { addPhrase, addWeakItem, setDrillQueue } from '../lib/state';
 import SpeakButton from './SpeakButton';
 import Note from './Note';
 import ContextAsk from './ContextAsk';
+import type { Mode } from './NavBar';
 
 type Quiz = { entry: VocabEntry; options: string[] };
 
-export default function VocabScreen() {
+export default function VocabScreen({ onNavigate }: { onNavigate?: (m: Mode) => void } = {}) {
   const [domainKey, setDomainKey] = useState(VOCAB_DOMAINS[0].key);
   const [open, setOpen] = useState<string | null>(null);
   const [saved, setSaved] = useState<string[]>([]);
@@ -149,9 +150,26 @@ export default function VocabScreen() {
         </div>
         <div className="vocab-domain-desc">{domain.desc}</div>
 
-        <button className="btn ghost-accent" style={{ width: '100%', marginBottom: 12 }} onClick={startQuiz}>
-          자기 점검 5문항 시작
-        </button>
+        <div className="vocab-actions">
+          <button className="btn ghost-accent" onClick={startQuiz}>
+            자기 점검 5문항
+          </button>
+          {onNavigate && (
+            <button
+              className="btn ghost"
+              onClick={() => {
+                // 표현장을 거치지 않고 이 도메인 예문으로 곧바로 말하기 훈련
+                setDrillQueue({
+                  label: `직무 어휘 — ${domain.label}`,
+                  items: domain.entries.map((e) => ({ en: e.example.en, kr: e.example.kr })),
+                });
+                onNavigate('drill');
+              }}
+            >
+              예문 드릴하기 →
+            </button>
+          )}
+        </div>
 
         {domain.entries.map((e) => {
           const isOpen = open === e.term;

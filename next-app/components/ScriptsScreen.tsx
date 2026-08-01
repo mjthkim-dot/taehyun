@@ -10,7 +10,7 @@
 import { useState } from 'react';
 import { SALES_SCENARIOS, type SalesScenario } from '../lib/salesScenarios';
 import { setTalkContext } from '../lib/dailyMission';
-import { addPhrase } from '../lib/state';
+import { addPhrase, setDrillQueue } from '../lib/state';
 import SpeakButton from './SpeakButton';
 import Note from './Note';
 import ContextAsk from './ContextAsk';
@@ -58,6 +58,19 @@ export default function ScriptsScreen({ onNavigate }: { onNavigate: (m: Mode) =>
 
           <button className="btn primary script-practice" onClick={() => practice(scenario)}>
             이 상황으로 AI와 연습하기 →
+          </button>
+          <button
+            className="btn ghost script-drill"
+            onClick={() => {
+              // 표현을 입에 붙이는 단계 — 이 상황의 표현 전체를 드릴 큐로 넘긴다
+              setDrillQueue({
+                label: `미팅 스크립트 — ${scenario.label}`,
+                items: scenario.steps.flatMap((st) => st.lines).map((l) => ({ en: l.en, kr: l.kr })),
+              });
+              onNavigate('drill');
+            }}
+          >
+            표현 드릴로 입에 붙이기 →
           </button>
         </div>
 

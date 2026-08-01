@@ -4923,3 +4923,19 @@ body,
   line-height: 1.5;
 }
 .onb-skip:hover { color: var(--primary); }
+
+/* 드릴 출처 배지 — 어휘·스크립트에서 넘어온 큐를 연습 중임을 밝힌다 */
+.drill-source {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 6px 13px;
+  display: inline-block;
+  margin-bottom: 10px;
+}
+/* 어휘 화면 상단 액션 2열 */
+.vocab-actions { display: flex; gap: 8px; margin-bottom: 12px; }
+.vocab-actions .btn { flex: 1; font-size: 0.8rem; padding: 11px 8px; }
+.script-drill { width: 100%; margin-top: 8px; }

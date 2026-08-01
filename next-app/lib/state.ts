@@ -259,6 +259,28 @@ export function buildTodayQueue(lessonExamples: { en: string; kr: string }[], ma
   return [...review, ...rest];
 }
 
+/* ── 외부 화면 → 드릴 핸드오프 ────────────────────────────────
+ * 어휘·미팅 스크립트에서 익힌 표현을 표현장을 거치지 않고 곧바로 말하기 훈련으로
+ * 넘긴다. 회화 탭의 상황 핸드오프(va_mission_talk)와 같은 1회성 소비 방식. */
+const DRILL_QUEUE_KEY = 'va_drill_queue';
+
+export interface DrillHandoff {
+  /** 화면에 표시할 출처(예: "직무 어휘 — IT 영업 · 딜") */
+  label: string;
+  items: { en: string; kr: string }[];
+}
+
+export function setDrillQueue(h: DrillHandoff) {
+  store(DRILL_QUEUE_KEY, h);
+}
+
+/** 큐를 꺼내고 비운다(한 번만 소비). 없으면 null. */
+export function takeDrillQueue(): DrillHandoff | null {
+  const v = load<DrillHandoff | null>(DRILL_QUEUE_KEY, null);
+  if (v) store(DRILL_QUEUE_KEY, null);
+  return v && v.items?.length ? v : null;
+}
+
 /** 약점 노트(va_weak)에 새 항목을 추가한다 — 이미 있으면 건너뛴다. */
 export function addWeakItem(item: { en: string; kr?: string; lesson?: number | string; cat?: string }) {
   const weak = load<WeakItem[]>('va_weak', []);

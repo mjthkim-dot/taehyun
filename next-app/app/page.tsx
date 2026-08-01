@@ -75,7 +75,7 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
   legal: { title: '약관 · 개인정보', render: () => <LegalScreen /> },
   audiocheck: { title: '음성 진단', render: () => <AudioCheckScreen /> },
   apikey: { title: 'AI 키 등록', render: () => <ApiKeyScreen /> },
-  vocab: { title: '직무 어휘', render: () => <VocabScreen /> },
+  vocab: { title: '직무 어휘', render: (c) => <VocabScreen onNavigate={c.setMode} /> },
   scripts: { title: '미팅 스크립트', render: (c) => <ScriptsScreen onNavigate={c.setMode} /> },
   listening: { title: '듣기', render: () => <ListeningScreen /> },
   reading: { title: '읽기', render: () => <ReadingScreen /> },
