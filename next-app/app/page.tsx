@@ -40,6 +40,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import UpdatePrompt from '../components/UpdatePrompt';
 import AskWidget from '../components/AskWidget';
 import Onboarding, { needsOnboarding } from '../components/Onboarding';
+import ServiceWorkerRegistrar from '../components/ServiceWorkerRegistrar';
 import { calcStreak } from '../lib/state';
 import { APP_VERSION } from '../lib/version';
 
@@ -155,6 +156,7 @@ export default function Page() {
       </div>
 
       <NavBar mode={mode} onChange={setMode} />
+      <ServiceWorkerRegistrar />
       <UpdatePrompt />
       <AskWidget />
       <ReminderScheduler />
