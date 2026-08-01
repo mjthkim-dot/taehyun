@@ -60,7 +60,7 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
   drill: { title: '드릴', render: (c) => <DrillScreen lessonId={c.lessonId} auto={c.autoDrill} /> },
   talk: { title: '회화', render: (c) => <TalkScreen lessonId={c.lessonId} /> },
   review: { title: '복습', render: () => <ReviewScreen /> },
-  progress: { title: '진도', render: () => <ProgressScreen /> },
+  progress: { title: '진도', render: (c) => <ProgressScreen onNavigate={c.setMode} onSelectLesson={c.setLessonId} /> },
   features: { title: '기능', render: (c) => <FeaturesScreen onNavigate={c.setMode} /> },
   video: { title: '영상', render: () => <VideoScreen /> },
   flashcards: { title: '암기 카드', render: (c) => <FlashcardsScreen onExit={() => c.setMode('review')} /> },

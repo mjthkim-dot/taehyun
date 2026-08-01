@@ -109,6 +109,26 @@ export function bumpSpoken() {
   const today = todayKey();
   const rv = load<{ date: string; count: number }>('va_spoken', { date: today, count: 0 });
   store('va_spoken', { date: today, count: rv.date === today ? rv.count + 1 : 1 });
+  // 주간 리포트를 위해 날짜별로도 남긴다(오늘 값만으로는 추세를 볼 수 없다).
+  // 60일치만 유지해 용량이 무한히 늘지 않게 한다.
+  const log = load<Record<string, number>>('va_spoken_log', {});
+  log[today] = (log[today] || 0) + 1;
+  const keys = Object.keys(log).sort();
+  if (keys.length > 60) for (const k of keys.slice(0, keys.length - 60)) delete log[k];
+  store('va_spoken_log', log);
+}
+
+/** 최근 n일의 날짜별 발화 수(오래된 날짜 → 오늘 순). */
+export function spokenHistory(days = 14): { date: string; count: number }[] {
+  const log = load<Record<string, number>>('va_spoken_log', {});
+  const out: { date: string; count: number }[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    out.push({ date: key, count: log[key] || 0 });
+  }
+  return out;
 }
 
 export function todayCount() {

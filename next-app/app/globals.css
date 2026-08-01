@@ -4718,3 +4718,127 @@ body,
   background: var(--primary);
   transition: transform 0.08s linear;
 }
+
+/* ── 주간 리포트(WeeklyReport) ───────────────────────────────
+   "이번 주 나"를 먼저 보여주는 카드. 숫자만 늘어놓지 않고 총평 한 줄과
+   다음 행동(복습·이어갈 유닛)을 붙여, 보고 끝나지 않게 한다. */
+.wr-headline {
+  font-size: 0.86rem;
+  line-height: 1.65;
+  color: var(--text);
+  padding: 11px 13px;
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  border-left: 3px solid var(--primary);
+  margin-bottom: 14px;
+}
+.wr-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.wr-stat {
+  position: relative;
+  text-align: center;
+  padding: 12px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+.wr-stat b {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.wr-stat span {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+.wr-stat i {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 0.66rem;
+  font-style: normal;
+  font-weight: 800;
+}
+.wr-stat i.up, .wr-row-value i.up { color: var(--green); }
+.wr-stat i.down, .wr-row-value i.down { color: var(--red); }
+
+.wr-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 74px;
+  margin-bottom: 14px;
+}
+.wr-bar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  gap: 4px;
+}
+.wr-bar > i {
+  display: block;
+  width: 100%;
+  border-radius: 5px 5px 2px 2px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+.wr-bar.today > i { background: var(--primary); border-color: var(--primary); }
+.wr-bar > span { font-size: 0.66rem; color: var(--text-muted); font-weight: 700; }
+.wr-bar.today > span { color: var(--primary); }
+
+.wr-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+.wr-row-label { color: var(--text-muted); font-weight: 700; }
+.wr-row-value { font-weight: 800; font-variant-numeric: tabular-nums; }
+.wr-row-value i { font-style: normal; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); }
+
+.wr-block { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
+.wr-block-title { font-size: 0.78rem; font-weight: 800; margin-bottom: 8px; }
+.wr-weak { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.wr-weak:last-of-type { border-bottom: none; }
+.wr-weak-en { font-size: 0.84rem; font-weight: 700; line-height: 1.5; }
+.wr-weak-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.wr-weak-meta b { color: var(--red); font-weight: 800; }
+.wr-cta { width: 100%; margin-top: 10px; }
+
+.wr-next {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--text);
+}
+.wr-next:hover { border-color: var(--primary); }
+.wr-next-title { display: block; font-size: 0.84rem; font-weight: 800; }
+.wr-next-sub { display: block; font-size: 0.74rem; color: var(--text-muted); margin-top: 2px; }
