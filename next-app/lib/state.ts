@@ -4,18 +4,47 @@
  */
 import { CEFR_GSE, CEFR_ORDER, gseMid, gseToCefr, scaffoldFor, type Cefr } from './lessons';
 
+/** 저장 실패(용량 초과)를 앱에 알리는 신호 — 조용히 데이터를 잃지 않기 위해. */
+export const STORAGE_FULL_EVENT = 'va:storage-full';
+
+/** 용량이 부족할 때 먼저 버려도 되는 것들(오래된 기록 순). 학습 진도는 건드리지 않는다. */
+const EVICTABLE = ['va_chat_logs', 'va_ask_history', 'va_sessions', 'va_spoken_log', 'va_depth_cache'];
+
 export function store(key: string, val: unknown) {
   try {
     localStorage.setItem(key, JSON.stringify(val));
   } catch {
-    /* 저장 공간 부족 — 조용히 무시 (vanilla 앱과 동일하게 toast는 UI 레이어에서 처리) */
+    // 용량 초과 — 조용히 무시하면 그 순간부터 학습 기록이 사라진다(사용자는 모른다).
+    // 버려도 되는 캐시·기록부터 정리하고 한 번 더 시도한 뒤, 그래도 안 되면 알린다.
+    for (const k of EVICTABLE) {
+      if (k === key) continue;
+      try {
+        if (localStorage.getItem(k) == null) continue;
+        localStorage.removeItem(k);
+        localStorage.setItem(key, JSON.stringify(val));
+        return;
+      } catch {
+        /* 다음 후보로 */
+      }
+    }
+    try {
+      window.dispatchEvent(new CustomEvent(STORAGE_FULL_EVENT, { detail: { key } }));
+    } catch {
+      /* 브라우저 밖(SSR) */
+    }
   }
 }
 
 export function load<T>(key: string, def: T): T {
   try {
     const raw = localStorage.getItem(key);
-    return raw == null ? def : (JSON.parse(raw) ?? def);
+    if (raw == null) return def;
+    const parsed = JSON.parse(raw) ?? def;
+    // 저장값이 기대한 모양이 아니면(다른 버전·수동 편집·복원 실패로 손상) 기본값을 쓴다.
+    // 이걸 걸러내지 않으면 배열에 .filter를 부르다 렌더 도중 터져 화면이 백지가 된다.
+    if (Array.isArray(def) !== Array.isArray(parsed)) return def;
+    if (def !== null && typeof def === 'object' && !Array.isArray(def) && (typeof parsed !== 'object' || parsed === null)) return def;
+    return parsed as T;
   } catch {
     return def;
   }
@@ -374,12 +403,16 @@ export function getPhrases() {
   return load<SavedPhrase[]>('va_phrases', []);
 }
 
+/** 표현장 상한 — 무한정 쌓이면 용량을 먹고, 실제로 다시 보는 것은 최근 것들이다. */
+const PHRASE_MAX = 500;
+
 export function addPhrase(p: SavedPhrase) {
   const phrases = getPhrases();
   if (phrases.some((x) => x.en === p.en)) return phrases;
   phrases.push(p);
-  store('va_phrases', phrases);
-  return phrases;
+  const trimmed = phrases.slice(-PHRASE_MAX);
+  store('va_phrases', trimmed);
+  return trimmed;
 }
 
 export function removePhrase(en: string) {

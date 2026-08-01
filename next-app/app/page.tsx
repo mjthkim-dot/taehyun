@@ -41,6 +41,7 @@ import UpdatePrompt from '../components/UpdatePrompt';
 import AskWidget from '../components/AskWidget';
 import Onboarding, { needsOnboarding } from '../components/Onboarding';
 import ServiceWorkerRegistrar from '../components/ServiceWorkerRegistrar';
+import { ErrorBoundary, StorageFullBanner } from '../components/AppErrorBoundary';
 import { calcStreak } from '../lib/state';
 import { APP_VERSION } from '../lib/version';
 
@@ -152,10 +153,13 @@ export default function Page() {
       </header>
 
       <div className="app-content" key={mode}>
-        {screen.render(ctx)}
+        {/* 화면 단위로 감싼다 — 한 화면이 죽어도 셸(탭·헤더)은 살아 있어야 돌아갈 수 있다.
+            key={mode}라 화면을 옮기면 경계도 함께 초기화된다. */}
+        <ErrorBoundary onReset={() => setMode('master')}>{screen.render(ctx)}</ErrorBoundary>
       </div>
 
       <NavBar mode={mode} onChange={setMode} />
+      <StorageFullBanner />
       <ServiceWorkerRegistrar />
       <UpdatePrompt />
       <AskWidget />

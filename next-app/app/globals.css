@@ -4989,3 +4989,35 @@ body,
 /* muted 텍스트 대비 — 감사에서 4.37:1(본문), 3.49:1(보조 버튼)로 AA 미달이었다.
    한 톤만 밝혀 위계는 유지하면서 기준을 넘긴다. */
 [data-theme='dark'] { --text-muted: #9dabb8; }
+
+/* ── 화면 오류 방어막 / 저장 용량 경고 ─────────────────────── */
+.err-screen { padding: 28px 16px; display: flex; justify-content: center; }
+.err-card {
+  width: 100%; max-width: 420px; text-align: center;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px 18px; box-shadow: var(--shadow-card);
+}
+.err-title { font-size: 1rem; font-weight: 800; margin-bottom: 8px; }
+.err-desc { font-size: 0.82rem; color: var(--text-muted); line-height: 1.65; margin-bottom: 12px; }
+.err-detail {
+  font-size: 0.72rem; color: var(--text-muted); font-family: ui-monospace, monospace;
+  background: var(--surface2); border-radius: 10px; padding: 9px 11px;
+  word-break: break-all; text-align: left; margin-bottom: 14px;
+}
+.err-btn { width: 100%; }
+
+.storage-full {
+  position: fixed; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom, 0px) + 78px);
+  z-index: 60;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 0.78rem; line-height: 1.55;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--red); border-left-width: 3px;
+  border-radius: var(--radius-sm); padding: 11px 13px;
+  box-shadow: var(--shadow-float);
+}
+.storage-full button {
+  flex: 0 0 auto; min-height: 40px; padding: 0 10px;
+  background: none; border: none; color: var(--text-muted);
+  font-size: 0.76rem; font-weight: 700; cursor: pointer;
+}
