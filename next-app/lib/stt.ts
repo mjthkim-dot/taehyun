@@ -43,6 +43,10 @@ export interface SttResult {
    * 이미 녹음하고 있던 것이므로 그대로 돌려준다(추가 비용 없음).
    */
   audio?: Blob;
+  /** 실제 녹음 길이(ms) — WPM 계산의 분모 */
+  durationMs?: number;
+  /** 1초 이상 이어진 무음 구간들(ms). 긴 발화에서 '어디서 막혔는가'의 근거. */
+  pauses?: number[];
 }
 
 export class SttError extends Error {}
@@ -144,6 +148,20 @@ export async function recordAndTranscribe(opts: {
   onLevel?: (rms: number) => void;
   /** 말하는 동안 흐르는 미리보기 자막. 채점에는 쓰지 않는다(위 startLivePreview 참고) */
   onPartial?: (text: string) => void;
+  /**
+   * 녹음 상한(ms). 기본 30초는 '한 문장~한 턴' 기준이다. 2분 스피치처럼 긴 발화를
+   * 담으려면 늘려야 한다 — 안 늘리면 발화 중간이 잘려 나가는데, 잘린 줄도 모른 채
+   * 채점만 이상하게 나온다.
+   */
+  maxMs?: number;
+  /**
+   * 이만큼 조용하면 끝난 것으로 본다(ms). 0을 주면 **자동 종료를 끄고** 사용자가
+   * 멈출 때까지 녹음한다 — 긴 발화에서는 생각하느라 2~3초 쉬는 것이 정상이라
+   * 짧은 무음 기준을 그대로 쓰면 문장 중간에 끊긴다.
+   */
+  silenceMs?: number;
+  /** 경과 시간을 알려 준다(타이머 표시용) */
+  onElapsed?: (ms: number) => void;
   /** 호출하면 즉시 녹음을 끝낸다 */
   registerStop?: (stop: () => void) => void;
 } = {}): Promise<SttResult> {
@@ -195,15 +213,24 @@ export async function recordAndTranscribe(opts: {
   opts.registerStop?.(stop);
 
   const started = Date.now();
+  const maxMs = opts.maxMs ?? MAX_MS;
+  // silenceMs === 0 이면 자동 종료를 끈다(긴 발화 — 사용자가 직접 멈춘다)
+  const silenceMs = opts.silenceMs ?? SILENCE_MS;
+  const autoStop = silenceMs > 0;
   let lastLoud = 0; // 마지막으로 소리가 감지된 시각(0 = 아직 한 번도 말하지 않음)
   let peak = 0; // 관측된 최대 레벨 — 마이크가 아예 안 잡히는지 판단하는 근거
+  /** 1초 이상 이어진 무음 구간들 — 긴 발화에서 '어디서 막혔는가'의 근거가 된다 */
+  const pauses: number[] = [];
+  let quietSince = 0;
   const timer = setInterval(() => {
     if (stopped) return;
     const elapsed = Date.now() - started;
-    if (elapsed > MAX_MS) return stop();
-    // 레벨 분석이 안 되는 기기: 무한정 기다리지 않고 고정 창으로 끊는다
+    opts.onElapsed?.(elapsed);
+    if (elapsed > maxMs) return stop();
+    // 레벨 분석이 안 되는 기기: 무한정 기다리지 않고 고정 창으로 끊는다.
+    // 자동 종료를 끈 긴 발화에서는 상한(maxMs)까지 그대로 간다.
     if (!canDetect) {
-      if (elapsed > NO_DETECT_MS) stop();
+      if (autoStop && elapsed > NO_DETECT_MS) stop();
       return;
     }
     if (analyser && buf) {
@@ -214,12 +241,20 @@ export async function recordAndTranscribe(opts: {
       if (rms > peak) peak = rms;
       opts.onLevel?.(rms);
       if (rms > RMS_THRESHOLD) {
+        // 조용하다가 다시 말하기 시작했다면 그 구간을 '멈춤'으로 기록한다
+        if (quietSince && lastLoud) {
+          const gap = Date.now() - quietSince;
+          if (gap >= 1000) pauses.push(gap);
+        }
+        quietSince = 0;
         lastLoud = Date.now();
         return;
       }
+      if (lastLoud && !quietSince) quietSince = Date.now();
     }
+    if (!autoStop) return; // 사용자가 멈출 때까지 계속 녹음
     // 말을 시작한 뒤 조용해졌으면 종료, 시작조차 안 했으면 리드 타임까지 대기
-    if (lastLoud ? Date.now() - lastLoud > SILENCE_MS : elapsed > LEAD_SILENCE_MS) stop();
+    if (lastLoud ? Date.now() - lastLoud > silenceMs : elapsed > LEAD_SILENCE_MS) stop();
   }, 150);
 
   const blob = await new Promise<Blob>((resolve) => {
@@ -235,7 +270,8 @@ export async function recordAndTranscribe(opts: {
   // 전송 여부는 **녹음이 실제로 담겼는가**로만 판단한다.
   // 레벨 감지는 '언제 멈출지'를 정할 뿐이며, 감지에 실패했다고 녹음을 버리면
   // 조용한 마이크·suspended 컨텍스트에서 아무 일도 일어나지 않는다(실제 결함).
-  if (blob.size < 1200) return { text: '', via: 'whisper', reason: 'no-audio', peak };
+  const durationMs = Date.now() - started;
+  if (blob.size < 1200) return { text: '', via: 'whisper', reason: 'no-audio', peak, durationMs, pauses };
 
   opts.onState?.('transcribing');
   const text = await transcribe(blob, opts.prompt);
@@ -243,6 +279,8 @@ export async function recordAndTranscribe(opts: {
     text,
     via: 'whisper',
     audio: blob,
+    durationMs,
+    pauses,
     // 소리는 잡혔는데 텍스트가 비면 '들리지 않은 것', 레벨 자체가 낮았으면 '무음'
     reason: text ? 'ok' : peak > RMS_THRESHOLD ? 'empty-result' : 'silent',
     peak,

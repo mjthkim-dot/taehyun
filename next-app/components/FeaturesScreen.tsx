@@ -62,6 +62,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
         { icon: '📖', label: '읽기', sub: '레벨별 지문 + 이해 문제', action: { kind: 'nav', mode: 'reading' } },
         { icon: '✍️', label: '쓰기', sub: 'AI 첨삭', action: { kind: 'nav', mode: 'writing' } },
         { icon: '💼', label: '직무 어휘', sub: 'IT 영업·클라우드 등 8개 도메인 80개', action: { kind: 'nav', mode: 'vocab' } },
+        { icon: '⏱', label: '2분 피치 훈련', sub: '긴 발화 · 시간·속도·채움말·구조 분석', action: { kind: 'nav', mode: 'pitch' } },
         { icon: '🗓', label: '미팅 준비 · 회고', sub: '내일 그 미팅용 표현 · 끝난 뒤 못 한 말 복습', action: { kind: 'nav', mode: 'meeting' } },
         { icon: '🤝', label: '미팅 스크립트', sub: '오프닝·디스커버리·가격 반론 6종 · AI 롤플레이', action: { kind: 'nav', mode: 'scripts' } },
       ],

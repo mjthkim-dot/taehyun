@@ -29,6 +29,7 @@ export type Mode =
   | 'apikey'
   | 'vocab'
   | 'meeting'
+  | 'pitch'
   | 'scripts'
   | 'business';
 
