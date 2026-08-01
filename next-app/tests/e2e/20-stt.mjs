@@ -25,8 +25,10 @@ const MIC_STUB = () => {
     }
   }
   class FakeCtx {
+    constructor() { this.state = 'running'; }
     createAnalyser() { return new FakeAnalyser(); }
     createMediaStreamSource() { return { connect() {} }; }
+    resume() { this.state = 'running'; return Promise.resolve(); }
     close() { return Promise.resolve(); }
   }
   window.AudioContext = FakeCtx;
@@ -162,6 +164,62 @@ check('Whisper 인식으로 자동 전송', talkStt >= 1, String(talkStt));
 check('말한 내용이 대화에 반영', (await talk.evaluate(() => document.querySelector('.msg.user .bubble')?.textContent || '')).includes('busy week'));
 await talk.waitForFunction(() => (document.body.textContent || '').includes('Good to hear'), { timeout: 20000 });
 check('AI 응답까지 이어짐', (await talk.evaluate(() => document.body.textContent || '')).includes('Good to hear'));
+
+/* ── ④ 회귀 방지: suspended AudioContext + iOS(mp4) 녹음 ──
+   실기기에서 '눌러도 아무 일도 안 일어나던' 결함의 원인 두 가지를 고정한다.
+   ① AudioContext가 suspended면 레벨이 전부 0이라 무음으로 오판했다
+   ② 파일명을 항상 speech.webm으로 보내 iOS(mp4) 녹음의 포맷을 속였다 */
+const ios = await browser.newPage();
+ios.on('pageerror', (e) => console.log('  [pageerror]', e.message));
+await ios.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ valid: true }) }));
+await ios.route('**/app/api/groq', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{}' } }] }) }));
+let iosCalls = 0;
+let iosBody = '';
+let resumed = false;
+await ios.route('**/app/api/stt', (r) => {
+  iosCalls++;
+  iosBody = r.request().postData() || '';
+  return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: 'Recognized on iOS.' }) });
+});
+await seedKey(ios);
+await ios.addInitScript(() => {
+  navigator.mediaDevices = navigator.mediaDevices || {};
+  navigator.mediaDevices.getUserMedia = async () => ({ getTracks: () => [{ stop() {} }] });
+  window.__resumed = false;
+  class Analyser {
+    constructor(ctx) { this.fftSize = 1024; this.ctx = ctx; }
+    // suspended면 무음, resume 이후에만 실제 소리가 잡힌다(실기기 동작 재현)
+    getFloatTimeDomainData(buf) {
+      const loud = this.ctx.state === 'running' && Date.now() - this.ctx.t0 < 600;
+      for (let i = 0; i < buf.length; i++) buf[i] = loud ? 0.4 : 0;
+    }
+  }
+  class SuspendedCtx {
+    constructor() { this.state = 'suspended'; this.t0 = Date.now(); }
+    createAnalyser() { return new Analyser(this); }
+    createMediaStreamSource() { return { connect() {} }; }
+    resume() { this.state = 'running'; this.t0 = Date.now(); window.__resumed = true; return Promise.resolve(); }
+    close() { return Promise.resolve(); }
+  }
+  window.AudioContext = SuspendedCtx;
+  class Rec {
+    constructor() { this.mimeType = 'audio/mp4'; } // iOS Safari
+    static isTypeSupported(t) { return t === 'audio/mp4'; }
+    start() { setTimeout(() => this.ondataavailable?.({ data: new Blob([new Uint8Array(8192)], { type: 'audio/mp4' }) }), 20); }
+    stop() { setTimeout(() => this.onstop?.(), 20); }
+  }
+  window.MediaRecorder = Rec;
+});
+
+await ios.goto(`${BASE}/app`);
+await ios.waitForSelector('.mission-practice .mic', { timeout: 15000 });
+await ios.click('.mission-practice .mic');
+await ios.waitForFunction(() => (document.querySelector('.transcript p')?.textContent || '').includes('Recognized'), { timeout: 20000 });
+resumed = await ios.evaluate(() => window.__resumed === true);
+check('suspended 컨텍스트를 깨운다(resume 호출)', resumed);
+check('suspended 상태여도 서버로 전송된다', iosCalls === 1, String(iosCalls));
+check('iOS 녹음은 mp4 확장자로 전송', iosBody.includes('speech.mp4'), iosBody.slice(0, 0) || 'filename 확인');
+check('webm으로 속이지 않음', !iosBody.includes('speech.webm'));
 
 await browser.close();
 finish('20-stt');

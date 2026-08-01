@@ -63,6 +63,8 @@ export default function SpeakingPractice({
 
   // Whisper 경로의 단계 — 녹음 중인지, 변환(서버 왕복) 중인지 버튼에 드러낸다.
   const [sttState, setSttState] = useState<'idle' | 'recording' | 'transcribing'>('idle');
+  /** 인식 결과가 비었을 때의 안내 — 아무 반응이 없으면 고장으로 보인다 */
+  const [sttHint, setSttHint] = useState('');
   /** 녹음을 밖에서 멈추기 위한 핸들(사용자가 '멈추기'를 누를 때) */
   const stopWhisperRef = useRef<(() => void) | null>(null);
 
@@ -158,6 +160,7 @@ export default function SpeakingPractice({
   const startWhisper = useCallback(async () => {
     clearAttempt();
     haptic('tap');
+    setSttHint('');
     setListening(true);
     setSttState('recording');
     try {
@@ -172,8 +175,11 @@ export default function SpeakingPractice({
       setListening(false);
       stopWhisperRef.current = null;
       if (text) {
+        setSttHint('');
         setUserSpeech(text);
         evaluateSpeech(text);
+      } else {
+        setSttHint('소리가 잡히지 않았어요 — 마이크 권한과 볼륨을 확인하고 다시 말해보세요.');
       }
       return true;
     } catch {
@@ -282,6 +288,10 @@ export default function SpeakingPractice({
       >
         {sttState === 'transcribing' ? '인식 중…' : isListening ? '멈추기' : attempts > 0 ? '다시 말하기' : '말하기'}
       </button>
+
+      {sttHint && (
+        <p className="muted" style={{ fontSize: '0.78rem', marginTop: 6, lineHeight: 1.55 }}>{sttHint}</p>
+      )}
 
       <div className="transcript">
         <span className="label">내 발화</span>

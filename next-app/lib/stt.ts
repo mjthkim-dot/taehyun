@@ -19,6 +19,8 @@ const SILENCE_MS = 1200;
 const LEAD_SILENCE_MS = 4000;
 /** 안전장치: 아무리 길어도 여기서 끊는다(요금·용량 보호) */
 const MAX_MS = 30_000;
+/** 레벨 분석을 못 쓰는 기기에서 쓰는 고정 녹음 창 */
+const NO_DETECT_MS = 8000;
 /** 이 값보다 크면 '말하는 중'으로 본다. 마이크 감도 편차를 감안한 보수적 기준. */
 const RMS_THRESHOLD = 0.012;
 
@@ -78,11 +80,24 @@ export async function recordAndTranscribe(opts: {
   // ── 무음 감지: 오디오 레벨을 재서 말이 끝났는지 판단한다 ──
   const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   const audioCtx = Ctx ? new Ctx() : null;
-  const analyser = audioCtx ? audioCtx.createAnalyser() : null;
-  if (audioCtx && analyser) {
-    analyser.fftSize = 1024;
-    audioCtx.createMediaStreamSource(stream).connect(analyser);
+  let analyser: AnalyserNode | null = null;
+  if (audioCtx) {
+    // getUserMedia를 기다린 뒤라 이미 사용자 제스처 밖이다 — iOS/Chrome은 이때
+    // AudioContext를 'suspended'로 만든다. 그러면 분석값이 전부 0이라 영원히
+    // '무음'으로 판정돼 녹음이 통째로 버려진다(실제로 발생한 결함). 반드시 깨운다.
+    try {
+      await audioCtx.resume?.();
+    } catch {
+      /* 구형 구현엔 resume이 없을 수 있다 — 아래 state 확인으로 판단 */
+    }
+    if (audioCtx.state !== 'suspended') {
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 1024;
+      audioCtx.createMediaStreamSource(stream).connect(analyser);
+    }
   }
+  /** 레벨 분석을 못 쓰면 무음 감지도 못 한다 — 그때는 고정 시간 녹음으로 물러난다. */
+  const canDetect = !!analyser;
   const buf = analyser ? new Float32Array(analyser.fftSize) : null;
 
   let stopped = false;
@@ -103,6 +118,11 @@ export async function recordAndTranscribe(opts: {
     if (stopped) return;
     const elapsed = Date.now() - started;
     if (elapsed > MAX_MS) return stop();
+    // 레벨 분석이 안 되는 기기: 무한정 기다리지 않고 고정 창으로 끊는다
+    if (!canDetect) {
+      if (elapsed > NO_DETECT_MS) stop();
+      return;
+    }
     if (analyser && buf) {
       analyser.getFloatTimeDomainData(buf);
       let sum = 0;
@@ -126,17 +146,28 @@ export async function recordAndTranscribe(opts: {
   stream.getTracks().forEach((t) => t.stop());
   audioCtx?.close().catch(() => {});
 
-  // 아무 말도 하지 않았으면 굳이 서버를 부르지 않는다
-  if (!lastLoud || blob.size < 1200) return { text: '', via: 'whisper' };
+  // 전송 여부는 **녹음이 실제로 담겼는가**로만 판단한다.
+  // 레벨 감지는 '언제 멈출지'를 정할 뿐이며, 감지에 실패했다고 녹음을 버리면
+  // 조용한 마이크·suspended 컨텍스트에서 아무 일도 일어나지 않는다(실제 결함).
+  if (blob.size < 1200) return { text: '', via: 'whisper' };
 
   opts.onState?.('transcribing');
   return { text: await transcribe(blob, opts.prompt), via: 'whisper' };
 }
 
+/** MIME 타입에 맞는 파일명 — Whisper는 확장자로 포맷을 판별하므로 거짓말하면 안 된다. */
+function fileNameFor(type: string): string {
+  if (type.includes('mp4')) return 'speech.mp4';
+  if (type.includes('ogg')) return 'speech.ogg';
+  if (type.includes('mpeg')) return 'speech.mp3';
+  if (type.includes('wav')) return 'speech.wav';
+  return 'speech.webm';
+}
+
 /** 녹음된 오디오를 서버 프록시로 보내 텍스트를 받는다. */
 export async function transcribe(blob: Blob, prompt?: string): Promise<string> {
   const form = new FormData();
-  form.append('audio', blob, 'speech.webm');
+  form.append('audio', blob, fileNameFor(blob.type || ''));
   const key = localKeyOrUndefined();
   if (key) form.append('key', key);
   if (prompt) form.append('prompt', prompt);

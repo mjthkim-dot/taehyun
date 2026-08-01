@@ -44,7 +44,10 @@ export async function POST(req: NextRequest) {
   }
 
   const upstream = new FormData();
-  upstream.append('file', file, 'speech.webm');
+  // 클라이언트가 보낸 파일명을 그대로 넘긴다 — Whisper는 확장자로 포맷을 판별하므로
+  // iOS(mp4) 녹음을 webm이라고 속이면 디코딩에 실패한다.
+  const name = file instanceof File && file.name ? file.name : 'speech.webm';
+  upstream.append('file', file, name);
   upstream.append('model', STT_MODEL);
   upstream.append('language', 'en'); // 영어 학습이므로 고정 — 한국어 혼입을 줄인다
   upstream.append('response_format', 'json');
