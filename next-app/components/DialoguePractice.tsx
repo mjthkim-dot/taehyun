@@ -13,6 +13,7 @@ import { computeAccuracy, type WordDiff } from '../store/useLessonStore';
 import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
 import { diagnose, type PronIssue } from '../lib/pronunciation';
 import { useSlowRate } from './SpeechRate';
+import VoiceCompare from './MyVoice';
 import { addPronLapses, addWeakItem, groqKey, markPracticedToday, bumpSpoken } from '../lib/state';
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS, playUrl, SPEAKER_GROQ_VOICE, GROQ_TTS_VOICE } from './SpeakButton';
 import DialogueVariantPicker from './DialogueVariantPicker';
@@ -379,6 +380,8 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
   /** Whisper 경로의 단계 — 녹음 중인지 변환 중인지 버튼에 드러낸다 */
   const [phase, setPhase] = useState<'idle' | 'recording' | 'transcribing'>('idle');
   const slowListenRate = useSlowRate();
+  /** 방금 녹음한 내 소리 — 모범 발음과 번갈아 듣는다 */
+  const [clip, setClip] = useState<Blob | null>(null);
   /** 인식이 비었을 때의 안내 — 아무 반응이 없으면 고장으로 보인다 */
   const [micHint, setMicHint] = useState('');
   const stopWhisperRef = useRef<(() => void) | null>(null);
@@ -489,7 +492,7 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
     setListening(true);
     setPhase('recording');
     try {
-      const { text, reason } = await recordAndTranscribe({
+      const { text, reason, audio } = await recordAndTranscribe({
         prompt: dialogue.lines[stepRef.current]?.en,
         onState: (st) => setPhase(st),
         // 말하는 동안 글자가 보이게 — 채점은 Whisper 결과로만 한다
@@ -501,6 +504,7 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
       setPhase('idle');
       setListening(false);
       stopWhisperRef.current = null;
+      setClip(audio ?? null);
       if (text) {
         scoreLine(text);
         return true;
@@ -523,6 +527,7 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
 
   function startMic() {
     if (listening) return;
+    setClip(null);
     finalRef.current = '';
     setInterim('');
     setMicHint('');
@@ -659,6 +664,7 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
                   <span key={i} style={{ color: d.ok ? 'var(--green)' : 'var(--red)', textDecoration: d.ok ? 'none' : 'underline', marginRight: 5 }}>{d.w}</span>
                 ))}
               </div>
+              <VoiceCompare sentence={line.en} clip={clip} />
               {res.issues.length > 0 && (
                 <div className="pron-diag">
                   <div className="pron-diag-head">발음 진단</div>

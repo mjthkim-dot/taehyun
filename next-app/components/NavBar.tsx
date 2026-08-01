@@ -28,6 +28,7 @@ export type Mode =
   | 'audiocheck'
   | 'apikey'
   | 'vocab'
+  | 'meeting'
   | 'scripts'
   | 'business';
 

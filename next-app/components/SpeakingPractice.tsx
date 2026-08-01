@@ -17,6 +17,7 @@ import { haptic } from '../lib/haptics';
 import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
 import PronDrillCard from './PronDrillCard';
 import SpeechRatePicker, { rateLabel, useSlowRate } from './SpeechRate';
+import VoiceCompare from './MyVoice';
 
 // 벤더 프리픽스 대응
 function getSpeechRecognition(): typeof SpeechRecognition | null {
@@ -54,6 +55,8 @@ export default function SpeakingPractice({
   // 느리게 듣기 배속 — 사용자가 고른 값을 앱 전체가 함께 쓴다
   const slow = useSlowRate();
   const [rateOpen, setRateOpen] = useState(false);
+  /** 방금 녹음한 내 소리 — 원어민 음성과 번갈아 들어보는 데 쓴다 */
+  const [clip, setClip] = useState<Blob | null>(null);
   const attempts = useLessonStore((s) => s.attempts);
   const isListening = useLessonStore((s) => s.isListening);
   const setCurrentSentence = useLessonStore((s) => s.setCurrentSentence);
@@ -80,6 +83,8 @@ export default function SpeakingPractice({
   const [revealed, setRevealed] = useState(false);
   useEffect(() => {
     setRevealed(false);
+    // 다른 문장으로 넘어가면 이전 녹음은 비교 대상이 아니다
+    setClip(null);
   }, [sentence]);
 
   // 채점 결과가 나오면 점수대별 햅틱 — 높으면 성공, 낮으면 오답 진동
@@ -172,7 +177,7 @@ export default function SpeakingPractice({
     setListening(true);
     setSttState('recording');
     try {
-      const { text, reason, peak } = await recordAndTranscribe({
+      const { text, reason, peak, audio } = await recordAndTranscribe({
         prompt: currentSentence,
         onState: (st) => setSttState(st),
         onLevel: (rms) => setMicLevel(Math.min(1, rms * 12)),
@@ -186,6 +191,7 @@ export default function SpeakingPractice({
       setListening(false);
       setMicLevel(0);
       stopWhisperRef.current = null;
+      setClip(audio ?? null);
       if (text) {
         setSttHint('');
         setUserSpeech(text);
@@ -389,6 +395,9 @@ export default function SpeakingPractice({
               ))}
             </div>
           )}
+          {/* 진단을 읽는 것보다 두 소리를 붙여 듣는 편이 차이를 빨리 잡는다 */}
+          <VoiceCompare sentence={currentSentence} clip={clip} lang={lang} />
+
           {pronIssues.length > 0 && (
             <div className="pron-diag">
               <div className="pron-diag-head">발음 진단</div>

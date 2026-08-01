@@ -5288,3 +5288,254 @@ body,
   font-size: 0.72rem;
   font-weight: 700;
 }
+
+/* ── 원어민 ↔ 내 발음 비교 ──
+ * 진단을 읽는 것보다 두 소리를 번갈아 듣는 편이 차이를 빨리 잡는다.
+ * 두 버튼을 같은 크기로 나란히 둬서 '번갈아 누르는' 동작이 자연스럽게 나오게 한다. */
+.vcmp {
+  margin-top: 10px;
+}
+.vcmp-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.vcmp-row {
+  display: flex;
+  gap: 8px;
+}
+.vcmp-btn {
+  flex: 1;
+  min-height: 42px;
+  padding: 9px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.vcmp-btn.on {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-dk);
+}
+
+/* ── 미팅 준비 · 회고 ──
+ * 학습 화면이 아니라 업무 화면에 가깝다. 표현을 훑고 체크하고 넘어가는 동작이
+ * 빨라야 해서, 장식을 줄이고 줄 간격과 터치 영역을 넉넉히 잡는다. */
+.mt-empty {
+  margin-top: 14px;
+  padding: 18px 12px;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}
+.mt-list {
+  margin-top: 14px;
+}
+.mt-item {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.mt-item + .mt-item {
+  margin-top: 8px;
+}
+.mt-item-main {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 11px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.mt-item-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.5;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.mt-item-sub {
+  margin-top: 3px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.mt-del {
+  flex: none;
+  width: 40px;
+  min-height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.mt-field {
+  display: block;
+  margin-top: 12px;
+}
+.mt-field span {
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+.mt-field input,
+.mt-gap-input {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+.mt-gap-input {
+  margin: 8px 0 10px;
+  resize: vertical;
+}
+.mt-back {
+  margin-bottom: 10px;
+}
+.mt-meta {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.mt-headline {
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: var(--primary-soft);
+  border: 1px solid var(--primary);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--text);
+}
+.mt-sec {
+  margin: 18px 0 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.mt-hint {
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.mt-phrase {
+  display: flex;
+  gap: 9px;
+  padding: 9px 0;
+  border-top: 1px solid var(--border);
+}
+.mt-check {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  align-self: flex-start;
+  margin-top: 2px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface2);
+  color: var(--primary-dk);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  /* 보이는 크기는 유지하되 누를 수 있는 영역은 넓힌다 */
+  position: relative;
+}
+.mt-check::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+.mt-phrase.used .mt-check {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.mt-phrase.used .mt-en {
+  color: var(--text-muted);
+}
+.mt-phrase-body {
+  min-width: 0;
+}
+.mt-en {
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--text);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.mt-kr {
+  margin-top: 2px;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.mt-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.mt-actions .btn {
+  flex: 1 1 140px;
+}
+.mt-q {
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.mt-q-en {
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--text);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.mt-a-en {
+  margin-top: 7px;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: var(--primary-dk);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.mt-q-kr {
+  margin-top: 2px;
+  font-size: 0.76rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.mt-gap {
+  padding: 9px 0;
+  border-top: 1px solid var(--border);
+}

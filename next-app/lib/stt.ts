@@ -34,6 +34,15 @@ export interface SttResult {
   reason?: 'ok' | 'no-audio' | 'silent' | 'empty-result';
   /** 녹음 중 관측된 최대 입력 레벨 — 마이크가 죽었는지 판단하는 근거 */
   peak?: number;
+  /**
+   * 방금 녹음한 소리 그 자체.
+   *
+   * 지금까지는 텍스트만 뽑고 곧바로 버렸다. 그런데 발음 교정에서 가장 확실한 것은
+   * **자기 소리를 듣는 것**이다 — "work가 walk로 들렸다"는 진단을 읽는 것보다,
+   * 원어민 음성과 내 음성을 번갈아 듣는 편이 차이를 훨씬 빨리 잡는다.
+   * 이미 녹음하고 있던 것이므로 그대로 돌려준다(추가 비용 없음).
+   */
+  audio?: Blob;
 }
 
 export class SttError extends Error {}
@@ -233,6 +242,7 @@ export async function recordAndTranscribe(opts: {
   return {
     text,
     via: 'whisper',
+    audio: blob,
     // 소리는 잡혔는데 텍스트가 비면 '들리지 않은 것', 레벨 자체가 낮았으면 '무음'
     reason: text ? 'ok' : peak > RMS_THRESHOLD ? 'empty-result' : 'silent',
     peak,
