@@ -495,4 +495,28 @@ export function topPronLapses(days = 7, max = 3): { key: string; count: number }
     .slice(0, max);
 }
 
+/* ── 느리게 듣기 속도 ──
+ * 0.6배속으로 고정돼 있었는데, 적당한 속도는 사람마다 다르다 — 초급에겐 0.6도
+ * 빠르고, 익숙해지면 0.6이 오히려 부자연스러워 원어민 리듬을 못 익힌다.
+ * 한 번 고르면 앱 전체(레슨·드릴·발음 훈련·듣기)가 같은 값을 쓴다. */
+export const SLOW_RATES = [0.5, 0.6, 0.75, 0.9] as const;
+export const DEFAULT_SLOW_RATE = 0.6;
+
+export function slowRate(): number {
+  const v = load<number>('va_slow_rate', DEFAULT_SLOW_RATE);
+  return typeof v === 'number' && v >= 0.4 && v <= 1 ? v : DEFAULT_SLOW_RATE;
+}
+
+export function setSlowRate(r: number) {
+  store('va_slow_rate', r);
+  try {
+    window.dispatchEvent(new CustomEvent(SLOW_RATE_EVENT, { detail: r }));
+  } catch {
+    /* SSR·구형 브라우저 */
+  }
+}
+
+/** 값이 바뀌면 화면들이 즉시 따라오도록 알린다(같은 탭 안에서는 storage 이벤트가 안 온다) */
+export const SLOW_RATE_EVENT = 'va:slow-rate';
+
 export { CEFR_GSE, CEFR_ORDER, gseMid, gseToCefr, scaffoldFor };

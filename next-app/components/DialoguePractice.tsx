@@ -12,6 +12,7 @@ import type { Dialogue } from '../lib/lessons';
 import { computeAccuracy, type WordDiff } from '../store/useLessonStore';
 import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
 import { diagnose, type PronIssue } from '../lib/pronunciation';
+import { useSlowRate } from './SpeechRate';
 import { addPronLapses, addWeakItem, groqKey, markPracticedToday, bumpSpoken } from '../lib/state';
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS, playUrl, SPEAKER_GROQ_VOICE, GROQ_TTS_VOICE } from './SpeakButton';
 import DialogueVariantPicker from './DialogueVariantPicker';
@@ -377,6 +378,7 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
   const [interim, setInterim] = useState('');
   /** Whisper 경로의 단계 — 녹음 중인지 변환 중인지 버튼에 드러낸다 */
   const [phase, setPhase] = useState<'idle' | 'recording' | 'transcribing'>('idle');
+  const slowListenRate = useSlowRate();
   /** 인식이 비었을 때의 안내 — 아무 반응이 없으면 고장으로 보인다 */
   const [micHint, setMicHint] = useState('');
   const stopWhisperRef = useRef<(() => void) | null>(null);
@@ -672,7 +674,7 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
                           type="button"
                           className="speak-mini pron-play"
                           aria-label={`${p.target} 느리게 듣기`}
-                          onClick={() => speakText(p.target, 'en-US', 0.6)}
+                          onClick={() => speakText(p.target, 'en-US', slowListenRate)}
                         >
                           🔊
                         </button>

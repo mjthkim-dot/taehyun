@@ -16,6 +16,7 @@ import { SpeakerIcon } from './icons';
 import { haptic } from '../lib/haptics';
 import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
 import PronDrillCard from './PronDrillCard';
+import SpeechRatePicker, { rateLabel, useSlowRate } from './SpeechRate';
 
 // 벤더 프리픽스 대응
 function getSpeechRecognition(): typeof SpeechRecognition | null {
@@ -50,6 +51,9 @@ export default function SpeakingPractice({
   const accuracyScore = useLessonStore((s) => s.accuracyScore);
   const wordDiff = useLessonStore((s) => s.wordDiff);
   const pronIssues = useLessonStore((s) => s.pronIssues);
+  // 느리게 듣기 배속 — 사용자가 고른 값을 앱 전체가 함께 쓴다
+  const slow = useSlowRate();
+  const [rateOpen, setRateOpen] = useState(false);
   const attempts = useLessonStore((s) => s.attempts);
   const isListening = useLessonStore((s) => s.isListening);
   const setCurrentSentence = useLessonStore((s) => s.setCurrentSentence);
@@ -282,17 +286,33 @@ export default function SpeakingPractice({
 
   return (
     <div className="speaking-practice">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      {/* 좁은 화면(320px)에서는 문장 + 듣기 + 배속 + 속도가 한 줄에 안 들어간다.
+          줄바꿈을 허용하고 문장이 줄어들 수 있게 해(minWidth: 0) 넘침을 막는다. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         {showTarget ? (
-          <p className="target" style={{ flex: 1, margin: 0 }}>{currentSentence || '문장을 선택하세요'}</p>
+          <p className="target" style={{ flex: '1 1 150px', margin: 0, minWidth: 0 }}>{currentSentence || '문장을 선택하세요'}</p>
         ) : (
-          <p className="target" style={{ flex: 1, margin: 0 }}>{prompt || '뜻을 보고 영어로 말해보세요'}</p>
+          <p className="target" style={{ flex: '1 1 150px', margin: 0, minWidth: 0 }}>{prompt || '뜻을 보고 영어로 말해보세요'}</p>
         )}
         {currentSentence && showTarget && (
           <>
             <button type="button" className="speak-mini" title="듣기" onClick={() => speakText(currentSentence, lang)}><SpeakerIcon /></button>
-            <button type="button" className="speak-mini" title="느리게 듣기" onClick={() => speakText(currentSentence, lang, 0.6)}><span className="speak-mini-slow">0.6×</span></button>
+            <button type="button" className="speak-mini" title={`${rateLabel(slow)} 느리게 듣기`} onClick={() => speakText(currentSentence, lang, slow)}><span className="speak-mini-slow">{rateLabel(slow)}</span></button>
           </>
+        )}
+        {/* 배속 고르기는 소리를 내지 않으므로 정답을 가린 모드에서도 열어 둔다 —
+            듣기 버튼에 묶어 두면 '뜻 보고 말하기'에서는 설정 자체에 닿을 수 없다.
+            평소엔 접혀 있다(매번 펼쳐 두면 문장보다 설정이 커진다). */}
+        {currentSentence && (
+          <button
+            type="button"
+            className="speak-mini rate-open"
+            aria-label="느리게 듣기 속도 바꾸기"
+            aria-expanded={rateOpen}
+            onClick={() => setRateOpen((v) => !v)}
+          >
+            속도
+          </button>
         )}
         {!showTarget && (
           <button type="button" className="speak-mini" title="영어 정답 보기" onClick={() => setRevealed(true)}>정답</button>
@@ -301,6 +321,8 @@ export default function SpeakingPractice({
       {showTarget && hideTarget && prompt && (
         <div className="muted" style={{ fontSize: '0.82rem', marginTop: 2 }}>{prompt}</div>
       )}
+
+      {rateOpen && <SpeechRatePicker compact />}
 
       {!supported && (
         <p className="warn">
@@ -390,7 +412,7 @@ export default function SpeakingPractice({
                       type="button"
                       className="speak-mini pron-play"
                       aria-label={`${p.target} 느리게 듣기`}
-                      onClick={() => speakText(p.target, lang, 0.6)}
+                      onClick={() => speakText(p.target, lang, slow)}
                     >
                       <SpeakerIcon />
                     </button>
@@ -405,7 +427,7 @@ export default function SpeakingPractice({
           )}
           {accuracyScore < 80 && (
             <p className="muted" style={{ fontSize: '0.76rem', marginTop: 6 }}>
-              빨간 단어를 다시 듣고 발음해 보세요 — 0.6× 느리게 듣기로 정확한 발음을 확인할 수 있어요.
+              빨간 단어를 다시 듣고 발음해 보세요 — {rateLabel(slow)} 느리게 듣기로 정확한 발음을 확인할 수 있어요.
             </p>
           )}
         </>

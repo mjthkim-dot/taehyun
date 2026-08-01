@@ -359,11 +359,19 @@ export function stopSpeaking() {
 }
 
 import { SpeakerIcon } from './icons';
+import { rateLabel, useSlowRate } from './SpeechRate';
 
 export default function SpeakButton({ text, lang = 'en-US', slow = false }: { text: string; lang?: string; slow?: boolean }) {
+  // 느리게 듣기 배속은 사용자가 고른 값을 따른다(기본 0.6배속)
+  const rate = useSlowRate();
   return (
-    <button type="button" className="speak-mini" onClick={() => speakText(text, lang, slow ? 0.6 : 1)} title={slow ? '0.6배속 느리게' : '듣기'}>
-      {slow ? <span className="speak-mini-slow">0.6×</span> : <SpeakerIcon />}
+    <button
+      type="button"
+      className="speak-mini"
+      onClick={() => speakText(text, lang, slow ? rate : 1)}
+      title={slow ? `${rateLabel(rate)} 느리게` : '듣기'}
+    >
+      {slow ? <span className="speak-mini-slow">{rateLabel(rate)}</span> : <SpeakerIcon />}
     </button>
   );
 }

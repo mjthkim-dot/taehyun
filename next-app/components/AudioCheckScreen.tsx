@@ -12,6 +12,7 @@ import { groqKey, SERVER_GROQ_SENTINEL, clearGroqKey } from '../lib/state';
 import { validateGroqKey } from '../lib/groq';
 import { primeAudio, playUrl } from './SpeakButton';
 import { transcribe } from '../lib/stt';
+import SpeechRatePicker from './SpeechRate';
 
 interface StepResult {
   name: string;
@@ -273,6 +274,9 @@ export default function AudioCheckScreen() {
     <div className="study-screen">
       <div className="study-card">
         <h3>음성 진단</h3>
+
+        {/* 소리 설정을 확인하러 오는 화면이므로 배속도 여기서 바꿀 수 있게 둔다 */}
+        <SpeechRatePicker />
         <p className="muted" style={{ fontSize: '0.8rem', lineHeight: 1.6, marginBottom: 12 }}>
           소리가 나지 않을 때, 오디오 체인의 어느 단계에서 끊기는지 이 기기에서 직접 확인합니다.
           진단 중 비프음 1번과 영어 음성 2번이 재생되고, 마이크로 1.5초 녹음합니다 — 미디어 볼륨을 켜고,

@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { drillItemsFor, hasDrill, pairsFor } from '../lib/minimalPairs';
 import { setDrillQueue } from '../lib/state';
 import { speakText } from './SpeakButton';
+import { useSlowRate } from './SpeechRate';
 import type { Mode } from './NavBar';
 
 export default function PronDrillCard({
@@ -27,6 +28,8 @@ export default function PronDrillCard({
   onNavigate?: (m: Mode) => void;
 }) {
   const [open, setOpen] = useState(false);
+  // 단어 비교는 고른 배속대로, 예문은 그보다 조금 빠르게(문장 리듬을 살린다)
+  const slow = useSlowRate();
   if (!hasDrill(lapseKey)) return null;
   const pairs = pairsFor(lapseKey);
 
@@ -44,12 +47,12 @@ export default function PronDrillCard({
           {pairs.map((p) => (
             <div className="pd-pair" key={p.a}>
               <div className="pd-words">
-                <button className="pd-word target" onClick={() => speakText(p.a, 'en-US', 0.75)}>
+                <button className="pd-word target" onClick={() => speakText(p.a, 'en-US', slow)}>
                   {p.a}
                   <span>{p.aKr}</span>
                 </button>
                 <span className="pd-vs">vs</span>
-                <button className="pd-word" onClick={() => speakText(p.b, 'en-US', 0.75)}>
+                <button className="pd-word" onClick={() => speakText(p.b, 'en-US', slow)}>
                   {p.b}
                   <span>{p.bKr}</span>
                 </button>
@@ -60,7 +63,7 @@ export default function PronDrillCard({
                   type="button"
                   className="speak-mini"
                   aria-label={`${p.a} 예문 듣기`}
-                  onClick={() => speakText(p.sentence.en, 'en-US', 0.9)}
+                  onClick={() => speakText(p.sentence.en, 'en-US', Math.min(1, slow + 0.15))}
                 >
                   🔊
                 </button>

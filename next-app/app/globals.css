@@ -5238,3 +5238,53 @@ body,
 @media (prefers-reduced-motion: reduce) {
   .speaking-practice .transcript.live .label::after { animation: none; opacity: 1; }
 }
+
+/* ── 느리게 듣기 배속 선택 ──
+ * 연습 화면에서는 접어 두고(설정이 문장보다 커지지 않게), 음성 진단에서는 펼쳐 둔다. */
+.rate-picker {
+  margin: 10px 0 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+.rate-picker.compact {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+}
+.rate-label {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 7px;
+}
+.rate-opts {
+  display: flex;
+  gap: 6px;
+}
+.rate-opt {
+  flex: 1;
+  min-height: 38px;
+  padding: 7px 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.rate-opt.active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-dk);
+}
+.speak-mini.rate-open {
+  width: auto;
+  min-width: 40px;
+  padding: 0 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
