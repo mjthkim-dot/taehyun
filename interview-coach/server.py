@@ -183,6 +183,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     "llm": llm.probe_cached(refresh="probe" in query),
                     "stt": f"local:{llm.STT_LOCAL_MODEL}" if stt_local else llm.GROQ_STT_MODEL,
                     "stt_local": stt_local,
+                    # 브라우저 모드에서도 '내 목소리'를 Whisper로 받을 수 있는지
+                    "stt_ready": bool(stt_local or llm.GROQ_API_KEY),
                 })
             except Exception as e:  # noqa: BLE001
                 self._send_json(200, {"status": "error", "message": str(e)})

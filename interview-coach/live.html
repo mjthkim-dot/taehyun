@@ -1000,6 +1000,24 @@ function stopListening() {
   $('#btn-listen').classList.remove('live');
 }
 
+// 🎙 브라우저(실시간) 모드에서도 '내 목소리'를 따로 캡처해 화자 분리를 유지한다.
+//   서버에 STT 백엔드(로컬 Whisper 또는 Groq 키)가 없으면 조용히 건너뛴다.
+let sttReady = false;      // /health에서 갱신
+async function startMyVoiceCapture() {
+  if (!sttReady || $('#sttmode').value === 'opp') return false;
+  const meId = $('#dev-me').value;
+  if (!meId) return false;
+  try {
+    const meStream = await navigator.mediaDevices.getUserMedia({
+      audio: { deviceId: { exact: meId }, echoCancellation: true, noiseSuppression: true } });
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    await audioCtx.resume();
+    meCap = new SegmentRecorder(meStream, '나');
+    $('#dev-me').disabled = true;
+    return true;
+  } catch { return false; }
+}
+
 async function startListening() {
   stopMonitor();   // 테스트 중이면 장치를 놓아줘야 실제 캡처가 열린다
   fetch('/api/live/reset', { method: 'POST' }).catch(() => {});  // 세션 맥락(사용한 스토리·직전 질문) 초기화
@@ -1008,7 +1026,13 @@ async function startListening() {
   if (($('#sttengine')?.value || 'web') === 'web') {
     if (!startWebSpeech()) return;
     $('#sttengine').disabled = true;
-    $('#dev-hint').innerHTML = "🆓 브라우저 인식 — <b>시스템 기본 입력을 BlackHole로</b> 설정해야 면접관 소리가 인식됩니다 (내 목소리 채널은 이 모드에선 꺼짐 · Chrome 전용)";
+    // 🎙 내 목소리는 별도 마이크 장치로 함께 캡처 → 화자 분리 유지.
+    //    (Web Speech는 시스템 기본 입력만 듣지만 getUserMedia는 장치 지정이 가능)
+    //    내 발화는 실시간일 필요가 없으므로 Whisper 배치로 충분 — 맥락·리포트에 쓰인다.
+    const meOn = await startMyVoiceCapture();
+    $('#dev-hint').innerHTML = meOn
+      ? "🆓 브라우저 인식(면접관 실시간) + 🎙 내 목소리 별도 캡처 — <b>시스템 기본 입력을 BlackHole로</b> 설정하세요 (Chrome 전용)"
+      : "🆓 브라우저 인식 — <b>시스템 기본 입력을 BlackHole로</b> 설정해야 면접관 소리가 인식됩니다 (내 목소리 기록은 꺼짐 · Chrome 전용)";
     $('#btn-listen').textContent = '⏸';
     $('#btn-listen').classList.add('live');
     return;
@@ -1175,6 +1199,7 @@ if (!navigator.mediaDevices?.enumerateDevices || !navigator.mediaDevices?.getUse
     const h = await (await fetch('/health')).json();
     // 로컬 Whisper가 있으면 옵션 라벨만 갱신하고 간격을 줄인다.
     // 단, 기본 엔진은 '브라우저(실시간)' 유지 — Whisper(로컬/Groq)는 배치라 실시간이 아님.
+    sttReady = !!h.stt_ready;           // 브라우저 모드에서 '내 목소리' 캡처 가능 여부
     if (h.stt_local) {
       const opt = document.querySelector('#sttengine option[value="groq"]');
       if (opt) opt.textContent = '인식: 로컬 Whisper(정확·비실시간)';
