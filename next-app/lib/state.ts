@@ -450,4 +450,49 @@ export function saveChatLog(entry: ChatLogEntry) {
   store('va_chat_logs', logs.slice(-CHAT_LOG_MAX));
 }
 
+/* ── 발음 진단 누적 ──
+ * 한 번의 오답보다 **반복되는 축**이 중요하다. R/L을 이번 주에 여섯 번 놓쳤다는
+ * 사실은 문장 하나의 점수보다 훨씬 실행 가능한 정보라, 축별 횟수를 날짜와 함께
+ * 쌓아 주간 리포트가 읽게 한다. */
+export interface PronLapse {
+  key: string;
+  date: string;
+  count: number;
+}
+
+const PRON_MAX = 90;
+
+export function getPronLapses(): PronLapse[] {
+  return load<PronLapse[]>('va_pron', []);
+}
+
+/** 오늘 날짜에 축별로 1씩 누적. 같은 날 같은 축은 한 줄로 합친다. */
+export function addPronLapses(keys: string[]) {
+  if (!keys.length) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = getPronLapses();
+  for (const key of keys) {
+    const hit = rows.find((r) => r.key === key && r.date === today);
+    if (hit) hit.count += 1;
+    else rows.push({ key, date: today, count: 1 });
+  }
+  store('va_pron', rows.slice(-PRON_MAX));
+}
+
+/** 최근 n일 동안 자주 어긋난 축을 많은 순으로. */
+export function topPronLapses(days = 7, max = 3): { key: string; count: number }[] {
+  const since = new Date();
+  since.setDate(since.getDate() - (days - 1));
+  const from = since.toISOString().slice(0, 10);
+  const tally: Record<string, number> = {};
+  for (const r of getPronLapses()) {
+    if (r.date < from) continue;
+    tally[r.key] = (tally[r.key] || 0) + (r.count || 0);
+  }
+  return Object.entries(tally)
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, max);
+}
+
 export { CEFR_GSE, CEFR_ORDER, gseMid, gseToCefr, scaffoldFor };

@@ -9,7 +9,8 @@
  *
  * 계산은 순수 함수로 두어(화면과 분리) 데이터만 넣으면 테스트할 수 있게 했다.
  */
-import { load, spokenHistory, dueWeak, type WeakItem } from './state';
+import { load, spokenHistory, dueWeak, topPronLapses, type WeakItem } from './state';
+import { LAPSE_TIPS, type LapseKey } from './pronunciation';
 import { weeklyXp } from './habits';
 import { MASTER_CURRICULUM } from './curriculum';
 import { getLessonStats } from './state';
@@ -29,6 +30,8 @@ export interface WeeklyReport {
   caf: { now: number | null; before: number | null; sessions: number };
   /** 가장 자주 틀린 항목(반복 실패 순) */
   weakTop: { en: string; kr: string; lapses: number }[];
+  /** 이번 주 반복해서 어긋난 발음 축 — 문장 하나보다 경향이 실행 가능하다 */
+  pronTop: { key: string; label: string; tip: string; count: number }[];
   /** 오늘 복습 대기 수 */
   dueCount: number;
   /** 다음에 이어갈 학습 경로 노드 */
@@ -102,6 +105,13 @@ export function buildWeeklyReport(): WeeklyReport {
 
   const dueCount = dueWeak().length;
 
+  /* ── 발음: 이번 주 반복해서 어긋난 축. 축 이름과 교정법을 함께 실어
+   *    "R/L 6회"로 끝나지 않고 무엇을 어떻게 고칠지까지 이어지게 한다. ── */
+  const pronTop = topPronLapses(7, 3).map((p) => {
+    const tip = LAPSE_TIPS[p.key as LapseKey];
+    return { key: p.key, label: tip?.label ?? p.key, tip: tip?.tip ?? '', count: p.count };
+  });
+
   /* ── 총평: 숫자를 그대로 두지 않고 한 문장으로 해석한다 ── */
   let headline: string;
   if (last7 === 0) {
@@ -124,6 +134,7 @@ export function buildWeeklyReport(): WeeklyReport {
     daily,
     caf: { now: avg(recent), before: avg(older), sessions: sessions.length },
     weakTop,
+    pronTop,
     dueCount,
     nextUnits,
     headline,

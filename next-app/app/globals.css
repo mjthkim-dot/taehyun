@@ -5021,3 +5021,182 @@ body,
   background: none; border: none; color: var(--text-muted);
   font-size: 0.76rem; font-weight: 700; cursor: pointer;
 }
+
+/* ── 발음 진단 ──
+ * 틀린 단어를 빨갛게 칠하는 것으로 끝나던 자리에, 무엇으로 잘못 들렸고 어떻게
+ * 고치는지를 붙인다. 경고가 아니라 코치의 말이므로 붉은색 대신 중립 표면 위에
+ * 얹고, 축 이름만 민트로 강조한다. */
+.pron-diag {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+.pron-diag-head {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.pron-issue + .pron-issue {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.pron-issue-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pron-chip {
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+}
+.pron-pair {
+  font-size: 0.85rem;
+  color: var(--text);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.pron-pair b {
+  color: var(--text);
+}
+.pron-pair i {
+  font-style: normal;
+  color: var(--red);
+  text-decoration: underline dotted;
+}
+.pron-play {
+  margin-left: auto;
+}
+.pron-tip {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  line-height: 1.65;
+  color: var(--text-muted);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+}
+.wr-pron + .wr-pron {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.wr-pron-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wr-pron-top b {
+  margin-left: auto;
+  font-size: 0.82rem;
+  color: var(--text);
+}
+
+/* ── 발음 훈련(최소대립쌍) ──
+ * 진단 아래에 접혀 있다가 필요할 때만 펼쳐진다 — 기본 상태에서 다음 문장으로
+ * 넘어가는 흐름을 밀어내지 않는 것이 우선. */
+.pd {
+  margin-top: 8px;
+}
+.pd-toggle {
+  border: none;
+  background: none;
+  padding: 8px 0;
+  min-height: 36px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--primary-dk);
+  cursor: pointer;
+  text-align: left;
+}
+.pd-body {
+  margin-top: 4px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.pd-hint {
+  font-size: 0.76rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.pd-pair + .pd-pair {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.pd-words {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.pd-word {
+  flex: 1;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 7px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.pd-word.target {
+  border-color: var(--primary);
+  color: var(--primary-dk);
+}
+.pd-word span {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.pd-vs {
+  align-self: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.pd-sentence {
+  margin-top: 8px;
+  font-size: 0.84rem;
+  line-height: 1.6;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.pd-sentence-kr {
+  margin-top: 2px;
+  font-size: 0.76rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.pd-cta {
+  width: 100%;
+  margin-top: 12px;
+}

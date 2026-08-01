@@ -10,7 +10,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dialogue } from '../lib/lessons';
 import { computeAccuracy, type WordDiff } from '../store/useLessonStore';
-import { addWeakItem, groqKey, markPracticedToday, bumpSpoken } from '../lib/state';
+import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
+import { diagnose, type PronIssue } from '../lib/pronunciation';
+import { addPronLapses, addWeakItem, groqKey, markPracticedToday, bumpSpoken } from '../lib/state';
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS, playUrl, SPEAKER_GROQ_VOICE, GROQ_TTS_VOICE } from './SpeakButton';
 import DialogueVariantPicker from './DialogueVariantPicker';
 
@@ -361,6 +363,8 @@ interface LineResult {
   score: number;
   diff: WordDiff[];
   spoken: string;
+  /** 왜 틀렸는지 — 잘못 들린 단어를 발음 축으로 해석한 결과 */
+  issues: PronIssue[];
 }
 
 function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lessonId: number; rate: number }) {
@@ -371,12 +375,45 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
   const [revealed, setRevealed] = useState<Record<number, boolean>>({});
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState('');
+  /** Whisper 경로의 단계 — 녹음 중인지 변환 중인지 버튼에 드러낸다 */
+  const [phase, setPhase] = useState<'idle' | 'recording' | 'transcribing'>('idle');
+  /** 인식이 비었을 때의 안내 — 아무 반응이 없으면 고장으로 보인다 */
+  const [micHint, setMicHint] = useState('');
+  const stopWhisperRef = useRef<(() => void) | null>(null);
 
   const recogRef = useRef<SpeechRecognition | null>(null);
   const finalRef = useRef('');
   const stepRef = useRef(0);
   stepRef.current = step;
-  const supported = getSpeechRecognition() !== null;
+  // Whisper가 되면 브라우저 내장 인식이 없어도 말하기가 가능하다
+  const supported = getSpeechRecognition() !== null || whisperAvailable();
+
+  /**
+   * 채점 한 곳 — Whisper 경로와 브라우저 내장 인식이 같은 결과를 만들어야 한다.
+   * 여기서 발음 진단까지 함께 계산해, 역할연습에서도 "무엇으로 들렸는지"가 남는다.
+   */
+  const scoreLine = useCallback(
+    (spoken: string) => {
+      if (!spoken) return;
+      const idx = stepRef.current;
+      const target = dialogue.lines[idx];
+      if (!target) return;
+      const { score, diff, missed } = computeAccuracy(target.en, spoken);
+      const issues = missed.length ? diagnose(target.en, spoken) : [];
+      if (issues.length) addPronLapses(issues.map((i) => i.key));
+      bumpSpoken(); // 역할연습 발화 집계
+      setResults((prev) => ({ ...prev, [idx]: { score, diff, spoken, issues } }));
+      setRevealed((prev) => ({ ...prev, [idx]: true }));
+      if (score < ROLEPLAY_PASS) {
+        addWeakItem({ en: target.en, kr: target.kr, lesson: lessonId, cat: 'dialogue' });
+      }
+      markPracticedToday();
+    },
+    [dialogue, lessonId]
+  );
+  // 인식기 생성 이펙트는 한 번만 도는데 scoreLine은 매 렌더 갱신되므로 ref로 잇는다
+  const scoreRef = useRef(scoreLine);
+  scoreRef.current = scoreLine;
 
   // 음성 인식기 1회 생성
   useEffect(() => {
@@ -398,18 +435,7 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
     };
     r.onend = () => {
       setListening(false);
-      const spoken = finalRef.current.trim();
-      if (!spoken) return;
-      const idx = stepRef.current;
-      const line = dialogue.lines[idx];
-      const { score, diff } = computeAccuracy(line.en, spoken);
-      bumpSpoken(); // 역할연습 발화 집계
-      setResults((prev) => ({ ...prev, [idx]: { score, diff, spoken } }));
-      setRevealed((prev) => ({ ...prev, [idx]: true }));
-      if (score < ROLEPLAY_PASS) {
-        addWeakItem({ en: line.en, kr: line.kr, lesson: lessonId, cat: 'dialogue' });
-      }
-      markPracticedToday();
+      scoreRef.current(finalRef.current.trim());
     };
     r.onerror = () => setListening(false);
     recogRef.current = r;
@@ -437,18 +463,81 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
     setInterim('');
   }, [step, myRole, line, rate]);
 
-  function startMic() {
+  /** 브라우저 내장 인식 — Whisper가 없거나 실패했을 때의 뒷길 */
+  function startWebSpeech() {
     const r = recogRef.current;
-    if (!r || listening) return;
+    if (!r) return false;
     finalRef.current = '';
-    setInterim('');
-    stopSpeaking();
     try {
       r.start();
       setListening(true);
+      return true;
     } catch {
-      /* 이미 시작됨 */
+      return false; /* 이미 시작됨 */
     }
+  }
+
+  /**
+   * Whisper 경로 — 녹음(무음 감지로 자동 종료) → 서버 변환 → 채점.
+   * 브라우저 내장 인식은 문맥으로 단어를 고쳐서 돌려주기 때문에 발음이 나빠도
+   * 점수가 후하게 나왔다. 역할연습은 발음을 보는 화면이라 여기서는 들린 대로
+   * 받는 Whisper를 우선한다.
+   */
+  async function startWhisper() {
+    setListening(true);
+    setPhase('recording');
+    try {
+      const { text, reason } = await recordAndTranscribe({
+        prompt: dialogue.lines[stepRef.current]?.en,
+        onState: (st) => setPhase(st),
+        registerStop: (fn) => {
+          stopWhisperRef.current = fn;
+        },
+      });
+      setPhase('idle');
+      setListening(false);
+      stopWhisperRef.current = null;
+      if (text) {
+        scoreLine(text);
+        return true;
+      }
+      if (reason === 'empty-result') {
+        setMicHint('말소리는 잡혔는데 인식하지 못했어요 — 조금 더 또렷하게 다시 말해보세요.');
+        return false; // 내장 인식으로 한 번 더
+      }
+      setMicHint('마이크에서 소리가 잡히지 않았어요 — 권한과 음소거를 확인해 주세요.');
+      return true;
+    } catch (err) {
+      setPhase('idle');
+      setListening(false);
+      stopWhisperRef.current = null;
+      const msg = (err as Error)?.message || '';
+      setMicHint(/NotAllowed|Permission/i.test(msg) ? '마이크 권한이 거부됐어요 — 브라우저 설정에서 허용해 주세요.' : '');
+      return false;
+    }
+  }
+
+  function startMic() {
+    if (listening) return;
+    finalRef.current = '';
+    setInterim('');
+    setMicHint('');
+    stopSpeaking();
+    if (whisperAvailable()) {
+      startWhisper().then((done) => {
+        if (!done) startWebSpeech();
+      });
+      return;
+    }
+    startWebSpeech();
+  }
+
+  function stopMic() {
+    if (stopWhisperRef.current) {
+      stopWhisperRef.current();
+      return;
+    }
+    recogRef.current?.stop();
   }
 
   function pickRole(role: string) {
@@ -538,10 +627,10 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
             <button
               className={listening ? 'btn' : 'btn primary'}
               style={{ flex: 1, ...(listening ? { background: 'var(--red)', color: '#fff', borderColor: 'var(--red)' } : {}) }}
-              disabled={!supported}
-              onClick={listening ? () => recogRef.current?.stop() : startMic}
+              disabled={!supported || phase === 'transcribing'}
+              onClick={listening ? stopMic : startMic}
             >
-              {listening ? '⏹ 멈추기' : res ? '🎤 다시 말하기' : '🎤 말하기'}
+              {phase === 'transcribing' ? '⏳ 인식 중…' : listening ? '⏹ 멈추기' : res ? '🎤 다시 말하기' : '🎤 말하기'}
             </button>
             <button className="btn" style={{ flex: '0 0 auto' }} onClick={() => setRevealed((p) => ({ ...p, [step]: true }))}>
               👀 정답
@@ -561,7 +650,35 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
                   <span key={i} style={{ color: d.ok ? 'var(--green)' : 'var(--red)', textDecoration: d.ok ? 'none' : 'underline', marginRight: 5 }}>{d.w}</span>
                 ))}
               </div>
+              {res.issues.length > 0 && (
+                <div className="pron-diag">
+                  <div className="pron-diag-head">발음 진단</div>
+                  {res.issues.map((p) => (
+                    <div className="pron-issue" key={p.key}>
+                      <div className="pron-issue-top">
+                        <span className="pron-chip">{p.label}</span>
+                        <span className="pron-pair">
+                          <b>{p.target}</b>
+                          {p.heard ? <> → <i>{p.heard}</i> 로 들렸어요</> : ' — 들리지 않았어요'}
+                        </span>
+                        <button
+                          type="button"
+                          className="speak-mini pron-play"
+                          aria-label={`${p.target} 느리게 듣기`}
+                          onClick={() => speakText(p.target, 'en-US', 0.6)}
+                        >
+                          🔊
+                        </button>
+                      </div>
+                      <div className="pron-tip">{p.tip}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+          )}
+          {micHint && (
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.55, marginBottom: 6 }}>{micHint}</p>
           )}
         </>
       ) : null}

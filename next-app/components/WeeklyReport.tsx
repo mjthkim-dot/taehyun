@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { buildWeeklyReport, type WeeklyReport as Report } from '../lib/weeklyReport';
 import type { Mode } from './NavBar';
+import PronDrillCard from './PronDrillCard';
 
 export default function WeeklyReport({ onNavigate, onSelectLesson }: { onNavigate?: (m: Mode) => void; onSelectLesson?: (id: number) => void }) {
   const [r, setR] = useState<Report | null>(null);
@@ -82,6 +83,22 @@ export default function WeeklyReport({ onNavigate, onSelectLesson }: { onNavigat
               {r.dueCount > 0 ? `복습 ${r.dueCount}개 지금 하기 →` : '복습하러 가기 →'}
             </button>
           )}
+        </div>
+      )}
+
+      {r.pronTop.length > 0 && (
+        <div className="wr-block">
+          <div className="wr-block-title">이번 주 반복된 발음</div>
+          {r.pronTop.map((p) => (
+            <div className="wr-pron" key={p.key}>
+              <div className="wr-pron-top">
+                <span className="pron-chip">{p.label}</span>
+                <b>{p.count}회</b>
+              </div>
+              <div className="pron-tip">{p.tip}</div>
+              <PronDrillCard lapseKey={p.key} label={p.label} onNavigate={onNavigate} />
+            </div>
+          ))}
         </div>
       )}
 

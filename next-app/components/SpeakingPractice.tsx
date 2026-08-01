@@ -15,6 +15,7 @@ import { speakText } from './SpeakButton';
 import { SpeakerIcon } from './icons';
 import { haptic } from '../lib/haptics';
 import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
+import PronDrillCard from './PronDrillCard';
 
 // 벤더 프리픽스 대응
 function getSpeechRecognition(): typeof SpeechRecognition | null {
@@ -48,6 +49,7 @@ export default function SpeakingPractice({
   const userSpeech = useLessonStore((s) => s.userSpeech);
   const accuracyScore = useLessonStore((s) => s.accuracyScore);
   const wordDiff = useLessonStore((s) => s.wordDiff);
+  const pronIssues = useLessonStore((s) => s.pronIssues);
   const attempts = useLessonStore((s) => s.attempts);
   const isListening = useLessonStore((s) => s.isListening);
   const setCurrentSentence = useLessonStore((s) => s.setCurrentSentence);
@@ -352,6 +354,42 @@ export default function SpeakingPractice({
                 >
                   {d.w}
                 </span>
+              ))}
+            </div>
+          )}
+          {pronIssues.length > 0 && (
+            <div className="pron-diag">
+              <div className="pron-diag-head">발음 진단</div>
+              {pronIssues.map((p) => (
+                <div className="pron-issue" key={p.key}>
+                  <div className="pron-issue-top">
+                    <span className="pron-chip">{p.label}</span>
+                    <span className="pron-pair">
+                      <b>{p.target}</b>
+                      {p.heard ? (
+                        <>
+                          {' → '}
+                          <i>{p.heard}</i>
+                          {' 로 들렸어요'}
+                        </>
+                      ) : (
+                        ' — 들리지 않았어요'
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      className="speak-mini pron-play"
+                      aria-label={`${p.target} 느리게 듣기`}
+                      onClick={() => speakText(p.target, lang, 0.6)}
+                    >
+                      <SpeakerIcon />
+                    </button>
+                  </div>
+                  <div className="pron-tip">{p.tip}</div>
+                  {/* 이미 드릴 안이므로 여기서는 귀 훈련(듣고 구분하기)까지만 —
+                      드릴 큐로 넘기는 통로는 주간 리포트가 맡는다 */}
+                  <PronDrillCard lapseKey={p.key} label={p.label} />
+                </div>
               ))}
             </div>
           )}
