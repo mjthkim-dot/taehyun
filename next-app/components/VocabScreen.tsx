@@ -13,6 +13,7 @@ import { VOCAB_DOMAINS, type VocabEntry } from '../lib/domainVocab';
 import { addPhrase, addWeakItem } from '../lib/state';
 import SpeakButton from './SpeakButton';
 import Note from './Note';
+import ContextAsk from './ContextAsk';
 
 type Quiz = { entry: VocabEntry; options: string[] };
 
@@ -190,6 +191,20 @@ export default function VocabScreen() {
                   <button className="btn ghost vocab-save" onClick={() => save(e)} disabled={saved.includes(e.term)}>
                     {saved.includes(e.term) ? '표현장에 저장됨' : '예문 표현장에 저장'}
                   </button>
+
+                  {/* 이 카드(연어·예문·노트)를 문맥으로 자유 질문 */}
+                  <ContextAsk
+                    ctx={{
+                      title: e.term,
+                      lessonTitle: `직무 어휘 — ${domain.label}`,
+                      body: [
+                        `${e.term} (${e.kr})`,
+                        `함께 쓰는 덩어리: ${e.collocations.join(' / ')}`,
+                        `예문: ${e.example.en} (${e.example.kr})`,
+                        e.note,
+                      ].join('\n'),
+                    }}
+                  />
                 </div>
               )}
             </div>

@@ -13,6 +13,7 @@ import { setTalkContext } from '../lib/dailyMission';
 import { addPhrase } from '../lib/state';
 import SpeakButton from './SpeakButton';
 import Note from './Note';
+import ContextAsk from './ContextAsk';
 import type { Mode } from './NavBar';
 
 export default function ScriptsScreen({ onNavigate }: { onNavigate: (m: Mode) => void }) {
@@ -82,6 +83,14 @@ export default function ScriptsScreen({ onNavigate }: { onNavigate: (m: Mode) =>
                 </button>
               </div>
             ))}
+            {/* 이 단계의 목적·표현을 문맥으로 자유 질문 */}
+            <ContextAsk
+              ctx={{
+                title: step.label,
+                lessonTitle: `미팅 스크립트 — ${scenario.label}`,
+                body: [step.purpose, ...step.lines.map((l) => `${l.en} (${l.kr})${l.note ? `\n${l.note}` : ''}`)].join('\n\n'),
+              }}
+            />
           </div>
         ))}
 

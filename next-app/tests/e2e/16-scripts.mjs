@@ -37,6 +37,7 @@ check('단계마다 목적 설명', (await page.evaluate(() => document.querySel
 check('표현 + 한국어 렌더', (await page.evaluate(() => document.querySelectorAll('.script-line .script-en').length)) >= 8);
 check('표현 선택 이유(note) 렌더', (await page.evaluate(() => document.querySelectorAll('.script-note').length)) >= 3);
 check('흔한 실수 목록', (await page.evaluate(() => document.querySelectorAll('.script-pitfalls li').length)) >= 3);
+check('단계마다 문맥 질문 버튼', (await page.evaluate(() => document.querySelectorAll('.ctx-ask-open').length)) >= 3);
 check('본문에 리터럴 ** 없음', !(await page.evaluate(() => document.body.textContent || '')).includes('**'));
 
 // 모범 대화는 먼저 말해보게 하려고 접혀 있어야 한다

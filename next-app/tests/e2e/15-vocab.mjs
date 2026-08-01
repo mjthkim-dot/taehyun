@@ -34,6 +34,7 @@ await page.waitForSelector('.vocab-card.open .vocab-body', { timeout: 5000 });
 check('연어 칩 렌더', (await page.evaluate(() => document.querySelectorAll('.vocab-card.open .vocab-collo').length)) >= 3);
 check('예문 + 한국어 렌더', await page.evaluate(() => !!document.querySelector('.vocab-card.open .vocab-ex') && !!document.querySelector('.vocab-card.open .vocab-ex-kr')));
 check('주의·뉘앙스 노트 렌더', (await page.evaluate(() => document.querySelector('.vocab-card.open .vocab-note')?.textContent?.length || 0)) > 20);
+check('카드에 문맥 질문 버튼', await page.evaluate(() => !!document.querySelector('.vocab-card.open .ctx-ask-open')));
 // 콘텐츠의 **볼드** 표기가 리터럴로 새지 않아야 한다(Note 렌더러 경유 확인)
 check('마크다운 볼드가 리터럴로 노출되지 않음', !(await page.evaluate(() => document.querySelector('.vocab-card.open .vocab-note')?.textContent || '')).includes('**'));
 // 볼드 렌더는 **가 실제로 들어 있는 카드로 확인한다(첫 카드 note에는 볼드가 없다)
