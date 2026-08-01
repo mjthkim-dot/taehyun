@@ -29,21 +29,45 @@ bash start.sh                    # 시작 배너에 공급자별 ✅/❌ 상태�
 의존성 0 — stdlib만 사용하는 단일 파일 Python 서버라 `pip install`이 필요 없다.
 라이브 모드는 반드시 **데스크톱 Chrome**에서 열 것 (탭 오디오 캡처 사용).
 
-### 📱 아이폰에서 사용 (연습 모드)
+## 📱 폰에서 쓰기
 
-아이폰 마이크는 HTTPS에서만 동작하므로 `start.sh`가 cloudflared가 설치돼 있으면
-HTTPS 터널을 자동 생성해 아이폰용 주소를 출력한다:
+브라우저는 **HTTPS에서만 마이크를 허용**한다(`http://192.168.x.x`로 열면 라이브가
+동작하지 않음). `start.sh`가 cloudflared가 있으면 HTTPS 터널을 자동 생성한다:
 
 ```bash
-brew install cloudflared    # 최초 1회
+brew install cloudflared          # 최초 1회
+brew install qrencode             # (선택) 터미널에 QR을 띄워 폰으로 바로 열기
 bash start.sh
-#  📱 아이폰(사파리): https://xxxx.trycloudflare.com/interview.html
+#  📱 폰에서 열기
+#     ├ 🔴 라이브:  https://xxxx.trycloudflare.com/live.html
+#     └ 🎧 연습:    https://xxxx.trycloudflare.com/interview.html
 ```
 
-사파리에서 열고 공유 → **홈 화면에 추가**하면 앱처럼 설치된다.
-주소는 실행할 때마다 바뀌며, 맥에서 서버가 켜져 있어야 접속된다.
-연습 모드(질문/녹음/피드백/모범답변)는 아이폰에서 전부 동작하고
-(iOS는 audio/mp4로 녹음 → 서버가 자동 처리), 라이브 모드는 데스크톱 전용.
+주소는 실행할 때마다 바뀌고, 맥에서 서버가 켜져 있어야 접속된다.
+사파리/크롬에서 공유 → **홈 화면에 추가**하면 앱처럼 설치된다.
+
+### 🔴 폰 라이브 모드 — 2대 구성 (오디오 설정 불필요)
+
+폰에는 BlackHole 라우팅이 불가능하므로 구성이 다르다. **노트북에서 화상면접을
+하고, 폰을 옆에 둬서 방 소리를 듣게 한다** — 오디오 라우팅 설정이 아예 필요 없다.
+
+```
+[노트북] Zoom/Meet 면접 진행 — 스피커로 소리 재생 (이어폰 X)
+   ↓ 소리
+[폰] live.html에서 ▶ — 면접관 말을 듣고 자막 + 한국어 번역 + 답변 카드
+```
+
+폰에서는 장치 선택 바와 BlackHole 안내가 자동으로 숨겨지고, 답변 카드가 하단
+시트로 바뀌며(헤더 고정 + 내부 스크롤), 퀵 액션이 2×2로 배치된다.
+
+| 기기 | 라이브 | 연습 |
+|---|---|---|
+| **Android Chrome** | ✅ 실시간 인식 동작 | ✅ |
+| **iPhone Safari/Chrome** | ⚠️ WebKit은 실시간 인식이 불안정 — 안내 문구 표시 | ✅ 전부 동작 |
+| **맥 Chrome** ⭐ | ✅ BlackHole로 화자 분리까지 (권장) | ✅ |
+
+> 아이폰에서 라이브가 안 되면 연습 모드를 쓰거나, 실전은 맥 Chrome을 쓴다.
+> 연습 모드는 iOS에서 audio/mp4로 녹음돼 서버가 자동 처리한다.
 
 ## 🔴 라이브 모드 — 화자 물리적 분리 (BlackHole)
 

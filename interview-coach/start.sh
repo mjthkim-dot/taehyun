@@ -75,16 +75,28 @@ if command -v cloudflared &>/dev/null; then
   done
   echo ""
   if [ -n "$TUNNEL_URL" ]; then
-    echo "  📱 아이폰(사파리): ${TUNNEL_URL}/interview.html"
-    echo "     └ 공유 → '홈 화면에 추가'로 앱처럼 설치 가능 (주소는 실행마다 바뀜)"
-    echo "     └ 라이브 모드(탭 오디오 캡처)는 데스크톱 Chrome 전용입니다"
+    echo "  📱 폰에서 열기 (HTTPS — 마이크는 https에서만 동작)"
+    echo "     ├ 🔴 라이브:  ${TUNNEL_URL}/live.html"
+    echo "     │    └ 폰을 노트북 옆에 두고 ▶ — 면접관 목소리를 폰 마이크로 듣습니다"
+    echo "     │      (이어폰 대신 노트북 스피커 사용 · 실시간 인식은 Android Chrome 권장)"
+    echo "     └ 🎧 연습:    ${TUNNEL_URL}/interview.html"
+    echo "          └ 공유 → '홈 화면에 추가'로 앱처럼 설치 (주소는 실행마다 바뀜)"
+    # QR로 바로 열 수 있게 (qrencode가 있으면 터미널에 출력)
+    if command -v qrencode &>/dev/null; then
+      echo ""
+      qrencode -t ANSIUTF8 -m 1 "${TUNNEL_URL}/live.html"
+      echo "     ↑ 폰 카메라로 스캔하면 라이브 모드가 바로 열립니다"
+    else
+      echo "     💡 QR로 바로 열려면: brew install qrencode (재실행 시 QR 출력)"
+    fi
   else
     echo "  ⚠️  터널 주소를 가져오지 못했습니다. 로그: $TUNNEL_LOG"
   fi
 else
   echo ""
-  echo "  📱 아이폰에서 쓰려면 HTTPS 터널이 필요합니다 (최초 1회):"
-  echo "     brew install cloudflared   → 재실행하면 아이폰용 주소가 자동 출력됩니다"
+  echo "  📱 폰에서 테스트하려면 HTTPS 터널이 필요합니다 (최초 1회):"
+  echo "     brew install cloudflared   → 재실행하면 폰용 주소가 자동 출력됩니다"
+  echo "     (http://192.168.x.x 로는 브라우저가 마이크를 막아 라이브가 동작하지 않습니다)"
 fi
 echo ""
 
