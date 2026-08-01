@@ -144,7 +144,7 @@ button {
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.03em;
-  color: #fff;
+  color: var(--on-primary);
   width: 30px;
   height: 30px;
   display: flex;
@@ -1613,7 +1613,7 @@ button {
 /* ── 비즈니스 레슨 ── */
 .biz-seg { display: flex; gap: 6px; background: var(--surface-2, rgba(0,0,0,0.04)); border: 1px solid var(--border); border-radius: 12px; padding: 4px; margin-bottom: 14px; }
 .biz-seg-btn { flex: 1; border: none; background: transparent; color: var(--text-muted); font-weight: 700; font-size: 0.84rem; padding: 9px 0; border-radius: 9px; cursor: pointer; transition: background 0.15s, color 0.15s; }
-.biz-seg-btn.active { background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(255,90,54,0.28); }
+.biz-seg-btn.active { background: var(--primary); color: var(--on-primary); box-shadow: 0 2px 8px rgba(255,90,54,0.28); }
 .biz-doc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.82rem; font-weight: 800; margin: 6px 0 6px; }
 .biz-doc-actions { display: inline-flex; gap: 6px; }
 .biz-doc { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
@@ -1649,7 +1649,7 @@ button {
   z-index: 1200;
   border: none;
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   font-weight: 800;
   font-size: 0.8rem;
   padding: 11px 18px;
@@ -2053,7 +2053,7 @@ body,
   padding: 8px 14px;
   font-size: 0.82rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--on-primary);
   background: var(--grad-primary);
   border: none;
   border-radius: 999px;
@@ -2164,7 +2164,7 @@ body,
   transition: all 0.15s ease;
 }
 .ask-mode-chip.active {
-  color: #fff;
+  color: var(--on-primary);
   background: var(--grad-primary);
   border-color: transparent;
 }
@@ -2631,7 +2631,7 @@ body,
   transition: all 0.15s ease;
 }
 .dlgv-chip.active {
-  color: #fff;
+  color: var(--on-primary);
   background: var(--grad-primary);
   border-color: transparent;
 }
@@ -2861,7 +2861,7 @@ body,
   margin-top: 16px;
   font-size: 0.9rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--on-primary);
   background: var(--grad-primary);
   border: none;
   border-radius: var(--radius-sm);
@@ -2921,7 +2921,7 @@ body,
   cursor: pointer;
 }
 .legal-tab.active {
-  color: #fff;
+  color: var(--on-primary);
   background: var(--grad-primary);
   border-color: transparent;
 }
@@ -3190,7 +3190,7 @@ body,
   padding: 9px;
   border-radius: 10px;
   background: var(--grad-primary);
-  color: #fff;
+  color: var(--on-primary);
   border: none;
   cursor: pointer;
 }
@@ -3533,7 +3533,7 @@ body,
 .buildup-step.active {
   background: var(--grad-primary);
   border-color: transparent;
-  color: #fff;
+  color: var(--on-primary);
 }
 .buildup-step.done {
   background: var(--green-soft);
@@ -4939,3 +4939,53 @@ body,
 .vocab-actions { display: flex; gap: 8px; margin-bottom: 12px; }
 .vocab-actions .btn { flex: 1; font-size: 0.8rem; padding: 11px 8px; }
 .script-drill { width: 100%; margin-top: 8px; }
+
+/* ── 터치 타깃 최소 크기 ──────────────────────────────────────
+   자동 감사에서 아이콘 버튼들이 19~31px로 나왔다(iOS 권장 44px, 실무 하한 40px).
+   아이콘 크기는 그대로 두고 **누를 수 있는 영역만** 넓힌다 — 보기는 그대로,
+   손가락으로는 훨씬 정확해진다. */
+.speak-mini,
+.mission-ic,
+.mission-shuffle,
+.mission-mini-next,
+.mission-mini,
+.buildup-step,
+.dlgv-chip,
+.mini-btn,
+.helper-chip,
+.script-save,
+.ctx-ask-close,
+.vocab-tab {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+/* 아이콘 전용 버튼은 가로도 확보한다 */
+.speak-mini,
+.mission-ic,
+.mission-shuffle {
+  min-width: 40px;
+}
+/* 넓어진 만큼 줄 간격이 벌어지지 않도록 세로 여백을 흡수한다 */
+.mission-phrase .mission-ic { margin: -6px 0; }
+.script-line .script-save { margin-top: 4px; }
+
+/* 버전 칩 — 감사에서 2.91:1로 나와 최소 기준(4.5:1)에 미달했다.
+   메타 정보라 눈에 띄지 않아야 하지만, 읽을 수는 있어야 한다. */
+.app-version { color: var(--text); opacity: 0.72; }
+/* 다크 테마 블록에서 --text-muted로 덮이므로 여기서 한 번 더 지정한다 */
+[data-theme='dark'] .app-version { color: var(--text); opacity: 0.72; }
+
+/* 감사에서 잡힌 실제 결함: 활성 빌드업 구간 칩이 민트 면에 흰 글자(1.45:1)였다.
+   다른 CTA는 --on-primary로 뒤집었는데 이 칩만 빠져 있었다. */
+.buildup-step.active,
+.buildup-step.on,
+.buildup-step[aria-current='true'] { color: var(--on-primary); }
+
+/* 자동 감사 후속: 34px 버튼(테마 토글·보조 버튼)도 최소 크기를 맞춘다 */
+.theme-toggle, .btn.compact, .notice-action { min-height: 40px; }
+
+/* muted 텍스트 대비 — 감사에서 4.37:1(본문), 3.49:1(보조 버튼)로 AA 미달이었다.
+   한 톤만 밝혀 위계는 유지하면서 기준을 넘긴다. */
+[data-theme='dark'] { --text-muted: #9dabb8; }
