@@ -168,8 +168,9 @@
   .lab.an { background: var(--yellow); color: #16130A; }
   .lrow .body { flex: 1; min-width: 0; }
   .lrow .strat { font-size: 13px; color: var(--sub); line-height: 1.55; }
-  .lrow .en { font-size: 15px; font-weight: 700; line-height: 1.6; }
-  .lrow .kr { font-size: 12.5px; color: var(--sub); line-height: 1.55; margin-top: 6px; }
+  /* 답변 글자 크기 — 카메라를 보면서 곁눈질로 읽어야 하므로 3단계로 키울 수 있게 */
+  .lrow .en { font-size: calc(15px * var(--ansz, 1)); font-weight: 700; line-height: 1.6; }
+  .lrow .kr { font-size: calc(12.5px * var(--ansz, 1)); color: var(--sub); line-height: 1.55; margin-top: 6px; }
   .lrow .say { background: none; border: none; cursor: pointer; font-size: 14px; flex: none; color: var(--sub); }
   /* 📎 답변 근거 — 어떤 내 사례에서 나온 답변인지 (지어낸 답변이 아님을 보증) */
   #c-src { display: none; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line);
@@ -324,8 +325,9 @@
       <div class="head">
         <span class="gist" id="c-gist"></span>
         <span class="spec-tag" title="질문이 끝나기 전에 미리 생성 중 — 확정되면 자동 갱신됩니다">미리 생성</span>
-        <button id="c-pin" title="고정">📌</button>
-        <button id="c-close" title="닫기">✕</button>
+        <button id="c-size" title="답변 글자 크기 (단축키 +)">🔎</button>
+        <button id="c-pin" title="고정 — 읽는 동안 새 질문이 덮어쓰지 않게 (단축키 Space)">📌</button>
+        <button id="c-close" title="닫기 (단축키 Esc)">✕</button>
       </div>
       <div class="lrow" id="c-strat-row" style="display:none">
         <span class="lab st">전략</span>
@@ -622,6 +624,30 @@ async function suggest(target, intent, auto, speculative) {
 }
 $('#c-close').addEventListener('click', () => { $('#card').style.display = 'none'; pinned = false; $('#c-pin').classList.remove('on'); });
 $('#c-pin').addEventListener('click', () => { pinned = !pinned; $('#c-pin').classList.toggle('on', pinned); });
+
+// ── 답변 글자 크기 (1 → 1.2 → 1.45 순환, 저장됨) ──
+const SIZES = [1, 1.2, 1.45];
+let sizeIdx = +(localStorage.getItem('ic_ansz') || 0);
+function applySize() {
+  sizeIdx = ((sizeIdx % SIZES.length) + SIZES.length) % SIZES.length;
+  document.documentElement.style.setProperty('--ansz', SIZES[sizeIdx]);
+  localStorage.setItem('ic_ansz', sizeIdx);
+  $('#c-size').title = `답변 글자 크기 ${Math.round(SIZES[sizeIdx] * 100)}% (단축키 +)`;
+}
+applySize();
+$('#c-size').addEventListener('click', () => { sizeIdx++; applySize(); });
+
+// ── ⌨️ 단축키 — 면접 중 마우스 조작은 화면에 드러나므로 키보드로 처리 ──
+//   Space: 카드 고정/해제 (읽는 중 보호) · Esc: 카드 닫기 · +/-: 글자 크기
+document.addEventListener('keydown', (e) => {
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.code === 'Space') { e.preventDefault(); $('#c-pin').click(); }
+  else if (e.key === 'Escape') { e.preventDefault(); $('#c-close').click(); }
+  else if (e.key === '+' || e.key === '=') { e.preventDefault(); sizeIdx++; applySize(); }
+  else if (e.key === '-' || e.key === '_') { e.preventDefault(); sizeIdx--; applySize(); }
+});
 
 // ── 퀵 액션 (동의/반박/질문/제안) — 마지막 상대 발화 기준 ───
 document.querySelectorAll('.actions [data-intent]').forEach(btn => {
