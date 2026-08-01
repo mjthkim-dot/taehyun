@@ -124,5 +124,44 @@ check('마이크 거부 시 서버를 부르지 않음', fbSttCalls === 0, Strin
 check('브라우저 내장 인식으로 폴백', (await fb.evaluate(() => document.querySelector('.transcript p')?.textContent || '')).includes('Fallback recognition'));
 check('폴백 후에도 마이크 버튼 사용 가능', await fb.evaluate(() => document.querySelector('.mission-practice .mic')?.disabled === false));
 
+/* ── ③ 회화 연속 대화(보이스 모드)도 Whisper로 한 턴을 돈다 ── */
+const talk = await browser.newPage();
+talk.on('pageerror', (e) => console.log('  [pageerror]', e.message));
+await talk.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ valid: true }) }));
+await talk.route('**/app/api/groq', (r) => {
+  const b = JSON.parse(r.request().postData() || '{}');
+  if (b.stream) {
+    return r.fulfill({ status: 200, contentType: 'text/event-stream', body: 'data: {"choices":[{"delta":{"content":"Good to hear that."}}]}\n\ndata: [DONE]\n\n' });
+  }
+  return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{}' } }] }) });
+});
+await talk.route('**/app/api/tts', (r) => r.fulfill({ status: 200, contentType: 'audio/wav', body: Buffer.alloc(2048) }));
+let talkStt = 0;
+await talk.route('**/app/api/stt', (r) => {
+  talkStt++;
+  return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: 'I had a busy week at work.' }) });
+});
+await seedKey(talk);
+await talk.addInitScript(MIC_STUB);
+// 브라우저 내장 인식은 없는 기기를 가정 — Whisper만으로 동작해야 한다
+await talk.addInitScript(() => {
+  delete window.SpeechRecognition;
+  delete window.webkitSpeechRecognition;
+});
+
+await talk.goto(`${BASE}/app`);
+await talk.waitForSelector('.mission-card', { timeout: 15000 });
+await talk.click('.mode-tab:has-text("회화")');
+await talk.waitForSelector('.controls .round-btn:not(.send)', { timeout: 10000 });
+check('내장 인식이 없어도 마이크 사용 가능', await talk.evaluate(() => document.querySelector('.controls .round-btn:not(.send)')?.disabled === false));
+
+await talk.click('.controls .round-btn:not(.send)'); // 보이스 오버레이 진입
+await talk.waitForSelector('.vo-orb', { timeout: 10000 });
+await talk.waitForFunction(() => document.querySelectorAll('.msg.user').length > 0, { timeout: 20000 });
+check('Whisper 인식으로 자동 전송', talkStt >= 1, String(talkStt));
+check('말한 내용이 대화에 반영', (await talk.evaluate(() => document.querySelector('.msg.user .bubble')?.textContent || '')).includes('busy week'));
+await talk.waitForFunction(() => (document.body.textContent || '').includes('Good to hear'), { timeout: 20000 });
+check('AI 응답까지 이어짐', (await talk.evaluate(() => document.body.textContent || '')).includes('Good to hear'));
+
 await browser.close();
 finish('20-stt');

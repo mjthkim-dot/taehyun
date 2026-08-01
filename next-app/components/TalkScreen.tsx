@@ -3,7 +3,8 @@
 /**
  * 회화(talk) 화면 — voice-assistant/index.html 의 sendMessage()/buildSystemPrompt()/
  * maybeBackgroundCorrect()/analyzeCaf() 등을 포팅. 모델은 Groq 고정(WebLLM/Ollama 제외),
- * 음성 입출력은 브라우저 내장 Web Speech API만 사용한다(Whisper 로컬 모델 다운로드 제외).
+ * 음성 출력은 Groq TTS(Orpheus), 입력은 Groq Whisper를 우선 쓰고 안 되면
+ * 브라우저 내장 Web Speech로 물러난다.
  * 🎲 새 주제 생성·🔧 음성진단·미션 체크리스트는 관련 데이터가 아직 없어 이번 단계에서는 제외했다.
  */
 import { useEffect, useRef, useState } from 'react';
@@ -15,6 +16,7 @@ import { takeMissionTalkContext, type MissionTalkCtx } from '../lib/dailyMission
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS } from './SpeakButton';
 import { MicIcon, SendIcon } from './icons';
 import VoiceOverlay, { type VoiceState } from './VoiceOverlay';
+import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
 
 interface Correction {
   is_correct: boolean;
@@ -117,6 +119,8 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   const sessionIdRef = useRef('');
   const idRef = useRef(0);
   const recogRef = useRef<SpeechRecognition | null>(null);
+  /** Whisper 녹음을 밖에서 멈추기 위한 핸들(마이크 끄기·오브 탭·보이스 모드 종료) */
+  const whisperStopRef = useRef<(() => void) | null>(null);
   const micOnRef = useRef(false);
   // isProcessing state는 비동기로 갱신돼, 같은 틱에서 handleSend가 두 번 불리면
   // 둘 다 갱신 전의 stale 값을 보고 재진입 가드를 통과해버린다(중복 발화의 원인).
@@ -284,7 +288,64 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     }
   }
 
+  /**
+   * 한 턴 듣기 — Whisper 경로.
+   * 녹음(무음 감지로 자동 종료) → 변환 → 자동 전송까지가 한 턴이고,
+   * AI 응답과 재생이 끝나면 maybeResumeHandsFree가 다음 턴을 연다.
+   * 실패하면 false를 돌려줘 브라우저 내장 인식으로 물러난다.
+   */
+  async function startWhisperTurn(): Promise<boolean> {
+    try {
+      setInterim('듣고 있어요…');
+      const { text } = await recordAndTranscribe({
+        onState: (st) => setInterim(st === 'transcribing' ? '인식 중…' : '듣고 있어요…'),
+        registerStop: (fn) => {
+          whisperStopRef.current = fn;
+        },
+      });
+      whisperStopRef.current = null;
+      setInterim('');
+      // 녹음 중 사용자가 마이크를 껐다면 결과를 버린다(껐는데 전송되는 일 방지)
+      if (!micOnRef.current) return true;
+      if (text) {
+        bumpSpoken();
+        handleSend(text);
+      } else if (!isProcessingRef.current) {
+        // 아무 말도 하지 않은 채 끝났으면 조용히 다시 듣는다
+        setTimeout(() => {
+          if (micOnRef.current && !isProcessingRef.current) startListening();
+        }, 200);
+      }
+      return true;
+    } catch {
+      whisperStopRef.current = null;
+      setInterim('');
+      return false;
+    }
+  }
+
+  /** 듣기 시작 — Whisper를 우선 쓰고, 안 되면 브라우저 내장 인식으로 물러난다. */
   function startListening() {
+    if (whisperAvailable()) {
+      startWhisperTurn().then((ok) => {
+        if (!ok && micOnRef.current) startWebSpeech();
+      });
+      return;
+    }
+    startWebSpeech();
+  }
+
+  /** 진행 중인 듣기를 멈춘다(어느 경로든). */
+  function stopListening() {
+    if (whisperStopRef.current) {
+      whisperStopRef.current();
+      whisperStopRef.current = null;
+      return;
+    }
+    recogRef.current?.stop();
+  }
+
+  function startWebSpeech() {
     // 직전 인스턴스가 아직 살아있으면(예: stop() 호출 후 onend가 비동기로 아직
     // 안 와서) 그대로 두고 또 시작하면 두 인스턴스가 동시에 같은 발화를 인식해
     // handleSend가 중복 호출된다 — 항상 먼저 정리하고 시작한다.
@@ -376,7 +437,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     // 음성 인식 미지원 브라우저(예: 데스크탑 Firefox)에서는 getSpeechRecognition()이
     // null이라 startListening()이 아무것도 안 하고 조용히 끝난다 — 그런데도 마이크를
     // "듣는 중" 상태로 켜버리면 사용자는 영원히 응답 없는 화면만 보게 된다.
-    if (!micOn && !getSpeechRecognition()) {
+    if (!micOn && !whisperAvailable() && !getSpeechRecognition()) {
       setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: '🎙️ 이 브라우저는 음성 인식을 지원하지 않아요. Chrome/Edge를 사용하거나 입력창에 직접 타이핑해주세요.' }]);
       return;
     }
@@ -387,14 +448,14 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       primeAudio(); // 마이크를 켜는 클릭(제스처) 안에서 미리 오디오를 언락해둔다
       startListening();
     } else {
-      recogRef.current?.stop();
+      stopListening();
       stopSpeaking();
     }
   }
 
   /** 보이스 모드 시작 — 탭 한 번으로 연속 음성 대화 세션을 연다. */
   function enterVoiceMode() {
-    if (!getSpeechRecognition()) {
+    if (!whisperAvailable() && !getSpeechRecognition()) {
       setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: '이 브라우저는 음성 인식을 지원하지 않아요. Chrome/Edge를 사용하거나 입력창에 직접 타이핑해주세요.' }]);
       return;
     }
@@ -409,7 +470,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     setVoiceMode(false);
     micOnRef.current = false;
     setMicOn(false);
-    recogRef.current?.stop();
+    stopListening();
     stopSpeaking();
     setAiSpeaking(false);
   }
@@ -611,7 +672,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   }
 
   const helperChips = [...new Set([...(lesson.examples || []).slice(0, 2).map((e) => e.en), ...TALK_STARTERS])].slice(0, 6);
-  const micSupported = !!getSpeechRecognition();
+  const micSupported = whisperAvailable() || !!getSpeechRecognition();
 
   return (
     <div className="talk-screen">
