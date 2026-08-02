@@ -466,10 +466,17 @@ function isQuestion(text) {
 
 // ── NDJSON 스트림 공통 리더 ────────────────────────────────
 async function streamChat(url, payload, onToken, signal, onMeta) {
-  const res = await fetch(url, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload), signal,
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload), signal,
+    });
+  } catch (e) {
+    if (e.name === 'AbortError') throw e;
+    // 브라우저 기본 문구("Failed to fetch")는 원인을 알려주지 않는다 → 실제 조치를 안내
+    throw new Error('서버에 연결할 수 없어요 — 맥에서 start.sh가 실행 중인지 확인하세요');
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `HTTP ${res.status}`);
@@ -1146,7 +1153,24 @@ async function startMyVoiceCapture() {
   } catch { return false; }
 }
 
+// ── ▶ 시작 전 프리플라이트 — 면접이 시작된 뒤에 LLM이 죽은 걸 알면 이미 늦다 ──
+//    치명적(LLM 없음)이면 확인을 받고, 권고 사항(사전 답변셋 없음)은 안내만 한다.
+let llmAlive = true, llmWhy = '', prepReady = true, kbTip = '';
+function preflightOk() {
+  if (!llmAlive) {
+    const go = confirm(
+      `⚠️ 번역·답변 LLM에 연결할 수 없습니다\n(${llmWhy})\n\n` +
+      `이 상태로 시작하면 자막은 나오지만 한국어 번역과 답변 카드가 뜨지 않습니다.\n\n` +
+      `해결: cloud.cerebras.ai 또는 aistudio.google.com/apikey 에서 무료 키를 받아\n` +
+      `export CEREBRAS_API_KEY=... 후 재시작\n\n그래도 시작할까요?`);
+    if (!go) return false;
+  }
+  if (kbTip) { $('#sum-line').textContent = kbTip; kbTip = ''; }   // 1회만 안내
+  return true;
+}
+
 async function startListening() {
+  if (!preflightOk()) return;
   stopMonitor();   // 테스트 중이면 장치를 놓아줘야 실제 캡처가 열린다
   fetch('/api/live/reset', { method: 'POST' }).catch(() => {});  // 세션 맥락(사용한 스토리·직전 질문) 초기화
 
@@ -1343,13 +1367,21 @@ if (!navigator.mediaDevices?.getUserMedia) {
     }
     // LLM 공급자 상태 — 하나도 안 살아있으면 번역·답변이 불가하므로 미리 경고
     const llm = Array.isArray(h.llm) ? h.llm : [];
-    if (llm.length && !llm.some(p => p.state === 'ok')) {
-      const why = llm.map(p => `${p.name}: ${p.detail || p.state}`).join(' · ');
+    llmAlive = !(llm.length && !llm.some(p => p.state === 'ok'));
+    if (!llmAlive) {
+      llmWhy = llm.map(p => `${p.name}: ${p.detail || p.state}`).join(' · ');
       $('#sum-line').innerHTML =
-        `⚠️ 번역·답변 LLM에 연결할 수 없어요 (${why}) — 무료 키를 하나 넣어주세요: ` +
+        `⚠️ 번역·답변 LLM에 연결할 수 없어요 (${llmWhy}) — 무료 키를 하나 넣어주세요: ` +
         `<b>cloud.cerebras.ai</b>(70B·고품질) 또는 <b>aistudio.google.com/apikey</b> → ` +
         `export CEREBRAS_API_KEY / GEMINI_API_KEY 후 재시작`;
     }
+    // ⚡ 사전 답변셋이 없으면 빈출 질문이 매번 생성으로 넘어간다 — 미리 알려준다
+    try {
+      const kb = await (await fetch('/api/kb/health')).json();
+      prepReady = (kb.prepared_answers || 0) > 0;
+      kbTip = prepReady ? '' :
+        '⚡ 맞춤 답변셋이 아직 없어요 — 연습 모드에서 한 번 만들어두면 빈출 질문이 0초로 뜹니다';
+    } catch { /* 진단 실패는 무시 */ }
   } catch { /* /health 실패는 무시 */ }
 })();
 

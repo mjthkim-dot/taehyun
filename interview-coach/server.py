@@ -14,6 +14,8 @@
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import http.cookies
 import http.server
 import json
@@ -21,6 +23,7 @@ import os
 import socket
 import sys
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -39,6 +42,12 @@ HOST = os.environ.get("HOST", "127.0.0.1")
 # 클라우드 배포 시 필수 — 접속 코드를 모르면 아무것도 쓸 수 없게 막는다
 # (고정 공개 URL + 내 Groq 키 조합이므로). 로컬 실행은 미설정 → 게이트 없음.
 ACCESS_CODE = os.environ.get("ACCESS_CODE")
+# 쿠키에 넣는 값 — 접속 코드에서 유도한 토큰이라 쿠키가 유출돼도 코드는 드러나지 않는다.
+# (재시작해도 같은 값이라 로그인 상태가 유지된다)
+_AUTH_TOKEN = hmac.new((ACCESS_CODE or "").encode(), b"interview-coach-auth",
+                       hashlib.sha256).hexdigest() if ACCESS_CODE else ""
+# 로그인 실패 기록 {ip: (연속 실패 횟수, 잠금 해제 시각)} — 무차별 대입 방어
+_login_fails: dict[str, tuple[int, float]] = {}
 
 LOGIN_HTML = """<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>접속 코드</title>
@@ -85,14 +94,28 @@ def _stream_llm_ndjson(handler, messages, temperature, max_tokens, model=None, m
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
+    # 🔒 CORS를 열지 않는다. 프런트엔드는 이 서버가 같은 출처로 서빙하므로 CORS가
+    #    아예 필요 없는데, 예전처럼 Access-Control-Allow-Origin: * 를 내보내면
+    #    사용자가 방문한 임의의 웹사이트가 이 서버를 호출해 프로필·사전답변을 읽고
+    #    사용자의 LLM 키로 API를 쓸 수 있다(로컬 기본 설정에는 접속 코드도 없다).
+    #    JSON POST는 프리플라이트가 거부되어 아예 전송되지 않는다.
     def _cors(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        return
+
+    def _cross_origin(self) -> bool:
+        """다른 사이트에서 온 요청인지 — 있으면 API 처리를 거부한다 (다중 방어)."""
+        origin = self.headers.get("Origin")
+        if not origin:
+            return False                      # 같은 출처 요청/직접 호출
+        host = (self.headers.get("Host") or "").split(":")[0]
+        try:
+            oh = urllib.parse.urlparse(origin).hostname or ""
+        except ValueError:
+            return True
+        return oh != host
 
     def do_OPTIONS(self):
         self.send_response(204)
-        self._cors()
         self.end_headers()
 
     def _send_json(self, code, obj):
@@ -109,10 +132,35 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return True
         cookies = http.cookies.SimpleCookie(self.headers.get("Cookie", ""))
         morsel = cookies.get("ic_auth")
-        return morsel is not None and morsel.value == ACCESS_CODE
+        # 쿠키에 접속 코드 원문을 넣지 않는다 — 유출돼도 코드 자체는 드러나지 않게
+        return morsel is not None and hmac.compare_digest(morsel.value, _AUTH_TOKEN)
 
-    def _send_login(self, bad: bool = False):
-        html = LOGIN_HTML.format(err='<div class="err">코드가 올바르지 않습니다</div>' if bad else '').encode()
+    def _client_ip(self) -> str:
+        return (self.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+                or self.client_address[0])
+
+    def _login_blocked(self) -> float:
+        """무차별 대입 방어 — 실패가 쌓이면 잠금. 남은 대기 초를 반환(0이면 허용).
+        공개 URL 뒤에는 사용자의 LLM API 키가 있으므로 초당 수백 회 시도를 막아야 한다."""
+        n, until = _login_fails.get(self._client_ip(), (0, 0.0))
+        return max(0.0, until - time.time())
+
+    def _login_record(self, ok: bool) -> None:
+        ip = self._client_ip()
+        if ok:
+            _login_fails.pop(ip, None)
+            return
+        n, _ = _login_fails.get(ip, (0, 0.0))
+        n += 1
+        # 5회까지는 자유, 이후 2초→4초→…→최대 5분으로 지수 증가
+        delay = 0.0 if n <= 5 else min(300.0, 2.0 ** (n - 5))
+        _login_fails[ip] = (n, time.time() + delay)
+
+    def _send_login(self, bad: bool = False, wait: float = 0.0):
+        msg = (f'<div class="err">시도가 너무 많습니다 — {int(wait) + 1}초 후 다시 시도하세요</div>'
+               if wait > 0 else
+               '<div class="err">코드가 올바르지 않습니다</div>' if bad else '')
+        html = LOGIN_HTML.format(err=msg).encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
@@ -138,14 +186,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path, query = parsed.path, urllib.parse.parse_qs(parsed.query)
 
+        # 다른 사이트에서 온 API 호출 거부 (프로필·사전답변 유출, 키 도용 방지)
+        if path.startswith("/api/") and self._cross_origin():
+            self._send_json(403, {"error": "cross-origin 요청은 허용되지 않습니다."})
+            return
+
         # 접속 코드 게이트 — /health(모니터링용)만 예외
         if ACCESS_CODE and path != "/health":
             if path == "/login":
+                wait = self._login_blocked()
+                if wait > 0:                      # 잠금 중 — 코드 검사 자체를 하지 않는다
+                    self._send_login(bad=True, wait=wait)
+                    return
                 code = (query.get("code") or [""])[0]
-                if code == ACCESS_CODE:
+                # 타이밍 공격 방지를 위해 상수 시간 비교
+                ok = bool(code) and hmac.compare_digest(code, ACCESS_CODE)
+                self._login_record(ok)
+                if ok:
                     self.send_response(302)
                     self.send_header("Set-Cookie",
-                                     f"ic_auth={ACCESS_CODE}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax")
+                                     f"ic_auth={_AUTH_TOKEN}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax")
                     self.send_header("Location", "/interview.html")
                     self.end_headers()
                 else:
@@ -224,6 +284,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     # ── POST ───────────────────────────────────────────────
     def do_POST(self):
+        if self._cross_origin():
+            self._send_json(403, {"error": "cross-origin 요청은 허용되지 않습니다."})
+            return
         if not self._authed():
             self._send_json(401, {"error": "인증이 필요합니다 — 페이지를 새로고침해 접속 코드를 입력하세요."})
             return
