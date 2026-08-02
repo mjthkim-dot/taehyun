@@ -403,7 +403,15 @@ if __name__ == "__main__":
     if os.environ.get("NO_BROWSER") != "1":
         threading.Timer(0.5, lambda: webbrowser.open(f"http://localhost:{PORT}/interview.html")).start()
 
-    server = http.server.ThreadingHTTPServer((HOST, PORT), Handler)
+    # 리슨 백로그 — socketserver 기본값은 5로, 브라우저가 호스트당 여는 동시 연결
+    # (번역 2레인 + 답변 스트림 + 요약 + 캐시 조회 + 정적 자원, 여기에 폰까지)만으로도
+    # 순간적으로 넘길 수 있다. 넘치면 커널이 연결을 거부해 면접 중 번역/답변이 실패한다.
+    # 부하 시험에서 실제로 재현됨(동시 200 연결 시 HTTP 0) → 넉넉히 올린다.
+    class Server(http.server.ThreadingHTTPServer):
+        request_queue_size = 128
+        daemon_threads = True
+
+    server = Server((HOST, PORT), Handler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
