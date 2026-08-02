@@ -10,34 +10,53 @@
  */
 import { useEffect, useState, type ReactNode } from 'react';
 import NavBar, { type Mode } from '../components/NavBar';
+import dynamic from 'next/dynamic';
+
+/**
+ * 화면 지연 로딩 — 홈만 보려는 사람이 앱 전체를 내려받을 이유가 없다.
+ *
+ * 예전에는 38개 화면을 전부 정적 import해 하나의 page 청크(760KB)로 묶였고,
+ * 모바일에서 첫 진입에 메인 스레드가 6초 가까이 막혔다. 각 화면은 탭을 누른
+ * 뒤에야 필요하므로 그때 받아온다. 홈 경로에 필요한 것(셸·홈 화면·알림)만
+ * 정적으로 남긴다.
+ *
+ * ssr: false — 모두 localStorage를 읽는 클라이언트 화면이라 서버에서 그릴 것이 없다.
+ */
+// 화면을 불러오는 동안 자리를 잡아 두는 조각(레이아웃이 튀지 않게).
+// dynamic()의 옵션은 반드시 **인라인 리터럴**이어야 한다 — 변수로 빼면 Next가
+// 빌드 단계에서 거부한다. 그래서 옵션은 매번 적고 이 컴포넌트만 공유한다.
+function ScreenLoading() {
+  return <div className="screen-loading" aria-label="불러오는 중" />;
+}
+const DrillScreen = dynamic(() => import('../components/DrillScreen'), { ssr: false, loading: ScreenLoading });
+const TalkScreen = dynamic(() => import('../components/TalkScreen'), { ssr: false, loading: ScreenLoading });
+const ReviewScreen = dynamic(() => import('../components/ReviewScreen'), { ssr: false, loading: ScreenLoading });
+const ProgressScreen = dynamic(() => import('../components/ProgressScreen'), { ssr: false, loading: ScreenLoading });
+const FeaturesScreen = dynamic(() => import('../components/FeaturesScreen'), { ssr: false, loading: ScreenLoading });
+const VideoScreen = dynamic(() => import('../components/VideoScreen'), { ssr: false, loading: ScreenLoading });
+const FlashcardsScreen = dynamic(() => import('../components/FlashcardsScreen'), { ssr: false, loading: ScreenLoading });
+const HomeworkScreen = dynamic(() => import('../components/HomeworkScreen'), { ssr: false, loading: ScreenLoading });
+const PlacementScreen = dynamic(() => import('../components/PlacementScreen'), { ssr: false, loading: ScreenLoading });
+const PhrasebookScreen = dynamic(() => import('../components/PhrasebookScreen'), { ssr: false, loading: ScreenLoading });
+const AskHistoryScreen = dynamic(() => import('../components/AskHistoryScreen'), { ssr: false, loading: ScreenLoading });
+const ShadowingScreen = dynamic(() => import('../components/ShadowingScreen'), { ssr: false, loading: ScreenLoading });
+const RemindersScreen = dynamic(() => import('../components/RemindersScreen'), { ssr: false, loading: ScreenLoading });
+const BackupScreen = dynamic(() => import('../components/BackupScreen'), { ssr: false, loading: ScreenLoading });
+const LegalScreen = dynamic(() => import('../components/LegalScreen'), { ssr: false, loading: ScreenLoading });
+const AudioCheckScreen = dynamic(() => import('../components/AudioCheckScreen'), { ssr: false, loading: ScreenLoading });
+const ApiKeyScreen = dynamic(() => import('../components/ApiKeyScreen'), { ssr: false, loading: ScreenLoading });
+const VocabScreen = dynamic(() => import('../components/VocabScreen'), { ssr: false, loading: ScreenLoading });
+const MeetingScreen = dynamic(() => import('../components/MeetingScreen'), { ssr: false, loading: ScreenLoading });
+const PitchScreen = dynamic(() => import('../components/PitchScreen'), { ssr: false, loading: ScreenLoading });
+const ScriptsScreen = dynamic(() => import('../components/ScriptsScreen'), { ssr: false, loading: ScreenLoading });
+const ListeningScreen = dynamic(() => import('../components/ListeningScreen'), { ssr: false, loading: ScreenLoading });
+const ReadingScreen = dynamic(() => import('../components/ReadingScreen'), { ssr: false, loading: ScreenLoading });
+const WritingScreen = dynamic(() => import('../components/WritingScreen'), { ssr: false, loading: ScreenLoading });
+const BusinessScreen = dynamic(() => import('../components/BusinessScreen'), { ssr: false, loading: ScreenLoading });
+
 import MasterScreen from '../components/MasterScreen';
-import StudyScreen, { defaultLesson } from '../components/StudyScreen';
-import DrillScreen from '../components/DrillScreen';
-import TalkScreen from '../components/TalkScreen';
-import ReviewScreen from '../components/ReviewScreen';
-import ProgressScreen from '../components/ProgressScreen';
-import FeaturesScreen from '../components/FeaturesScreen';
-import VideoScreen from '../components/VideoScreen';
-import FlashcardsScreen from '../components/FlashcardsScreen';
-import HomeworkScreen from '../components/HomeworkScreen';
-import PlacementScreen from '../components/PlacementScreen';
-import PhrasebookScreen from '../components/PhrasebookScreen';
-import AskHistoryScreen from '../components/AskHistoryScreen';
-import ShadowingScreen from '../components/ShadowingScreen';
-import RemindersScreen from '../components/RemindersScreen';
+const StudyScreen = dynamic(() => import('../components/StudyScreen'), { ssr: false, loading: ScreenLoading });
 import ReminderScheduler from '../components/ReminderScheduler';
-import BackupScreen from '../components/BackupScreen';
-import LegalScreen from '../components/LegalScreen';
-import AudioCheckScreen from '../components/AudioCheckScreen';
-import ApiKeyScreen from '../components/ApiKeyScreen';
-import VocabScreen from '../components/VocabScreen';
-import MeetingScreen from '../components/MeetingScreen';
-import PitchScreen from '../components/PitchScreen';
-import ScriptsScreen from '../components/ScriptsScreen';
-import ListeningScreen from '../components/ListeningScreen';
-import ReadingScreen from '../components/ReadingScreen';
-import WritingScreen from '../components/WritingScreen';
-import BusinessScreen from '../components/BusinessScreen';
 import ThemeToggle from '../components/ThemeToggle';
 import UpdatePrompt from '../components/UpdatePrompt';
 import AskWidget from '../components/AskWidget';
@@ -101,7 +120,27 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
 
 export default function Page() {
   const [mode, setModeRaw] = useState<Mode>('master');
-  const [lessonId, setLessonId] = useState<number>(defaultLesson().id);
+  /**
+   * 기본 회차 — 알아내려면 레슨 데이터(371KB)가 필요하다. 홈 첫 페인트를 그것 때문에
+   * 막을 이유가 없어서, 0으로 시작하고 마운트 뒤에 비동기로 채운다.
+   * 그 사이 레슨 화면이 열려도 id를 못 찾으면 마지막 회차로 떨어지므로 안전하다.
+   */
+  const [lessonId, setLessonId] = useState<number>(0);
+  useEffect(() => {
+    let alive = true;
+    import('../lib/lessons')
+      .then((m) => {
+        if (!alive) return;
+        const l = m.LESSONS.filter((x) => !x.preview).slice(-1)[0] ?? m.LESSONS[0];
+        if (l) setLessonId((cur) => (cur === 0 ? l.id : cur));
+      })
+      .catch(() => {
+        /* 데이터를 못 받아도 레슨 화면이 스스로 최신 회차로 떨어진다 */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [streak, setStreak] = useState<number | null>(null);
   // 홈의 "⚡ 오늘의 훈련"으로 들어왔을 때만 true — 드릴 큐에 오늘 복습할 SRS 문장을 섞는다.
   const [autoDrill, setAutoDrill] = useState(false);

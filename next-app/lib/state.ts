@@ -2,7 +2,9 @@
  * voice-assistant/index.html 의 localStorage 기반 진도 상태 포팅.
  * 동일한 va_* 키를 사용해 기존 vanilla 앱과 데이터를 공유한다.
  */
-import { CEFR_GSE, CEFR_ORDER, gseMid, gseToCefr, scaffoldFor, type Cefr } from './lessons';
+// lessons.ts가 아니라 cefr.ts에서 가져온다 — lessons.ts는 371KB짜리 JSON을 정적
+// import하므로, 여기서 부르면 상태를 읽는 모든 화면이 전 레슨 본문을 안고 시작한다.
+import { CEFR_GSE, CEFR_ORDER, gseMid, gseToCefr, scaffoldFor, type Cefr } from './cefr';
 
 /** 저장 실패(용량 초과)를 앱에 알리는 신호 — 조용히 데이터를 잃지 않기 위해. */
 export const STORAGE_FULL_EVENT = 'va:storage-full';

@@ -5735,3 +5735,8 @@ body,
   max-height: 220px;
   overflow-y: auto;
 }
+
+/* 지연 로딩 중 자리 — 화면이 갑자기 튀지 않게 최소 높이만 잡는다 */
+.screen-loading {
+  min-height: 240px;
+}
