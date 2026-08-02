@@ -495,6 +495,27 @@ export function topPronLapses(days = 7, max = 3): { key: string; count: number }
     .slice(0, max);
 }
 
+/* ── 말하기 속도(기본) ──
+ * 지금까지 모든 영어 음성이 0.84배속으로 **항상** 느리게 재생되고 있었다.
+ * "느리게 듣기"를 누르지 않아도 이미 느렸던 셈이라, 원어민 리듬을 들을 기회가
+ * 아예 없었다. 기본을 1.0(자연 속도)으로 되돌리고, 취향에 따라 고르게 한다. */
+export const SPEECH_RATES = [0.85, 1, 1.15, 1.3] as const;
+export const DEFAULT_SPEECH_RATE = 1;
+
+export function speechRate(): number {
+  const v = load<number>('va_speech_rate', DEFAULT_SPEECH_RATE);
+  return typeof v === 'number' && v >= 0.5 && v <= 2 ? v : DEFAULT_SPEECH_RATE;
+}
+
+export function setSpeechRate(r: number) {
+  store('va_speech_rate', r);
+  try {
+    window.dispatchEvent(new CustomEvent(SLOW_RATE_EVENT, { detail: r }));
+  } catch {
+    /* SSR·구형 브라우저 */
+  }
+}
+
 /* ── 느리게 듣기 속도 ──
  * 0.6배속으로 고정돼 있었는데, 적당한 속도는 사람마다 다르다 — 초급에겐 0.6도
  * 빠르고, 익숙해지면 0.6이 오히려 부자연스러워 원어민 리듬을 못 익힌다.

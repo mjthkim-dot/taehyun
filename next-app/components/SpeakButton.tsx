@@ -14,7 +14,7 @@
  * 합성 결과(blob URL)는 캐싱해 다시듣기·반복 재생 시 추가 호출/지연이 없게 한다.
  * 키가 없거나 합성에 실패하면 브라우저 내장 음성으로 폴백한다.
  */
-import { groqKey, SERVER_GROQ_SENTINEL } from '../lib/state';
+import { speechRate, groqKey, SERVER_GROQ_SENTINEL } from '../lib/state';
 
 /** AI 내레이터 기본 보이스(Orpheus). */
 export const GROQ_TTS_VOICE = 'austin';
@@ -22,10 +22,24 @@ export const GROQ_TTS_VOICE = 'austin';
 export const SPEAKER_GROQ_VOICE: Record<string, string> = { A: 'hannah', B: 'daniel' };
 
 /**
- * Orpheus는 약간 빠르게 말하는 편이라, 살짝 늦춰 재생하면(음높이 유지) 더 또박또박
- * 사람이 말하듯 들린다. React 전 버전에서 검증된 값.
+ * 예전에는 여기서 0.84배속을 **항상** 곱했다. "또박또박 들린다"는 의도였지만, 결과적으로
+ * 느리게 듣기를 누르지 않아도 늘 느렸고 원어민 리듬(연음·강세)을 들을 기회가 없었다.
+ * 이제 기본은 자연 속도(1.0)이고, 사용자가 고른 값을 따른다.
  */
-const GROQ_TTS_RATE = 0.84;
+function baseRate(): number {
+  try {
+    return speechRate();
+  } catch {
+    return 1; // SSR·저장소 접근 불가
+  }
+}
+
+/** 한글이 섞여 있으면 한국어로 읽어야 한다 — 영어 목소리로는 뭉개지거나 아예 안 읽힌다. */
+const HANGUL_RE = /[\uac00-\ud7a3\u3131-\u318e]/;
+
+export function isKorean(text: string): boolean {
+  return HANGUL_RE.test(String(text || ''));
+}
 
 /**
  * 문장의 어조를 Orpheus 보컬 디렉션 태그로 변환한다 — 모델이 pitch/rate 흉내가 아니라
@@ -269,7 +283,7 @@ export function playUrl(url: string, rate: number, onended?: () => void): Promis
   type PitchAudio = HTMLAudioElement & { mozPreservesPitch?: boolean; webkitPreservesPitch?: boolean };
   const pa = a as PitchAudio;
   try { pa.preservesPitch = true; pa.mozPreservesPitch = true; pa.webkitPreservesPitch = true; } catch { /* ignore */ }
-  a.playbackRate = GROQ_TTS_RATE * rate;
+  a.playbackRate = baseRate() * rate;
   // onended뿐 아니라 onerror에서도 다음으로 진행 — 한 줄의 오디오가 깨졌어도
   // 그 줄에서 영영 멈추지 않게 한다(한 번만 호출되도록 핸들러를 즉시 해제).
   const finish = () => { a.onended = null; a.onerror = null; markMediaPaused(); };
@@ -323,10 +337,55 @@ export function splitForTTS(text: string, max = TTS_MAX_CHARS): string[] {
  * 긴 텍스트는 자동으로 조각내 순차 재생하고(다음 조각은 미리 받아 끊김 최소화),
  * onend는 마지막 조각이 끝난 뒤 한 번만 호출된다.
  */
+/**
+ * 한국어와 영어가 섞인 글을 스크립트별로 잘라 각각 제 목소리로 읽는다.
+ *
+ * 코치가 "막혔을 때 한국어로" 답하면 한 문단 안에 두 언어가 함께 온다
+ * ("~라는 뜻이에요. 영어로는 이렇게 말해요: Could you clarify that?").
+ * 통째로 한 목소리에 넘기면 한쪽이 반드시 뭉개진다 — 한국어 목소리로 영어를 읽으면
+ * 알파벳을 하나씩 읽어버리고, 영어 목소리로 한글을 읽으면 대개 아무 소리도 안 난다.
+ */
+function splitByScript(text: string): { text: string; ko: boolean }[] {
+  const parts = String(text)
+    .split(/(?<=[.!?。？！:])\s+|\n+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const out: { text: string; ko: boolean }[] = [];
+  for (const p of parts) {
+    const ko = isKorean(p);
+    const last = out[out.length - 1];
+    if (last && last.ko === ko) last.text += ' ' + p;
+    else out.push({ text: p, ko });
+  }
+  return out;
+}
+
 export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => void, voice?: string, opts?: { tagless?: boolean }) {
   primeAudio(); // 제스처 안에서 동기 언락
+  // 한국어는 Orpheus(영어 전용)로 보내면 안 된다 — 호출부가 기본값 'en-US'를 그대로
+  // 넘기는 곳이 많아, 텍스트를 보고 직접 판단한다. 그래야 한국어 뜻·설명도 들린다.
+  if (isKorean(text)) {
+    const segs = splitByScript(text);
+    // 한국어만 있으면 그대로, 섞여 있으면 조각마다 언어를 바꿔가며 이어서 읽는다
+    if (segs.length <= 1) {
+      speakWithBrowser(text, 'ko-KR', baseRate() * rate, onend);
+      return;
+    }
+    let i = 0;
+    const step = () => {
+      if (i >= segs.length) {
+        onend?.();
+        return;
+      }
+      const seg = segs[i++];
+      if (seg.ko) speakWithBrowser(seg.text, 'ko-KR', baseRate() * rate, step);
+      else speakText(seg.text, lang, rate, step, voice, opts);
+    };
+    step();
+    return;
+  }
   if (!lang.startsWith('en') || !groqKey()) {
-    speakWithBrowser(text, lang, rate, onend);
+    speakWithBrowser(text, lang, baseRate() * rate, onend);
     return;
   }
   const chunks = splitForTTS(text);
@@ -342,9 +401,9 @@ export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => 
     // 한 번 합성한 음성을 재생 단계에서 rate로 조절(음높이 유지) — 느리게 들어도 자연스럽다.
     fetchGroqTTS(chunks[idx], v, opts).then((url) => {
       if (url) {
-        playUrl(url, rate, step).catch(() => speakWithBrowser(chunks[idx], lang, rate, step));
+        playUrl(url, rate, step).catch(() => speakWithBrowser(chunks[idx], lang, baseRate() * rate, step));
       } else {
-        speakWithBrowser(chunks[idx], lang, rate, step);
+        speakWithBrowser(chunks[idx], lang, baseRate() * rate, step);
       }
     });
   };

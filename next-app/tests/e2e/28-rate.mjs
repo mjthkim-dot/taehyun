@@ -68,16 +68,16 @@ await page.waitForSelector('.speaking-practice', { timeout: 10000 });
 check('정답을 가린 모드에서도 배속 설정에 닿는다', (await page.locator('.rate-open').count()) > 0);
 await page.click('.rate-open');
 await page.waitForSelector('.rate-picker', { timeout: 5000 });
-const opts = await page.evaluate(() => [...document.querySelectorAll('.rate-opt')].map((e) => e.textContent.trim()));
+const opts = await page.evaluate(() => [...document.querySelectorAll('.rate-opt.slow-opt')].map((e) => e.textContent.trim()));
 check('배속 선택지가 여러 개', opts.length >= 3, JSON.stringify(opts));
 check('선택지에 0.6배속 포함', opts.includes('0.6×'), JSON.stringify(opts));
 
 // 기본은 0.6배속 — 기존 사용자의 경험이 바뀌지 않아야 한다
-check('기본값은 0.6배속', (await page.evaluate(() => document.querySelector('.rate-opt.active')?.textContent?.trim() || '')) === '0.6×');
+check('기본값은 0.6배속', (await page.evaluate(() => document.querySelector('.rate-opt.slow-opt.active')?.textContent?.trim() || '')) === '0.6×');
 
-await page.click('.rate-opt:has-text("0.9×")');
+await page.click('.rate-opt.slow-opt:has-text("0.9×")');
 const afterPick = await page.evaluate(() => ({
-  active: document.querySelector('.rate-opt.active')?.textContent?.trim() || '',
+  active: document.querySelector('.rate-opt.slow-opt.active')?.textContent?.trim() || '',
   stored: localStorage.getItem('va_slow_rate'),
 }));
 check('고른 값이 선택 상태로 표시', afterPick.active === '0.9×', JSON.stringify(afterPick));
@@ -104,7 +104,7 @@ await page.click('.mode-tab:has-text("드릴")');
 await page.waitForSelector('.speaking-practice', { timeout: 10000 });
 await page.click('.rate-open');
 await page.waitForSelector('.rate-picker', { timeout: 5000 });
-check('새로고침 뒤에도 유지', (await page.evaluate(() => document.querySelector('.rate-opt.active')?.textContent?.trim() || '')) === '0.9×');
+check('새로고침 뒤에도 유지', (await page.evaluate(() => document.querySelector('.rate-opt.slow-opt.active')?.textContent?.trim() || '')) === '0.9×');
 
 /* ── ③ 다른 화면도 같은 값을 쓴다 ── */
 await page.click('.mode-tab:has-text("더보기")');
@@ -113,15 +113,15 @@ await page.click('.more-sheet .feat-card:has-text("기능")');
 await page.waitForSelector('.feat-grid .feat-card:has-text("음성 진단")', { timeout: 8000 });
 await page.click('.feat-grid .feat-card:has-text("음성 진단")');
 await page.waitForSelector('.rate-picker', { timeout: 8000 });
-check('음성 진단에서도 같은 값', (await page.evaluate(() => document.querySelector('.rate-opt.active')?.textContent?.trim() || '')) === '0.9×');
+check('음성 진단에서도 같은 값', (await page.evaluate(() => document.querySelector('.rate-opt.slow-opt.active')?.textContent?.trim() || '')) === '0.9×');
 
 // 여기서 바꾸면 학습 화면도 따라와야 한다 — 화면마다 따로 놀면 설정이 아니다
-await page.click('.rate-opt:has-text("0.5×")');
+await page.click('.rate-opt.slow-opt:has-text("0.5×")');
 await page.click('.mode-tab:has-text("드릴")');
 await page.waitForSelector('.speaking-practice', { timeout: 10000 });
 await page.click('.rate-open');
 await page.waitForSelector('.rate-picker', { timeout: 5000 });
-check('한 곳에서 바꾸면 앱 전체가 따라감', (await page.evaluate(() => document.querySelector('.rate-opt.active')?.textContent?.trim() || '')) === '0.5×');
+check('한 곳에서 바꾸면 앱 전체가 따라감', (await page.evaluate(() => document.querySelector('.rate-opt.slow-opt.active')?.textContent?.trim() || '')) === '0.5×');
 
 await browser.close();
 finish('28-rate');

@@ -162,6 +162,8 @@ export async function recordAndTranscribe(opts: {
   silenceMs?: number;
   /** 경과 시간을 알려 준다(타이머 표시용) */
   onElapsed?: (ms: number) => void;
+  /** 어느 언어로 받아쓸지. 기본은 영어이고, "한국어로 묻기"에서만 'ko'를 준다. */
+  language?: 'en' | 'ko';
   /** 호출하면 즉시 녹음을 끝낸다 */
   registerStop?: (stop: () => void) => void;
 } = {}): Promise<SttResult> {
@@ -274,7 +276,7 @@ export async function recordAndTranscribe(opts: {
   if (blob.size < 1200) return { text: '', via: 'whisper', reason: 'no-audio', peak, durationMs, pauses };
 
   opts.onState?.('transcribing');
-  const text = await transcribe(blob, opts.prompt);
+  const text = await transcribe(blob, opts.prompt, opts.language);
   return {
     text,
     via: 'whisper',
@@ -297,12 +299,13 @@ function fileNameFor(type: string): string {
 }
 
 /** 녹음된 오디오를 서버 프록시로 보내 텍스트를 받는다. */
-export async function transcribe(blob: Blob, prompt?: string): Promise<string> {
+export async function transcribe(blob: Blob, prompt?: string, language?: 'en' | 'ko'): Promise<string> {
   const form = new FormData();
   form.append('audio', blob, fileNameFor(blob.type || ''));
   const key = localKeyOrUndefined();
   if (key) form.append('key', key);
   if (prompt) form.append('prompt', prompt);
+  if (language) form.append('language', language);
 
   const resp = await fetch('/app/api/stt', { method: 'POST', body: form });
   if (!resp.ok) {

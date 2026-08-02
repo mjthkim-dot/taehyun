@@ -13,7 +13,7 @@ import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, s
 import { groqStream, groqComplete, validateGroqKey, GroqError } from '../lib/groq';
 import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, buildScenarioReviewPrompt, parseAiText } from '../lib/talkPrompts';
 import { takeMissionTalkContext, type MissionTalkCtx } from '../lib/dailyMission';
-import { speakText, stopSpeaking, primeAudio, fetchGroqTTS } from './SpeakButton';
+import { speakText, stopSpeaking, primeAudio, fetchGroqTTS, isKorean } from './SpeakButton';
 import { MicIcon, SendIcon } from './icons';
 import VoiceOverlay, { type VoiceState } from './VoiceOverlay';
 import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
@@ -87,7 +87,10 @@ function speak(text: string, onend?: () => void) {
       return;
     }
     const idx = i++;
-    if (idx + 1 < sentences.length) fetchGroqTTS(sentences[idx + 1]).catch(() => {});
+    // 다음 문장을 미리 합성해 끊김을 줄인다. 단 한국어 문장은 Orpheus(영어 전용)로
+    // 보내면 400으로 버려지므로 미리 받지 않는다 — 브라우저 음성이 읽는다.
+    const next = sentences[idx + 1];
+    if (next && !isKorean(next)) fetchGroqTTS(next).catch(() => {});
     speakText(sentences[idx], 'en-US', 1, step);
   };
   step();
@@ -112,6 +115,8 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   const [bgCorrectOn, setBgCorrectOn] = useState(true);
   const [cafBusy, setCafBusy] = useState(false);
   const [reviewBusy, setReviewBusy] = useState(false);
+  /** 한국어로 묻는 중 — 훅은 반드시 조기 return 위에 있어야 한다(조건부 훅 금지) */
+  const [krListening, setKrListening] = useState(false);
 
   const lesson = ALL_LESSONS.find((l) => l.id === lessonId) ?? LESSONS[LESSONS.length - 1];
   const historyRef = useRef<{ role: string; content: string }[]>([]);
@@ -285,6 +290,39 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     } finally {
       isProcessingRef.current = false;
       setIsProcessing(false);
+    }
+  }
+
+  /**
+   * 🇰🇷 한국어로 묻기 — 막혔을 때의 탈출구.
+   *
+   * 영어로 말해야 한다는 압박 때문에 아무 말도 못 하고 창을 닫는 것이 가장 나쁘다.
+   * 한국어로 물어보면 코치가 한국어로 답하고 "영어로는 이렇게" 한 문장을 준다.
+   *
+   * 인식은 별도 경로다 — 평소 마이크는 language=en으로 고정해야 영어 정확도가
+   * 유지되므로, 여기서만 한국어로 받아쓴다. 자동 언어 감지에 맡기면 짧은 영어
+   * 발화를 한국어로 오인해 평소 인식이 망가진다.
+   */
+  async function askInKorean() {
+    if (krListening || isProcessingRef.current) return;
+    stopSpeaking();
+    setKrListening(true);
+    setInterim('한국어로 말씀하세요…');
+    try {
+      const { text } = await recordAndTranscribe({
+        language: 'ko',
+        onState: (st) => setInterim(st === 'transcribing' ? '인식 중…' : '한국어로 말씀하세요…'),
+        registerStop: (fn) => {
+          whisperStopRef.current = fn;
+        },
+      });
+      whisperStopRef.current = null;
+      setInterim('');
+      if (text) handleSend(text);
+    } catch {
+      setInterim('');
+    } finally {
+      setKrListening(false);
     }
   }
 
@@ -867,6 +905,9 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
         <div className="mini-actions">
           <button className="mini-btn" onClick={toggleBgCorrect}>
             교정 {bgCorrectOn ? 'ON' : 'OFF'}
+          </button>
+          <button className="mini-btn" onClick={askInKorean} disabled={krListening} title="막혔을 때 한국어로 물어보세요">
+            {krListening ? '듣는 중…' : '🇰🇷 한국어로'}
           </button>
           <button className="mini-btn" onClick={requestSummary}>
             요약

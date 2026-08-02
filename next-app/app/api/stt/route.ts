@@ -49,7 +49,11 @@ export async function POST(req: NextRequest) {
   const name = file instanceof File && file.name ? file.name : 'speech.webm';
   upstream.append('file', file, name);
   upstream.append('model', STT_MODEL);
-  upstream.append('language', 'en'); // 영어 학습이므로 고정 — 한국어 혼입을 줄인다
+  // 기본은 영어 고정(영어 학습이므로 한국어 혼입을 줄인다). 다만 "막혀서 한국어로
+  // 물어보는" 경로에서는 한국어로 받아써야 하므로 클라이언트가 명시할 수 있게 한다.
+  const langRaw = form.get('language');
+  const lang = typeof langRaw === 'string' && /^(en|ko)$/.test(langRaw) ? langRaw : 'en';
+  upstream.append('language', lang);
   upstream.append('response_format', 'json');
   // 학습 문맥을 알려주면 고유명사·전문 용어 인식률이 올라간다(선택).
   const prompt = form.get('prompt');
