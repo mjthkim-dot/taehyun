@@ -2,10 +2,16 @@
  * 성능 측정 — 폰에서 실제로 느껴지는 값을 잰다.
  *
  * 데스크톱 헤드리스에서 재면 뭐든 빠르게 나와 의미가 없다. 이 앱은 출퇴근길에
- * 폰으로 여는 앱이라, 다음 조건을 걸고 잰다:
- *   · CPU 4배 스로틀(중급 안드로이드 근사)
- *   · 느린 4G 근사 네트워크 지연
- *   · 390×844 모바일 뷰포트
+ * 폰으로 여는 앱이라 CPU 4배 스로틀(중급 안드로이드 근사)과 390×844 뷰포트를 건다.
+ *
+ * 네트워크 에뮬레이션(CDP Network.emulateNetworkConditions)은 **일부러 쓰지 않는다.**
+ * 이 환경에서 켜 보니 리소스가 전부 854ms에 도착했는데도 첫 카드가 5.3초 뒤에 떴다.
+ * 단일 파일 전송은 164ms로 정상이었고, 서비스워커를 꺼도 API 스텁을 빼도 똑같았다 —
+ * 즉 대역폭이 아니라 CDP Network 도메인 계측 자체가 스로틀된 메인 스레드에서 ~4초를
+ * 더하고 있었다. 그런 숫자를 두고 최적화하면 없는 문제를 쫓게 된다.
+ *
+ * 대신 네트워크 쪽은 **첫 방문에 실제로 내려받는 바이트**로 잰다. 이건 기기·회선과
+ * 무관하게 정확하고, 줄이면 반드시 빨라지는 값이다.
  *
  * 그리고 **두 가지 상태**를 모두 잰다. 새 사용자(빈 저장소)만 재면 데이터가 쌓인 뒤
  * 느려지는 것을 놓친다 — 이 앱은 표현·오답·대화 로그가 계속 쌓이는 구조라 그쪽이
@@ -169,13 +175,6 @@ async function newMobilePage(browser, { seed } = {}) {
   // 중급 안드로이드 근사 — 데스크톱 그대로 재면 무엇이 느린지 드러나지 않는다
   const cdp = await ctx.newCDPSession(page);
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
-  await cdp.send('Network.enable');
-  await cdp.send('Network.emulateNetworkConditions', {
-    offline: false,
-    latency: 70,
-    downloadThroughput: (4 * 1024 * 1024) / 8,
-    uploadThroughput: (1 * 1024 * 1024) / 8,
-  });
   await page.addInitScript(OBSERVE);
   await page.addInitScript(() => localStorage.setItem('va_onboarded', 'true'));
   if (seed) await page.addInitScript(seed);
@@ -191,7 +190,7 @@ const browser = await chromium
   .launch(LAUNCH)
   .catch(() => chromium.launch({ ...LAUNCH, executablePath: '/opt/pw-browsers/chromium' }));
 
-console.log('\n성능 측정 — 모바일 390×844 · CPU 4배 스로틀 · 4G 근사\n');
+console.log('\n성능 측정 — 모바일 390×844 · CPU 4배 스로틀\n');
 
 /* 1) 첫 방문(빈 저장소) */
 {
@@ -206,6 +205,14 @@ console.log('\n성능 측정 — 모바일 390×844 · CPU 4배 스로틀 · 4G 
   row('첫 방문 · 홈 카드까지', interactive, 'ms', interactive > 5000 ? '느림' : null);
   row('첫 방문 · 메인 스레드 블로킹', m.longTaskTotal, `ms(${m.longTaskCount}건)`, m.longTaskTotal > 2000 ? '무거움' : null);
   row('첫 방문 · JS 힙', m.heapMb, 'MB', null);
+  // 회선과 무관하게 정확한 네트워크 지표 — 줄이면 반드시 빨라진다
+  const transfer = await page.evaluate(() => {
+    const r = performance.getEntriesByType('resource');
+    const kb = (t) => Math.round(r.filter((x) => x.name.endsWith(t)).reduce((a, x) => a + (x.transferSize || 0), 0) / 1024);
+    return { js: kb('.js'), css: kb('.css'), files: r.filter((x) => x.name.endsWith('.js')).length };
+  });
+  row('첫 방문 · 내려받은 JS', transfer.js, `KB(${transfer.files}개)`, transfer.js > 250 ? '큼' : null);
+  row('첫 방문 · 내려받은 CSS', transfer.css, 'KB', null);
   await ctx.close();
 }
 
@@ -292,6 +299,15 @@ let heavyCtx = null;
 await heavyCtx.close();
 await browser.close();
 server.kill();
+
+/* ── 서비스워커가 첫 방문에 미리 받는 양 ── */
+try {
+  const sw = readFileSync(path.join(ROOT, 'public/sw.js'), 'utf8');
+  const n = [...sw.matchAll(/\{url:"([^"]+)"/g)].length;
+  row('서비스워커 프리캐시 항목', n, '개', n > 30 ? '많음' : null);
+} catch {
+  /* 빌드 전이면 없음 */
+}
 
 /* ── 번들 ── */
 const b = bundleReport();

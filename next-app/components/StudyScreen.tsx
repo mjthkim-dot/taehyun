@@ -20,7 +20,7 @@ import {
 import Note from './Note';
 import ContextAsk from './ContextAsk';
 import SpeakButton, { stopSpeaking } from './SpeakButton';
-import { playDialogueAudio } from './DialoguePractice';
+import { playDialogueAudio } from '../lib/dialogueAudio';
 import { PinIcon, CheckIcon } from './icons';
 import DialogueVariantPicker from './DialogueVariantPicker';
 import { addPhrase } from '../lib/state';

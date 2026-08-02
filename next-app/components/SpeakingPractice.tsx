@@ -15,7 +15,11 @@ import { speakText } from './SpeakButton';
 import { SpeakerIcon } from './icons';
 import { haptic } from '../lib/haptics';
 import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
-import PronDrillCard from './PronDrillCard';
+import dynamic from 'next/dynamic';
+
+/** 발음 훈련(최소대립쌍 49쌍)은 진단이 뜬 뒤에야 필요하다 — 첫 진입 번들에서 뺀다.
+ *  dynamic()의 옵션은 인라인 리터럴이어야 한다(변수로 빼면 Next가 빌드에서 거부). */
+const PronDrillCard = dynamic(() => import('./PronDrillCard'), { ssr: false });
 import SpeechRatePicker, { rateLabel, useSlowRate } from './SpeechRate';
 import VoiceCompare from './MyVoice';
 

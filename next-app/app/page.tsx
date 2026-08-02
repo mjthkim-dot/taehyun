@@ -121,26 +121,17 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
 export default function Page() {
   const [mode, setModeRaw] = useState<Mode>('master');
   /**
-   * 기본 회차 — 알아내려면 레슨 데이터(371KB)가 필요하다. 홈 첫 페인트를 그것 때문에
-   * 막을 이유가 없어서, 0으로 시작하고 마운트 뒤에 비동기로 채운다.
-   * 그 사이 레슨 화면이 열려도 id를 못 찾으면 마지막 회차로 떨어지므로 안전하다.
+   * 기본 회차는 **정하지 않는다**(0으로 둔다).
+   *
+   * 처음엔 마운트 직후 lib/lessons를 비동기로 불러 id를 채웠는데, 그 import 하나가
+   * 레슨 본문 199KB를 홈에서 그대로 내려받게 만들었다 — 지연 로딩으로 옮겨도 홈에서
+   * 받으면 아무 이득이 없다.
+   *
+   * 레슨을 쓰는 화면들(레슨·회화·드릴·쉐도잉·숙제)은 모두 id를 못 찾으면 최신 회차로
+   * 떨어지도록 이미 되어 있고, 그 화면들은 어차피 레슨 데이터를 자기 청크로 받는다.
+   * 그러니 홈은 아무것도 모른 채 있어도 된다.
    */
   const [lessonId, setLessonId] = useState<number>(0);
-  useEffect(() => {
-    let alive = true;
-    import('../lib/lessons')
-      .then((m) => {
-        if (!alive) return;
-        const l = m.LESSONS.filter((x) => !x.preview).slice(-1)[0] ?? m.LESSONS[0];
-        if (l) setLessonId((cur) => (cur === 0 ? l.id : cur));
-      })
-      .catch(() => {
-        /* 데이터를 못 받아도 레슨 화면이 스스로 최신 회차로 떨어진다 */
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
   const [streak, setStreak] = useState<number | null>(null);
   // 홈의 "⚡ 오늘의 훈련"으로 들어왔을 때만 true — 드릴 큐에 오늘 복습할 SRS 문장을 섞는다.
   const [autoDrill, setAutoDrill] = useState(false);

@@ -25,7 +25,7 @@ import { GroqError } from '../lib/groq';
 import { SpeakerIcon, PinIcon, CheckIcon, PlayIcon, StopIcon } from './icons';
 import { addPhrase, markPracticedToday, groqKey } from '../lib/state';
 import { speakText, stopSpeaking } from './SpeakButton';
-import { playDialogueAudio } from './DialoguePractice';
+import { playDialogueAudio } from '../lib/dialogueAudio';
 import BuildupPractice from './BuildupPractice';
 import PhraseDeepCard from './PhraseDeepCard';
 import { useLessonStore } from '../store/useLessonStore';

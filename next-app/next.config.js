@@ -22,7 +22,17 @@ const withPWA = require('next-pwa')({
   },
   // app-build-manifest.json은 프로덕션에서 서빙되지 않는데 프리캐시 목록에 들어간다
   // — 같은 이유로 설치를 깨뜨리므로 제외한다.
-  buildExcludes: [/app-build-manifest\.json$/],
+  //
+  // 지연 로딩 청크(숫자.해시.js)도 제외한다. 이것을 빼기 전에는 서비스워커가 첫
+  // 방문에 **JS 청크 45개를 전부** 내려받았다. 화면을 지연 로딩으로 쪼개 놓아도
+  // SW가 뒤에서 전부 받아버리니 첫 진입은 하나도 빨라지지 않았다(측정에서 확인).
+  // 앱 셸(page·framework·main·공통 청크)만 미리 받고, 나머지는 그 화면에 처음
+  // 들어갈 때 런타임 캐싱(StaleWhileRevalidate)이 받아서 캐시한다 — 한 번 본
+  // 화면은 그다음부터 오프라인에서도 열린다.
+  //
+  // 이름 규칙으로 갈린다: 앱 셸은 `117-be4b….js`(하이픈), 지연 청크는
+  // `126.56d3….js`(점). 파일명이 이렇게 다른 것은 webpack의 규칙이다.
+  buildExcludes: [/app-build-manifest\.json$/, /chunks\/\d+\.[0-9a-f]+\.js$/],
   // 네트워크 우선 + 캐시 폴백: 레슨(문장 세트) API 응답을 런타임 캐싱한다.
   //
   // 주의: runtimeCaching을 직접 지정하면 next-pwa의 기본 규칙이 **통째로 대체**된다.
