@@ -532,9 +532,17 @@ button {
   line-height: 1.6;
 }
 
-/* ── 드릴 화면 ── */
+/* ── 드릴 화면 ──
+ * 화면 높이를 다 쓴다 — 연습 카드 아래가 텅 비면 성의 없어 보인다. 이전/다음
+ * 내비게이션을 화면 하단에 붙여 엄지가 닿는 곳에 두고, 카드가 중앙 무게를 잡는다. */
+.drill-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
 .drill-progress {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   font-size: 0.82rem;
   color: var(--text-muted);
   font-weight: 600;
@@ -542,19 +550,34 @@ button {
 
 .drill-nav {
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 10px;
+  margin-top: auto; /* 화면 하단으로 — 카드와 내비 사이 빈 공간을 흡수한다 */
+  padding-top: 16px;
 }
 
 .drill-nav button {
   flex: 1;
-  padding: 11px;
-  border-radius: var(--radius-sm);
+  min-height: 50px;
+  padding: 12px;
+  border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  font-weight: 700;
+  font-weight: 800;
+  font-size: 0.95rem;
   cursor: pointer;
+  transition: transform 0.15s var(--ease-out-back), box-shadow 0.2s, border-color 0.2s;
+}
+.drill-nav button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* 다음(완료)이 주요 행동 — 이전은 조용히, 다음은 CTA 면으로 */
+.drill-nav button:last-child {
+  flex: 1.6;
+  background: var(--grad-primary);
+  color: var(--on-primary);
+  border-color: transparent;
 }
 
 .drill-nav button:disabled {
@@ -562,32 +585,77 @@ button {
   cursor: not-allowed;
 }
 
-/* ── SpeakingPractice ── */
+/* ── SpeakingPractice ──
+ * 문장이 화면의 주인공, 마이크가 유일한 주요 행동 — 스픽처럼 문장은 크게,
+ * 말하기 버튼은 카드 전체 폭으로 넓혀 손이 저절로 가게 한다. */
 .speaking-practice {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 18px;
+  padding: 22px 20px;
   box-shadow: var(--shadow-card);
 }
 
 .speaking-practice .target {
-  font-weight: 700;
-  margin-bottom: 12px;
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1.45;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+/* 듣기·배속·정답 — 문장 아래 도구 줄. 문장과 시선 경쟁하지 않게 한 톤 눌러 둔다 */
+.sp-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.sp-tools:empty {
+  display: none;
+}
+/* min-height는 여기서 정하지 않는다 — 터치 타깃 최소 크기(40px)는 아래
+   접근성 블록의 .speak-mini 규칙이 책임진다(여기서 덮으면 감사에 걸린다). */
+.sp-tools .speak-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .speaking-practice .mic {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   background: var(--grad-primary);
   color: var(--on-primary);
   border: none;
   border-radius: 999px;
-  padding: 11px 22px;
+  min-height: 54px;
+  padding: 13px 22px;
+  font-size: 1rem;
   font-weight: 800;
   cursor: pointer;
+  margin-top: 16px;
+  transition: transform 0.15s var(--ease-out-back), box-shadow 0.2s;
+}
+.speaking-practice .mic:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .speaking-practice .mic.listening {
   background: var(--red);
+  color: #fff;
+  animation: mic-pulse 1.6s ease-in-out infinite;
+}
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(224, 56, 58, 0.38); }
+  50% { box-shadow: 0 0 0 12px rgba(224, 56, 58, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .speaking-practice .mic.listening { animation: none; }
 }
 
 .speaking-practice .mic:disabled {
@@ -597,12 +665,22 @@ button {
 
 .speaking-practice .transcript {
   margin-top: 14px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
 }
 
 .speaking-practice .transcript .label {
   font-size: 0.75rem;
   color: var(--text-muted);
   font-weight: 600;
+}
+
+.speaking-practice .transcript p {
+  margin-top: 3px;
+  font-size: 0.95rem;
+  line-height: 1.6;
 }
 
 .speaking-practice .score {
@@ -1153,19 +1231,20 @@ button {
 }
 
 /* ── 홈 히어로 배너 ── */
+/* 히어로 — 헤더에 이미 브랜드(EC)와 화면 이름이 있으니 카드 하나를 더 얹지 않는다.
+   페이지 인사말처럼 가볍게: 제목 크게, 레벨은 한 줄 부제로. */
 .home-hero {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 16px 18px;
-  margin: 0 0 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-card);
+  padding: 6px 4px 2px;
+  margin: 0 0 14px;
   position: relative;
-  overflow: hidden;
   isolation: isolate;
+}
+/* 아바타는 헤더의 EC와 중복 — 히어로에서는 숨긴다(DOM은 그대로) */
+.home-hero-avatar {
+  display: none;
 }
 /* 떠다니는 글로우 오브 — 배너에 깊이와 생동감을 준다 */
 .home-hero::before,
@@ -1199,27 +1278,14 @@ button {
   0%, 100% { transform: translate(0, 0) scale(1); }
   50% { transform: translate(-14px, 12px) scale(1.12); }
 }
-.home-hero-avatar {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-  background: var(--ink);
-  color: #fff;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-}
 .home-hero-title {
-  font-size: 0.98rem;
+  font-size: 1.3rem;
   font-weight: 800;
+  letter-spacing: -0.02em;
   color: var(--text);
 }
 .home-hero-sub {
-  font-size: 0.76rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
   margin-top: 3px;
 }
@@ -1899,6 +1965,8 @@ body,
 }
 [data-theme='dark'] .btn.primary,
 [data-theme='dark'] .start-drill-btn,
+[data-theme='dark'] .drill-nav button:last-child,
+[data-theme='dark'] .speaking-practice .mic:not(.listening):not(:disabled),
 [data-theme='dark'] .mission-cta {
   color: #04231a; /* 민트 위에는 짙은 잉크 텍스트가 가장 또렷하다 */
   border-color: transparent;
@@ -1907,10 +1975,6 @@ body,
 [data-theme='dark'] .btn.primary:hover,
 [data-theme='dark'] .start-drill-btn:hover {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 10px 34px -8px rgba(47, 227, 164, 0.7);
-}
-[data-theme='dark'] .home-hero-avatar {
-  background: #ecebe7;
-  color: #191817;
 }
 
 /* 글래스 헤더·하단 네비 — 다크 표면색 기반으로 */
@@ -2688,22 +2752,29 @@ body,
   color: var(--green-dk);
   margin-left: 4px;
 }
+/* 새 상황 버튼들 — 제목보다 조용해야 한다. 고스트 톤으로 눌러 두고,
+   눌렀을 때만 형태가 또렷해진다. */
 .mission-shuffle {
   flex: 0 0 auto;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   color: var(--text-muted);
-  background: var(--surface);
+  background: transparent;
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px 10px;
   cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.mission-shuffle:active {
+  background: var(--surface2);
 }
 .mission-title {
-  font-size: 1.08rem;
+  font-size: 1.18rem;
   font-weight: 800;
+  letter-spacing: -0.015em;
   color: var(--text);
-  margin-top: 6px;
+  margin-top: 7px;
   line-height: 1.35;
 }
 .mission-goal {
@@ -2797,6 +2868,20 @@ body,
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
+}
+/* 미션 카드 안에서는 카드 속 카드가 되지 않게 — 연습 UI를 평평하게 붙인다 */
+.mission-practice .speaking-practice {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 6px 2px;
+}
+.mission-practice .speaking-practice .target {
+  font-size: 1.05rem;
+}
+.mission-practice .speaking-practice .mic {
+  min-height: 48px;
+  margin-top: 12px;
 }
 .mission-secondary {
   width: 100%;
@@ -2895,7 +2980,7 @@ body,
 /* ✨ AI 새 상황 버튼 — 🎲와 같은 칩이되 프라이머리 강조 */
 .mission-ai {
   color: var(--primary-dk);
-  border-color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
   border-style: dashed;
 }
 .mission-ai:disabled {
@@ -3889,7 +3974,6 @@ body,
 
 /* 카드 — 표면 위 얇은 하이라이트로 '유리판' 느낌 */
 [data-theme='dark'] .study-card,
-[data-theme='dark'] .home-hero,
 [data-theme='dark'] .feat-card,
 [data-theme='dark'] .quests-card,
 [data-theme='dark'] .stat-card,

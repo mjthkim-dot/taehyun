@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLessonStore } from '../store/useLessonStore';
 import { speakText } from './SpeakButton';
-import { SpeakerIcon } from './icons';
+import { MicIcon, SpeakerIcon } from './icons';
 import { haptic } from '../lib/haptics';
 import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
 import dynamic from 'next/dynamic';
@@ -298,17 +298,18 @@ export default function SpeakingPractice({
 
   return (
     <div className="speaking-practice">
-      {/* 좁은 화면(320px)에서는 문장 + 듣기 + 배속 + 속도가 한 줄에 안 들어간다.
-          줄바꿈을 허용하고 문장이 줄어들 수 있게 해(minWidth: 0) 넘침을 막는다. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        {showTarget ? (
-          <p className="target" style={{ flex: '1 1 150px', margin: 0, minWidth: 0 }}>{currentSentence || '문장을 선택하세요'}</p>
-        ) : (
-          <p className="target" style={{ flex: '1 1 150px', margin: 0, minWidth: 0 }}>{prompt || '뜻을 보고 영어로 말해보세요'}</p>
-        )}
+      {/* 문장이 이 화면의 주인공 — 한 줄 전체를 크게 쓰고, 듣기·배속 같은 도구
+          버튼은 아래 줄로 분리해 문장과 시선 경쟁을 하지 않게 한다. */}
+      <p className="target">
+        {showTarget ? currentSentence || '문장을 선택하세요' : prompt || '뜻을 보고 영어로 말해보세요'}
+      </p>
+      {showTarget && hideTarget && prompt && (
+        <div className="muted" style={{ fontSize: '0.82rem', marginTop: 2 }}>{prompt}</div>
+      )}
+      <div className="sp-tools">
         {currentSentence && showTarget && (
           <>
-            <button type="button" className="speak-mini" title="듣기" onClick={() => speakText(currentSentence, lang)}><SpeakerIcon /></button>
+            <button type="button" className="speak-mini" title="듣기" onClick={() => speakText(currentSentence, lang)}><SpeakerIcon /> 듣기</button>
             <button type="button" className="speak-mini" title={`${rateLabel(slow)} 느리게 듣기`} onClick={() => speakText(currentSentence, lang, slow)}><span className="speak-mini-slow">{rateLabel(slow)}</span></button>
           </>
         )}
@@ -330,9 +331,6 @@ export default function SpeakingPractice({
           <button type="button" className="speak-mini" title="영어 정답 보기" onClick={() => setRevealed(true)}>정답</button>
         )}
       </div>
-      {showTarget && hideTarget && prompt && (
-        <div className="muted" style={{ fontSize: '0.82rem', marginTop: 2 }}>{prompt}</div>
-      )}
 
       {rateOpen && <SpeechRatePicker compact />}
 
@@ -348,6 +346,7 @@ export default function SpeakingPractice({
         disabled={!supported || !currentSentence || sttState === 'transcribing'}
         className={isListening ? 'mic listening' : 'mic'}
       >
+        <MicIcon size={20} />
         {sttState === 'transcribing' ? '인식 중…' : isListening ? '멈추기' : attempts > 0 ? '다시 말하기' : '말하기'}
       </button>
 

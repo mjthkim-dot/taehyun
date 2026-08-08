@@ -24,7 +24,7 @@ function Flame({ level, size = 64 }: { level: FlameState['level']; size?: number
     level === 'lit'
       ? { outer: 'url(#flame-g)', inner: '#ffd66b', glow: 'flame-glow' }
       : level === 'ember'
-        ? { outer: 'var(--yellow)', inner: 'var(--surface2)', glow: '' }
+        ? { outer: 'url(#flame-e)', inner: 'var(--surface2)', glow: '' }
         : { outer: 'var(--surface2)', inner: 'var(--surface)', glow: '' };
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" className={`flame ${level} ${palette.glow}`} aria-hidden="true">
@@ -33,6 +33,12 @@ function Flame({ level, size = 64 }: { level: FlameState['level']; size?: number
           <stop offset="0%" stopColor="#ff8a3d" />
           <stop offset="60%" stopColor="#ff5f2e" />
           <stop offset="100%" stopColor="#ffb14d" />
+        </linearGradient>
+        {/* 불씨(ember) — 아직 타오르진 않았지만 바닥이 벌겋게 달아 있는 잉걸불 */}
+        <linearGradient id="flame-e" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0%" stopColor="#e0641f" />
+          <stop offset="55%" stopColor="#d98a26" />
+          <stop offset="100%" stopColor="#f5b544" />
         </linearGradient>
       </defs>
       <path

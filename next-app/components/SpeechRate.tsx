@@ -15,10 +15,11 @@ import { SLOW_RATES, SLOW_RATE_EVENT, SPEECH_RATES, setSlowRate, setSpeechRate, 
 
 /** 현재 느리게 듣기 배속. 다른 화면에서 바꾸면 즉시 따라온다. */
 export function useSlowRate(): number {
-  // 서버 렌더와 첫 페인트를 맞추기 위해 기본값으로 시작한 뒤 마운트 후 실제 값을 읽는다
-  const [rate, setRate] = useState(0.6);
+  // 첫 렌더부터 저장된 값으로 — 기본값(0.6)으로 그렸다가 이펙트에서 바꾸면
+  // 한 프레임 동안 옛 값이 깜빡인다(사용자가 고른 0.9가 0.6으로 보이는 순간).
+  // 이 컴포넌트는 클라이언트 전용 화면에서만 쓰여 SSR 불일치 걱정이 없다.
+  const [rate, setRate] = useState(() => (typeof window === 'undefined' ? 0.6 : slowRate()));
   useEffect(() => {
-    setRate(slowRate());
     const on = (e: Event) => setRate((e as CustomEvent<number>).detail ?? slowRate());
     window.addEventListener(SLOW_RATE_EVENT, on);
     return () => window.removeEventListener(SLOW_RATE_EVENT, on);
@@ -28,9 +29,8 @@ export function useSlowRate(): number {
 
 /** 기본 말하기 배속. 지금까지 모든 음성이 0.84배속으로 고정돼 항상 느렸다. */
 export function useSpeechRate(): number {
-  const [rate, setRate] = useState(1);
+  const [rate, setRate] = useState(() => (typeof window === 'undefined' ? 1 : speechRate()));
   useEffect(() => {
-    setRate(speechRate());
     const on = () => setRate(speechRate());
     window.addEventListener(SLOW_RATE_EVENT, on);
     return () => window.removeEventListener(SLOW_RATE_EVENT, on);
