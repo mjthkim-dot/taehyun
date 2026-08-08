@@ -146,6 +146,41 @@ await preview.waitForFunction(() => (document.querySelector('.transcript p')?.te
 check('최종 텍스트는 Whisper 결과', true);
 await preview.close();
 
+/* ── 모바일에서는 미리보기 인식을 아예 띄우지 않는다 ──
+ * Android Chrome에서 SpeechRecognition은 녹음과 같은 마이크를 두고 경합한다 —
+ * 인식 서비스가 마이크를 가로채면 녹음이 무음이 되어 "소리가 잡히지 않았어요"로
+ * 끝난다(실제 신고의 원인). 폰에서는 마이크 레벨 막대가 그 역할을 대신한다. */
+const mobileCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+const mob = await mobileCtx.newPage();
+mob.on('pageerror', (e) => console.log('  [pageerror]', e.message));
+await mob.addInitScript(() => localStorage.setItem('va_onboarded', 'true'));
+await mob.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ valid: true }) }));
+await mob.route('**/app/api/groq', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{}' } }] }) }));
+await mob.route('**/app/api/stt', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: 'Mobile whisper works.' }) }));
+await mob.addInitScript(() => localStorage.setItem('va_groq_key', JSON.stringify('gsk_test_key')));
+await mob.addInitScript(MIC_STUB);
+await mob.addInitScript(() => {
+  // 미리보기가 시작되면 기록된다 — 모바일에서는 0이어야 한다
+  window.__srStarts = 0;
+  class SpySR {
+    start() { window.__srStarts++; }
+    stop() {}
+    abort() {}
+  }
+  window.SpeechRecognition = SpySR;
+  window.webkitSpeechRecognition = SpySR;
+  // 모바일 환경의 coarse pointer를 강제한다(헤드리스는 fine으로 잡히는 경우가 있다)
+  const origMatch = window.matchMedia.bind(window);
+  window.matchMedia = (q) => (q.includes('pointer: coarse') ? { matches: true, addEventListener() {}, removeEventListener() {} } : origMatch(q));
+});
+await mob.goto(`${BASE}/app`);
+await mob.waitForSelector('.mission-practice .mic', { timeout: 15000 });
+await mob.click('.mission-practice .mic');
+await mob.waitForFunction(() => (document.querySelector('.transcript p')?.textContent || '').includes('Mobile whisper works'), null, { timeout: 20000 });
+check('모바일에서도 Whisper 인식은 동작', true);
+check('모바일에서는 미리보기 인식을 띄우지 않음(마이크 경합 방지)', (await mob.evaluate(() => window.__srStarts)) === 0, String(await mob.evaluate(() => window.__srStarts)));
+await mobileCtx.close();
+
 /* ── ② 마이크 거부 시 브라우저 내장 인식으로 폴백 ── */
 const fb = await browser.newPage();
 fb.on('pageerror', (e) => console.log('  [pageerror]', e.message));

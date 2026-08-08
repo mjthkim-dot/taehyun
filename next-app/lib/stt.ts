@@ -86,7 +86,20 @@ function pickMimeType(): string | undefined {
  *
  * 내장 인식이 없는 브라우저(iOS Safari 등)에서는 조용히 아무 일도 하지 않는다 —
  * 그쪽은 마이크 레벨 막대와 상태 문구가 같은 역할을 한다.
+ *
+ * ⚠️ 모바일에서는 아예 띄우지 않는다. Android Chrome에서 SpeechRecognition은
+ * 녹음(getUserMedia)과 **같은 마이크를 두고 경합**한다 — 인식 서비스가 마이크를
+ * 가로채면 녹음 스트림이 무음이 되어, 레벨 감지가 0으로 읽히고 4초 뒤 "소리가
+ * 잡히지 않았어요"로 끝난다. 실제로 "음성인식이 안 된다"는 신고의 원인이었다.
+ * (음성 진단의 마이크 테스트는 미리보기 없이 돌아서 통과한다 — 그래서 진단은
+ * 정상인데 실전만 실패하는 혼란스러운 모양이 됐다.)
  */
+function canRunConcurrentPreview(): boolean {
+  if (typeof window === 'undefined') return false;
+  // 터치가 주 입력인 기기(폰·태블릿)는 마이크 경합 위험이 크다 — 데스크톱에서만.
+  return !window.matchMedia?.('(pointer: coarse)').matches;
+}
+
 function startLivePreview(onPartial: (text: string) => void): () => void {
   const SR =
     typeof window === 'undefined'
@@ -176,8 +189,14 @@ export async function recordAndTranscribe(opts: {
   };
 
   opts.onState?.('recording');
-  // 말하는 동안 글자가 보이도록 미리보기 자막을 나란히 띄운다(가능한 브라우저에서만)
-  const stopPreview = opts.onPartial ? startLivePreview(opts.onPartial) : () => {};
+  // 말하는 동안 글자가 보이도록 미리보기 자막을 나란히 띄운다.
+  // 데스크톱에서만 — 모바일은 마이크 경합으로 녹음 자체가 죽는다(위 주석).
+  let previewOn = opts.onPartial && canRunConcurrentPreview();
+  const stopPreviewRaw = previewOn ? startLivePreview(opts.onPartial!) : () => {};
+  const stopPreview = () => {
+    previewOn = false;
+    stopPreviewRaw();
+  };
 
   // ── 무음 감지: 오디오 레벨을 재서 말이 끝났는지 판단한다 ──
   const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -242,6 +261,9 @@ export async function recordAndTranscribe(opts: {
       const rms = Math.sqrt(sum / buf.length);
       if (rms > peak) peak = rms;
       opts.onLevel?.(rms);
+      // 안전장치: 미리보기가 도는 동안 1.5초 넘게 입력이 완전 무음이면 마이크를
+      // 인식 서비스에 뺏겼을 가능성이 크다 — 미리보기를 끊어 녹음을 살린다.
+      if (previewOn && elapsed > 1500 && peak < RMS_THRESHOLD / 3) stopPreview();
       if (rms > RMS_THRESHOLD) {
         // 조용하다가 다시 말하기 시작했다면 그 구간을 '멈춤'으로 기록한다
         if (quietSince && lastLoud) {
