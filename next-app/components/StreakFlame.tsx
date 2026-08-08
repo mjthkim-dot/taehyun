@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from 'react';
 import { flameState, milestoneMessage, takeMilestoneCelebration, weekFlames, type FlameState, type WeekDay } from '../lib/streak';
 import { getFreezeCount } from '../lib/habits';
 import { haptic } from '../lib/haptics';
+import { Confetti } from './Fx';
 
 function Flame({ level, size = 64 }: { level: FlameState['level']; size?: number }) {
   // SVG 불꽃 — 이모지는 색·발광을 못 바꾼다. 상태별로 채움과 글로우가 달라진다.
@@ -119,6 +120,7 @@ export default function StreakFlame({ refreshKey = 0 }: { refreshKey?: number })
         <div className="milestone-overlay" role="dialog" aria-label="스트릭 마일스톤">
           <div className="milestone-card">
             <div className="milestone-flame">
+              <Confetti burstId={milestone} />
               <Flame level="lit" size={88} />
             </div>
             <div className="milestone-days">{milestone}일 연속</div>

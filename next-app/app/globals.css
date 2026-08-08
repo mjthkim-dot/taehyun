@@ -5924,3 +5924,82 @@ body,
     animation: none;
   }
 }
+
+/* ── 이펙트 키트(스픽 벤치마크) ──
+ * 통과의 순간에만 터진다. 실패는 조용히(기존 score-shake만). */
+.fx-confetti {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+.score {
+  position: relative; /* 컨페티·플로팅의 기준점 */
+}
+.fx-piece {
+  position: absolute;
+  width: 8px;
+  height: 12px;
+  border-radius: 2px;
+  animation: fx-burst 0.95s cubic-bezier(0.16, 0.84, 0.44, 1) forwards;
+}
+.fx-piece.round {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+@keyframes fx-burst {
+  0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+  100% { transform: translate(var(--fx-x), calc(var(--fx-y) + 70px)) rotate(var(--fx-r)) scale(0.7); opacity: 0; }
+}
+.fx-float {
+  position: absolute;
+  right: 0;
+  top: -6px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: var(--green);
+  animation: fx-float 1s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes fx-float {
+  0% { transform: translateY(6px); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translateY(-22px); opacity: 0; }
+}
+.fx-combo {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  background: var(--primary-soft);
+  color: var(--primary-dk);
+  animation: fx-combo-pop 0.45s var(--ease-out-back);
+  vertical-align: middle;
+}
+.fx-combo.warm {
+  background: rgba(255, 138, 61, 0.16);
+  color: #ff8a3d;
+}
+.fx-combo.hot {
+  background: linear-gradient(135deg, rgba(255, 138, 61, 0.25), rgba(255, 95, 46, 0.2));
+  color: #ff5f2e;
+  font-size: 0.78rem;
+}
+@keyframes fx-combo-pop {
+  0% { transform: scale(0.5); }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+.score-num {
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-piece, .fx-float, .fx-combo { animation: none; }
+  .fx-piece { display: none; }
+}

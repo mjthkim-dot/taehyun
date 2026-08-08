@@ -27,6 +27,8 @@ export interface LessonState {
   missedWords: string[];
   /** 왜 틀렸는지 — 잘못 들린 단어를 한국어 화자의 전형적 발음 축으로 해석한 결과 */
   pronIssues: PronIssue[];
+  /** 연속 통과(80점 이상) 수 — 스픽식 콤보. 실패하면 0으로, 문장이 바뀌어도 유지된다. */
+  combo: number;
   attempts: number;
   isListening: boolean;
 
@@ -109,6 +111,7 @@ export const useLessonStore = create<LessonState>((set) => ({
   wordDiff: [],
   missedWords: [],
   pronIssues: [],
+  combo: 0,
   attempts: 0,
   isListening: false,
 
@@ -126,7 +129,10 @@ export const useLessonStore = create<LessonState>((set) => ({
       const pronIssues = missed.length ? diagnose(state.currentSentence, text) : [];
       // 반복되는 축을 주간 리포트가 읽을 수 있게 누적한다(한 번의 오답보다 경향이 중요).
       if (pronIssues.length) addPronLapses(pronIssues.map((p) => p.key));
-      return { userSpeech: text, accuracyScore: score, wordDiff: diff, missedWords: missed, pronIssues, attempts: state.attempts + 1 };
+      // 콤보: 80점 이상이면 잇고, 아니면 끊는다. 문장이 바뀌어도(setCurrentSentence)
+      // 유지된다 — 드릴 세션 전체에 걸친 "연속 통과"가 콤보의 의미다.
+      const combo = score >= 80 ? state.combo + 1 : 0;
+      return { userSpeech: text, accuracyScore: score, wordDiff: diff, missedWords: missed, pronIssues, combo, attempts: state.attempts + 1 };
     }),
 
   clearAttempt: () => set({ userSpeech: '', accuracyScore: 0, wordDiff: [], missedWords: [], pronIssues: [] }),

@@ -21,6 +21,7 @@ import dynamic from 'next/dynamic';
  *  dynamic()의 옵션은 인라인 리터럴이어야 한다(변수로 빼면 Next가 빌드에서 거부). */
 const PronDrillCard = dynamic(() => import('./PronDrillCard'), { ssr: false });
 import SpeechRatePicker, { rateLabel, useSlowRate } from './SpeechRate';
+import { Confetti, ComboBadge, FloatUp, useCountUp } from './Fx';
 import VoiceCompare from './MyVoice';
 
 // 벤더 프리픽스 대응
@@ -56,6 +57,7 @@ export default function SpeakingPractice({
   const accuracyScore = useLessonStore((s) => s.accuracyScore);
   const wordDiff = useLessonStore((s) => s.wordDiff);
   const pronIssues = useLessonStore((s) => s.pronIssues);
+  const combo = useLessonStore((s) => s.combo);
   // 느리게 듣기 배속 — 사용자가 고른 값을 앱 전체가 함께 쓴다
   const slow = useSlowRate();
   const [rateOpen, setRateOpen] = useState(false);
@@ -381,7 +383,11 @@ export default function SpeakingPractice({
               accuracyScore >= 80 ? 'high' : accuracyScore >= 50 ? 'mid' : 'low'
             }
           >
-            정확도 {accuracyScore}점{attempts > 1 ? ` · ${attempts}번째 시도` : ''}
+            {/* 통과 순간의 보상 연출(스픽 벤치마크) — 실패에는 아무것도 터뜨리지 않는다 */}
+            {accuracyScore >= 80 && <Confetti burstId={attempts} />}
+            {accuracyScore >= 80 && <FloatUp id={attempts} text="+1 문장" />}
+            정확도 <ScoreNumber score={accuracyScore} />점{attempts > 1 ? ` · ${attempts}번째 시도` : ''}
+            <ComboBadge combo={combo} />
           </div>
           {wordDiff.length > 0 && (
             <div className="word-diff" style={{ fontSize: '0.88rem', lineHeight: 1.7, marginTop: 6 }}>
@@ -447,4 +453,10 @@ export default function SpeakingPractice({
       )}
     </div>
   );
+}
+
+/** 점수 카운트업 — 훅 규칙 때문에 조건부 렌더 밖의 별도 컴포넌트로 둔다. */
+function ScoreNumber({ score }: { score: number }) {
+  const value = useCountUp(score);
+  return <b className="score-num">{value}</b>;
 }
