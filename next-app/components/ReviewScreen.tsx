@@ -45,6 +45,12 @@ export default function ReviewScreen() {
     if (ad !== bd) return ad ? -1 : 1;
     return (a.box || 0) - (b.box || 0);
   });
+  /* 화면에는 앞쪽 일부만 그린다. 오답이 수백 개 쌓이면 전부 DOM으로 만드는 비용이
+   * 중급 폰에서 1초를 넘긴다(측정: 200개 ≈ 1.2s). 정렬상 '오늘 복습할 것'이 맨앞이라
+   * 잘리는 것은 먼 미래의 대기 항목들뿐이고, 나머지는 개수로 알린다. */
+  const RENDER_CAP = 40;
+  const visible = sorted.slice(0, RENDER_CAP);
+  const hiddenCount = sorted.length - visible.length;
 
   return (
     <div className="study-screen">
@@ -67,7 +73,7 @@ export default function ReviewScreen() {
           </div>
         )}
 
-        {sorted.map((w, i) => {
+        {visible.map((w, i) => {
           const box = Math.min(w.box || 0, SRS_MAX_BOX);
           const boxes = '●'.repeat(box) + '○'.repeat(SRS_MAX_BOX - box);
           const isDue = w.due == null || w.due <= now;
@@ -101,6 +107,11 @@ export default function ReviewScreen() {
             </div>
           );
         })}
+        {hiddenCount > 0 && (
+          <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', padding: '10px 0', textAlign: 'center' }}>
+            ⏳ 아직 복습일이 오지 않은 {hiddenCount}개는 때가 되면 위로 올라옵니다.
+          </div>
+        )}
       </div>
 
       {!due.length && (

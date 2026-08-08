@@ -139,6 +139,34 @@ export default function Page() {
   const [onboarding, setOnboarding] = useState(false);
   useEffect(() => setOnboarding(needsOnboarding()), []);
 
+  /**
+   * 유휴 시간 프리페치 — 화면 지연 로딩의 대가(첫 탭 전환 0.7~1.3초)를 지운다.
+   *
+   * 화면을 지연 로딩으로 쪼갠 뒤(v0.84) 첫 진입은 빨라졌지만, 각 탭의 첫 방문이
+   * 그 화면 청크를 받는 시간만큼 늦어졌다(측정: 레슨 699ms · 진도 1.3s · 복습 1.1s).
+   * 홈이 그려지고 브라우저가 한가해진 뒤 자주 가는 화면을 미리 받아두면 둘 다
+   * 얻는다 — 첫 페인트는 가볍게, 탭 전환은 즉시. webpack이 모듈을 공유하므로
+   * 여기서의 import()가 dynamic()이 쓸 청크를 그대로 데운다.
+   */
+  useEffect(() => {
+    const warm = () => {
+      // 사용 빈도 순 — 하단 탭 3개 + 더보기에서 가장 자주 가는 2개
+      void import('../components/StudyScreen');
+      void import('../components/DrillScreen');
+      void import('../components/TalkScreen');
+      void import('../components/ReviewScreen');
+      void import('../components/ProgressScreen');
+    };
+    type Ric = (cb: () => void, opts?: { timeout: number }) => number;
+    const w = window as unknown as { requestIdleCallback?: Ric; cancelIdleCallback?: (id: number) => void };
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(warm, { timeout: 4000 });
+      return () => w.cancelIdleCallback?.(id);
+    }
+    const t = window.setTimeout(warm, 2500);
+    return () => window.clearTimeout(t);
+  }, []);
+
   function setMode(m: Mode) {
     setAutoDrill(false);
     setModeRaw(m);

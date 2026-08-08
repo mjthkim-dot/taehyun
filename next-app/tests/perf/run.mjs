@@ -282,7 +282,9 @@ let heavyCtx = null;
 {
   const page = heavyPage;
   const screens = [
-    ['진도 · 리포트', '.more-sheet .feat-card:has-text("진도")', '.wr'],
+    // '.wr'(주간 리포트 전체 커밋)이 아니라 화면이 보이는 시점 — 복습(.study-card)과
+    // 같은 정의다. 리포트는 한 프레임 뒤에 채워진다(ProgressScreen 주석 참고).
+    ['진도 · 리포트', '.more-sheet .feat-card:has-text("진도")', '.stat-grid'],
     ['복습', '.more-sheet .feat-card:has-text("복습")', '.study-card'],
   ];
   for (const [name, cardSel, waitSel] of screens) {
