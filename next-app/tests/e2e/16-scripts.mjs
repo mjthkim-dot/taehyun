@@ -24,7 +24,7 @@ check('기능 탭에 미팅 스크립트 카드', await page.evaluate(() => Arra
 
 await page.click('.feat-card:has-text("미팅 스크립트")');
 await page.waitForSelector('.script-card', { timeout: 8000 });
-check('시나리오 6종 렌더', (await page.evaluate(() => document.querySelectorAll('.script-card').length)) === 6);
+check('시나리오 9종 렌더', (await page.evaluate(() => document.querySelectorAll('.script-card').length)) === 9);
 const listBody = await page.evaluate(() => document.body.textContent || '');
 check('IT 영업 상황 구성', /오프닝/.test(listBody) && /가격 반론/.test(listBody) && /임원 보고|QBR/.test(listBody));
 

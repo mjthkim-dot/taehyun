@@ -944,5 +944,200 @@ export const SALES_SCENARIOS: SalesScenario[] = [
         "hint": "My ask is two more engineers for one quarter."
       }
     ]
+  },
+  {
+    "key": "renewal",
+    "label": "갱신 · 연간 리뷰(QBR)",
+    "icon": "🔄",
+    "situation": "연간 계약 갱신을 앞둔 리뷰 미팅. 지난 1년의 가치를 증명하고 갱신 조건 논의로 넘어가야 한다.",
+    "goal": "성과를 고객의 언어(비용·장애·시간)로 정리하고, 내년 제안과 함께 갱신 합의를 끌어낸다.",
+    "steps": [
+      {
+        "label": "성과 회고",
+        "purpose": "내가 한 일이 아니라 고객이 얻은 것을 말한다. 기능 나열은 금물.",
+        "lines": [
+          { "en": "Let's start by looking back at what we achieved together.", "kr": "함께 이룬 것부터 돌아보시죠.", "note": "we achieved together — '납품했다'가 아니라 '함께 이뤘다'로 프레임을 잡는다." },
+          { "en": "Your incident count dropped from twelve to three this year.", "kr": "올해 장애 건수가 12건에서 3건으로 줄었습니다.", "note": "주어를 Your로 — 성과의 주인은 고객이다." },
+          { "en": "That freed up roughly 200 engineering hours.", "kr": "엔지니어링 시간 약 200시간이 확보됐습니다.", "note": "비용 절감을 시간으로 환산하면 실무 책임자에게 더 와닿는다." }
+        ]
+      },
+      {
+        "label": "솔직한 갭 인정",
+        "purpose": "잘 안 된 것을 고객이 말하기 전에 먼저 꺼낸다. 신뢰는 여기서 생긴다.",
+        "lines": [
+          { "en": "One area where we fell short was onboarding speed.", "kr": "부족했던 부분은 온보딩 속도였습니다.", "note": "fell short — 실패를 인정하는 격식 있는 표현. 변명 전에 사실부터." },
+          { "en": "Here's what we've changed to fix that.", "kr": "그걸 고치기 위해 이렇게 바꿨습니다.", "note": "인정 뒤에는 반드시 조치가 따라와야 한다 — 인정만 하면 불안만 남는다." }
+        ]
+      },
+      {
+        "label": "내년 제안",
+        "purpose": "갱신을 '연장'이 아니라 '다음 단계'로 프레임한다.",
+        "lines": [
+          { "en": "For next year, I see two opportunities worth exploring.", "kr": "내년에는 살펴볼 만한 기회가 두 가지 보입니다.", "note": "opportunities — 업셀을 '추가 비용'이 아니라 '기회'로 말한다." },
+          { "en": "Based on your roadmap, the data platform is the natural next step.", "kr": "귀사 로드맵을 보면 데이터 플랫폼이 자연스러운 다음 단계입니다.", "note": "your roadmap — 우리 제품이 아니라 고객 계획에서 출발한다." }
+        ]
+      },
+      {
+        "label": "갱신 조건 합의",
+        "purpose": "애매하게 끝내지 않는다. 조건·기간·다음 액션을 그 자리에서 확정한다.",
+        "lines": [
+          { "en": "Shall we walk through the renewal terms?", "kr": "갱신 조건을 같이 보실까요?", "note": "성과 정리가 끝난 직후가 조건 얘기를 꺼낼 최적 타이밍이다." },
+          { "en": "If we sign by month-end, I can hold this year's pricing.", "kr": "월말까지 서명하시면 올해 가격을 유지해 드릴 수 있습니다.", "note": "기한 있는 인센티브 — 압박이 아니라 혜택으로 들리게 말한다." }
+        ]
+      }
+    ],
+    "pitfalls": [
+      "기능 업데이트 나열로 시작하는 것 — 고객은 자기 성과를 듣고 싶어 한다",
+      "잘 안 된 부분을 숨기는 것 — 고객이 먼저 꺼내는 순간 미팅 주도권을 잃는다",
+      "갱신 조건을 이메일로 미루는 것 — 분위기가 좋은 그 자리에서 합의해야 한다",
+      "업셀을 서두르는 것 — 성과 증명 없이 꺼낸 업셀은 가격 인상으로만 들린다"
+    ],
+    "dialogue": [
+      { "sp": "A", "en": "So, another year has flown by.", "kr": "벌써 1년이 지났네요." },
+      { "sp": "B", "en": "It has. Let's start by looking back at what we achieved together.", "kr": "그러네요. 함께 이룬 것부터 돌아보시죠." },
+      { "sp": "A", "en": "Sure. How do the numbers look?", "kr": "좋아요. 숫자는 어떤가요?" },
+      { "sp": "B", "en": "Your incident count dropped from twelve to three, which freed up roughly 200 engineering hours.", "kr": "장애가 12건에서 3건으로 줄었고, 엔지니어링 시간 약 200시간이 확보됐습니다." },
+      { "sp": "A", "en": "Not bad. Though onboarding new teams was slower than we hoped.", "kr": "나쁘지 않네요. 그래도 신규 팀 온보딩은 기대보다 느렸어요." },
+      { "sp": "B", "en": "Agreed — that's the one area where we fell short, and here's what we've changed to fix it.", "kr": "맞습니다 — 그게 부족했던 부분이고, 고치기 위해 이렇게 바꿨습니다." },
+      { "sp": "A", "en": "Okay. What are you proposing for next year?", "kr": "알겠어요. 내년엔 뭘 제안하시나요?" },
+      { "sp": "B", "en": "Based on your roadmap, the data platform is the natural next step. Shall we walk through the renewal terms?", "kr": "귀사 로드맵상 데이터 플랫폼이 자연스러운 다음 단계입니다. 갱신 조건도 같이 보실까요?" }
+    ],
+    "talkPrompt": "연간 계약 갱신을 앞둔 고객사 팀장 역할. 성과는 인정하되 아쉬웠던 점(온보딩 속도, 응답 지연)을 짚고, 갱신 조건에서 할인을 요구한다.",
+    "checklist": [
+      { "key": "customer_outcome", "label": "성과를 고객의 언어(비용·시간·장애)로 말했는가", "hint": "Your incident count dropped from twelve to three." },
+      { "key": "own_gap", "label": "부족했던 부분을 먼저 꺼냈는가", "hint": "One area where we fell short was..." },
+      { "key": "fix", "label": "갭에 대한 조치를 함께 말했는가", "hint": "Here's what we've changed to fix that." },
+      { "key": "next_year", "label": "내년 제안을 고객 로드맵에서 출발시켰는가", "hint": "Based on your roadmap, ... is the natural next step." },
+      { "key": "terms", "label": "갱신 조건 논의를 그 자리에서 열었는가", "hint": "Shall we walk through the renewal terms?" }
+    ]
+  },
+  {
+    "key": "incident",
+    "label": "장애 브리핑 · 신뢰 회복",
+    "icon": "🚨",
+    "situation": "서비스 장애가 발생했고 고객이 화가 나 있다. 상황을 브리핑하고 신뢰를 지켜야 한다.",
+    "goal": "사실 → 영향 → 조치 → 재발 방지 순서로 침착하게 전달하고, 후속 보고를 약속한다.",
+    "steps": [
+      {
+        "label": "사실부터, 변명 없이",
+        "purpose": "일어난 일을 시간 순서로 담백하게 말한다. 원인 추측·책임 회피는 금물.",
+        "lines": [
+          { "en": "I want to give you a transparent update on what happened.", "kr": "무슨 일이 있었는지 투명하게 말씀드리겠습니다.", "note": "transparent — 이 단어 하나가 미팅의 톤을 정한다." },
+          { "en": "At 1:20 PM, the reporting module went down for 80 minutes.", "kr": "오후 1시 20분, 리포팅 모듈이 80분간 중단됐습니다.", "note": "시각·범위·시간을 숫자로 — 두루뭉술하면 축소하는 것처럼 들린다." }
+        ]
+      },
+      {
+        "label": "영향 범위 특정",
+        "purpose": "무엇이 영향받았고, 더 중요하게는 무엇이 영향받지 않았는지 분명히 한다.",
+        "lines": [
+          { "en": "The impact was limited to report generation.", "kr": "영향은 리포트 생성에 국한됐습니다.", "note": "limited to — 범위를 좁혀 말하되, 사실이어야 한다." },
+          { "en": "No data was lost, and core operations were not affected.", "kr": "데이터 유실은 없었고 핵심 운영에는 영향이 없었습니다.", "note": "고객이 가장 두려워하는 것(데이터 유실)을 먼저 해소한다." }
+        ]
+      },
+      {
+        "label": "조치와 재발 방지",
+        "purpose": "이미 한 것과 앞으로 바꿀 것을 구분해 말한다.",
+        "lines": [
+          { "en": "Service was restored at 2:40, and we've added monitoring on that path.", "kr": "2시 40분에 복구했고, 해당 경로에 모니터링을 추가했습니다.", "note": "복구(과거)와 개선(현재완료)을 한 문장에 — 이미 움직이고 있음을 보여준다." },
+          { "en": "Here's what we're changing so this doesn't happen again.", "kr": "재발하지 않도록 이렇게 바꾸고 있습니다.", "note": "재발 방지는 목록으로 준비해 간다 — 즉석에서 생각하는 것처럼 보이면 안 된다." }
+        ]
+      },
+      {
+        "label": "후속 약속",
+        "purpose": "보고서·일정·창구를 특정해 미팅을 닫는다.",
+        "lines": [
+          { "en": "You'll have the full incident report by tomorrow 9 AM.", "kr": "내일 오전 9시까지 전체 보고서를 드리겠습니다.", "note": "by tomorrow morning보다 by tomorrow 9 AM — 시각을 못 박으면 신뢰가 붙는다." },
+          { "en": "I'm your single point of contact on this — call me directly.", "kr": "이 건은 제가 단일 창구입니다 — 직접 연락 주세요.", "note": "single point of contact — 책임을 자신에게 모으는 가장 강한 신뢰 표현." }
+        ]
+      }
+    ],
+    "pitfalls": [
+      "사과부터 길게 하는 것 — 고객이 원하는 건 사과보다 사실과 조치다",
+      "원인을 추측으로 말하는 것 — 나중에 뒤집히면 신뢰가 두 번 깨진다",
+      "'다시는 없을 것'이라고 단언하는 것 — 지킬 수 없는 약속은 하지 않는다",
+      "기술 용어로 도망가는 것 — 임원에게는 비즈니스 영향으로 번역해 말한다"
+    ],
+    "dialogue": [
+      { "sp": "A", "en": "We lost the whole afternoon because of this. What happened?", "kr": "이것 때문에 오후를 통째로 날렸어요. 무슨 일이죠?" },
+      { "sp": "B", "en": "I want to give you a transparent update. At 1:20 PM, the reporting module went down for 80 minutes.", "kr": "투명하게 말씀드리겠습니다. 오후 1시 20분, 리포팅 모듈이 80분간 중단됐습니다." },
+      { "sp": "A", "en": "Did we lose any data?", "kr": "데이터 유실이 있었나요?" },
+      { "sp": "B", "en": "No data was lost, and core operations were not affected — the impact was limited to report generation.", "kr": "데이터 유실은 없었고 핵심 운영도 무사합니다 — 영향은 리포트 생성에 국한됐습니다." },
+      { "sp": "A", "en": "How do I know this won't happen next quarter-end?", "kr": "다음 분기말에 또 안 그럴 거라고 어떻게 믿죠?" },
+      { "sp": "B", "en": "Fair question. We've already added monitoring on that path, and here's what we're changing structurally.", "kr": "당연한 질문입니다. 해당 경로에 모니터링을 이미 추가했고, 구조적으로는 이렇게 바꾸고 있습니다." },
+      { "sp": "A", "en": "I'll need something in writing for my boss.", "kr": "상사에게 보고할 문서가 필요해요." },
+      { "sp": "B", "en": "You'll have the full incident report by tomorrow 9 AM — and I'm your single point of contact on this.", "kr": "내일 오전 9시까지 전체 보고서를 드리겠습니다 — 이 건은 제가 단일 창구입니다." }
+    ],
+    "talkPrompt": "장애로 업무가 중단돼 화가 난 고객사 팀장 역할. 데이터 유실 여부, 재발 가능성, 문서 보고를 집요하게 요구한다.",
+    "checklist": [
+      { "key": "facts_first", "label": "시각·범위·시간을 숫자로 말했는가", "hint": "At 1:20 PM, ... went down for 80 minutes." },
+      { "key": "no_data_loss", "label": "고객의 최대 공포(데이터 유실)를 먼저 해소했는가", "hint": "No data was lost." },
+      { "key": "scope", "label": "영향받지 않은 것도 분명히 말했는가", "hint": "Core operations were not affected." },
+      { "key": "prevention", "label": "재발 방지책을 구체적으로 말했는가", "hint": "Here's what we're changing so this doesn't happen again." },
+      { "key": "commitment", "label": "보고 시각과 창구를 못 박았는가", "hint": "Full report by tomorrow 9 AM — I'm your single point of contact." }
+    ]
+  },
+  {
+    "key": "kickoff-project",
+    "label": "프로젝트 킥오프",
+    "icon": "🚀",
+    "situation": "계약 후 첫 실행 미팅. 양측 팀이 처음 모여 범위·역할·일정·소통 방식을 맞춘다.",
+    "goal": "기대치를 명시적으로 합의해, 몇 주 뒤 '말이 다르다'가 나오지 않게 만든다.",
+    "steps": [
+      {
+        "label": "목표 재확인",
+        "purpose": "계약서가 아니라 고객의 말로 성공을 다시 정의한다.",
+        "lines": [
+          { "en": "Before we dive into logistics, let's align on what success looks like.", "kr": "실무 얘기 전에, 성공이 어떤 모습인지부터 맞추시죠.", "note": "what success looks like — 킥오프의 핵심 질문. 이걸 안 하면 끝에 가서 평가 기준이 갈린다." },
+          { "en": "In your words, what does 'done' mean for phase one?", "kr": "귀사 표현으로, 1단계의 '완료'는 뭘 의미하나요?", "note": "in your words — 고객이 직접 말하게 하면 그것이 곧 합의된 기준이 된다." }
+        ]
+      },
+      {
+        "label": "역할과 창구",
+        "purpose": "누가 무엇을 결정하는지, 막히면 누구에게 가는지 정한다.",
+        "lines": [
+          { "en": "Who owns the final call on schema changes?", "kr": "스키마 변경의 최종 결정권은 누구에게 있나요?", "note": "owns the final call — 결정권자를 애매하게 두면 프로젝트 중반에 반드시 멈춘다." },
+          { "en": "When something blocks us, what's the escalation path?", "kr": "막히는 일이 생기면 에스컬레이션 경로가 어떻게 되나요?", "note": "escalation path — 문제가 생기기 전에 물어야 어색하지 않다." }
+        ]
+      },
+      {
+        "label": "일정과 리듬",
+        "purpose": "마일스톤과 정기 미팅 리듬을 합의한다.",
+        "lines": [
+          { "en": "We propose weekly check-ins, thirty minutes, every Tuesday.", "kr": "주간 체크인을 화요일 30분으로 제안드립니다.", "note": "요일·길이까지 특정 — '주기적으로 만나요'는 합의가 아니다." },
+          { "en": "The first milestone is data migration, done by the 15th.", "kr": "첫 마일스톤은 데이터 마이그레이션, 15일까지 완료입니다.", "note": "milestone + 날짜 — 킥오프에서 최소 첫 마일스톤은 날짜를 박는다." }
+        ]
+      },
+      {
+        "label": "리스크 미리 깔기",
+        "purpose": "잘 안 될 수 있는 지점을 먼저 말해 두면, 실제로 생겼을 때 신뢰가 유지된다.",
+        "lines": [
+          { "en": "One risk I want to flag early: legacy data quality.", "kr": "미리 짚어둘 리스크 하나는 레거시 데이터 품질입니다.", "note": "flag early — 리스크를 먼저 꺼내는 쪽이 프로젝트의 어른이 된다." },
+          { "en": "If that happens, here's how we'll handle it.", "kr": "그런 상황이 오면 이렇게 대응하겠습니다.", "note": "리스크에는 반드시 대응 계획을 붙인다 — 겁만 주면 역효과다." }
+        ]
+      }
+    ],
+    "pitfalls": [
+      "바로 일정표부터 여는 것 — 성공 정의가 다르면 일정 합의는 의미가 없다",
+      "결정권자를 안 정하는 것 — '팀에서 논의해볼게요'가 반복되며 지연된다",
+      "리스크를 숨기는 것 — 킥오프에서 말한 리스크는 관리, 나중에 터진 리스크는 사고다",
+      "미팅 리듬을 '필요할 때마다'로 두는 것 — 반드시 요일과 길이를 정한다"
+    ],
+    "dialogue": [
+      { "sp": "B", "en": "Before we dive into logistics, let's align on what success looks like.", "kr": "실무 얘기 전에, 성공이 어떤 모습인지부터 맞추시죠." },
+      { "sp": "A", "en": "For us, success is the dashboard live before the board meeting in June.", "kr": "저희에게 성공은 6월 이사회 전에 대시보드가 뜨는 거예요." },
+      { "sp": "B", "en": "Good — that gives us a hard date. Who owns the final call on schema changes?", "kr": "좋습니다 — 확정 기한이 생겼네요. 스키마 변경의 최종 결정권은 누구에게 있나요?" },
+      { "sp": "A", "en": "That would be our data lead, Jiwon.", "kr": "저희 데이터 리드인 지원 님이요." },
+      { "sp": "B", "en": "Perfect. We propose weekly check-ins, thirty minutes, every Tuesday.", "kr": "완벽합니다. 주간 체크인은 화요일 30분으로 제안드립니다." },
+      { "sp": "A", "en": "Tuesday works. Anything you're worried about?", "kr": "화요일 좋아요. 걱정되는 부분 있으세요?" },
+      { "sp": "B", "en": "One risk I want to flag early: legacy data quality. If it's worse than expected, here's how we'll handle it.", "kr": "미리 짚어둘 리스크는 레거시 데이터 품질입니다. 예상보다 나쁘면 이렇게 대응하겠습니다." }
+    ],
+    "talkPrompt": "프로젝트 킥오프에 참석한 고객사 PM 역할. 일정이 빠듯하다는 압박을 주고, 역할 분담과 리스크 대응을 꼼꼼히 캐묻는다.",
+    "checklist": [
+      { "key": "success_def", "label": "성공 기준을 고객의 말로 정의하게 했는가", "hint": "In your words, what does 'done' mean?" },
+      { "key": "decision_owner", "label": "결정권자를 특정했는가", "hint": "Who owns the final call on schema changes?" },
+      { "key": "cadence", "label": "미팅 리듬을 요일·길이까지 정했는가", "hint": "Weekly check-ins, thirty minutes, every Tuesday." },
+      { "key": "milestone", "label": "첫 마일스톤에 날짜를 박았는가", "hint": "Data migration, done by the 15th." },
+      { "key": "risk_flag", "label": "리스크를 대응 계획과 함께 먼저 꺼냈는가", "hint": "One risk I want to flag early... here's how we'll handle it." }
+    ]
   }
 ];

@@ -1,6 +1,6 @@
 /**
  * 직무 어휘 — 기능 탭에 이름만 있던 '어휘' 영역이 실제로 동작하는지.
- * 계약: 도메인 8개(재무·법무·HR·기술 + IT 영업·클라우드·FinOps·콩글리시) 전환 ·
+ * 계약: 도메인 10개(재무·법무·HR·기술·IT 영업·클라우드·FinOps·콩글리시·AI·협상) 전환 ·
  * 카드 확장(연어·예문·주의) · 예문 표현장 저장 ·
  * 자기 점검 퀴즈에서 틀리면 복습(SRS) 큐에 쌓인다.
  */
@@ -23,7 +23,7 @@ check('기능 탭에 직무 어휘 카드', await page.evaluate(() => Array.from
 await page.click('.feat-card:has-text("직무 어휘")');
 await page.waitForSelector('.vocab-card', { timeout: 8000 });
 
-check('도메인 탭 8개', (await page.evaluate(() => document.querySelectorAll('.vocab-tab').length)) === 8);
+check('도메인 탭 10개', (await page.evaluate(() => document.querySelectorAll('.vocab-tab').length)) === 10);
 check('첫 도메인(재무)이 활성', (await page.evaluate(() => document.querySelector('.vocab-tab.active')?.textContent)) === '재무 · 회계');
 const firstCount = await page.evaluate(() => document.querySelectorAll('.vocab-card').length);
 check('재무 카드 10개', firstCount === 10, String(firstCount));
