@@ -12,6 +12,7 @@ import DailyMissionCard from './DailyMissionCard';
 import DailyQuests from './DailyQuests';
 import { consumeFreezesForGaps, getFreezeCount } from '../lib/habits';
 import CurriculumPath from './CurriculumPath';
+import StreakFlame from './StreakFlame';
 import type { Mode } from './NavBar';
 
 export default function MasterScreen({
@@ -94,6 +95,10 @@ export default function MasterScreen({
           ❄️ 스트릭 프리즈가 {frozenFilled}일을 지켜줬어요 — 연속 {streak}일이 그대로 이어집니다. (남은 프리즈 {freeze})
         </div>
       )}
+
+      {/* 불꽃 히어로 — 발화가 불을 붙인다(스픽 벤치마크). tick으로 미션·연습의
+          발화가 즉시 반영돼, 목표에 닿는 순간 이 자리에서 점화된다. */}
+      <StreakFlame refreshKey={tick} />
 
       {/* 오늘 할 딱 한 가지 — 앱을 열면 바로 이걸 하면 된다 */}
       <DailyMissionCard onNavigate={onNavigate} onProgress={() => setTick((t) => t + 1)} />
