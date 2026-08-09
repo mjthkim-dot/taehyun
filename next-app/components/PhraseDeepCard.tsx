@@ -7,7 +7,8 @@
  */
 import { useEffect, useState } from 'react';
 import { getDepth, generatePhraseDepth, type PhraseDepth } from '../lib/phraseDepth';
-import { GroqError, groqComplete } from '../lib/groq';
+import { GroqError } from '../lib/groq';
+import { groqKoText } from '../lib/aiGuard';
 import { groqKey } from '../lib/state';
 import { speakText } from './SpeakButton';
 import { SpeakerIcon, CheckIcon } from './icons';
@@ -174,14 +175,15 @@ export default function PhraseDeepCard({
                   onClick={async () => {
                     setExplainBusy(true);
                     try {
-                      const txt = await groqComplete(
+                      // 영어로 답하면 한 번 다시 묻는다 — 그래도 실패면 안내 문구
+                      const txt = await groqKoText(
                         [
                           { role: 'system', content: '너는 한국인 영어 학습자를 돕는 튜터다. 오답에 대해 왜 그 답이 틀렸고 정답이 맞는지 한국어 2~3문장으로 간결히 설명한다. 설명만 출력.' },
                           { role: 'user', content: `표현: "${en}"\n문제: ${depth.check.q}\n보기: ${depth.check.options.join(' / ')}\n학습자가 고른 오답: ${depth.check.options[checkPick]}\n정답: ${depth.check.options[depth.check.a]}` },
                         ],
                         { temperature: 0.3, maxTokens: 260 }
                       );
-                      setExplain(txt.trim());
+                      setExplain(txt ?? '설명을 가져오지 못했어요. 잠시 후 다시 시도해주세요.');
                     } catch {
                       setExplain('설명을 가져오지 못했어요. 잠시 후 다시 시도해주세요.');
                     } finally {

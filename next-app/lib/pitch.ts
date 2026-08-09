@@ -18,6 +18,7 @@
  * AI에 맡긴다.
  */
 import { load, store } from './state';
+import { HANGUL_RE } from './aiGuard';
 
 export interface PitchTopic {
   key: string;
@@ -168,9 +169,10 @@ const COACH_SYSTEM = [
   'Rules:',
   '- structure: one entry per outline item given by the user, in the same order, same key and label.',
   '- ok: true only if the speaker actually covered it. Be strict — a passing mention is not coverage.',
-  '- note: one short Korean sentence. If ok is false, say concretely what was missing.',
-  '- strengths: 2 items, Korean, specific to what they actually said (quote a phrase they used).',
-  '- fixes: 2-3 items, Korean, each an action they can take next time, not a vague comment.',
+  '- note·strengths·fixes는 반드시 한국어(존댓말)로 쓴다 — 학습자가 읽는 코칭이다. 영어로 쓰면 안 된다.',
+  '- note: 한국어 한 문장. ok가 false면 무엇이 빠졌는지 구체적으로.',
+  '- strengths: 2개, 한국어, 실제로 말한 내용을 인용해 구체적으로.',
+  '- fixes: 2~3개, 한국어, 다음에 실행할 수 있는 행동으로(모호한 평가 금지).',
   '- betterOpening: one English sentence (under 25 words) they could have opened with instead.',
 ].join('\n');
 
@@ -194,10 +196,16 @@ export function buildCoachMessages(topic: PitchTopic, transcript: string, m: Pit
   ];
 }
 
-/** AI 응답을 화면이 믿고 쓸 수 있는 형태로 다듬는다(빠진 칸은 미충족으로 본다). */
-export function parseCoach(raw: string, topic: PitchTopic): PitchCoach {
-  const p = JSON.parse(raw || '{}') as Partial<PitchCoach>;
-  const given = Array.isArray(p.structure) ? p.structure : [];
+/**
+ * AI 응답을 화면이 믿고 쓸 수 있는 형태로 다듬는다(빠진 칸은 미충족으로 본다).
+ * 응답이 코칭이라 부를 수 없는 상태면 — structure가 아예 없거나, 학습자가 읽는
+ * 한국어 필드(note/strengths/fixes)가 영어로 왔으면 — null을 반환한다.
+ * 예전에는 이런 실패가 "전 칸 미충족(0/4)"으로 위장돼 가짜 퇴보 추세를 만들었다.
+ */
+export function parseCoach(data: unknown, topic: PitchTopic): PitchCoach | null {
+  const p = (data ?? {}) as Partial<PitchCoach>;
+  if (!Array.isArray(p.structure) || p.structure.length === 0) return null;
+  const given = p.structure;
   const structure = topic.outline.map((label, i) => {
     const hit = given[i] || given.find((g) => g && g.label === label);
     return {
@@ -207,10 +215,15 @@ export function parseCoach(raw: string, topic: PitchTopic): PitchCoach {
       note: String(hit?.note || '').trim(),
     };
   });
+  const strengths = (Array.isArray(p.strengths) ? p.strengths : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 3);
+  const fixes = (Array.isArray(p.fixes) ? p.fixes : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 3);
+  // 한국어 기대 필드가 영어로 오면 응답을 버린다(호출부가 1회 재요청)
+  const koTexts = [...strengths, ...fixes, ...structure.map((s) => s.note).filter(Boolean)];
+  if (koTexts.length > 0 && !koTexts.some((t) => HANGUL_RE.test(t))) return null;
   return {
     structure,
-    strengths: (Array.isArray(p.strengths) ? p.strengths : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 3),
-    fixes: (Array.isArray(p.fixes) ? p.fixes : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 3),
+    strengths,
+    fixes,
     betterOpening: String(p.betterOpening || '').trim(),
   };
 }
@@ -223,8 +236,9 @@ export interface PitchRun {
   topicLabel: string;
   transcript: string;
   metrics: PitchMetrics;
-  /** 구조 네 칸 중 몇 칸을 채웠는지 — 추세를 보는 가장 단순한 수치 */
-  covered: number;
+  /** 구조 네 칸 중 몇 칸을 채웠는지 — 추세를 보는 가장 단순한 수치.
+   *  null = AI 코칭을 못 받은 회차(키 없음·실패). 0/4로 위장하면 가짜 퇴보가 된다. */
+  covered: number | null;
   total: number;
 }
 

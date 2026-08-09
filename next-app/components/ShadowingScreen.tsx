@@ -10,7 +10,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ALL_LESSONS, type Lesson } from '../lib/lessons';
 import { getPhrases, load, markPracticedToday, type WeakItem } from '../lib/state';
-import { groqComplete, GroqError } from '../lib/groq';
+import { GroqError } from '../lib/groq';
+import { groqKoJson, hasHangul } from '../lib/aiGuard';
 import { useLessonStore } from '../store/useLessonStore';
 import SpeakingPractice from './SpeakingPractice';
 import EmptyState from './EmptyState';
@@ -57,14 +58,23 @@ async function fetchPronTips(sentence: string, words: string[]): Promise<PronTip
     '{ "tips": [ { "word": "단어", "ipa": "/IPA 발음기호/", "tip_ko": "한국인이 흘리기 쉬운 소리·강세·연음을 한국어로 한 문장 팁" } ] }\n' +
     '규칙: tip_ko는 반드시 한국어. 실제 발음을 정확히. 모르면 지어내지 말 것.';
   const user = `문장: "${sentence}"\n발음 팁이 필요한 단어들: ${words.join(', ')}`;
-  const raw = await groqComplete(
+  // 팁이 영어로 오면(드릴 코칭에서 실제로 났던 사고) 걸러내고 한 번 다시 묻는다
+  const tips = await groqKoJson<PronTip[]>(
     [{ role: 'system', content: sys }, { role: 'user', content: user }],
-    { temperature: 0.2, maxTokens: 500, json: true }
+    { temperature: 0.2, maxTokens: 500 },
+    (data) => {
+      const parsed = (data ?? {}) as { tips?: PronTip[] };
+      if (!Array.isArray(parsed.tips)) return null;
+      const clean = parsed.tips
+        .filter((t) => t && t.word && hasHangul(t.tip_ko))
+        .map((t) => ({ word: String(t.word), ipa: String(t.ipa || ''), tip_ko: String(t.tip_ko || '') }));
+      // 빈 배열은 "팁 없음"으로 정상 — 단 원본에 팁이 있었는데 전부 영어라 걸러졌다면 실패로 본다
+      if (parsed.tips.length > 0 && clean.length === 0) return null;
+      return clean;
+    }
   );
-  const parsed = JSON.parse(raw || '{}') as { tips?: PronTip[] };
-  return Array.isArray(parsed.tips)
-    ? parsed.tips.filter((t) => t && t.word).map((t) => ({ word: String(t.word), ipa: String(t.ipa || ''), tip_ko: String(t.tip_ko || '') }))
-    : [];
+  if (tips === null) throw new Error('발음 팁을 만들지 못했어요 — 잠시 후 다시 시도해 주세요.');
+  return tips;
 }
 
 export default function ShadowingScreen({ lessonId }: { lessonId: number }) {

@@ -6,7 +6,7 @@
  * 미니 체크. 대표 미션 3종(미팅 오프닝·이견 대응·가격 협상)의 15개 표현은 정성
  * 큐레이션했고, 나머지 표현은 열 때 AI가 같은 스키마로 생성해 캐시한다.
  */
-import { groqComplete } from './groq';
+import { groqKoJson, HANGUL_RE } from './aiGuard';
 import { load, store } from './state';
 
 export interface DepthVariation {
@@ -459,34 +459,45 @@ const GEN_SYS = [
 
 /** 딥카드가 없는 표현을 AI로 분석해 캐시한다. 실패 시 throw. */
 export async function generatePhraseDepth(en: string, kr: string, missionTitle: string): Promise<PhraseDepth> {
-  const raw = await groqComplete(
+  // 이 카드는 한 번 만들면 영구 캐시된다(saveToCache) — 영어로 새거나 퀴즈 정답이
+  // 어긋난 응답이 캐시에 박히면 지울 방법이 없다. 그래서 검증을 통과한 것만 캐시한다.
+  const d = await groqKoJson<PhraseDepth>(
     [
       { role: 'system', content: GEN_SYS },
       { role: 'user', content: `상황: ${missionTitle}\n표현: "${en}" (${kr})\n이 표현을 분석해줘.` },
     ],
-    { temperature: 0.4, maxTokens: 900, json: true }
+    { temperature: 0.4, maxTokens: 900 },
+    (data) => {
+      const p = (data ?? {}) as Partial<PhraseDepth>;
+      if (!p.nuance || !Array.isArray(p.variations) || p.variations.length < 2 || !p.mistake || !p.check) return null;
+      // 화면의 거의 전부가 한국어 설명이다 — 핵심 필드가 영어면 응답을 버린다
+      if (!HANGUL_RE.test(String(p.nuance))) return null;
+      if (p.mistake.why && !HANGUL_RE.test(String(p.mistake.why))) return null;
+      const options = (Array.isArray(p.check.options) ? p.check.options : []).map(String).filter(Boolean).slice(0, 3);
+      const aRaw = Number(p.check.a);
+      // 정답 인덱스가 보기 범위를 벗어나면(1-기반 응답 등) "정답: undefined"나
+      // 엉뚱한 보기가 정답으로 표시된다 — 클램프 대신 퀴즈를 통째로 버린다.
+      const check =
+        options.length >= 2 && Number.isInteger(aRaw) && aRaw >= 0 && aRaw < options.length
+          ? { q: String(p.check.q || ''), options, a: aRaw }
+          : null;
+      if (!check || !HANGUL_RE.test(check.q)) return null;
+      return {
+        nuance: String(p.nuance),
+        register: p.register === 1 || p.register === 3 ? p.register : 2,
+        variations: p.variations.slice(0, 3).map((v) => ({ tone: String(v.tone || '중립'), en: String(v.en || ''), kr: String(v.kr || '') })),
+        mistake: { wrong: String(p.mistake.wrong || ''), right: String(p.mistake.right || ''), why: String(p.mistake.why || '') },
+        reply: {
+          en: String(p.reply?.en || ''),
+          kr: String(p.reply?.kr || ''),
+          mine: String(p.reply?.mine || ''),
+          mineKr: String(p.reply?.mineKr || ''),
+        },
+        check,
+      };
+    }
   );
-  const p = JSON.parse(raw || '{}') as Partial<PhraseDepth>;
-  if (!p.nuance || !Array.isArray(p.variations) || p.variations.length < 2 || !p.mistake || !p.check) {
-    throw new Error('분석 생성에 실패했어요. 다시 시도해주세요.');
-  }
-  const d: PhraseDepth = {
-    nuance: String(p.nuance),
-    register: p.register === 1 || p.register === 3 ? p.register : 2,
-    variations: p.variations.slice(0, 3).map((v) => ({ tone: String(v.tone || '중립'), en: String(v.en || ''), kr: String(v.kr || '') })),
-    mistake: { wrong: String(p.mistake.wrong || ''), right: String(p.mistake.right || ''), why: String(p.mistake.why || '') },
-    reply: {
-      en: String(p.reply?.en || ''),
-      kr: String(p.reply?.kr || ''),
-      mine: String(p.reply?.mine || ''),
-      mineKr: String(p.reply?.mineKr || ''),
-    },
-    check: {
-      q: String(p.check.q || ''),
-      options: (p.check.options || []).map(String).slice(0, 3),
-      a: Math.min(Math.max(Number(p.check.a) || 0, 0), 2),
-    },
-  };
+  if (!d) throw new Error('분석 생성에 실패했어요. 다시 시도해주세요.');
   saveToCache(en, d);
   return d;
 }

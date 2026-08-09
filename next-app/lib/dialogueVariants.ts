@@ -9,7 +9,7 @@
 import type { Dialogue, Lesson } from './lessons';
 import { cefrOf } from './lessons';
 import { lessonTargetGrammar } from './talkPrompts';
-import { groqComplete } from './groq';
+import { groqKoJson, hasHangul } from './aiGuard';
 import { load, store } from './state';
 
 const STORE_KEY = 'va_dlg_variants';
@@ -71,7 +71,9 @@ const SYSTEM = [
 
 function isValidLine(l: unknown): l is { sp: string; en: string; kr: string } {
   const o = l as { sp?: unknown; en?: unknown; kr?: unknown };
-  return !!o && typeof o.en === 'string' && o.en.trim().length > 0 && typeof o.kr === 'string';
+  // kr이 빈 문자열이거나 영어면 버린다 — 이 뜻이 암기 체크(한국어만 보고 영어 떠올리기)의
+  // 문제로 그대로 쓰이고 SRS에도 저장되므로, 빈/영어 kr은 그 기능들을 조용히 망가뜨린다.
+  return !!o && typeof o.en === 'string' && o.en.trim().length > 0 && hasHangul(o.kr);
 }
 
 /** 레슨 맥락에 맞는 새 대화를 생성한다. 실패 시 GroqError/Error를 던진다. */
@@ -82,19 +84,23 @@ export async function generateDialogueVariant(lesson: Lesson, existing: Dialogue
     avoid.length ? `\n피해야 할 제목(이미 있는 대화): ${avoid.join(' / ')}` : '',
     '\n위 맥락에 맞는 새로운 대화 한 편을 만들어줘.',
   ].join('\n');
-  const raw = await groqComplete(
+  const dialogue = await groqKoJson<Dialogue>(
     [{ role: 'system', content: SYSTEM }, { role: 'user', content: user }],
-    { temperature: 0.9, maxTokens: 900, json: true }
+    { temperature: 0.9, maxTokens: 900 },
+    (data) => {
+      const parsed = (data ?? {}) as Partial<Dialogue>;
+      const lines = Array.isArray(parsed.lines) ? parsed.lines.filter(isValidLine) : [];
+      if (lines.length < 6) return null;
+      // 화자를 A/B로 정규화 — 모델이 이름을 쓰거나 대소문자를 섞어도 재생(화자별 목소리)이 항상 동작하게.
+      const norm = lines.slice(0, 12).map((l, i) => ({
+        sp: String(l.sp || '').trim().toUpperCase() === 'B' ? 'B' : String(l.sp || '').trim().toUpperCase() === 'A' ? 'A' : i % 2 === 0 ? 'A' : 'B',
+        en: l.en.trim(),
+        kr: (l.kr || '').trim(),
+      }));
+      const title = typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : '새 대화';
+      return { title, lines: norm };
+    }
   );
-  const parsed = JSON.parse(raw || '{}') as Partial<Dialogue>;
-  const lines = Array.isArray(parsed.lines) ? parsed.lines.filter(isValidLine) : [];
-  if (lines.length < 6) throw new Error('대화 생성에 실패했어요. 다시 시도해주세요.');
-  // 화자를 A/B로 정규화 — 모델이 이름을 쓰거나 대소문자를 섞어도 재생(화자별 목소리)이 항상 동작하게.
-  const norm = lines.slice(0, 12).map((l, i) => ({
-    sp: String(l.sp || '').trim().toUpperCase() === 'B' ? 'B' : String(l.sp || '').trim().toUpperCase() === 'A' ? 'A' : i % 2 === 0 ? 'A' : 'B',
-    en: l.en.trim(),
-    kr: (l.kr || '').trim(),
-  }));
-  const title = typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : '새 대화';
-  return { title, lines: norm };
+  if (!dialogue) throw new Error('대화 생성에 실패했어요. 다시 시도해주세요.');
+  return dialogue;
 }

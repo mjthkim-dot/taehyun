@@ -88,6 +88,12 @@ export default function MeetingScreen({ onNavigate }: { onNavigate?: (m: Mode) =
     setErr('');
     try {
       const items = await translateGaps(lines);
+      // 결과가 없으면 완료 처리도, 입력 삭제도 하지 않는다 — 예전에는 빈 결과에도
+      // done:true + 입력 삭제가 실행돼 사용자가 쓴 "못 한 말"이 조용히 사라졌다.
+      if (!items || !items.length) {
+        setErr('영어로 바꾸지 못했어요 — 입력은 그대로 두었으니 다시 시도해 주세요.');
+        return;
+      }
       // 실전에서 막힌 문장이라 곧바로 표현장과 복습 큐 양쪽에 넣는다
       for (const it of items) {
         addPhrase({ en: it.en, kr: it.kr, lesson: `meeting:${m.id}` });

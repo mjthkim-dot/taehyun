@@ -82,7 +82,7 @@ Rules:
 - The student's text may come from speech recognition, so ignore casing/punctuation noise and judge the intended sentence.
 - If it is already correct, set is_correct=true, keep corrected_sentence as the cleaned original, still give a more natural native_expression, and a short encouraging Korean note.
 - If the input is mostly Korean or not a real English attempt, set is_correct=true and in korean_feedback gently encourage trying it in English. Do NOT invent errors.
-- korean_feedback: concise (1-3 sentences), friendly, concrete about WHAT to fix and WHY.
+- korean_feedback: concise (1-3 sentences), friendly, concrete about WHAT to fix and WHY. korean_feedback는 반드시 한국어(존댓말)로만 쓴다 — 영어 설명 금지.
 - native_expression: how a native speaker would casually say it in this scenario.
 Respond with ONLY valid JSON (no markdown, no code fences, no extra text), schema:
 {"is_correct":boolean,"corrected_sentence":string,"native_expression":string,"korean_feedback":string}`;
@@ -117,6 +117,7 @@ Return ONLY valid JSON (no markdown) with this exact shape:
 Rules:
 - Max 3 errors (most important first), max 3 paraphrases.
 - "upgraded" must be natural ${next}-level English, NOT just longer.
+- why_ko·note_ko·summary_ko는 반드시 한국어로만 쓴다 — 학습자가 읽는 설명이다. 영어로 쓰면 안 된다.
 - If transcript too short/empty, return JSON with low scores and empty arrays.`;
 }
 

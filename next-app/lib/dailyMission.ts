@@ -8,7 +8,7 @@
  * 데이터라 키·네트워크 없이도 즉시 동작한다. 완료는 날짜로 기록해 하루 1회 판정.
  */
 import { load, store } from './state';
-import { groqComplete } from './groq';
+import { groqKoJson, hasHangul } from './aiGuard';
 
 export interface MissionPhrase {
   en: string;
@@ -704,40 +704,48 @@ const GEN_SYSTEM = [
 /** AI로 새 비즈니스 미션을 생성한다. 실패 시 GroqError/Error를 던진다. */
 export async function generateAiMission(): Promise<BusinessMission> {
   const avoid = [...BUSINESS_MISSIONS.map((m) => m.title), getCustomMissionToday()?.title].filter(Boolean);
-  const raw = await groqComplete(
+  const mission = await groqKoJson<BusinessMission>(
     [
       { role: 'system', content: GEN_SYSTEM },
       { role: 'user', content: `피해야 할 제목: ${avoid.join(' / ')}\n\n새로운 상황 미션 하나를 만들어줘.` },
     ],
-    { temperature: 0.9, maxTokens: 1100, json: true }
-  );
-  const p = JSON.parse(raw || '{}') as Partial<BusinessMission>;
-  const phrases = Array.isArray(p.phrases)
-    ? p.phrases.filter((x) => x && x.en).map((x) => ({ en: String(x.en).trim(), kr: String(x.kr || '').trim() })).slice(0, 5)
-    : [];
-  const rawLines = Array.isArray(p.dialogue?.lines) ? p.dialogue!.lines : [];
-  const lines = rawLines
-    .filter((l) => l && (l as { en?: unknown }).en)
-    .slice(0, 8)
-    .map((l, i) => {
-      const sp = String((l as { sp?: unknown }).sp || '').trim().toUpperCase();
+    { temperature: 0.9, maxTokens: 1100 },
+    (data) => {
+      const p = (data ?? {}) as Partial<BusinessMission>;
+      // kr(뜻)이 비었거나 영어인 표현은 버린다 — 빈 뜻이 리콜 카드와 표현장에
+      // 그대로 저장되던 문제. 남은 수가 모자라면 응답 자체를 버리고 다시 묻는다.
+      const phrases = Array.isArray(p.phrases)
+        ? p.phrases
+            .filter((x) => x && x.en && hasHangul(x.kr))
+            .map((x) => ({ en: String(x.en).trim(), kr: String(x.kr || '').trim() }))
+            .slice(0, 5)
+        : [];
+      const rawLines = Array.isArray(p.dialogue?.lines) ? p.dialogue!.lines : [];
+      const lines = rawLines
+        .filter((l) => l && (l as { en?: unknown }).en && hasHangul((l as { kr?: unknown }).kr))
+        .slice(0, 8)
+        .map((l, i) => {
+          const sp = String((l as { sp?: unknown }).sp || '').trim().toUpperCase();
+          return {
+            sp: (sp === 'A' || sp === 'B' ? sp : i % 2 === 0 ? 'A' : 'B') as 'A' | 'B',
+            en: String((l as { en?: unknown }).en).trim(),
+            kr: String((l as { kr?: unknown }).kr || '').trim(),
+          };
+        });
+      if (!p.title || !hasHangul(String(p.title)) || phrases.length < 3 || lines.length < 4) return null;
+      const talkPrompt = String(p.talkPrompt || '').trim();
       return {
-        sp: (sp === 'A' || sp === 'B' ? sp : i % 2 === 0 ? 'A' : 'B') as 'A' | 'B',
-        en: String((l as { en?: unknown }).en).trim(),
-        kr: String((l as { kr?: unknown }).kr || '').trim(),
+        key: `ai-${todayStr()}`,
+        title: String(p.title).trim(),
+        goal: String(p.goal || '').trim() || '오늘의 상황을 영어로 자신 있게 말해보기',
+        phrases,
+        dialogue: { title: String(p.dialogue?.title || p.title).trim(), lines },
+        talkPrompt: hasHangul(talkPrompt) ? talkPrompt : `"${String(p.title).trim()}" 상황을 영어로 연습하는 대화.`,
       };
-    });
-  if (!p.title || phrases.length < 3 || lines.length < 4) {
-    throw new Error('미션 생성에 실패했어요. 다시 시도해주세요.');
-  }
-  return {
-    key: `ai-${todayStr()}`,
-    title: String(p.title).trim(),
-    goal: String(p.goal || '').trim() || '오늘의 상황을 영어로 자신 있게 말해보기',
-    phrases,
-    dialogue: { title: String(p.dialogue?.title || p.title).trim(), lines },
-    talkPrompt: String(p.talkPrompt || '').trim() || `"${String(p.title).trim()}" 상황을 영어로 연습하는 대화.`,
-  };
+    }
+  );
+  if (!mission) throw new Error('미션 생성에 실패했어요. 다시 시도해주세요.');
+  return mission;
 }
 
 /* ── 미션 → 회화 탭 핸드오프 ──

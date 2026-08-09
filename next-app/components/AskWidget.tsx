@@ -11,7 +11,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ASK_MODES, askModeDef, buildAskMessages, addAskHistory, type AskAnswer, type AskMode } from '../lib/askPrompts';
-import { groqComplete, GroqError } from '../lib/groq';
+import { GroqError } from '../lib/groq';
+import { AI_FAIL_KO, groqKoJson, hasHangul } from '../lib/aiGuard';
 import { addPhrase, groqKey } from '../lib/state';
 import { speakText, primeAudio } from './SpeakButton';
 
@@ -100,14 +101,27 @@ export default function AskWidget() {
     setError('');
     setAnswer(null);
     try {
-      const raw = await groqComplete(buildAskMessages(p, m, free), { temperature: 0.4, maxTokens: 700, json: true });
-      const parsed = JSON.parse(raw || '{}') as Partial<AskAnswer>;
-      const result: AskAnswer = {
-        answer_ko: String(parsed.answer_ko || '').trim() || '설명을 가져오지 못했어요. 다시 시도해주세요.',
-        examples: Array.isArray(parsed.examples)
-          ? parsed.examples.filter((e) => e && e.en).map((e) => ({ en: String(e.en), ko: String(e.ko || '') })).slice(0, 3)
-          : [],
-      };
+      // 설명이 영어로 오면 한 번 다시 묻고, 실패하면 에러로 처리한다 —
+      // 예전에는 실패 안내 문구가 답변인 척 "내 질문 기록"에까지 저장됐다.
+      const result = await groqKoJson<AskAnswer>(
+        buildAskMessages(p, m, free),
+        { temperature: 0.4, maxTokens: 700 },
+        (data) => {
+          const parsed = (data ?? {}) as Partial<AskAnswer>;
+          const answer_ko = String(parsed.answer_ko || '').trim();
+          if (!hasHangul(answer_ko)) return null;
+          return {
+            answer_ko,
+            examples: Array.isArray(parsed.examples)
+              ? parsed.examples.filter((e) => e && e.en).map((e) => ({ en: String(e.en), ko: String(e.ko || '') })).slice(0, 3)
+              : [],
+          };
+        }
+      );
+      if (!result) {
+        setError(`❌ ${AI_FAIL_KO}`);
+        return;
+      }
       setAnswer(result);
       addAskHistory({ phrase: p, mode: m, answer_ko: result.answer_ko, gloss: result.examples[0]?.ko, date: new Date().toISOString() });
     } catch (err) {
@@ -115,7 +129,7 @@ export default function AskWidget() {
       if (e instanceof GroqError && e.message === 'NO_GROQ_KEY') {
         setError('⚡ AI 튜터 연결이 필요해요. 회화 탭에서 무료 Groq 키를 먼저 등록해주세요.');
       } else {
-        setError(`❌ 오류: ${e.message}`);
+        setError(`❌ ${e instanceof GroqError ? e.message : AI_FAIL_KO}`);
       }
     } finally {
       setLoading(false);

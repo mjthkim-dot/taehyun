@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ALL_LESSONS, LESSONS, CEFR_NEXT, cefrOf, type Lesson } from '../lib/lessons';
 import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, store, saveChatLog, bumpSpoken } from '../lib/state';
 import { groqStream, groqComplete, validateGroqKey, GroqError } from '../lib/groq';
+import { groqKoJson, hasHangul } from '../lib/aiGuard';
 import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, buildScenarioReviewPrompt, parseAiText } from '../lib/talkPrompts';
 import { takeMissionTalkContext, type MissionTalkCtx } from '../lib/dailyMission';
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS, isKorean } from './SpeakButton';
@@ -207,12 +208,19 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
         scenario: lesson.scenario ? `${lesson.scenario.title} — ${lesson.scenario.desc}` : '',
         user_input: text,
       });
-      const raw = await groqComplete(
+      // 교정 카드의 한국어 설명이 영어로 오면(모델 변덕) 그대로 붙이지 않고
+      // 한 번 다시 묻는다 — 학습자가 읽을 수 없는 교정은 없느니만 못하다.
+      const parsed = await groqKoJson<Correction>(
         [{ role: 'system', content: BG_CORRECT_SYS }, { role: 'user', content: input }],
-        { json: true, maxTokens: 420, temperature: 0.2 }
+        { maxTokens: 420, temperature: 0.2 },
+        (data) => {
+          const o = data as Correction | null;
+          if (!o || typeof o !== 'object' || typeof o.is_correct !== 'boolean') return null;
+          if (o.korean_feedback && !hasHangul(o.korean_feedback)) return null;
+          return o;
+        }
       );
-      const parsed = JSON.parse(raw) as Correction;
-      updateMsg(userId, { correction: parsed });
+      updateMsg(userId, { correction: parsed ?? null });
     } catch {
       updateMsg(userId, { correction: null });
     }
@@ -597,9 +605,11 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
         [{ role: 'user', content: `다음 영어를 자연스러운 한국어로 번역만 해줘. 설명·따옴표·영어 원문 없이 한국어 번역문만 출력:\n\n${text}` }],
         { temperature: 0.2, maxTokens: 260 }
       );
-      updateMsg(id, { translation: ko.trim(), translating: false });
+      // 모델이 영어를 그대로 돌려주면 번역이 아니다 — 실패로 안내한다
+      updateMsg(id, { translation: hasHangul(ko) ? ko.trim() : '번역에 실패했어요 — 버튼을 다시 눌러 주세요.', translating: false });
     } catch {
-      updateMsg(id, { translating: false });
+      // 무음 실패 금지 — 버튼이 먹통처럼 보이던 문제
+      updateMsg(id, { translation: '번역에 실패했어요 — 버튼을 다시 눌러 주세요.', translating: false });
     }
   }
 
@@ -672,7 +682,28 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     const words = transcript.match(/[A-Za-z']+/g) || [];
     const wpm = duration && duration > 0 ? words.length / (duration / 60) : null;
     try {
-      const raw = JSON.parse((await groqComplete([{ role: 'user', content: buildCafPrompt(transcript, cefr, next, wpm) }], { temperature: 0.3, maxTokens: 800, json: true })) || '{}');
+      // 한국어 설명 필드(summary_ko·why_ko·note_ko)가 영어로 오면 버리고 1회 재요청.
+      // 시스템 메시지가 없는 호출이라 groqKoJson의 재시도 지시가 붙도록 system을 앞에 둔다.
+      const raw = await groqKoJson<Record<string, unknown>>(
+        [
+          { role: 'system', content: 'Follow the user instructions exactly. 한국어로 지정된 필드는 반드시 한국어로 쓴다.' },
+          { role: 'user', content: buildCafPrompt(transcript, cefr, next, wpm) },
+        ],
+        { temperature: 0.3, maxTokens: 800 },
+        (data) => {
+          const o = data as Record<string, unknown> | null;
+          if (!o || typeof o !== 'object') return null;
+          if (!hasHangul(o.summary_ko)) return null;
+          const errs = o.errors;
+          const paras = o.paraphrases;
+          if (errs != null && !Array.isArray(errs)) return null;
+          if (paras != null && !Array.isArray(paras)) return null;
+          if (Array.isArray(errs) && errs.some((e: { why_ko?: unknown }) => e?.why_ko && !hasHangul(e.why_ko))) return null;
+          if (Array.isArray(paras) && paras.some((p: { note_ko?: unknown }) => p?.note_ko && !hasHangul(p.note_ko))) return null;
+          return o;
+        }
+      );
+      if (!raw) throw new Error('CAF_INVALID');
       const clamp = (v: unknown, lo = 0, hi = 10) => Math.max(lo, Math.min(hi, parseFloat(String(v)) || 0));
       const fillers = (transcript.match(/\b(um+|uh+|er+|like|you know|i mean|kind of|sort of|well)\b/gi) || []).length;
       const fillerRatio = words.length ? fillers / words.length : 0;
@@ -680,8 +711,8 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
         complexity: Math.round(clamp(raw.complexity) * 10) / 10,
         accuracy: Math.round(clamp(raw.accuracy) * 10) / 10,
         fluency: Math.round(Math.max(0, clamp(raw.fluency) - (fillerRatio > 0.1 ? fillerRatio * 10 : 0)) * 10) / 10,
-        errors: (raw.errors || []).slice(0, 3),
-        paraphrases: (raw.paraphrases || []).slice(0, 3),
+        errors: ((raw.errors as CafResult['errors']) || []).slice(0, 3),
+        paraphrases: ((raw.paraphrases as CafResult['paraphrases']) || []).slice(0, 3),
         summary_ko: String(raw.summary_ko || '').trim(),
         metrics: { word_count: words.length, wpm: wpm ? Math.round(wpm * 10) / 10 : null },
       };
@@ -699,7 +730,8 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
         setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: '⚡ CAF 분석을 위해 무료 Groq 키를 등록하세요.' }]);
         setHasKey(false);
       } else {
-        setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: `❌ CAF 분석 실패: ${e.message}` }]);
+        // JS 원시 에러("Unexpected token ...")를 채팅에 노출하지 않는다
+        setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: `❌ ${e instanceof GroqError ? e.message : 'CAF 분석에 실패했어요 — 잠시 후 다시 시도해 주세요.'}` }]);
       }
     } finally {
       setCafBusy(false);

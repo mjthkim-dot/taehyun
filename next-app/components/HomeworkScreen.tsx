@@ -7,7 +7,8 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { ALL_LESSONS, LESSONS, lessonLabel, type Lesson } from '../lib/lessons';
-import { groqComplete, GroqError } from '../lib/groq';
+import { GroqError } from '../lib/groq';
+import { AI_FAIL_KO, groqKoJson, groqKoText, hasHangul } from '../lib/aiGuard';
 import { addPhrase, addWeakItem, groqKey, isHomeworkDone, markHomeworkDone, markPracticedToday } from '../lib/state';
 import SpeakButton from './SpeakButton';
 import DialoguePractice from './DialoguePractice';
@@ -101,26 +102,39 @@ export default function HomeworkScreen({ lessonId }: { lessonId: number }) {
     setDone(lesson ? isHomeworkDone(lesson.id) : false);
     const modeRule =
       mode === 'hint'
-        ? `MODE: HINT-ONLY. Do NOT reveal final answers. For each item, write a guiding "hint" in Korean (what to look at, which rule applies, how to start) and leave "answer" and "explanation" as empty strings.`
-        : `MODE: FULL. For each item, give the correct "answer" (in English) and a clear step-by-step "explanation" in Korean. Leave "hint" empty.`;
-    const sys = `You are a warm, patient Korean tutor helping a Korean student with their ENGLISH homework. Read the problem(s) from the text. If the student wrote their own attempted answers, also check them and gently correct mistakes. Explain in KOREAN (use English only for the English answers/examples). ${modeRule} Output ONLY valid JSON.${hwLessonContext(lesson)}`;
-    const schema = `Return JSON:
-{"detected":"1-line Korean summary of what this homework is",
- "items":[{"question":"the problem restated briefly","answer":"English answer (empty in HINT mode)","explanation":"Korean step-by-step (empty in HINT mode)","hint":"Korean guiding hint (only in HINT mode)"}],
- "keyPoints":["short Korean grammar/vocab takeaway"],
- "saveItems":[{"en":"useful English word/expression from this homework","kr":"Korean meaning"}],
- "practice":{"q":"one NEW similar practice problem in English","a":"its answer"}}`;
+        ? `모드: 힌트만. 정답을 절대 공개하지 마라. 각 문항의 "hint"에 한국어로 풀이 방향(무엇을 볼지, 어떤 규칙인지, 어떻게 시작할지)만 적고 "answer"와 "explanation"은 빈 문자열로 둔다.`
+        : `모드: 전체 풀이. 각 문항의 "answer"에 영어 정답을, "explanation"에 한국어 단계별 설명을 적는다. "hint"는 빈 문자열.`;
+    const sys = `너는 한국인 학생의 영어 숙제를 도와주는 따뜻하고 참을성 있는 튜터다. 텍스트에서 문제를 읽어내고, 학생이 직접 쓴 답이 있으면 함께 점검해 부드럽게 고쳐준다. 설명(detected·explanation·hint·keyPoints·kr)은 반드시 한국어로 쓴다 — 영어는 영어 정답·예문에만 쓴다. ${modeRule} Output ONLY valid JSON.${hwLessonContext(lesson)}`;
+    const schema = `JSON으로 답하라:
+{"detected":"이 숙제가 무엇인지 한국어 한 줄 요약",
+ "items":[{"question":"문제를 짧게 재진술","answer":"영어 정답 (힌트 모드에서는 빈 문자열)","explanation":"한국어 단계별 설명 (힌트 모드에서는 빈 문자열)","hint":"한국어 힌트 (힌트 모드에서만)"}],
+ "keyPoints":["한국어로 쓴 문법·어휘 핵심 정리"],
+ "saveItems":[{"en":"이 숙제에서 익혀둘 영어 표현","kr":"한국어 뜻"}],
+ "practice":{"q":"비슷한 새 연습문제 (영어)","a":"그 정답"}}`;
     try {
-      const userText = `Homework text:\n"""${t}"""\n\n${schema}`;
-      const raw = await groqComplete([{ role: 'system', content: sys }, { role: 'user', content: userText }], {
-        json: true,
-        maxTokens: 1500,
-        temperature: 0.3,
-      });
-      setResult(JSON.parse(raw));
+      const userText = `숙제 텍스트:\n"""${t}"""\n\n${schema}`;
+      const picked = await groqKoJson<HwResult>(
+        [{ role: 'system', content: sys }, { role: 'user', content: userText }],
+        { maxTokens: 1150, temperature: 0.3 },
+        (data) => {
+          const o = data as HwResult | null;
+          // 형태: items가 배열이 아니면 렌더에서 죽는다. 언어: 요약이 한국어가 아니면
+          // 설명 전체가 영어로 왔을 가능성이 크다 — 응답을 버리고 다시 묻는다.
+          if (!o || typeof o !== 'object' || !Array.isArray(o.items) || !o.items.length) return null;
+          if (!hasHangul(o.detected)) return null;
+          if (o.keyPoints != null && !Array.isArray(o.keyPoints)) return null;
+          if (o.saveItems != null && !Array.isArray(o.saveItems)) return null;
+          return o;
+        }
+      );
+      if (!picked) {
+        setError(AI_FAIL_KO);
+        return;
+      }
+      setResult(picked);
       markPracticedToday();
     } catch (e) {
-      setError(e instanceof GroqError ? e.message : String(e));
+      setError(e instanceof GroqError ? e.message : AI_FAIL_KO);
     } finally {
       setLoading(false);
     }
@@ -130,8 +144,11 @@ export default function HomeworkScreen({ lessonId }: { lessonId: number }) {
     const items = (result?.saveItems || []).filter((x) => x && x.en?.trim());
     items.forEach((it) => {
       const en = it.en.trim();
-      addPhrase({ en, kr: (it.kr || '').trim() });
-      addWeakItem({ en, kr: (it.kr || '').trim(), lesson: 'homework', cat: 'homework' });
+      // 뜻이 한국어가 아니면(모델이 영어 설명을 넣은 경우) 비워서 저장한다 —
+      // 영어 "뜻"이 붙은 카드는 암기 카드에서 앞뒤가 다 영어가 되는 쓰레기가 된다
+      const kr = hasHangul(it.kr) ? (it.kr || '').trim() : '';
+      addPhrase({ en, kr });
+      addWeakItem({ en, kr, lesson: 'homework', cat: 'homework' });
     });
     setSavedCount(items.length);
   }
@@ -158,14 +175,38 @@ export default function HomeworkScreen({ lessonId }: { lessonId: number }) {
         hint: it.hint || '',
         studentAnswer: attempts[i] || '',
       }));
-      const sys = 'You are a warm Korean English tutor checking a student\'s own attempted answers. Output ONLY JSON.';
-      const user = `For each item below, decide if the student's answer is correct, give short Korean feedback (why right/wrong), and state the correct English answer.
+      const sys = '너는 학생이 직접 풀어본 영어 숙제 답을 채점하는 따뜻한 튜터다. feedback은 반드시 한국어로 쓴다. Output ONLY JSON.';
+      const user = `아래 각 문항에 대해 학생 답이 맞는지 판정하고, 왜 맞고 틀렸는지 한국어로 짧게 feedback을 쓰고, 올바른 영어 정답(correctAnswer)을 제시하라.
 Items: ${JSON.stringify(payload)}
-Return JSON: {"results":[{"idx":0,"correct":true,"feedback":"Korean feedback","correctAnswer":"English answer"},...]}`;
-      const raw = await groqComplete([{ role: 'system', content: sys }, { role: 'user', content: user }], { json: true, maxTokens: 900, temperature: 0.3 });
-      const data = JSON.parse(raw) as { results?: { idx: number; correct: boolean; feedback: string; correctAnswer: string }[] };
+JSON으로 답하라: {"results":[{"idx":0,"correct":true,"feedback":"한국어 피드백","correctAnswer":"영어 정답"},...]}`;
+      const total = result.items.length;
+      const results = await groqKoJson<{ idx: number; correct: boolean; feedback: string; correctAnswer: string }[]>(
+        [{ role: 'system', content: sys }, { role: 'user', content: user }],
+        { maxTokens: 900, temperature: 0.3 },
+        (data) => {
+          const o = data as { results?: { idx?: unknown; correct?: unknown; feedback?: unknown; correctAnswer?: unknown }[] } | null;
+          if (!o || !Array.isArray(o.results) || !o.results.length) return null;
+          // idx가 범위를 벗어나면(1-기반 등) 엉뚱한 문항에 채점이 붙는다 — 응답을 버린다
+          const cleaned = o.results
+            .filter((r) => r && Number.isInteger(Number(r.idx)) && Number(r.idx) >= 0 && Number(r.idx) < total)
+            .map((r) => ({
+              idx: Number(r.idx),
+              correct: r.correct === true,
+              feedback: String(r.feedback || '').trim(),
+              correctAnswer: String(r.correctAnswer || '').trim(),
+            }));
+          if (!cleaned.length) return null;
+          // 피드백이 전부 영어면 채점을 읽을 수 없다
+          if (!cleaned.some((r) => hasHangul(r.feedback))) return null;
+          return cleaned;
+        }
+      );
+      if (!results) {
+        setGradeError(AI_FAIL_KO);
+        return;
+      }
       const map: Record<number, GradeItem> = {};
-      (data.results || []).forEach((r) => {
+      results.forEach((r) => {
         map[r.idx] = { correct: r.correct, feedback: r.feedback, correctAnswer: r.correctAnswer };
         if (!r.correct && r.correctAnswer) {
           addWeakItem({ en: r.correctAnswer, kr: '', lesson: lesson?.id ?? 'homework', cat: 'homework' });
@@ -173,7 +214,7 @@ Return JSON: {"results":[{"idx":0,"correct":true,"feedback":"Korean feedback","c
       });
       setGrades(map);
     } catch (e) {
-      setGradeError(e instanceof GroqError ? e.message : String(e));
+      setGradeError(e instanceof GroqError ? e.message : AI_FAIL_KO);
     } finally {
       setGradeLoading(false);
     }
@@ -192,7 +233,7 @@ Return JSON: {"results":[{"idx":0,"correct":true,"feedback":"Korean feedback","c
     setFollowInput('');
     setFollowLoading(true);
     try {
-      const sys = 'You are a warm, patient Korean tutor. The student already got help with their English homework and now has follow-up questions, possibly several in a row. Answer in Korean (English only for example sentences). Keep answers concise and focused. Output plain text, not JSON.';
+      const sys = '너는 따뜻하고 참을성 있는 튜터다. 학생이 영어 숙제 도움을 받은 뒤 추가 질문을 이어서 하고 있다. 반드시 한국어로 답하고, 영어는 예문에만 쓴다. 간결하고 초점 있게. JSON이 아니라 평문으로만 출력하라.';
       const items = (result.items || []).map((it, i) => `${i + 1}. ${it.question || ''}`).join(' / ');
       const context = `Original homework: ${result.detected || ''}\nItems: ${items}\nKey points already given: ${(result.keyPoints || []).join('; ')}`;
       const targetNote =
@@ -209,10 +250,12 @@ Return JSON: {"results":[{"idx":0,"correct":true,"feedback":"Korean feedback","c
         ...history,
         { role: 'user' as const, content: targetNote ? `${targetNote}\n${q}` : q },
       ];
-      const a = await groqComplete(messages, { maxTokens: 400, temperature: 0.4 });
-      setFollowUps((prev) => [...prev, { q, a: a.trim() }]);
+      // 답변 전체가 화면에 그대로 뜬다 — 한국어가 아니면 한 번 다시 묻고, 그래도
+      // 실패하면 영어 덩어리 대신 실패 안내를 남긴다.
+      const a = await groqKoText(messages, { maxTokens: 400, temperature: 0.4 });
+      setFollowUps((prev) => [...prev, { q, a: a ?? `❌ ${AI_FAIL_KO}` }]);
     } catch (e) {
-      setFollowUps((prev) => [...prev, { q, a: `❌ ${e instanceof GroqError ? e.message : String(e)}` }]);
+      setFollowUps((prev) => [...prev, { q, a: `❌ ${e instanceof GroqError ? e.message : AI_FAIL_KO}` }]);
     } finally {
       setFollowLoading(false);
     }

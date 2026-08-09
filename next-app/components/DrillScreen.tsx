@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ALL_LESSONS, LESSONS, CEFR_GSE, cefrOf } from '../lib/lessons';
 import { addWeakItem, bumpSkill, buildTodayQueue, gradeWeakItem, groqKey, markPracticedToday, takeDrillQueue, type DrillItem, type FlashGrade } from '../lib/state';
 import { groqComplete, GroqError } from '../lib/groq';
+import { HANGUL_RE } from '../lib/aiGuard';
 import { useLessonStore } from '../store/useLessonStore';
 import SpeakingPractice from './SpeakingPractice';
 import { speakText } from './SpeakButton';
@@ -27,8 +28,6 @@ interface CoachTip {
   tip: string;
   example?: string;
 }
-
-const HANGUL_RE = /[가-힣]/;
 
 /** 모델 응답을 CoachTip 배열로 정돈한다 — 문자열 배열(구형식)도 받아준다. */
 function parseCoachTips(raw: string): CoachTip[] {

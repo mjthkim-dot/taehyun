@@ -19,7 +19,7 @@
  * 저장은 기기에만 한다 — 고객사·안건은 업무 정보라 서버로 보내지 않는다(AI 호출에
  * 필요한 최소한만 프롬프트로 나간다는 점은 화면에 그대로 밝힌다).
  */
-import { groqComplete } from './groq';
+import { groqKoJson, hasHangul } from './aiGuard';
 import { load, store } from './state';
 
 export interface PrepPhrase {
@@ -97,9 +97,9 @@ const PREP_SYSTEM = [
   '- Keep each phrase under 18 words so it can be spoken from memory.',
   '- questions: exactly 5. What the customer is most likely to ask or push back on, with a concrete answer the seller can say.',
   '- Prefer natural business English over formal written English. Contractions are fine.',
-  '- kr: natural Korean translation (존댓말), not literal word-for-word.',
+  '- kr 필드는 반드시 자연스러운 한국어 번역(존댓말)이다. 직역·영어 금지.',
   '- headline: one English sentence the seller can use to frame the meeting ("Today I want to walk you through...").',
-  '- talkPrompt: Korean instruction describing the customer persona and how they should behave in a roleplay.',
+  '- talkPrompt는 반드시 한국어로 쓴다: 롤플레이에서 AI가 연기할 고객 페르소나와 행동 방식을 설명하는 지문이다.',
 ].join('\n');
 
 /** 세 줄 입력 → 그 미팅용 표현·예상 질문. 실패하면 예외를 던진다. */
@@ -108,7 +108,9 @@ export async function generatePrep(input: {
   agenda: string;
   goal: string;
 }): Promise<MeetingPrep> {
-  const raw = await groqComplete(
+  // maxTokens는 서버 프록시 캡(1200) 이하로 — 그 이상 요청하면 조용히 잘려서
+  // JSON이 절단되고, 파싱 실패가 사용자에게 원시 에러로 새어 나갔다.
+  const picked = await groqKoJson(
     [
       { role: 'system', content: PREP_SYSTEM },
       {
@@ -122,29 +124,41 @@ export async function generatePrep(input: {
         ].join('\n'),
       },
     ],
-    { temperature: 0.7, maxTokens: 1600, json: true }
+    { temperature: 0.7, maxTokens: 1150 },
+    (data) => {
+      const p = (data ?? {}) as Partial<MeetingPrep>;
+      const phrases = (Array.isArray(p.phrases) ? p.phrases : [])
+        .filter((x) => x && x.en && hasHangul(x.kr))
+        .map((x) => ({ en: String(x.en).trim(), kr: String(x.kr || '').trim() }))
+        .slice(0, 8);
+      const questions = (Array.isArray(p.questions) ? p.questions : [])
+        .filter((q) => q && q.en)
+        .map((q) => ({
+          en: String(q.en).trim(),
+          kr: String(q.kr || '').trim(),
+          answer: {
+            en: String(q.answer?.en || '').trim(),
+            kr: String(q.answer?.kr || '').trim(),
+          },
+        }))
+        .filter((q) => q.answer.en)
+        .slice(0, 5);
+      // 표현이 몇 개뿐이면 준비가 안 된 것이다 — 반쪽짜리를 저장해 두면 신뢰를 잃는다.
+      // kr이 영어로 온 항목은 위에서 걸렀으므로, 남은 수가 모자라면 언어 위반도 여기서 잡힌다.
+      if (phrases.length < 4 || questions.length < 2) return null;
+      const talkPrompt = String(p.talkPrompt || '').trim();
+      return {
+        headline: String(p.headline || '').trim(),
+        phrases,
+        questions,
+        // talkPrompt가 영어로 오면(페르소나 지문이 영어 화면 노출) 한국어 템플릿으로 대체
+        talkPrompt: hasHangul(talkPrompt)
+          ? talkPrompt
+          : `${input.who} 역할로 ${input.agenda}에 대해 질문하고 반론하는 고객. 사용자는 영업 담당자다.`,
+      };
+    }
   );
-
-  const p = JSON.parse(raw || '{}') as Partial<MeetingPrep>;
-  const phrases = (Array.isArray(p.phrases) ? p.phrases : [])
-    .filter((x) => x && x.en)
-    .map((x) => ({ en: String(x.en).trim(), kr: String(x.kr || '').trim() }))
-    .slice(0, 8);
-  const questions = (Array.isArray(p.questions) ? p.questions : [])
-    .filter((q) => q && q.en)
-    .map((q) => ({
-      en: String(q.en).trim(),
-      kr: String(q.kr || '').trim(),
-      answer: {
-        en: String(q.answer?.en || '').trim(),
-        kr: String(q.answer?.kr || '').trim(),
-      },
-    }))
-    .filter((q) => q.answer.en)
-    .slice(0, 5);
-
-  // 표현이 몇 개뿐이면 준비가 안 된 것이다 — 반쪽짜리를 저장해 두면 신뢰를 잃는다
-  if (phrases.length < 4 || questions.length < 2) {
+  if (!picked) {
     throw new Error('준비 자료를 만들지 못했어요. 안건을 조금 더 구체적으로 적고 다시 시도해 주세요.');
   }
 
@@ -152,12 +166,7 @@ export async function generatePrep(input: {
     id: `m-${Date.now()}`,
     date: today(),
     input,
-    headline: String(p.headline || '').trim(),
-    phrases,
-    questions,
-    talkPrompt:
-      String(p.talkPrompt || '').trim() ||
-      `${input.who} 역할로 ${input.agenda}에 대해 질문하고 반론하는 고객. 사용자는 영업 담당자다.`,
+    ...picked,
     used: [],
     gaps: [],
   };
@@ -176,19 +185,25 @@ const GAP_SYSTEM = [
  * 회고 — "못 한 말"(한국어 줄바꿈 목록)을 영어 문장으로 바꾼다.
  * 실전에서 막힌 표현이라 학습 동기가 가장 분명한 재료다.
  */
-export async function translateGaps(lines: string[]): Promise<{ kr: string; en: string }[]> {
+export async function translateGaps(lines: string[]): Promise<{ kr: string; en: string }[] | null> {
   const clean = lines.map((l) => l.trim()).filter(Boolean).slice(0, 8);
   if (!clean.length) return [];
-  const raw = await groqComplete(
+  // 한국어 원문은 모델의 에코를 믿지 않고 입력 순서(인덱스)로 직접 짝을 맞춘다 —
+  // 모델이 순서를 바꾸거나 원문을 고쳐 써도 잘못 짝지어진 카드가 SRS에 들어가지 않는다.
+  const picked = await groqKoJson(
     [
       { role: 'system', content: GAP_SYSTEM },
       { role: 'user', content: clean.map((l, i) => `${i + 1}. ${l}`).join('\n') },
     ],
-    { temperature: 0.5, maxTokens: 900, json: true }
+    { temperature: 0.5, maxTokens: 900 },
+    (data) => {
+      const parsed = (data ?? {}) as { items?: { kr?: string; en?: string }[] };
+      const items = Array.isArray(parsed.items) ? parsed.items : [];
+      // 줄 수가 다르면 어느 번역이 어느 원문 것인지 알 수 없다 — 응답을 버린다
+      if (items.length !== clean.length) return null;
+      if (items.some((x) => !x || !String(x.en || '').trim())) return null;
+      return items.map((x, i) => ({ kr: clean[i], en: String(x.en).trim() }));
+    }
   );
-  const parsed = JSON.parse(raw || '{}') as { items?: { kr?: string; en?: string }[] };
-  return (Array.isArray(parsed.items) ? parsed.items : [])
-    .filter((x) => x && x.en)
-    .map((x) => ({ kr: String(x.kr || '').trim(), en: String(x.en).trim() }))
-    .slice(0, 8);
+  return picked; // null = 두 번 다 실패 — 호출부가 입력을 지우지 말고 안내해야 한다
 }

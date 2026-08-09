@@ -28,7 +28,7 @@ import {
   type PitchTopic,
 } from '../lib/pitch';
 import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
-import { groqComplete } from '../lib/groq';
+import { groqKoJson } from '../lib/aiGuard';
 import { addPhrase, bumpSpoken, groqKey, markPracticedToday } from '../lib/state';
 import SpeakButton from './SpeakButton';
 import type { Mode } from './NavBar';
@@ -55,7 +55,7 @@ export default function PitchScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
   const [coach, setCoach] = useState<PitchCoach | null>(null);
   const [coachBusy, setCoachBusy] = useState(false);
   const [err, setErr] = useState('');
-  const [prev, setPrev] = useState<{ covered: number; total: number; wpm: number } | null>(null);
+  const [prev, setPrev] = useState<{ covered: number | null; total: number; wpm: number } | null>(null);
 
   const stopRef = useRef<(() => void) | null>(null);
   const hasKey = groqKey();
@@ -125,7 +125,8 @@ export default function PitchScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
       bumpSpoken();
       markPracticedToday();
       if (hasKey) void runCoach(res.text, m);
-      else savePitchRun({ id: `p-${Date.now()}`, date: new Date().toISOString().slice(0, 10), topicKey: topic.key, topicLabel: topic.label, transcript: res.text, metrics: m, covered: 0, total: topic.outline.length });
+      // 코칭 없는 회차는 covered를 비워 둔다 — 0으로 저장하면 가짜 퇴보 추세가 된다
+      else savePitchRun({ id: `p-${Date.now()}`, date: new Date().toISOString().slice(0, 10), topicKey: topic.key, topicLabel: topic.label, transcript: res.text, metrics: m, covered: null, total: topic.outline.length });
     } catch (e) {
       stopRef.current = null;
       setTranscribing(false);
@@ -139,8 +140,13 @@ export default function PitchScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
   async function runCoach(text: string, m: PitchMetrics) {
     setCoachBusy(true);
     try {
-      const raw = await groqComplete(buildCoachMessages(topic, text, m), { temperature: 0.4, maxTokens: 1200, json: true });
-      const c = parseCoach(raw || '{}', topic);
+      // 한국어 코칭이 영어로 오거나 구조가 없으면 parseCoach가 null — 1회 재요청
+      const c = await groqKoJson(
+        buildCoachMessages(topic, text, m),
+        { temperature: 0.4, maxTokens: 1200 },
+        (data) => parseCoach(data, topic)
+      );
+      if (!c) throw new Error('COACH_INVALID');
       setCoach(c);
       savePitchRun({
         id: `p-${Date.now()}`,
@@ -153,9 +159,10 @@ export default function PitchScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
         total: c.structure.length,
       });
     } catch {
-      // 코칭이 실패해도 지표는 이미 화면에 있다 — 여기서 무너뜨리지 않는다
+      // 코칭이 실패해도 지표는 이미 화면에 있다 — 여기서 무너뜨리지 않는다.
+      // covered는 비워 둔다: 실패를 "구조 0칸"으로 저장하면 다음 회차에 가짜 퇴보로 보인다.
       setErr('AI 코칭을 받지 못했어요. 아래 지표는 그대로 유효합니다.');
-      savePitchRun({ id: `p-${Date.now()}`, date: new Date().toISOString().slice(0, 10), topicKey: topic.key, topicLabel: topic.label, transcript: text, metrics: m, covered: 0, total: topic.outline.length });
+      savePitchRun({ id: `p-${Date.now()}`, date: new Date().toISOString().slice(0, 10), topicKey: topic.key, topicLabel: topic.label, transcript: text, metrics: m, covered: null, total: topic.outline.length });
     } finally {
       setCoachBusy(false);
     }
@@ -213,7 +220,7 @@ export default function PitchScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
 
           {prev && (
             <div className="pt-prev">
-              지난번: 구조 {prev.covered}/{prev.total} 칸 · 분당 {prev.wpm}단어
+              지난번: {prev.covered != null ? `구조 ${prev.covered}/${prev.total} 칸 · ` : ''}분당 {prev.wpm}단어
             </div>
           )}
           {err && <p className="warn">{err}</p>}
@@ -312,7 +319,7 @@ export default function PitchScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
           <>
             <div className="mt-sec">
               구조 — {coach.structure.filter((s) => s.ok).length}/{coach.structure.length}칸
-              {prev && ` (지난번 ${prev.covered}/${prev.total})`}
+              {prev && prev.covered != null && ` (지난번 ${prev.covered}/${prev.total})`}
             </div>
             {coach.structure.map((s) => (
               <div className={`pt-struct${s.ok ? ' ok' : ''}`} key={s.label}>
