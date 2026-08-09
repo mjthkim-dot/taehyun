@@ -1,0 +1,64 @@
+# 프렌즈 잉글리시(friends-app) → GitHub Pages 배포.
+# 완전 정적 export(out/)를 그대로 올린다 — 서버·시크릿 불필요.
+# 접속 URL: https://mjthkim-dot.github.io/taehyun/
+name: Deploy friends-app to Pages
+
+on:
+  push:
+    branches:
+      - main
+      - claude/friends-english-learning-app-cbw2xm
+    paths:
+      - 'friends-app/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    defaults:
+      run:
+        working-directory: friends-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: friends-app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (basePath /taehyun — Pages 하위 경로)
+        run: npm run build
+        env:
+          BASE_PATH: /taehyun
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        with:
+          # 저장소에 Pages가 아직 꺼져 있으면 워크플로가 직접 켠다.
+          enablement: true
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: friends-app/out
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
