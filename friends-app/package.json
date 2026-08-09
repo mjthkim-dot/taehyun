@@ -1,0 +1,27 @@
+{
+  "name": "friends-english",
+  "version": "1.0.0",
+  "private": true,
+  "description": "프렌즈로 배우는 실생활 영어 — 회차별 상황 시나리오 학습 앱",
+  "scripts": {
+    "dev": "next dev -p 3200",
+    "build": "next build",
+    "start": "npx serve out",
+    "typecheck": "tsc --noEmit",
+    "validate": "node scripts/validate-data.mjs",
+    "test:e2e": "node tests/e2e/run.mjs"
+  },
+  "dependencies": {
+    "next": "^14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/dom-speech-recognition": "^0.0.4",
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "playwright": "^1.62.0",
+    "typescript": "^5.5.3"
+  }
+}
