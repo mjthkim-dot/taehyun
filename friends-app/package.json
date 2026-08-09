@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev -p 3200",
     "build": "next build",
+    "build:vercel": "BASE_PATH=/friends next build && rm -rf ../friends && cp -r out ../friends",
     "start": "npx serve out",
     "typecheck": "tsc --noEmit",
     "validate": "node scripts/validate-data.mjs",

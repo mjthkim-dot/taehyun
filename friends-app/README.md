@@ -56,6 +56,18 @@ CI(`.github/workflows/ci.yml`)가 위 파이프라인 전체를 `friends-app` �
 로컬에 Playwright 브라우저가 따로 있다면 `PLAYWRIGHT_CHROMIUM_PATH=<경로>`로
 지정할 수 있다.
 
+## 배포
+
+이 저장소의 Vercel 배포(루트 정적 사이트)에 `/friends/` 경로로 함께 실린다.
+저장소 루트의 `friends/` 디렉터리가 그 정적 산출물이며, 앱을 수정한 뒤에는
+
+```bash
+npm run build:vercel   # BASE_PATH=/friends 빌드 → ../friends 갱신
+```
+
+로 재생성해 함께 커밋한다. GitHub Pages(`gh-pages` 브랜치, `/taehyun` 하위 경로)
+배포도 `.github/workflows/deploy-pages.yml`이 자동으로 수행한다.
+
 ## 구조
 
 ```
