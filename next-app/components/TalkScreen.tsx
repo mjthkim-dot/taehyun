@@ -15,7 +15,8 @@ import { groqKoJson, hasHangul } from '../lib/aiGuard';
 import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, buildScenarioReviewPrompt, parseAiText } from '../lib/talkPrompts';
 import { takeMissionTalkContext, type MissionTalkCtx } from '../lib/dailyMission';
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS, isKorean } from './SpeakButton';
-import { MicIcon, SendIcon } from './icons';
+import { MicIcon, SendIcon, SpeakerIcon } from './icons';
+import { fetchGloss } from '../lib/gloss';
 import VoiceOverlay, { type VoiceState } from './VoiceOverlay';
 import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
 
@@ -118,6 +119,9 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   const [reviewBusy, setReviewBusy] = useState(false);
   /** 한국어로 묻는 중 — 훅은 반드시 조기 return 위에 있어야 한다(조건부 훅 금지) */
   const [krListening, setKrListening] = useState(false);
+  /** 탭한 단어의 뜻 바 — 이 훅도 조기 return(!ready) 위에 있어야 한다 */
+  const [gloss, setGloss] = useState<{ word: string; ko: string | null } | null>(null);
+  const glossSeqRef = useRef(0);
 
   const lesson = ALL_LESSONS.find((l) => l.id === lessonId) ?? LESSONS[LESSONS.length - 1];
   const historyRef = useRef<{ role: string; content: string }[]>([]);
@@ -593,6 +597,20 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     store('va_bgcorrect', on);
   }
 
+  /** 탭한 단어의 뜻 — "대화에 모르는 단어가 많다"의 해결책. 캐시 우선이라 재탭은 즉시. */
+  async function tapWord(word: string, sentence: string) {
+    const clean = word.replace(/[^A-Za-z'-]/g, '');
+    if (!clean) return;
+    const seq = ++glossSeqRef.current;
+    setGloss({ word: clean, ko: null });
+    try {
+      const ko = await fetchGloss(clean, sentence);
+      if (glossSeqRef.current === seq) setGloss({ word: clean, ko: ko ?? '뜻을 가져오지 못했어요 — 다시 탭해 보세요' });
+    } catch {
+      if (glossSeqRef.current === seq) setGloss({ word: clean, ko: '뜻을 가져오지 못했어요 — 다시 탭해 보세요' });
+    }
+  }
+
   async function translate(id: number, text: string) {
     const msg = messages.find((m) => m.id === id);
     if (msg && msg.kind === 'ai' && msg.translation) {
@@ -867,7 +885,8 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
               <div className="ai-avatar" aria-hidden="true">AI</div>
               <div className="msg-col">
                 <div className={`bubble${m.streaming ? ' typing' : ''}`}>
-                  {parsed.plain || (m.streaming ? <TypingDots /> : '')}
+                  {/* 모르는 단어는 탭하면 바로 뜻 — 스트리밍 중에는 평문으로 둔다 */}
+                  {m.streaming ? parsed.plain || <TypingDots /> : parsed.plain ? <TappableText text={parsed.plain} onWord={tapWord} /> : ''}
                   {parsed.heard.map((h, i) => (
                     <div className="correction-box" key={i}>
                       <div className="label">발음 피드백</div>
@@ -916,6 +935,26 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       )}
 
       <div className="input-area">
+        {gloss && (
+          <div className="gloss-bar">
+            <b className="gloss-word">{gloss.word}</b>
+            <span className="gloss-ko">{gloss.ko ?? '뜻 찾는 중…'}</span>
+            <button type="button" className="speak-mini" aria-label={`${gloss.word} 듣기`} onClick={() => speakText(gloss.word, 'en-US')}><SpeakerIcon /></button>
+            {gloss.ko && !gloss.ko.startsWith('뜻을 가져오지') && (
+              <button
+                type="button"
+                className="speak-mini"
+                onClick={() => {
+                  addPhrase({ en: gloss.word, kr: gloss.ko || '', lesson: 'gloss' });
+                  setGloss(null);
+                }}
+              >
+                저장
+              </button>
+            )}
+            <button type="button" className="speak-mini" aria-label="닫기" onClick={() => setGloss(null)}>✕</button>
+          </div>
+        )}
         <div className="helper-chips">
           <button className="helper-chip hint" onClick={askForSuggestions} title="AI가 지금 상황에 맞는 영어 답변 예시를 제안해줍니다">
             뭐라고 답하지?
@@ -1092,5 +1131,23 @@ function CafBar({ name, val, color }: { name: string; val: number; color: string
       </span>
       <span className="val">{val.toFixed(1)}</span>
     </div>
+  );
+}
+
+/** AI 말풍선의 단어를 탭 가능하게 — 모르는 단어를 그 자리에서 찾게 한다. */
+function TappableText({ text, onWord }: { text: string; onWord: (w: string, sentence: string) => void }) {
+  const parts = text.split(/(\s+)/);
+  return (
+    <>
+      {parts.map((p, i) =>
+        /[A-Za-z]/.test(p) ? (
+          <span key={i} className="tap-word" onClick={() => onWord(p, text)}>
+            {p}
+          </span>
+        ) : (
+          <span key={i}>{p}</span>
+        )
+      )}
+    </>
   );
 }

@@ -994,6 +994,227 @@ button {
   padding: 6px 13px;
 }
 
+/* ── 오늘의 세션 ──
+ * 홈의 주인공 CTA + 세션 화면(진행 스트립·스토리·말하기·실전). */
+.session-cta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--on-primary);
+  background: var(--grad-primary);
+  border: none;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 17px 19px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  transition: transform 0.18s var(--ease-out-back), box-shadow 0.2s;
+}
+.session-cta:active {
+  transform: scale(0.985);
+}
+[data-theme='dark'] .session-cta:not(.done) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), var(--glow-accent);
+}
+.session-cta.done {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--green);
+}
+.session-cta-main {
+  flex: 1;
+  min-width: 0;
+}
+.session-cta-title {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.session-cta.done .session-cta-title {
+  color: var(--green);
+}
+.session-cta-sub {
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.session-cta.done .session-cta-sub {
+  color: var(--text-muted);
+  opacity: 1;
+}
+.session-cta-arrow {
+  flex-shrink: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.ss-phases {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.ss-phase {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.ss-phase.now {
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border-color: var(--primary);
+}
+.ss-count {
+  margin-left: auto;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ss-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+.ss-story {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 17px 18px;
+}
+.ss-pattern-name {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--primary-dk);
+  margin-bottom: 6px;
+}
+.ss-scene {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  line-height: 1.65;
+  margin-bottom: 14px;
+}
+.ss-dialogue {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.ss-line {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+.ss-line.mark {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.ss-line-body {
+  flex: 1;
+  min-width: 0;
+}
+.ss-line-en {
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.55;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ss-line-kr {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+  line-height: 1.5;
+}
+.ss-how {
+  font-size: 0.84rem;
+  line-height: 1.7;
+  background: var(--surface2);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.ss-how-head {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  margin-bottom: 5px;
+}
+.ss-nav {
+  margin-top: 14px;
+}
+.ss-nav .start-drill-btn {
+  width: 100%;
+}
+.ss-hint {
+  text-align: center;
+  font-size: 0.74rem;
+  margin-top: 8px;
+}
+.ss-skip {
+  display: block;
+  margin: 8px auto 0;
+  opacity: 0.7;
+}
+.ss-finish-pattern {
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
+/* ── 회화 탭-뜻보기 ──
+ * AI 말풍선의 단어를 탭하면 입력창 위 바에 문맥 속 뜻이 뜬다. */
+.tap-word {
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.12s;
+}
+.tap-word:active {
+  background: var(--primary-soft);
+}
+.gloss-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  background: var(--primary-soft);
+  border: 1px solid var(--primary);
+  animation: fade-up 0.2s var(--ease-out-back);
+}
+.gloss-word {
+  font-size: 0.9rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.gloss-ko {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.84rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
 /* 홈 컴팩트 성장 카드 */
 .growth-card {
   display: flex;

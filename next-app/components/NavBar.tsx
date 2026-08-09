@@ -33,7 +33,8 @@ export type Mode =
   | 'scripts'
   | 'business'
   | 'ladder'
-  | 'growth';
+  | 'growth'
+  | 'session';
 
 const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [
   { mode: 'master', icon: 'home', label: '홈' },

@@ -14,7 +14,34 @@ import { consumeFreezesForGaps, getFreezeCount } from '../lib/habits';
 import CurriculumPath from './CurriculumPath';
 import StreakFlame from './StreakFlame';
 import { computeMaturity, type MaturityState } from '../lib/maturity';
+import { pickTodayPattern, sessionDoneToday } from '../lib/session';
 import type { Mode } from './NavBar';
+
+/** 홈의 주인공 — "오늘 세션 시작" 버튼 하나. 무엇을 할지 고르지 않게 한다. */
+function SessionCta({ onNavigate }: { onNavigate: (m: Mode) => void }) {
+  const [state, setState] = useState<{ done: boolean; patternEn: string; isReview: boolean } | null>(null);
+  useEffect(() => {
+    const mx = computeMaturity();
+    const picked = pickTodayPattern(mx.stage.n);
+    setState({ done: sessionDoneToday(), patternEn: picked?.pattern.en || '', isReview: picked?.isReview ?? false });
+  }, []);
+  if (!state) return null;
+  return (
+    <button type="button" className={`session-cta${state.done ? ' done' : ''}`} onClick={() => onNavigate('session')}>
+      <span className="session-cta-main">
+        <span className="session-cta-title">
+          {state.done ? '오늘 세션 완주 ✓' : '▶ 오늘 세션 시작'}
+        </span>
+        <span className="session-cta-sub">
+          {state.done
+            ? '한 번 더 돌면 복습이 깊어져요'
+            : `약 10분 · ${state.isReview ? '복습' : '오늘의 패턴'}: ${state.patternEn}`}
+        </span>
+      </span>
+      <span className="session-cta-arrow">→</span>
+    </button>
+  );
+}
 
 /** 홈의 컴팩트 성장 카드 — 성숙도 단계와 다음 승급 진행도를 한 줄로. 탭하면 성장 화면. */
 function GrowthCard({ onNavigate }: { onNavigate: (m: Mode) => void }) {
@@ -120,6 +147,9 @@ export default function MasterScreen({
 
       {/* 불꽃 히어로 — 발화가 불을 붙인다(스픽 벤치마크). tick으로 미션·연습의
           발화가 즉시 반영돼, 목표에 닿는 순간 이 자리에서 점화된다. */}
+      {/* 코스 중심 홈 — 고민 없이 누르는 오늘의 한 버튼이 맨 위 */}
+      <SessionCta onNavigate={onNavigate} />
+
       <StreakFlame refreshKey={tick} />
 
       {/* 성숙도 커리큘럼 — 원어민스러움 단계와 자동 승급 진행도 */}
