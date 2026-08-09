@@ -1,5 +1,10 @@
-# 프렌즈 잉글리시(friends-app) → GitHub Pages 배포.
-# 완전 정적 export(out/)를 그대로 올린다 — 서버·시크릿 불필요.
+# 프렌즈 잉글리시(friends-app) → GitHub Pages 배포 (클래식 gh-pages 브랜치 방식).
+#
+# actions/deploy-pages(워크플로 방식)는 Pages 사이트를 처음 "개설"할 때 저장소 관리
+# 권한이 필요해 기본 GITHUB_TOKEN으로는 실패한다(Resource not accessible by
+# integration). 반면 gh-pages 브랜치는 contents:write 만으로 발행할 수 있고,
+# 공개 저장소는 gh-pages 브랜치가 생기면 Pages가 자동 활성화된다.
+#
 # 접속 URL: https://mjthkim-dot.github.io/taehyun/
 name: Deploy friends-app to Pages
 
@@ -14,9 +19,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
@@ -25,9 +28,6 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     defaults:
       run:
         working-directory: friends-app
@@ -48,17 +48,17 @@ jobs:
         env:
           BASE_PATH: /taehyun
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-        with:
-          # 저장소에 Pages가 아직 꺼져 있으면 워크플로가 직접 켠다.
-          enablement: true
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: friends-app/out
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish out/ to gh-pages branch
+        run: |
+          cd out
+          # 클래식 Pages는 Jekyll을 돌린다 — _next/ 같은 언더스코어 디렉터리가
+          # 통째로 무시되므로 .nojekyll로 반드시 꺼야 한다.
+          touch .nojekyll
+          git init -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "deploy: friends-app ${GITHUB_SHA::7}"
+          git push --force \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" \
+            gh-pages
