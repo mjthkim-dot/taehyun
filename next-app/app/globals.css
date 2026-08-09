@@ -585,6 +585,69 @@ button {
   cursor: not-allowed;
 }
 
+/* ── AI 발음 코칭 (드릴 완료 화면) ──
+ * 긴 설명 덩어리 대신 팁 카드 — 문제가 된 소리(영어)를 제목으로, 한국어 설명을
+ * 본문으로, 연습 문장은 눌러서 바로 들을 수 있는 버튼으로. */
+.coach-tips {
+  text-align: left;
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.coach-tips-head {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+}
+.coach-tip {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.coach-tip-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.coach-focus {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  flex: 1;
+  min-width: 0;
+}
+.coach-tip-body {
+  font-size: 0.85rem;
+  line-height: 1.65;
+  margin-top: 6px;
+  color: var(--text);
+}
+.coach-example {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 9px;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 14px;
+  min-height: 40px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  text-align: left;
+}
+.coach-example:active {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+}
+
 /* ── SpeakingPractice ──
  * 문장이 화면의 주인공, 마이크가 유일한 주요 행동 — 스픽처럼 문장은 크게,
  * 말하기 버튼은 카드 전체 폭으로 넓혀 손이 저절로 가게 한다. */
