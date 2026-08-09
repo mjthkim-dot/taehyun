@@ -52,6 +52,7 @@ const ScriptsScreen = dynamic(() => import('../components/ScriptsScreen'), { ssr
 const ListeningScreen = dynamic(() => import('../components/ListeningScreen'), { ssr: false, loading: ScreenLoading });
 const ReadingScreen = dynamic(() => import('../components/ReadingScreen'), { ssr: false, loading: ScreenLoading });
 const WritingScreen = dynamic(() => import('../components/WritingScreen'), { ssr: false, loading: ScreenLoading });
+const LadderScreen = dynamic(() => import('../components/LadderScreen'), { ssr: false, loading: ScreenLoading });
 const BusinessScreen = dynamic(() => import('../components/BusinessScreen'), { ssr: false, loading: ScreenLoading });
 
 import MasterScreen from '../components/MasterScreen';
@@ -105,6 +106,7 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
   listening: { title: '듣기', render: () => <ListeningScreen /> },
   reading: { title: '읽기', render: () => <ReadingScreen /> },
   writing: { title: '쓰기', render: () => <WritingScreen /> },
+  ladder: { title: '원어민 사다리', render: () => <LadderScreen /> },
   business: {
     title: '비즈니스',
     render: (c) => (

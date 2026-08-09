@@ -648,6 +648,137 @@ button {
   border-color: var(--primary);
 }
 
+/* ── 원어민 사다리 ──
+ * 3단 카드가 세로로 쌓인다. 현재 단만 활짝 열리고, 지난 단은 접히고,
+ * 위 단은 잠겨서 문장이 보이지 않는다(먼저 읽으면 떠올려 말하기가 안 된다). */
+.ld-head {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.ld-rung {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 13px 15px;
+  margin-bottom: 10px;
+}
+.ld-rung.active {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-card);
+}
+.ld-rung.locked {
+  opacity: 0.65;
+}
+.ld-rung-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ld-level {
+  font-size: 0.76rem;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.ld-rung.active .ld-level {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary-dk);
+}
+.ld-rung.done .ld-level {
+  color: var(--green);
+}
+.ld-rung-en {
+  font-size: 0.86rem;
+  margin-top: 7px;
+  line-height: 1.5;
+}
+.ld-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 8px 0 10px;
+}
+.ld-rung .speaking-practice {
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  background: transparent;
+}
+.ld-rung-hidden {
+  font-size: 0.78rem;
+  margin-top: 6px;
+}
+.ld-hint {
+  font-size: 0.76rem;
+  margin-top: 10px;
+  text-align: center;
+}
+.ld-next {
+  margin-top: 12px;
+}
+.ld-skip {
+  display: block;
+  margin: 8px auto 0;
+  opacity: 0.7;
+}
+.ld-seed-input {
+  width: 100%;
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 11px 13px;
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  resize: vertical;
+  margin-bottom: 10px;
+}
+.ld-gen-btn {
+  width: 100%;
+}
+.ld-pick {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 13px;
+  margin-top: 8px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text);
+  transition: border-color 0.15s, background 0.15s;
+}
+.ld-pick:active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.ld-pick-en {
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.ld-pick-kr {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.ld-finish-en {
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1.5;
+  margin-top: 4px;
+}
+
 /* ── SpeakingPractice ──
  * 문장이 화면의 주인공, 마이크가 유일한 주요 행동 — 스픽처럼 문장은 크게,
  * 말하기 버튼은 카드 전체 폭으로 넓혀 손이 저절로 가게 한다. */
