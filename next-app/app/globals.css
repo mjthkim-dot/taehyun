@@ -779,6 +779,297 @@ button {
   margin-top: 4px;
 }
 
+/* ── 성숙도 커리큘럼 (성장 화면) ──
+ * 럭셔리 마감: 헤어라인 보더 + 이너 하이라이트, 넉넉한 여백, 마이크로 라벨,
+ * 은은한 민트 글로우. 색은 기존 토큰만 쓴다(민트 유지). */
+.mx-hero {
+  position: relative;
+  text-align: center;
+  padding: 26px 18px 22px;
+  margin-bottom: 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(90% 70% at 50% -10%, var(--primary-soft), transparent 70%),
+    var(--surface);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  isolation: isolate;
+}
+.mx-promoted {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  padding: 5px 14px;
+  margin-bottom: 12px;
+  animation: score-pop 0.5s var(--ease-out-back) both;
+}
+.mx-emblem {
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.18));
+}
+.mx-hero-name {
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-top: 10px;
+}
+.mx-hero-motto {
+  font-size: 0.9rem;
+  color: var(--primary-dk);
+  font-weight: 700;
+  margin-top: 3px;
+}
+.mx-hero-meta {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-top: 8px;
+}
+.mx-hero-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.65;
+  margin: 10px auto 0;
+  max-width: 42ch;
+}
+
+/* 5단계 여정 */
+.mx-path {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+.mx-path-step {
+  flex: 1;
+  text-align: center;
+  padding: 9px 2px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.mx-path-step i {
+  display: block;
+  font-style: normal;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+.mx-path-step span {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-top: 2px;
+  word-break: keep-all;
+}
+.mx-path-step.done i { color: var(--green); }
+.mx-path-step.now {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.mx-path-step.now i,
+.mx-path-step.now span { color: var(--primary-dk); }
+
+/* 카드 공통 + 마이크로 라벨 */
+.mx-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 16px 17px;
+  margin-bottom: 14px;
+}
+.mx-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.mx-label-loose {
+  margin: 4px 2px 10px;
+}
+
+/* 승급 조건 체크리스트 */
+.mx-crit {
+  margin-bottom: 11px;
+}
+.mx-crit-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+.mx-crit-top .ok { color: var(--green); }
+.mx-crit-top b {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+.mx-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface2);
+  overflow: hidden;
+}
+.mx-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-light));
+  transition: width 0.6s var(--ease-out-back);
+}
+.mx-crit-note {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-top: 10px;
+}
+
+/* 패턴 커리큘럼 카드 */
+.mx-pattern {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow-card);
+}
+.mx-pattern.done {
+  opacity: 0.75;
+}
+.mx-pattern-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mx-pattern-en {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.mx-pattern-why {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-top: 6px;
+}
+.mx-pattern-foot {
+  margin-top: 10px;
+}
+.mx-practice-btn {
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  border-radius: 999px;
+  padding: 8px 15px;
+  min-height: 40px;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease-out-back), background 0.15s;
+}
+.mx-practice-btn:active {
+  transform: scale(0.96);
+}
+.mx-done-chip {
+  display: inline-block;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--green);
+  background: var(--green-soft);
+  border-radius: 999px;
+  padding: 6px 13px;
+}
+
+/* 홈 컴팩트 성장 카드 */
+.growth-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 13px 16px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  transition: transform 0.18s var(--ease-out-back), border-color 0.2s, box-shadow 0.2s;
+}
+.growth-card:active {
+  transform: scale(0.985);
+}
+.growth-stage {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent);
+}
+.growth-body {
+  flex: 1;
+  min-width: 0;
+}
+.growth-name {
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.growth-motto {
+  font-style: normal;
+  font-weight: 700;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+.growth-bar {
+  display: block;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--surface2);
+  overflow: hidden;
+  margin-top: 7px;
+}
+.growth-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-light));
+}
+.growth-pct {
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── SpeakingPractice ──
  * 문장이 화면의 주인공, 마이크가 유일한 주요 행동 — 스픽처럼 문장은 크게,
  * 말하기 버튼은 카드 전체 폭으로 넓혀 손이 저절로 가게 한다. */

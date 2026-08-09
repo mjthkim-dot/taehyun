@@ -13,7 +13,29 @@ import DailyQuests from './DailyQuests';
 import { consumeFreezesForGaps, getFreezeCount } from '../lib/habits';
 import CurriculumPath from './CurriculumPath';
 import StreakFlame from './StreakFlame';
+import { computeMaturity, type MaturityState } from '../lib/maturity';
 import type { Mode } from './NavBar';
+
+/** 홈의 컴팩트 성장 카드 — 성숙도 단계와 다음 승급 진행도를 한 줄로. 탭하면 성장 화면. */
+function GrowthCard({ onNavigate }: { onNavigate: (m: Mode) => void }) {
+  const [mx, setMx] = useState<MaturityState | null>(null);
+  useEffect(() => setMx(computeMaturity()), []);
+  if (!mx) return null;
+  const pct = Math.round(mx.progress * 100);
+  return (
+    <button type="button" className="growth-card" onClick={() => onNavigate('growth')}>
+      <span className="growth-stage">{mx.stage.n}</span>
+      <span className="growth-body">
+        <span className="growth-name">
+          성숙도 {mx.stage.n} · {mx.stage.name}
+          <i className="growth-motto">“{mx.stage.motto}”</i>
+        </span>
+        <span className="growth-bar"><i style={{ width: `${pct}%` }} /></span>
+      </span>
+      <span className="growth-pct">{mx.stage.next ? `${pct}%` : 'MAX'}</span>
+    </button>
+  );
+}
 
 export default function MasterScreen({
   onSelectLesson,
@@ -99,6 +121,9 @@ export default function MasterScreen({
       {/* 불꽃 히어로 — 발화가 불을 붙인다(스픽 벤치마크). tick으로 미션·연습의
           발화가 즉시 반영돼, 목표에 닿는 순간 이 자리에서 점화된다. */}
       <StreakFlame refreshKey={tick} />
+
+      {/* 성숙도 커리큘럼 — 원어민스러움 단계와 자동 승급 진행도 */}
+      <GrowthCard onNavigate={onNavigate} />
 
       {/* 오늘 할 딱 한 가지 — 앱을 열면 바로 이걸 하면 된다 */}
       <DailyMissionCard onNavigate={onNavigate} onProgress={() => setTick((t) => t + 1)} />

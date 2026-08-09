@@ -60,13 +60,14 @@ const SYS = [
   '- 학습자의 CEFR 레벨이 주어지면 "기본" 단을 그 레벨에 맞춘다.',
 ].join('\n');
 
-/** 사다리 생성 — 캐시 우선, 없으면 AI 생성(검증 통과분만 캐시). 실패 시 null. */
-export async function generateLadder(seed: string, cefr: Cefr): Promise<Ladder | null> {
+/** 사다리 생성 — 캐시 우선, 없으면 AI 생성(검증 통과분만 캐시). 실패 시 null.
+ *  styleHint: 성숙도 단계에 따라 "원어민" 단의 관용 강도를 조절하는 지시(선택). */
+export async function generateLadder(seed: string, cefr: Cefr, styleHint = ''): Promise<Ladder | null> {
   const cached = getCachedLadder(seed);
   if (cached) return cached;
   const ladder = await groqKoJson<Ladder>(
     [
-      { role: 'system', content: SYS },
+      { role: 'system', content: styleHint ? `${SYS}\n- ${styleHint}` : SYS },
       { role: 'user', content: `학습자 CEFR: ${cefr}\n문장: "${seed.trim()}"\n이 문장의 3단계 사다리를 만들어줘.` },
     ],
     { temperature: 0.5, maxTokens: 700 },
@@ -89,6 +90,26 @@ export async function generateLadder(seed: string, cefr: Cefr): Promise<Ladder |
   );
   if (ladder) saveLadder(ladder);
   return ladder;
+}
+
+/* ── 성장 화면 → 사다리 핸드오프 ──
+ * 커리큘럼 패턴을 탭하면 그 예문을 시드로 사다리가 곧장 시작된다(one-shot).
+ * patternKey가 있으면 완주 시 그 패턴이 "정착"으로 기록된다. */
+const SEED_KEY = 'va_ladder_seed';
+
+export interface LadderSeed {
+  text: string;
+  patternKey?: string;
+}
+
+export function setLadderSeed(seed: LadderSeed) {
+  store(SEED_KEY, seed);
+}
+
+export function takeLadderSeed(): LadderSeed | null {
+  const s = load<LadderSeed | null>(SEED_KEY, null);
+  if (s) store(SEED_KEY, null);
+  return s && s.text ? s : null;
 }
 
 /* ── 진행 기록 — 어떤 문장을 어디까지 올랐는지. 완주한 사다리 수가 성숙의 지표다. */

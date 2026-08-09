@@ -6,9 +6,10 @@
  * 통과 전까지 가려 둔다(먼저 읽어버리면 "떠올려 말하기"가 안 된다).
  * 완주하면 원어민 단 표현이 표현장과 복습 큐에 들어가 SRS로 굳는다.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { addPhrase, addWeakItem, getPhrases, getProfile, groqKey, markPracticedToday } from '../lib/state';
-import { generateLadder, ladderDoneCount, markLadderDone, type Ladder } from '../lib/nativeLadder';
+import { generateLadder, ladderDoneCount, markLadderDone, takeLadderSeed, type Ladder } from '../lib/nativeLadder';
+import { ladderStyleHint, markPatternDone } from '../lib/maturity';
 import { GroqError } from '../lib/groq';
 import { AI_FAIL_KO } from '../lib/aiGuard';
 import { useLessonStore } from '../store/useLessonStore';
@@ -31,8 +32,20 @@ export default function LadderScreen() {
 
   const accuracyScore = useLessonStore((s) => s.accuracyScore);
   const clearAttempt = useLessonStore((s) => s.clearAttempt);
+  /** 성장 화면에서 넘어온 커리큘럼 패턴 — 완주 시 정착으로 기록한다 */
+  const patternKeyRef = useRef<string | null>(null);
 
   useEffect(() => setDoneCount(ladderDoneCount()), [finished]);
+
+  // 성장 화면 → 사다리 핸드오프(one-shot): 패턴 예문이 시드로 오면 곧장 시작
+  useEffect(() => {
+    const seed = takeLadderSeed();
+    if (seed) {
+      patternKeyRef.current = seed.patternKey || null;
+      void climb(seed.text);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 단이 바뀌면 이전 단의 점수를 지운다 — 안 지우면 이전 단의 80점이
   // 새 단을 즉시 통과시켜 버린다.
@@ -57,7 +70,7 @@ export default function LadderScreen() {
     setLoading(true);
     setError('');
     try {
-      const l = await generateLadder(s, getProfile().cefr || 'A2');
+      const l = await generateLadder(s, getProfile().cefr || 'A2', ladderStyleHint());
       if (!l) {
         setError(AI_FAIL_KO);
         return;
@@ -80,6 +93,11 @@ export default function LadderScreen() {
       addPhrase({ en: top.en, kr: top.kr, lesson: 'ladder' });
       addWeakItem({ en: top.en, kr: top.kr, lesson: 'ladder', cat: '원어민' });
       markLadderDone(ladder.seed);
+      // 커리큘럼 패턴에서 시작한 사다리면 그 패턴을 정착으로 기록 — 자동 승급의 재료
+      if (patternKeyRef.current) {
+        markPatternDone(patternKeyRef.current);
+        patternKeyRef.current = null;
+      }
       markPracticedToday();
       setFinished(true);
     } else {

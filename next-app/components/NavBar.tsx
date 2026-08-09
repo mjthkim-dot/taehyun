@@ -32,7 +32,8 @@ export type Mode =
   | 'pitch'
   | 'scripts'
   | 'business'
-  | 'ladder';
+  | 'ladder'
+  | 'growth';
 
 const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [
   { mode: 'master', icon: 'home', label: '홈' },
