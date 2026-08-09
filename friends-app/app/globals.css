@@ -835,6 +835,164 @@ button {
   flex: 1;
 }
 
+/* ── 표현 카드 심화(응용·실수·발음) ────────────────────────────────── */
+.depth-toggle {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 9px 0;
+  border: 0;
+  border-top: 1px dashed var(--border-strong);
+  background: none;
+  color: var(--purple);
+  font-weight: 800;
+  font-size: 12.5px;
+  text-align: center;
+}
+.depth {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+}
+.depth-block {
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.depth-block p {
+  color: var(--text);
+}
+.depth-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.depth-variation {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.depth-variation:last-child {
+  border-bottom: 0;
+}
+.depth-variation .kr {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  margin-top: 2px;
+}
+.icon-btn-xs {
+  width: 28px;
+  height: 28px;
+}
+.icon-btn-xs svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ── 스피킹 드릴 / 딕테이션 ────────────────────────────────────────── */
+.drill-card {
+  border-left: 4px solid var(--frame-yellow);
+}
+.drill-prompt {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+.drill-error {
+  margin-top: 10px;
+  background: var(--red-soft);
+  color: var(--red);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.drill-result {
+  margin-top: 12px;
+  background: var(--terracotta-soft);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+.drill-result.pass {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.drill-answer {
+  margin-top: 12px;
+  background: var(--purple-soft);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.dictation-input {
+  width: 100%;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 15px;
+  resize: vertical;
+  background: var(--surface);
+  color: var(--text);
+}
+.dictation-input:focus {
+  outline: none;
+  border-color: var(--purple);
+}
+
+/* 장면 영상 링크 */
+.video-link {
+  display: inline-flex;
+  margin-top: 12px;
+  text-decoration: none;
+}
+
+/* 듣기 퀴즈 */
+.quiz-audio {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 18px;
+}
+
+/* 오늘의 플랜 */
+.plan-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+}
+.plan-row:last-child {
+  border-bottom: 0;
+}
+.plan-check {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--on-purple);
+}
+.plan-check.done {
+  background: var(--green);
+  border-color: var(--green);
+}
+
 /* 빈 상태 */
 .empty-state {
   text-align: center;

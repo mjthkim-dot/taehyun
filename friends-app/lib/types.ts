@@ -17,6 +17,12 @@ export type CharacterId =
   | 'Phoebe'
   | 'Guest';
 
+export interface Variation {
+  /** 같은 표현의 실전 변형 문장 (영어). */
+  en: string;
+  kr: string;
+}
+
 export interface Expression {
   /** 전역 유일 — `s01e01-1` 형식. SRS/퀴즈/진도가 이 id로 저장된다. */
   id: string;
@@ -31,6 +37,12 @@ export interface Expression {
   exampleKr: string;
   /** 난이도 1(기초)~3(원어민 감각). */
   level: 1 | 2 | 3;
+  /** 실전 변형 2~3개 — 단어를 바꿔 응용 범위를 보여 준다. */
+  variations: Variation[];
+  /** 한국인 학습자가 자주 틀리는 포인트 (콩글리시·직역 함정 등). */
+  mistakeKr: string;
+  /** 발음·억양 포인트 — 연음, 강세, 리듬을 한글로 풀어 준다. */
+  soundKr: string;
 }
 
 export interface DialogueLine {
@@ -43,6 +55,15 @@ export interface DialogueLine {
   expressionId?: string;
 }
 
+export interface SpeakingDrill {
+  /** 한국어 상황 프롬프트 — "면접 10분 전이라 긴장된다고 말해 보세요". */
+  promptKr: string;
+  /** 모범 답안 (영어). */
+  targetEn: string;
+  /** 채점 필수 키워드 — STT 결과에 모두 들어 있으면 통과. 소문자. */
+  keywords: string[];
+}
+
 export interface Scene {
   /** `s01e01-1` 형식 (에피소드 id + 장면 번호). */
   id: string;
@@ -52,9 +73,13 @@ export interface Scene {
   location: string;
   /** 원작 장면 소개 + 이 상황에서 무엇을 배우는지 브리핑. */
   contextKr: string;
+  /** 유튜브에서 원장면(공식 클립)을 찾는 검색어 (영어). */
+  videoQuery: string;
   expressions: Expression[];
   /** 오리지널 연습 대화 (6~8라인). 롤플레이 모드의 대본이 된다. */
   dialogue: DialogueLine[];
+  /** 한→영 스피킹 드릴 2~3개 — 배운 표현을 상황만 듣고 스스로 말하게 한다. */
+  drills: SpeakingDrill[];
 }
 
 export interface Episode {

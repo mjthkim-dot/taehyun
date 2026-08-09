@@ -9,6 +9,8 @@ import { findEpisode } from '../data/curriculum';
 import { useProgress, completeScene } from '../lib/progress';
 import ExpressionCard from './ExpressionCard';
 import DialoguePractice from './DialoguePractice';
+import PatternDrill from './PatternDrill';
+import DictationCard from './DictationCard';
 import { CheckIcon } from './Icon';
 
 export default function LessonScreen({
@@ -83,6 +85,14 @@ export default function LessonScreen({
         <b>{scene.titleKr}</b>
         <br />
         {scene.contextKr}
+        <a
+          className="btn btn-ghost btn-sm video-link"
+          href={`https://www.youtube.com/results?search_query=${encodeURIComponent(scene.videoQuery)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          🎬 유튜브에서 원장면 보기
+        </a>
       </div>
 
       <div className="section-title">핵심 표현 {scene.expressions.length}개</div>
@@ -96,6 +106,12 @@ export default function LessonScreen({
         key={scene.id}
         dialogue={scene.dialogue}
       />
+
+      <div className="section-title">스피킹 드릴 — 상황만 보고 말하기</div>
+      <PatternDrill key={`drill-${scene.id}`} drills={scene.drills} />
+
+      <div className="section-title">딕테이션 — 듣고 받아쓰기</div>
+      <DictationCard key={`dict-${scene.id}`} dialogue={scene.dialogue} />
 
       <div className="lesson-cta">
         {!sceneDone ? (

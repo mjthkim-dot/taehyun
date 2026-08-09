@@ -1,24 +1,40 @@
 /**
  * 퀴즈 생성기 — 커리큘럼 데이터에서 문제를 만든다.
  *
- * 두 유형:
- *  ① meaning: 표현을 보여 주고 한국어 뜻 4지선다
- *  ② usage:  한국어 상황을 주고 알맞은 영어 표현 4지선다
+ * 네 유형:
+ *  ① meaning:   표현을 보여 주고 한국어 뜻 4지선다
+ *  ② usage:     한국어 상황을 주고 알맞은 영어 표현 4지선다
+ *  ③ listening: 문장을 소리로만 듣고 뜻 고르기 (audioText를 TTS로 재생)
+ *  ④ cloze:     예문에서 표현 부분을 가린 빈칸 채우기
  * 오답 보기는 다른 표현에서 뽑되, 같은 에피소드 것을 우선해 난이도를 높인다.
  */
 import { ALL_EXPRESSIONS, type ExpressionRef } from '../data/curriculum';
 
+export type QuizType = 'meaning' | 'usage' | 'listening' | 'cloze';
+
 export interface QuizQuestion {
   expressionId: string;
-  type: 'meaning' | 'usage';
+  type: QuizType;
   /** 문제 지문. */
   prompt: string;
+  /** listening 유형: TTS로 재생할 문장 (지문에는 노출하지 않는다). */
+  audioText?: string;
   /** 보기 4개 (이미 섞여 있음). */
   choices: string[];
   /** 정답 보기의 인덱스. */
   answerIndex: number;
   /** 해설 — 정답 후 표시. */
   explanation: string;
+}
+
+/** 예문 속 표현을 ____로 가린다. 정확히 포함되지 않으면 null(다른 유형으로 폴백). */
+function makeCloze(ref: ExpressionRef): string | null {
+  const { phrase, exampleEn } = ref.expression;
+  // 문장부호 차이를 흡수하기 위해 끝의 부호를 뗀 소문자 기준으로 위치를 찾는다.
+  const core = phrase.replace(/[.!?]+$/, '');
+  const idx = exampleEn.toLowerCase().indexOf(core.toLowerCase());
+  if (idx < 0) return null;
+  return `${exampleEn.slice(0, idx)}______${exampleEn.slice(idx + core.length)}`;
 }
 
 function shuffle<T>(arr: T[], rand: () => number): T[] {
@@ -51,30 +67,51 @@ function pickDistractors(target: ExpressionRef, count: number, rand: () => numbe
   return picked;
 }
 
-function buildQuestion(ref: ExpressionRef, type: 'meaning' | 'usage', rand: () => number): QuizQuestion {
+function buildQuestion(ref: ExpressionRef, type: QuizType, rand: () => number): QuizQuestion {
   const distractors = pickDistractors(ref, 3, rand);
   const explanation = `${ref.expression.phrase} — ${ref.expression.meaningKr} (${ref.episode.code} ${ref.scene.titleKr})`;
+  const options = shuffle([ref, ...distractors], rand);
+  const answerIndex = options.findIndex((o) => o.expression.id === ref.expression.id);
+  const base = { expressionId: ref.expression.id, answerIndex, explanation };
 
-  if (type === 'meaning') {
-    const options = shuffle([ref, ...distractors], rand);
+  if (type === 'listening') {
     return {
-      expressionId: ref.expression.id,
+      ...base,
       type,
-      prompt: ref.expression.phrase,
+      prompt: '문장을 듣고 알맞은 뜻을 고르세요.',
+      audioText: ref.expression.phrase,
       choices: options.map((o) => o.expression.meaningKr),
-      answerIndex: options.findIndex((o) => o.expression.id === ref.expression.id),
-      explanation,
     };
   }
 
-  const options = shuffle([ref, ...distractors], rand);
+  if (type === 'cloze') {
+    const cloze = makeCloze(ref);
+    if (cloze) {
+      return {
+        ...base,
+        type,
+        prompt: `빈칸에 들어갈 표현은?\n${cloze}\n(${ref.expression.exampleKr})`,
+        choices: options.map((o) => o.expression.phrase),
+      };
+    }
+    // 예문에 표현이 그대로 없으면 usage로 폴백.
+    type = 'usage';
+  }
+
+  if (type === 'meaning') {
+    return {
+      ...base,
+      type,
+      prompt: ref.expression.phrase,
+      choices: options.map((o) => o.expression.meaningKr),
+    };
+  }
+
   return {
-    expressionId: ref.expression.id,
-    type,
+    ...base,
+    type: 'usage',
     prompt: `"${ref.expression.exampleKr}" — 이 상황에서 쓰는 표현은?`,
     choices: options.map((o) => o.expression.phrase),
-    answerIndex: options.findIndex((o) => o.expression.id === ref.expression.id),
-    explanation,
   };
 }
 
@@ -102,5 +139,7 @@ export function buildQuiz(options: {
     ? ALL_EXPRESSIONS.filter((r) => r.episode.id === episodeId)
     : ALL_EXPRESSIONS;
   const picked = shuffle(pool, rand).slice(0, Math.min(count, pool.length));
-  return picked.map((ref, i) => buildQuestion(ref, i % 2 === 0 ? 'meaning' : 'usage', rand));
+  // 4유형을 순환시켜 한 세트 안에서 읽기·듣기·빈칸이 골고루 섞이게 한다.
+  const cycle: QuizType[] = ['meaning', 'usage', 'listening', 'cloze'];
+  return picked.map((ref, i) => buildQuestion(ref, cycle[i % cycle.length], rand));
 }

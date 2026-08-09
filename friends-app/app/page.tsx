@@ -66,7 +66,11 @@ export default function Page() {
             onQuiz={startEpisodeQuiz}
           />
         ) : tab === 'home' ? (
-          <HomeScreen onOpenEpisode={openEpisode} onGoReview={() => changeTab('review')} />
+          <HomeScreen
+            onOpenEpisode={openEpisode}
+            onGoReview={() => changeTab('review')}
+            onGoQuiz={() => changeTab('quiz')}
+          />
         ) : tab === 'episodes' ? (
           <EpisodesScreen onOpen={openEpisode} />
         ) : tab === 'quiz' ? (

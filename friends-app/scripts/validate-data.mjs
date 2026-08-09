@@ -73,7 +73,22 @@ for (const { file, ep } of episodes) {
     if (!scene.id.startsWith(`${ep.id}-`)) err(`${sw}: 장면 id가 에피소드 id로 시작하지 않음`);
     if (seenIds.has(scene.id)) err(`${sw}: 중복 장면 id`);
     seenIds.add(scene.id);
-    nonEmpty(scene, ['titleKr', 'location', 'contextKr'], sw);
+    nonEmpty(scene, ['titleKr', 'location', 'contextKr', 'videoQuery'], sw);
+
+    // 스피킹 드릴 — 2~3개, 키워드는 모범 답안 안에 실제로 존재해야 채점이 성립한다.
+    if (!Array.isArray(scene.drills) || scene.drills.length < 2 || scene.drills.length > 4)
+      err(`${sw}: drills는 2~4개여야 함 (현재 ${scene.drills?.length ?? 0})`);
+    for (const [i, drill] of (scene.drills ?? []).entries()) {
+      const dw = `${sw} drill ${i + 1}`;
+      nonEmpty(drill, ['promptKr', 'targetEn'], dw);
+      if (!Array.isArray(drill.keywords) || drill.keywords.length < 2)
+        err(`${dw}: keywords는 2개 이상이어야 함`);
+      const target = (drill.targetEn ?? '').toLowerCase();
+      for (const kw of drill.keywords ?? []) {
+        if (kw !== kw.toLowerCase()) err(`${dw}: keyword "${kw}"는 소문자여야 함`);
+        if (!target.includes(kw)) err(`${dw}: keyword "${kw}"가 targetEn에 없음`);
+      }
+    }
 
     if (!Array.isArray(scene.expressions) || scene.expressions.length < 3)
       err(`${sw}: 표현이 3개 미만`);
@@ -84,8 +99,12 @@ for (const { file, ep } of episodes) {
       if (seenIds.has(ex.id)) err(`${xw}: 중복 표현 id`);
       seenIds.add(ex.id);
       exprIds.add(ex.id);
-      nonEmpty(ex, ['phrase', 'meaningKr', 'nuanceKr', 'exampleEn', 'exampleKr'], xw);
+      nonEmpty(ex, ['phrase', 'meaningKr', 'nuanceKr', 'exampleEn', 'exampleKr', 'mistakeKr', 'soundKr'], xw);
       if (![1, 2, 3].includes(ex.level)) err(`${xw}: level은 1~3이어야 함`);
+      if (!Array.isArray(ex.variations) || ex.variations.length < 2 || ex.variations.length > 4)
+        err(`${xw}: variations는 2~4개여야 함 (현재 ${ex.variations?.length ?? 0})`);
+      for (const [vi, v] of (ex.variations ?? []).entries())
+        nonEmpty(v, ['en', 'kr'], `${xw} variation ${vi + 1}`);
     }
 
     if (!Array.isArray(scene.dialogue) || scene.dialogue.length < 4 || scene.dialogue.length > 10)

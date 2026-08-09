@@ -91,6 +91,11 @@ await test('홈: 오늘의 표현 카드가 있다', async () => {
   assert(await page.getByText('오늘의 표현').isVisible(), '오늘의 표현 섹션 없음');
 });
 
+await test('홈: 오늘의 플랜 체크리스트', async () => {
+  assert(await page.getByText('오늘의 플랜').isVisible(), '오늘의 플랜 없음');
+  assert(await page.getByText('장면 1개 학습').isVisible(), '플랜 항목 없음');
+});
+
 await test('홈: 법적 고지가 있다', async () => {
   assert(await page.getByText(/비공식 팬 자료/).isVisible(), '법적 고지 없음');
 });
@@ -112,6 +117,37 @@ await test('레슨: 대화 라인과 배역 선택 UI가 있다', async () => {
   assert(await page.getByText('상황 대화 연습').isVisible(), '대화 섹션 없음');
   const bubbles = await page.locator('.dialogue-line').count();
   assert(bubbles >= 4, `대화 라인이 ${bubbles}개뿐`);
+});
+
+await test('레슨: 표현 카드 심화(응용·실수·발음) 펼치기', async () => {
+  await page.locator('.depth-toggle').first().click();
+  assert(await page.getByText('실전 응용').first().isVisible(), '응용 블록 없음');
+  assert(await page.getByText('한국인이 자주 틀리는 포인트').first().isVisible(), '실수 블록 없음');
+  assert(await page.getByText('소리 내는 법').first().isVisible(), '발음 블록 없음');
+  await page.locator('.depth-toggle').first().click();
+});
+
+await test('레슨: 유튜브 원장면 링크', async () => {
+  const href = await page.locator('.video-link').first().getAttribute('href');
+  assert(href && href.startsWith('https://www.youtube.com/results'), `잘못된 링크: ${href}`);
+});
+
+await test('레슨: 스피킹 드릴 — 정답 보기 흐름', async () => {
+  await page.getByText('스피킹 드릴 1 /').scrollIntoViewIfNeeded();
+  await page.getByRole('button', { name: '정답 보기' }).click();
+  assert(await page.locator('.drill-answer').isVisible(), '모범 답안 없음');
+  await page.getByRole('button', { name: /다음 드릴/ }).click();
+  assert(await page.getByText('스피킹 드릴 2 /').isVisible(), '드릴 진행 안 됨');
+});
+
+await test('레슨: 딕테이션 — 정답 입력 시 100점', async () => {
+  await page.getByText(/딕테이션 1 \//).scrollIntoViewIfNeeded();
+  // 첫 출제 문장은 대화에서 expressionId가 달린 첫 라인이다.
+  const answer = "It's a long story. I just... I couldn't do it.";
+  await page.locator('.dictation-input').fill(answer);
+  await page.getByRole('button', { name: '채점하기' }).click();
+  const score = await page.locator('.score-banner .score-num').last().textContent();
+  assert(score === '100', `딕테이션 점수 ${score} (100 기대)`);
 });
 
 await test('레슨: 장면 완료 → 진도 반영', async () => {

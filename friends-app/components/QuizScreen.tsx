@@ -8,6 +8,14 @@ import { useState } from 'react';
 import { EPISODES } from '../data/curriculum';
 import { buildQuiz, type QuizQuestion } from '../lib/quiz';
 import { recordQuizAnswer } from '../lib/progress';
+import SpeakButton from './SpeakButton';
+
+const TYPE_LABEL: Record<QuizQuestion['type'], string> = {
+  meaning: '이 표현의 뜻은?',
+  usage: '상황에 맞는 표현은?',
+  listening: '🎧 듣기 문제',
+  cloze: '빈칸 채우기',
+};
 
 type Phase = 'pick' | 'playing' | 'result';
 
@@ -115,9 +123,21 @@ export default function QuizScreen({
       </div>
 
       <div className="muted" style={{ fontSize: 12, fontWeight: 700 }}>
-        {q.type === 'meaning' ? '이 표현의 뜻은?' : '상황에 맞는 표현은?'}
+        {TYPE_LABEL[q.type]}
       </div>
-      <div className="quiz-prompt">{q.prompt}</div>
+      {q.type === 'listening' && q.audioText ? (
+        <div className="quiz-audio">
+          <div className="quiz-prompt" style={{ margin: 0 }}>
+            {q.prompt}
+          </div>
+          <SpeakButton text={q.audioText} />
+          <SpeakButton text={q.audioText} slow />
+        </div>
+      ) : (
+        <div className="quiz-prompt" style={{ whiteSpace: 'pre-line' }}>
+          {q.prompt}
+        </div>
+      )}
 
       {q.choices.map((choice, i) => {
         let cls = 'quiz-choice';

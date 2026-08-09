@@ -30,6 +30,8 @@ export interface ProgressState {
   saved: string[];
   /** 학습한 날짜 집합 'YYYY-MM-DD' — 스트릭 계산의 원천. */
   studyDays: string[];
+  /** 날짜별 활동 집계 — 홈의 "오늘의 플랜" 체크리스트가 읽는다. */
+  daily: Record<string, { scenes: number; reviews: number; quizzes: number }>;
 }
 
 const EMPTY: ProgressState = {
@@ -39,6 +41,7 @@ const EMPTY: ProgressState = {
   quiz: {},
   saved: [],
   studyDays: [],
+  daily: {},
 };
 
 export function todayKey(d = new Date()): string {
@@ -110,6 +113,16 @@ function withStudyToday(s: ProgressState): ProgressState {
   return { ...s, studyDays: [...s.studyDays, today] };
 }
 
+/** 오늘 활동 카운터 증가 (scenes/reviews/quizzes). */
+function bumpDaily(
+  s: ProgressState,
+  kind: 'scenes' | 'reviews' | 'quizzes',
+): ProgressState {
+  const today = todayKey();
+  const cur = s.daily[today] ?? { scenes: 0, reviews: 0, quizzes: 0 };
+  return { ...s, daily: { ...s.daily, [today]: { ...cur, [kind]: cur[kind] + 1 } } };
+}
+
 function addDays(dateKey: string, days: number): string {
   const d = new Date(`${dateKey}T00:00:00`);
   d.setDate(d.getDate() + days);
@@ -126,11 +139,14 @@ export function completeScene(sceneId: string, expressionIds: string[]): void {
     if (!srs[id]) srs[id] = { box: 1, due: addDays(today, 1) };
   }
   persist(
-    withStudyToday({
-      ...state,
-      completedScenes: { ...state.completedScenes, [sceneId]: today },
-      srs,
-    }),
+    bumpDaily(
+      withStudyToday({
+        ...state,
+        completedScenes: { ...state.completedScenes, [sceneId]: today },
+        srs,
+      }),
+      'scenes',
+    ),
   );
 }
 
@@ -145,13 +161,23 @@ export function recordQuizAnswer(expressionId: string, correct: boolean): void {
       wrong: prev.wrong + (correct ? 0 : 1),
     },
   };
-  persist(withStudyToday({ ...state, quiz, srs: moveSrs(state.srs, expressionId, correct) }));
+  persist(
+    bumpDaily(
+      withStudyToday({ ...state, quiz, srs: moveSrs(state.srs, expressionId, correct) }),
+      'quizzes',
+    ),
+  );
 }
 
 /** 플래시카드 복습 결과 반영. */
 export function recordReview(expressionId: string, remembered: boolean): void {
   ensureHydrated();
-  persist(withStudyToday({ ...state, srs: moveSrs(state.srs, expressionId, remembered) }));
+  persist(
+    bumpDaily(
+      withStudyToday({ ...state, srs: moveSrs(state.srs, expressionId, remembered) }),
+      'reviews',
+    ),
+  );
 }
 
 /** Leitner 이동 — 맞으면 다음 박스(간격↑), 틀리면 박스 1로 리셋. */
