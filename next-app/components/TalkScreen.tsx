@@ -8,7 +8,9 @@
  * 🎲 새 주제 생성·🔧 음성진단·미션 체크리스트는 관련 데이터가 아직 없어 이번 단계에서는 제외했다.
  */
 import { useEffect, useRef, useState } from 'react';
-import { ALL_LESSONS, LESSONS, CEFR_NEXT, cefrOf, type Lesson } from '../lib/lessons';
+import { CEFR_NEXT, cefrOf } from '../lib/cefr';
+import { lessonsNow } from '../lib/lessonData';
+import type { Lesson } from '../lib/lessons';
 import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, store, saveChatLog, bumpSpoken } from '../lib/state';
 import { groqStream, groqComplete, validateGroqKey, GroqError } from '../lib/groq';
 import { groqKoJson, hasHangul } from '../lib/aiGuard';
@@ -128,6 +130,8 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   /** 이번 대화에서 이미 축하한 패턴들 — 같은 패턴에 매번 배지를 띄우면 소음이 된다 */
   const usedPatternsRef = useRef<Set<string>>(new Set());
 
+  // LessonsGate 아래에서만 렌더되므로 동기 접근이 안전하다
+  const { ALL_LESSONS, LESSONS } = lessonsNow();
   const lesson = ALL_LESSONS.find((l) => l.id === lessonId) ?? LESSONS[LESSONS.length - 1];
   const historyRef = useRef<{ role: string; content: string }[]>([]);
   const talkStampsRef = useRef<number[]>([]);

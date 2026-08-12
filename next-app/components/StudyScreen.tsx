@@ -6,17 +6,9 @@
  * TTS(말하기) 연동은 다음 단계 작업 — 지금은 콘텐츠 표시 + 레슨 선택에 집중한다.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ALL_LESSONS,
-  LESSONS,
-  MASTER_LESSONS,
-  SCENARIO_LIBRARY,
-  lessonLabel,
-  cefrOf,
-  scaffoldFor,
-  type Lesson,
-  type Dialogue,
-} from '../lib/lessons';
+import { lessonLabel, cefrOf, scaffoldFor } from '../lib/cefr';
+import { lessonsNow } from '../lib/lessonData';
+import type { Lesson, Dialogue } from '../lib/lessons';
 import Note from './Note';
 import ContextAsk from './ContextAsk';
 import SpeakButton, { stopSpeaking } from './SpeakButton';
@@ -31,8 +23,11 @@ interface StudyScreenProps {
 }
 
 export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenProps) {
+  // LessonsGate 아래에서만 렌더되므로 동기 접근이 안전하다
+  const { ALL_LESSONS, LESSONS } = lessonsNow();
   const lesson = useMemo(
     () => ALL_LESSONS.find((l) => l.id === lessonId) ?? LESSONS[LESSONS.length - 1],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [lessonId]
   );
 
@@ -257,6 +252,7 @@ function LessonPicker({
   selectedId: number;
   onSelect: (id: number) => void;
 }) {
+  const { LESSONS, MASTER_LESSONS, SCENARIO_LIBRARY } = lessonsNow();
   return (
     <select
       className="lesson-picker"
@@ -289,5 +285,6 @@ function LessonPicker({
 }
 
 export function defaultLesson(): Lesson {
+  const { LESSONS } = lessonsNow();
   return LESSONS.filter((l) => !l.preview).slice(-1)[0] ?? LESSONS[0];
 }

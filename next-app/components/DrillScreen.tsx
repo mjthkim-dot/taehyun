@@ -10,7 +10,8 @@
  * Groq API를 전혀 쓰지 않는다(무료 한도 보호).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ALL_LESSONS, LESSONS, CEFR_GSE, cefrOf } from '../lib/lessons';
+import { CEFR_GSE, cefrOf } from '../lib/cefr';
+import { lessonsNow } from '../lib/lessonData';
 import { addWeakItem, bumpSkill, buildTodayQueue, gradeWeakItem, groqKey, markPracticedToday, takeDrillQueue, type DrillItem, type FlashGrade } from '../lib/state';
 import { groqComplete, GroqError } from '../lib/groq';
 import { HANGUL_RE } from '../lib/aiGuard';
@@ -60,8 +61,11 @@ function scoreToGrade(score: number): FlashGrade {
 }
 
 export default function DrillScreen({ lessonId, auto = false }: { lessonId: number; auto?: boolean }) {
+  // LessonsGate 아래에서만 렌더되므로 동기 접근이 안전하다
+  const { ALL_LESSONS, LESSONS } = lessonsNow();
   const lesson = useMemo(
     () => ALL_LESSONS.find((l) => l.id === lessonId) ?? LESSONS[LESSONS.length - 1],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [lessonId]
   );
   const baseItems = useMemo<DrillItem[]>(

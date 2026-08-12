@@ -5,7 +5,7 @@
  * 이번 단계에서는 레슨 포인트만으로 목표 표현을 대체한다.
  */
 import type { Lesson } from './lessons';
-import { cefrOf, type Cefr } from './lessons';
+import { cefrOf, type Cefr } from './cefr';
 import { load } from './state';
 
 export function buildSystemPrompt(lesson: Lesson, activeScenario: { title: string; desc: string } | null, prevLessons: Lesson[]) {

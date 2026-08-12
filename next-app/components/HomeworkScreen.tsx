@@ -6,7 +6,9 @@
  * 음성 입력(Groq Whisper + VAD)은 이번 단계에서 제외하고 텍스트 입력만 지원한다.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ALL_LESSONS, LESSONS, lessonLabel, type Lesson } from '../lib/lessons';
+import { lessonLabel } from '../lib/cefr';
+import { lessonsNow } from '../lib/lessonData';
+import type { Lesson } from '../lib/lessons';
 import { GroqError } from '../lib/groq';
 import { AI_FAIL_KO, groqKoJson, groqKoText, hasHangul } from '../lib/aiGuard';
 import { addPhrase, addWeakItem, groqKey, isHomeworkDone, markHomeworkDone, markPracticedToday } from '../lib/state';
@@ -49,10 +51,14 @@ function hwLessonContext(lesson: Lesson | null) {
 }
 
 export default function HomeworkScreen({ lessonId }: { lessonId: number }) {
+  // LessonsGate 아래에서만 렌더되므로 동기 접근이 안전하다
+  const { ALL_LESSONS, LESSONS } = lessonsNow();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const sessions = useMemo(() => LESSONS.filter((l) => !l.preview && l.homework), []);
   const [lessonChoice, setLessonChoice] = useState<number | null>(
     ALL_LESSONS.find((l) => l.id === lessonId && l.homework) ? lessonId : sessions[sessions.length - 1]?.id ?? null
   );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const lesson = useMemo(() => ALL_LESSONS.find((l) => l.id === lessonChoice) ?? null, [lessonChoice]);
 
   const [mode, setMode] = useState<HwMode>('full');

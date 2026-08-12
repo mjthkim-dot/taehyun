@@ -6,7 +6,8 @@
  * MISSIONS 데이터가 아직 이전되지 않아 이번 단계에서는 제외했다.
  */
 import { useEffect, useState } from 'react';
-import { LESSONS, lessonLabel, gseToCefr } from '../lib/lessons';
+import { lessonLabel, gseToCefr } from '../lib/cefr';
+import { lessonsNow } from '../lib/lessonData';
 import { MASTER_CURRICULUM } from '../lib/curriculum';
 import {
   getProfile,
@@ -49,6 +50,8 @@ export default function ProgressScreen({ onNavigate, onSelectLesson }: { onNavig
   }, []);
   if (!ready) return null;
 
+  // LessonsGate 아래에서만 렌더되므로 동기 접근이 안전하다
+  const { LESSONS } = lessonsNow();
   const stats = getLessonStats();
   const totalAttempts = Object.values(stats).reduce((s, v) => s + v.attempts, 0);
   const totalCorrect = Object.values(stats).reduce((s, v) => s + v.correct, 0);

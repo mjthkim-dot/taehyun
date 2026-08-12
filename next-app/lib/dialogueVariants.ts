@@ -7,7 +7,7 @@
  * 듣기·역할 연습·암기 체크 모드를 그대로 쓸 수 있다.
  */
 import type { Dialogue, Lesson } from './lessons';
-import { cefrOf } from './lessons';
+import { cefrOf } from './cefr';
 import { lessonTargetGrammar } from './talkPrompts';
 import { groqKoJson, hasHangul } from './aiGuard';
 import { load, store } from './state';

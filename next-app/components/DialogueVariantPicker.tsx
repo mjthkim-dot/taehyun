@@ -7,7 +7,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import type { Dialogue, Lesson } from '../lib/lessons';
-import { ALL_LESSONS } from '../lib/lessons';
+import { loadLessons } from '../lib/lessonData';
 import { generateDialogueVariant, loadVariants, removeVariant, saveVariant, MAX_VARIANTS } from '../lib/dialogueVariants';
 import { groqKey } from '../lib/state';
 import { GroqError } from '../lib/groq';
@@ -49,6 +49,8 @@ export default function DialogueVariantPicker({
   }
 
   async function generate() {
+    // 이벤트 핸들러라 비동기 로드가 자연스럽다 — 게이트 밖(홈 미션 대화)에서도 안전
+    const { ALL_LESSONS } = await loadLessons();
     const lesson: Lesson | undefined = ALL_LESSONS.find((l) => l.id === lessonId);
     if (!lesson || busy) return;
     setBusy(true);

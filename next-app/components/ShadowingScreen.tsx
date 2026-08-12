@@ -8,7 +8,8 @@
  * 문장은 현재 레슨 예문 + 내 표현장 + 복습(약점) 문장을 섞어 개인화된 큐로 만든다.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ALL_LESSONS, type Lesson } from '../lib/lessons';
+import { lessonsNow } from '../lib/lessonData';
+import type { Lesson } from '../lib/lessons';
 import { getPhrases, load, markPracticedToday, type WeakItem } from '../lib/state';
 import { GroqError } from '../lib/groq';
 import { groqKoJson, hasHangul } from '../lib/aiGuard';
@@ -81,7 +82,9 @@ export default function ShadowingScreen({ lessonId }: { lessonId: number }) {
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
 
-  const queue = useMemo(() => buildQueue(ALL_LESSONS.find((l) => l.id === lessonId)), [lessonId]);
+  // LessonsGate 아래에서만 렌더되므로 동기 접근이 안전하다
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const queue = useMemo(() => buildQueue(lessonsNow().ALL_LESSONS.find((l) => l.id === lessonId)), [lessonId]);
   const [idx, setIdx] = useState(0);
 
   // 채점 결과는 전역 스토어에서 읽는다(SpeakingPractice가 채운다).

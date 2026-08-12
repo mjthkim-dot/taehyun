@@ -11,6 +11,18 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import NavBar, { type Mode } from '../components/NavBar';
 import dynamic from 'next/dynamic';
+import { loadLessons, useLessons } from '../lib/lessonData';
+
+/**
+ * 레슨 데이터 게이트 — lessons.json(199KB)은 화면 코드와 분리된 비동기 청크다.
+ * 데이터를 쓰는 화면(레슨·드릴·회화·쉐도잉·숙제·진도)은 이 게이트 아래에서만
+ * 렌더되므로, 화면 안에서는 lessonsNow()가 동기로 안전하다. 유휴 프리로드가
+ * 먼저 도착해 있으면 게이트는 한 프레임도 보이지 않는다.
+ */
+function LessonsGate({ children }: { children: ReactNode }) {
+  const data = useLessons();
+  return data ? <>{children}</> : <ScreenLoading />;
+}
 
 /**
  * 화면 지연 로딩 — 홈만 보려는 사람이 앱 전체를 내려받을 이유가 없다.
@@ -86,19 +98,19 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
     title: '홈',
     render: (c) => <MasterScreen onSelectLesson={c.setLessonId} onNavigate={c.setMode} onStartToday={c.startTodayDrill} />,
   },
-  study: { title: '레슨', render: (c) => <StudyScreen lessonId={c.lessonId} onSelectLesson={c.setLessonId} /> },
-  drill: { title: '드릴', render: (c) => <DrillScreen lessonId={c.lessonId} auto={c.autoDrill} /> },
-  talk: { title: '회화', render: (c) => <TalkScreen lessonId={c.lessonId} /> },
+  study: { title: '레슨', render: (c) => <LessonsGate><StudyScreen lessonId={c.lessonId} onSelectLesson={c.setLessonId} /></LessonsGate> },
+  drill: { title: '드릴', render: (c) => <LessonsGate><DrillScreen lessonId={c.lessonId} auto={c.autoDrill} /></LessonsGate> },
+  talk: { title: '회화', render: (c) => <LessonsGate><TalkScreen lessonId={c.lessonId} /></LessonsGate> },
   review: { title: '복습', render: () => <ReviewScreen /> },
-  progress: { title: '진도', render: (c) => <ProgressScreen onNavigate={c.setMode} onSelectLesson={c.setLessonId} /> },
+  progress: { title: '진도', render: (c) => <LessonsGate><ProgressScreen onNavigate={c.setMode} onSelectLesson={c.setLessonId} /></LessonsGate> },
   features: { title: '기능', render: (c) => <FeaturesScreen onNavigate={c.setMode} /> },
   video: { title: '영상', render: () => <VideoScreen /> },
   flashcards: { title: '암기 카드', render: (c) => <FlashcardsScreen onExit={() => c.setMode('review')} /> },
-  homework: { title: '숙제 도우미', render: (c) => <HomeworkScreen lessonId={c.lessonId} /> },
+  homework: { title: '숙제 도우미', render: (c) => <LessonsGate><HomeworkScreen lessonId={c.lessonId} /></LessonsGate> },
   placement: { title: 'CEFR 배치고사', render: (c) => <PlacementScreen onDone={() => c.setMode('master')} /> },
   phrasebook: { title: '내 표현장', render: () => <PhrasebookScreen /> },
   askhistory: { title: '내 질문 기록', render: () => <AskHistoryScreen /> },
-  shadowing: { title: '쉐도잉', render: (c) => <ShadowingScreen lessonId={c.lessonId} /> },
+  shadowing: { title: '쉐도잉', render: (c) => <LessonsGate><ShadowingScreen lessonId={c.lessonId} /></LessonsGate> },
   reminders: { title: '복습 알림', render: () => <RemindersScreen /> },
   backup: { title: '백업 · 복원', render: () => <BackupScreen /> },
   legal: { title: '약관 · 개인정보', render: () => <LegalScreen /> },
@@ -162,6 +174,9 @@ export default function Page() {
    */
   useEffect(() => {
     const warm = () => {
+      // 레슨 데이터(199KB)를 화면 코드와 분리했으므로 가장 먼저 데운다 —
+      // 이게 미리 도착해 있으면 레슨·회화 탭의 게이트가 아예 보이지 않는다.
+      void loadLessons();
       // 사용 빈도 순 — 하단 탭 3개 + 더보기에서 가장 자주 가는 2개
       void import('../components/StudyScreen');
       void import('../components/DrillScreen');

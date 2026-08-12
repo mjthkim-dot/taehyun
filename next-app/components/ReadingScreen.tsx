@@ -2,7 +2,7 @@
 
 /** 독해 — voice-assistant/index.html 의 renderReading()/gradeReading() 포팅. AI 새 지문 생성 포함. */
 import { useState } from 'react';
-import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/lessons';
+import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/cefr';
 import { addPhrase, bumpSkill, getProfile, groqKey, markPracticedToday } from '../lib/state';
 import { groqComplete, GroqError } from '../lib/groq';
 import { hasHangul } from '../lib/aiGuard';

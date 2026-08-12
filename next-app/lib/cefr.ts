@@ -47,3 +47,20 @@ export function gseToCefr(gse: number): Cefr {
 export function scaffoldFor(cefr: Cefr): number {
   return SCAFFOLD_BY_CEFR[cefr] ?? 1.0;
 }
+
+/* ── 레슨 메타 헬퍼 — 배열(lessons.json)을 건드리지 않는 순수 함수 ──
+ * lessons.ts에 있던 것을 옮겨 왔다: 이 함수들 때문에 199KB 데이터가 소비처
+ * 번들에 끌려 들어가는 것을 막는다. 구조적 타입이라 순환 import도 없다. */
+
+/** 레슨의 CEFR — master 유닛은 자기 레벨, 그 외는 A2 기본 */
+export function cefrOf(lesson: { master?: string } | null | undefined): Cefr {
+  return ((lesson && (lesson.master as Cefr)) || 'A2');
+}
+
+/** 레슨 목록에 붙는 짧은 라벨 */
+export function lessonLabel(l: { library?: boolean; category?: string; master?: string; preview?: boolean; id: number }): string {
+  if (l.library) return `📚 ${l.category || '시나리오'}`;
+  if (l.master) return `🗺 ${l.master}`;
+  if (l.preview) return `🔮 선행 ${l.id - 100}`;
+  return `${l.id}회차`;
+}

@@ -5,7 +5,7 @@
  * 18문항(A1~C2 각 3문항) 객관식으로 레벨을 추정하고 프로필/스킬 시작점을 설정한다.
  */
 import { useState } from 'react';
-import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/lessons';
+import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/cefr';
 import { getProfile, getSkillStats, saveProfile, scaffoldFor, SKILLS, store } from '../lib/state';
 
 const PLACEMENT_Q: { lv: Cefr; q: string; o: string[]; a: number }[] = [

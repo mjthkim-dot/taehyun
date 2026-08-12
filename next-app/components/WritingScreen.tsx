@@ -2,7 +2,7 @@
 
 /** 작문 — voice-assistant/index.html 의 renderWriting()/gradeWriting() 포팅. */
 import { useState } from 'react';
-import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/lessons';
+import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/cefr';
 import { bumpSkill, getProfile, groqKey, markPracticedToday } from '../lib/state';
 import { GroqError } from '../lib/groq';
 import { AI_FAIL_KO, groqKoJson, hasHangul } from '../lib/aiGuard';

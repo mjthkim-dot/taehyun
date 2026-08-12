@@ -2,7 +2,7 @@
 
 /** 청해(딕테이션) — voice-assistant/index.html 의 renderListening()/checkListen() 포팅. */
 import { useState } from 'react';
-import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/lessons';
+import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/cefr';
 import { addWeakItem, bumpSkill, getProfile, markPracticedToday } from '../lib/state';
 import { LISTEN_BANK } from '../lib/contentBanks';
 import { speakText } from './SpeakButton';
