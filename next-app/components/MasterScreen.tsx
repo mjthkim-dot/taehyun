@@ -15,7 +15,20 @@ import CurriculumPath from './CurriculumPath';
 import StreakFlame from './StreakFlame';
 import { computeMaturity, type MaturityState } from '../lib/maturity';
 import { pickTodayPattern, sessionDoneToday } from '../lib/session';
+import { weeklyTestDue } from '../lib/weeklyTest';
 import type { Mode } from './NavBar';
+
+/** 주간 말하기 시험 배너 — 때가 됐을 때만 조용히 나타난다(매일 조르지 않는다). */
+function WeeklyTestBanner({ onNavigate }: { onNavigate: (m: Mode) => void }) {
+  const [due, setDue] = useState(false);
+  useEffect(() => setDue(weeklyTestDue()), []);
+  if (!due) return null;
+  return (
+    <button type="button" className="wt-banner" onClick={() => onNavigate('weeklytest')}>
+      📣 주간 말하기 시험 — 이번 주 패턴으로 1분, 지난주의 나와 비교해요 →
+    </button>
+  );
+}
 
 /** 홈의 주인공 — "오늘 세션 시작" 버튼 하나. 무엇을 할지 고르지 않게 한다. */
 function SessionCta({ onNavigate }: { onNavigate: (m: Mode) => void }) {
@@ -149,6 +162,9 @@ export default function MasterScreen({
           발화가 즉시 반영돼, 목표에 닿는 순간 이 자리에서 점화된다. */}
       {/* 코스 중심 홈 — 고민 없이 누르는 오늘의 한 버튼이 맨 위 */}
       <SessionCta onNavigate={onNavigate} />
+
+      {/* 주간 측정 리추얼 — 7일에 한 번만 등장 */}
+      <WeeklyTestBanner onNavigate={onNavigate} />
 
       <StreakFlame refreshKey={tick} />
 
