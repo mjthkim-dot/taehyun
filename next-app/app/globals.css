@@ -1330,6 +1330,138 @@ button {
   margin-top: 6px;
 }
 
+/* ── 오디오 모드 ── */
+.al-now {
+  text-align: center;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 16px;
+  margin: 12px 0;
+}
+.al-tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 3px 10px;
+  margin-bottom: 8px;
+}
+.al-en {
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.5;
+}
+.al-kr {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 5px;
+  line-height: 1.55;
+}
+.al-pos {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-top: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.al-controls {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin: 6px 0 10px;
+}
+.al-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 1.15rem;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease-out-back);
+}
+.al-btn:active:not(:disabled) {
+  transform: scale(0.93);
+}
+.al-btn:disabled {
+  opacity: 0.35;
+}
+.al-play {
+  width: 64px;
+  height: 64px;
+  background: var(--grad-primary);
+  color: var(--on-primary);
+  border: none;
+  font-size: 1.4rem;
+}
+[data-theme='dark'] .al-play {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), var(--glow-accent);
+}
+.al-opts {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+.al-opts .mini-btn.on {
+  color: var(--primary-dk);
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.al-list {
+  margin-top: 14px;
+}
+.al-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 13px;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+.al-item.now {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.al-item-en {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.al-item-tag {
+  flex-shrink: 0;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* 입 트임 본인 목표 + 교정 유형 칩 */
+.dash-goal {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-top: 8px;
+}
+.dash-goal .ok {
+  color: var(--green);
+}
+.dash-axis-g {
+  color: var(--primary-dk);
+}
+
 /* ── 훈련 대시보드 (진도 화면) ── */
 .dash-hero {
   display: flex;

@@ -35,7 +35,9 @@ export type Mode =
   | 'ladder'
   | 'growth'
   | 'session'
-  | 'weeklytest';
+  | 'weeklytest'
+  | 'audio'
+  | 'recallrush';
 
 const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [
   { mode: 'master', icon: 'home', label: '홈' },

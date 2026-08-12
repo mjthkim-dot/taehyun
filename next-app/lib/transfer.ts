@@ -97,6 +97,36 @@ export interface Mistake {
   /** 왜 — 한국어 피드백 */
   note: string;
   t: number;
+  /** 오류 유형 — AI 교정이 분류한다(없으면 other). 약점 해상도를 높이는 태그. */
+  type?: MistakeType;
+}
+
+export type MistakeType = 'tense' | 'article' | 'preposition' | 'word-order' | 'word-choice' | 'other';
+
+export const MISTAKE_TYPE_LABEL: Record<string, string> = {
+  tense: '시제',
+  article: '관사',
+  preposition: '전치사',
+  'word-order': '어순',
+  'word-choice': '단어 선택',
+  other: '기타',
+};
+
+/** 모델 응답의 유형 문자열을 알려진 집합으로 정규화 — 모르는 값은 other */
+export function sanitizeMistakeType(v: unknown): MistakeType {
+  const s = String(v || '').toLowerCase().trim();
+  const known: readonly string[] = ['tense', 'article', 'preposition', 'word-order', 'word-choice'];
+  return known.includes(s) ? (s as MistakeType) : 'other';
+}
+
+/** 유형별 누적 — 약점 카드용(많은 순) */
+export function mistakeTypeCounts(): { type: string; count: number }[] {
+  const agg = new Map<string, number>();
+  for (const m of getMistakes()) {
+    const t = m.type || 'other';
+    agg.set(t, (agg.get(t) || 0) + 1);
+  }
+  return [...agg.entries()].sort((a, b) => b[1] - a[1]).map(([type, count]) => ({ type, count }));
 }
 
 const MISTAKE_KEY = 'va_mistakes';

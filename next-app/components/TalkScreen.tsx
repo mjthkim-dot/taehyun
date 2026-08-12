@@ -17,7 +17,7 @@ import { takeMissionTalkContext, type MissionTalkCtx } from '../lib/dailyMission
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS, isKorean } from './SpeakButton';
 import { MicIcon, SendIcon, SpeakerIcon } from './icons';
 import { fetchGloss } from '../lib/gloss';
-import { detectPatternUse, recordPatternUse, recordMistake, PATTERN_STEMS } from '../lib/transfer';
+import { detectPatternUse, recordPatternUse, recordMistake, sanitizeMistakeType, PATTERN_STEMS } from '../lib/transfer';
 import VoiceOverlay, { type VoiceState } from './VoiceOverlay';
 import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
 
@@ -26,6 +26,8 @@ interface Correction {
   corrected_sentence: string;
   native_expression: string;
   korean_feedback: string;
+  /** 오류 유형 — 약점 대시보드의 해상도를 높이는 태그 */
+  error_type?: string;
 }
 
 interface CafResult {
@@ -230,7 +232,13 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       updateMsg(userId, { correction: parsed ?? null });
       // 교정 축적 — 틀린 문장이 휘발되지 않게 남긴다("자주 틀리는 패턴" 훈련의 재료)
       if (parsed && !parsed.is_correct && parsed.corrected_sentence) {
-        recordMistake({ wrong: text, right: parsed.corrected_sentence, note: parsed.korean_feedback || '', t: Date.now() });
+        recordMistake({
+          wrong: text,
+          right: parsed.corrected_sentence,
+          note: parsed.korean_feedback || '',
+          t: Date.now(),
+          type: sanitizeMistakeType(parsed.error_type),
+        });
       }
     } catch {
       updateMsg(userId, { correction: null });

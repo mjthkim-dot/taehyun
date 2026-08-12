@@ -84,8 +84,9 @@ Rules:
 - If the input is mostly Korean or not a real English attempt, set is_correct=true and in korean_feedback gently encourage trying it in English. Do NOT invent errors.
 - korean_feedback: concise (1-3 sentences), friendly, concrete about WHAT to fix and WHY. korean_feedback는 반드시 한국어(존댓말)로만 쓴다 — 영어 설명 금지.
 - native_expression: how a native speaker would casually say it in this scenario.
+- error_type: the single most important error category — one of "tense","article","preposition","word-order","word-choice","other". If is_correct=true, use "other".
 Respond with ONLY valid JSON (no markdown, no code fences, no extra text), schema:
-{"is_correct":boolean,"corrected_sentence":string,"native_expression":string,"korean_feedback":string}`;
+{"is_correct":boolean,"corrected_sentence":string,"native_expression":string,"korean_feedback":string,"error_type":string}`;
 
 export function lessonTargetGrammar(lesson: Lesson) {
   const secs = (lesson.sections || []).map((s) => s.title.replace(/^[①-⑩\s]+/, '')).slice(0, 2).filter(Boolean).join(', ');

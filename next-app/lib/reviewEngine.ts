@@ -84,6 +84,39 @@ export function attemptStats(days = 14): DayStat[] {
     });
 }
 
+/** 중앙값 — 지연 통계의 기본 집계(평균은 이상치에 휘둘린다) */
+function median(arr: number[]): number {
+  const s = arr.slice().sort((a, b) => a - b);
+  return s[Math.floor(s.length / 2)];
+}
+
+export interface LatencyGoal {
+  /** 목표(ms) — 기준 기간 중앙값의 -20% */
+  goalMs: number;
+  /** 이번 주 중앙값(ms) — 이번 주 시도가 없으면 null */
+  currentMs: number | null;
+  met: boolean;
+}
+
+/**
+ * 입 트임 본인 기준 목표 — 지연 데이터가 3주 이상 쌓였을 때만,
+ * "지난 기간(7~35일 전) 중앙값의 -20%"를 목표로 제시한다.
+ * 절대 기준(남과 비교)은 계속 금지 — 기준은 언제나 과거의 나다.
+ */
+export function latencyGoal(): LatencyGoal | null {
+  const atts = getAttempts().filter((a) => typeof a.latencyMs === 'number');
+  if (atts.length < 20) return null;
+  const now = Date.now();
+  const spanDays = (now - atts[0].t) / 86400000;
+  if (spanDays < 21) return null;
+  const baseline = atts.filter((a) => a.t < now - 7 * 86400000 && a.t >= now - 35 * 86400000).map((a) => a.latencyMs!);
+  if (baseline.length < 10) return null;
+  const recent = atts.filter((a) => a.t >= now - 7 * 86400000).map((a) => a.latencyMs!);
+  const goalMs = Math.round(median(baseline) * 0.8);
+  const currentMs = recent.length ? median(recent) : null;
+  return { goalMs, currentMs, met: currentMs != null && currentMs <= goalMs };
+}
+
 /* ── ② 패턴 SRS ── */
 
 interface PatternSrsItem {

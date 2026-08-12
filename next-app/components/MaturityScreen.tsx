@@ -12,6 +12,7 @@ import type { Mode } from './NavBar';
 import { computeMaturity, donePatterns, settledNativeCount, STAGE_PATTERNS, STAGES, type MaturityState } from '../lib/maturity';
 import { setLadderSeed } from '../lib/nativeLadder';
 import { getMistakes, mistakesForDrill, patternUseTotal } from '../lib/transfer';
+import { duePatternRecalls } from '../lib/reviewEngine';
 import { setDrillQueue } from '../lib/state';
 import { speakText } from './SpeakButton';
 import { SpeakerIcon } from './icons';
@@ -61,6 +62,7 @@ export default function MaturityScreen({ onNavigate }: { onNavigate: (m: Mode) =
   const [doneKeys, setDoneKeys] = useState<string[]>([]);
   const [mistakeCount, setMistakeCount] = useState(0);
   const [usedTotal, setUsedTotal] = useState(0);
+  const [dueRecalls, setDueRecalls] = useState(0);
 
   useEffect(() => {
     setMx(computeMaturity());
@@ -68,6 +70,7 @@ export default function MaturityScreen({ onNavigate }: { onNavigate: (m: Mode) =
     setDoneKeys(donePatterns());
     setMistakeCount(getMistakes().length);
     setUsedTotal(patternUseTotal());
+    setDueRecalls(duePatternRecalls(10).length);
   }, []);
 
   const patterns = useMemo(() => (mx ? STAGE_PATTERNS[mx.stage.n] || [] : []), [mx]);
@@ -128,6 +131,19 @@ export default function MaturityScreen({ onNavigate }: { onNavigate: (m: Mode) =
         <div className="mx-card">
           <div className="mx-label">최고 단계</div>
           <p className="mx-crit-note">원어민의 결에 도달했어요 — 이제 사다리와 회화로 결을 더 다듬는 여정입니다.</p>
+        </div>
+      )}
+
+      {/* 리콜 러시 — 밀린 패턴 리콜이 2개 이상이면 몰아서 정리하는 통로 */}
+      {dueRecalls >= 2 && (
+        <div className="mx-card mx-rush">
+          <div className="mx-label">밀린 리콜 {dueRecalls}개</div>
+          <p className="mx-crit-note" style={{ marginTop: 0 }}>
+            복습 시점이 지난 패턴들이 기다리고 있어요 — 몰아서 꺼내면 간격 반복이 다시 굴러갑니다.
+          </p>
+          <button type="button" className="mx-practice-btn" style={{ marginTop: 10 }} onClick={() => onNavigate('recallrush')}>
+            🧠 리콜 러시 시작 →
+          </button>
         </div>
       )}
 

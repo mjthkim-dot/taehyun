@@ -56,6 +56,8 @@ const LadderScreen = dynamic(() => import('../components/LadderScreen'), { ssr: 
 const MaturityScreen = dynamic(() => import('../components/MaturityScreen'), { ssr: false, loading: ScreenLoading });
 const SessionScreen = dynamic(() => import('../components/SessionScreen'), { ssr: false, loading: ScreenLoading });
 const WeeklyTestScreen = dynamic(() => import('../components/WeeklyTestScreen'), { ssr: false, loading: ScreenLoading });
+const AudioLoopScreen = dynamic(() => import('../components/AudioLoopScreen'), { ssr: false, loading: ScreenLoading });
+const RecallRushScreen = dynamic(() => import('../components/RecallRushScreen'), { ssr: false, loading: ScreenLoading });
 const BusinessScreen = dynamic(() => import('../components/BusinessScreen'), { ssr: false, loading: ScreenLoading });
 
 import MasterScreen from '../components/MasterScreen';
@@ -113,6 +115,8 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
   growth: { title: '성장', render: (c) => <MaturityScreen onNavigate={c.setMode} /> },
   session: { title: '오늘 세션', render: (c) => <SessionScreen onNavigate={c.setMode} /> },
   weeklytest: { title: '주간 말하기 시험', render: (c) => <WeeklyTestScreen onNavigate={c.setMode} /> },
+  audio: { title: '오디오 모드', render: () => <AudioLoopScreen /> },
+  recallrush: { title: '리콜 러시', render: (c) => <RecallRushScreen onNavigate={c.setMode} /> },
   business: {
     title: '비즈니스',
     render: (c) => (

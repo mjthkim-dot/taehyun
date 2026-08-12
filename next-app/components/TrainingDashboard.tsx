@@ -10,8 +10,8 @@
  */
 import { useEffect, useState } from 'react';
 import type { Mode } from './NavBar';
-import { attemptStats, type DayStat } from '../lib/reviewEngine';
-import { getMistakes, mistakesForDrill, patternUseTotal } from '../lib/transfer';
+import { attemptStats, latencyGoal, type DayStat, type LatencyGoal } from '../lib/reviewEngine';
+import { getMistakes, mistakesForDrill, mistakeTypeCounts, MISTAKE_TYPE_LABEL, patternUseTotal } from '../lib/transfer';
 import { getPronLapses, setDrillQueue } from '../lib/state';
 import { LAPSE_TIPS } from '../lib/pronunciation';
 
@@ -72,11 +72,15 @@ export default function TrainingDashboard({ onNavigate, variant = 'hero' }: { on
   const [mistakes, setMistakes] = useState(0);
   const [used, setUsed] = useState(0);
   const [axes, setAxes] = useState<{ key: string; label: string; count: number }[]>([]);
+  const [goal, setGoal] = useState<LatencyGoal | null>(null);
+  const [mTypes, setMTypes] = useState<{ type: string; count: number }[]>([]);
 
   useEffect(() => {
     setStats(attemptStats(14));
     setMistakes(getMistakes().length);
     setUsed(patternUseTotal());
+    setGoal(latencyGoal());
+    setMTypes(mistakeTypeCounts().slice(0, 3));
     // 발음 축 상위 3 — 최근 14일
     const since = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
     const agg = new Map<string, number>();
@@ -135,6 +139,14 @@ export default function TrainingDashboard({ onNavigate, variant = 'hero' }: { on
             <div className="study-card">
               <h3>⚡ 입 트임 속도 <span className="dash-sub">말하기까지 걸린 시간 · 낮을수록 자동화</span></h3>
               <LatencyLine stats={stats} />
+              {goal && (
+                <p className="dash-goal">
+                  🎯 이번 주 목표 <b>{(goal.goalMs / 1000).toFixed(1)}초</b> (지난달 나보다 -20%)
+                  {goal.currentMs != null && (
+                    <> · 현재 <b>{(goal.currentMs / 1000).toFixed(1)}초</b> {goal.met ? <span className="ok">달성 ✓</span> : ''}</>
+                  )}
+                </p>
+              )}
               <p className="muted" style={{ fontSize: '0.72rem', marginTop: 4 }}>기기·환경에 따라 다르므로 남과 비교하지 말고 내 추이만 보세요.</p>
             </div>
           )}
@@ -148,6 +160,13 @@ export default function TrainingDashboard({ onNavigate, variant = 'hero' }: { on
             <div className="dash-axes">
               {axes.map((a) => (
                 <span className="dash-axis" key={a.key}>{a.label} ×{a.count}</span>
+              ))}
+            </div>
+          )}
+          {mTypes.length > 0 && (
+            <div className="dash-axes">
+              {mTypes.map((m) => (
+                <span className="dash-axis dash-axis-g" key={m.type}>{MISTAKE_TYPE_LABEL[m.type] || m.type} ×{m.count}</span>
               ))}
             </div>
           )}
