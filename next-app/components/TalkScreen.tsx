@@ -17,6 +17,7 @@ import { takeMissionTalkContext, type MissionTalkCtx } from '../lib/dailyMission
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS, isKorean } from './SpeakButton';
 import { MicIcon, SendIcon, SpeakerIcon } from './icons';
 import { fetchGloss } from '../lib/gloss';
+import { detectPatternUse, recordPatternUse, recordMistake, PATTERN_STEMS } from '../lib/transfer';
 import VoiceOverlay, { type VoiceState } from './VoiceOverlay';
 import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
 
@@ -122,6 +123,8 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   /** 탭한 단어의 뜻 바 — 이 훅도 조기 return(!ready) 위에 있어야 한다 */
   const [gloss, setGloss] = useState<{ word: string; ko: string | null } | null>(null);
   const glossSeqRef = useRef(0);
+  /** 이번 대화에서 이미 축하한 패턴들 — 같은 패턴에 매번 배지를 띄우면 소음이 된다 */
+  const usedPatternsRef = useRef<Set<string>>(new Set());
 
   const lesson = ALL_LESSONS.find((l) => l.id === lessonId) ?? LESSONS[LESSONS.length - 1];
   const historyRef = useRef<{ role: string; content: string }[]>([]);
@@ -225,6 +228,10 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
         }
       );
       updateMsg(userId, { correction: parsed ?? null });
+      // 교정 축적 — 틀린 문장이 휘발되지 않게 남긴다("자주 틀리는 패턴" 훈련의 재료)
+      if (parsed && !parsed.is_correct && parsed.corrected_sentence) {
+        recordMistake({ wrong: text, right: parsed.corrected_sentence, note: parsed.korean_feedback || '', t: Date.now() });
+      }
     } catch {
       updateMsg(userId, { correction: null });
     }
@@ -254,6 +261,16 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       markPracticedToday();
       talkStampsRef.current.push(Date.now());
       maybeBackgroundCorrect(text, userId);
+      // 전이 감지 — 배운 패턴이 실제 대화에 나오면 기록하고, 세션당 패턴별 1회 축하한다.
+      // 판정은 결정적 문자열 매칭(transfer.ts) — AI가 아니라 오탐 없이 테스트 가능하다.
+      for (const key of detectPatternUse(text)) {
+        recordPatternUse(key);
+        if (!usedPatternsRef.current.has(key)) {
+          usedPatternsRef.current.add(key);
+          const stem = PATTERN_STEMS[key]?.[0] || key;
+          setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: `✨ 배운 패턴을 실전에서 썼어요 — “${stem}”` }]);
+        }
+      }
     }
     historyRef.current.push({ role: 'user', content: text });
 

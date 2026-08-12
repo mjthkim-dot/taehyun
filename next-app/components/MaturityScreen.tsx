@@ -11,6 +11,8 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Mode } from './NavBar';
 import { computeMaturity, donePatterns, settledNativeCount, STAGE_PATTERNS, STAGES, type MaturityState } from '../lib/maturity';
 import { setLadderSeed } from '../lib/nativeLadder';
+import { getMistakes, mistakesForDrill, patternUseTotal } from '../lib/transfer';
+import { setDrillQueue } from '../lib/state';
 import { speakText } from './SpeakButton';
 import { SpeakerIcon } from './icons';
 import { Confetti } from './Fx';
@@ -57,11 +59,15 @@ export default function MaturityScreen({ onNavigate }: { onNavigate: (m: Mode) =
   const [mx, setMx] = useState<MaturityState | null>(null);
   const [settled, setSettled] = useState(0);
   const [doneKeys, setDoneKeys] = useState<string[]>([]);
+  const [mistakeCount, setMistakeCount] = useState(0);
+  const [usedTotal, setUsedTotal] = useState(0);
 
   useEffect(() => {
     setMx(computeMaturity());
     setSettled(settledNativeCount());
     setDoneKeys(donePatterns());
+    setMistakeCount(getMistakes().length);
+    setUsedTotal(patternUseTotal());
   }, []);
 
   const patterns = useMemo(() => (mx ? STAGE_PATTERNS[mx.stage.n] || [] : []), [mx]);
@@ -87,6 +93,7 @@ export default function MaturityScreen({ onNavigate }: { onNavigate: (m: Mode) =
         <div className="mx-hero-meta">
           성숙도 {stage.n}/5 · CEFR {stage.cefr} 앵커
           {settled > 0 && <> · 정착한 원어민 표현 {settled}개</>}
+          {usedTotal > 0 && <> · 실전 사용 {usedTotal}회</>}
         </div>
         <p className="mx-hero-desc">{stage.desc}</p>
       </div>
@@ -121,6 +128,27 @@ export default function MaturityScreen({ onNavigate }: { onNavigate: (m: Mode) =
         <div className="mx-card">
           <div className="mx-label">최고 단계</div>
           <p className="mx-crit-note">원어민의 결에 도달했어요 — 이제 사다리와 회화로 결을 더 다듬는 여정입니다.</p>
+        </div>
+      )}
+
+      {/* 맞춤 훈련 — 회화에서 축적된 교정을 드릴로 되돌린다(약점이 훈련이 되는 루프) */}
+      {mistakeCount >= 2 && (
+        <div className="mx-card mx-mistakes">
+          <div className="mx-label">맞춤 훈련 — 회화에서 틀렸던 문장</div>
+          <p className="mx-crit-note" style={{ marginTop: 0 }}>
+            AI 교정에서 잡힌 문장 {mistakeCount}개가 쌓여 있어요. 고친 문장을 소리 내어 말하면 같은 실수가 줄어듭니다.
+          </p>
+          <button
+            type="button"
+            className="mx-practice-btn"
+            style={{ marginTop: 10 }}
+            onClick={() => {
+              setDrillQueue({ label: '자주 틀리는 문장', items: mistakesForDrill() });
+              onNavigate('drill');
+            }}
+          >
+            🔁 고친 문장으로 드릴 →
+          </button>
         </div>
       )}
 
