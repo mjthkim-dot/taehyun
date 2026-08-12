@@ -22,6 +22,7 @@ import {
   SKILLS,
 } from '../lib/state';
 import { CountUp, RadarChart, GaugeRing } from './Charts';
+import TrainingDashboard from './TrainingDashboard';
 import WeeklyReport from './WeeklyReport';
 import type { Mode } from './NavBar';
 
@@ -64,6 +65,10 @@ export default function ProgressScreen({ onNavigate, onSelectLesson }: { onNavig
 
   return (
     <div className="study-screen">
+      {/* 훈련 대시보드 — "늘고 있나"가 이 화면의 첫 질문이므로 맨 위.
+          시도 로그 기반의 정확도·입 트임 추이와 약점·실전 사용 */}
+      <TrainingDashboard onNavigate={onNavigate ?? (() => {})} />
+
       {showReport ? (
         <WeeklyReport onNavigate={onNavigate} onSelectLesson={onSelectLesson} />
       ) : (

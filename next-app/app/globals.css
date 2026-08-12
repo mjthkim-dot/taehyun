@@ -1256,6 +1256,149 @@ button {
   line-height: 1.5;
 }
 
+/* ── 주간 말하기 시험 ── */
+.wt-banner {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  border-radius: var(--radius);
+  padding: 12px 15px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  line-height: 1.5;
+}
+.wt-pattern {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 13px;
+  margin-bottom: 8px;
+}
+.wt-pattern b {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.92rem;
+}
+.wt-timer {
+  text-align: center;
+  font-size: 2.2rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--primary-dk);
+  margin-top: 12px;
+}
+.wt-nums {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 12px 0 6px;
+}
+.wt-nums > div {
+  flex: 1;
+  max-width: 110px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 11px 6px;
+}
+.wt-nums b {
+  display: block;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  font-variant-numeric: tabular-nums;
+}
+.wt-nums span {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.wt-used {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+/* ── 훈련 대시보드 (진도 화면) ── */
+.dash-hero {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.dash-hero-item {
+  flex: 1;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 13px 6px;
+}
+.dash-hero-item b {
+  display: block;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--primary-dk);
+}
+.dash-hero-item b i {
+  font-style: normal;
+  font-size: 0.8rem;
+  margin-left: 1px;
+}
+.dash-hero-item span {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+.dash .study-card {
+  margin-bottom: 12px;
+}
+.dash-sub {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+.dash-chart {
+  width: 100%;
+  height: auto;
+  margin-top: 6px;
+}
+.dash-axes {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.dash-axis {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--yellow);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 11px;
+}
+.dash-used {
+  font-size: 0.8rem;
+  margin-top: 6px;
+}
+
 /* 홈 컴팩트 성장 카드 */
 .growth-card {
   display: flex;
