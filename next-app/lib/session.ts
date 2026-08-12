@@ -46,7 +46,8 @@ export function pickTodayPattern(stageN: number): { pattern: NativePattern; stor
   return { pattern: pick, story: PATTERN_STORIES[pick.key], isReview: true };
 }
 
-/** 워밍업 문장 — 오늘 복습할 SRS 항목 최대 2개(영어 있는 것만) */
+/** 워밍업 문장 — 오늘 복습할 SRS 항목 최대 2개(영어 있는 것만).
+ *  @deprecated 세션은 reviewEngine.dueReviews()를 쓴다(패턴 리콜까지 통합). */
 export function warmupItems(): { en: string; kr: string }[] {
   return dueWeak()
     .filter((w) => w.en && w.en.trim())

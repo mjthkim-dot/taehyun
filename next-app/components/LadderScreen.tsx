@@ -201,7 +201,7 @@ export default function LadderScreen() {
             {state === 'active' && (
               <>
                 <div className="ld-note">{r.note}</div>
-                <SpeakingPractice key={`${ladder.seed}:${i}`} sentence={r.en} prompt={r.kr} />
+                <SpeakingPractice key={`${ladder.seed}:${i}`} sentence={r.en} prompt={r.kr} source="ladder" patternKey={patternKeyRef.current ?? undefined} />
                 {passed ? (
                   <button type="button" className="start-drill-btn ld-next" onClick={nextRung}>
                     {rungIdx >= ladder.rungs.length - 1 ? '🏁 완주하기' : '다음 단계 열기 →'}

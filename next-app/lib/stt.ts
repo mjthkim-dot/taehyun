@@ -47,6 +47,13 @@ export interface SttResult {
   durationMs?: number;
   /** 1초 이상 이어진 무음 구간들(ms). 긴 발화에서 '어디서 막혔는가'의 근거. */
   pauses?: number[];
+  /**
+   * 발화 개시 지연(ms) — 녹음 시작부터 첫 유성(RMS 임계 초과)까지.
+   * "프롬프트를 보고 몇 초 만에 입이 떨어졌나" = 자동화의 가장 정직한 지표.
+   * RMS 루프가 이미 감지하던 시점을 노출만 한 것이라 추가 비용이 없다.
+   * 레벨 감지가 안 된 환경(무음·권한 문제)에서는 undefined.
+   */
+  voiceOnsetMs?: number;
 }
 
 export class SttError extends Error {}
@@ -239,6 +246,7 @@ export async function recordAndTranscribe(opts: {
   const silenceMs = opts.silenceMs ?? SILENCE_MS;
   const autoStop = silenceMs > 0;
   let lastLoud = 0; // 마지막으로 소리가 감지된 시각(0 = 아직 한 번도 말하지 않음)
+  let voiceStartAt = 0; // 첫 유성 시각 — 발화 개시 지연(자동화 지표)의 원천
   let peak = 0; // 관측된 최대 레벨 — 마이크가 아예 안 잡히는지 판단하는 근거
   /** 1초 이상 이어진 무음 구간들 — 긴 발화에서 '어디서 막혔는가'의 근거가 된다 */
   const pauses: number[] = [];
@@ -265,6 +273,7 @@ export async function recordAndTranscribe(opts: {
       // 인식 서비스에 뺏겼을 가능성이 크다 — 미리보기를 끊어 녹음을 살린다.
       if (previewOn && elapsed > 1500 && peak < RMS_THRESHOLD / 3) stopPreview();
       if (rms > RMS_THRESHOLD) {
+        if (!voiceStartAt) voiceStartAt = Date.now();
         // 조용하다가 다시 말하기 시작했다면 그 구간을 '멈춤'으로 기록한다
         if (quietSince && lastLoud) {
           const gap = Date.now() - quietSince;
@@ -295,7 +304,8 @@ export async function recordAndTranscribe(opts: {
   // 레벨 감지는 '언제 멈출지'를 정할 뿐이며, 감지에 실패했다고 녹음을 버리면
   // 조용한 마이크·suspended 컨텍스트에서 아무 일도 일어나지 않는다(실제 결함).
   const durationMs = Date.now() - started;
-  if (blob.size < 1200) return { text: '', via: 'whisper', reason: 'no-audio', peak, durationMs, pauses };
+  const voiceOnsetMs = voiceStartAt ? voiceStartAt - started : undefined;
+  if (blob.size < 1200) return { text: '', via: 'whisper', reason: 'no-audio', peak, durationMs, pauses, voiceOnsetMs };
 
   opts.onState?.('transcribing');
   const text = await transcribe(blob, opts.prompt, opts.language);
@@ -305,6 +315,7 @@ export async function recordAndTranscribe(opts: {
     audio: blob,
     durationMs,
     pauses,
+    voiceOnsetMs,
     // 소리는 잡혔는데 텍스트가 비면 '들리지 않은 것', 레벨 자체가 낮았으면 '무음'
     reason: text ? 'ok' : peak > RMS_THRESHOLD ? 'empty-result' : 'silent',
     peak,

@@ -44,6 +44,10 @@ interface SpeakingPracticeProps {
   /** true면 영어 목표 문장을 숨기고 한국어(prompt)를 문제로 낸다. 발화하거나
    * "영어 보기"를 누르면 영어가 드러나 발음을 확인할 수 있다. */
   hideTarget?: boolean;
+  /** 학습 이력 로그에 남길 출처 — session·drill·ladder·recall 등 */
+  source?: string;
+  /** 커리큘럼 패턴 연습이면 그 키(이력 로그용) */
+  patternKey?: string;
 }
 
 export default function SpeakingPractice({
@@ -51,6 +55,8 @@ export default function SpeakingPractice({
   lang = 'en-US',
   prompt,
   hideTarget = false,
+  source,
+  patternKey,
 }: SpeakingPracticeProps) {
   const currentSentence = useLessonStore((s) => s.currentSentence);
   const userSpeech = useLessonStore((s) => s.userSpeech);
@@ -63,6 +69,8 @@ export default function SpeakingPractice({
   const [rateOpen, setRateOpen] = useState(false);
   /** 방금 녹음한 내 소리 — 원어민 음성과 번갈아 들어보는 데 쓴다 */
   const [clip, setClip] = useState<Blob | null>(null);
+  /** 방금 시도의 발화 개시 지연(ms) — 자동화 훈련의 체감 지표. 측정 불가면 null */
+  const [lastOnset, setLastOnset] = useState<number | null>(null);
   const attempts = useLessonStore((s) => s.attempts);
   const isListening = useLessonStore((s) => s.isListening);
   const setCurrentSentence = useLessonStore((s) => s.setCurrentSentence);
@@ -89,8 +97,9 @@ export default function SpeakingPractice({
   const [revealed, setRevealed] = useState(false);
   useEffect(() => {
     setRevealed(false);
-    // 다른 문장으로 넘어가면 이전 녹음은 비교 대상이 아니다
+    // 다른 문장으로 넘어가면 이전 녹음·지연 표시는 비교 대상이 아니다
     setClip(null);
+    setLastOnset(null);
   }, [sentence]);
 
   // 채점 결과가 나오면 점수대별 햅틱 — 높으면 성공, 낮으면 오답 진동
@@ -183,7 +192,7 @@ export default function SpeakingPractice({
     setListening(true);
     setSttState('recording');
     try {
-      const { text, reason, peak, audio } = await recordAndTranscribe({
+      const { text, reason, peak, audio, durationMs, voiceOnsetMs } = await recordAndTranscribe({
         prompt: currentSentence,
         onState: (st) => setSttState(st),
         onLevel: (rms) => setMicLevel(Math.min(1, rms * 12)),
@@ -201,7 +210,9 @@ export default function SpeakingPractice({
       if (text) {
         setSttHint('');
         setUserSpeech(text);
-        evaluateSpeech(text);
+        // 발화 개시 지연 — 절대 기준과 비교하지 않는다(기기 편차). 본인 추이용 기록 + 표시만.
+        setLastOnset(typeof voiceOnsetMs === 'number' ? voiceOnsetMs : null);
+        evaluateSpeech(text, { latencyMs: voiceOnsetMs, durationMs, src: source, patternKey });
         return true;
       }
       // 결과가 비었다 — 원인을 구분해 안내하고, 마이크는 잡혔는데 인식만 실패한
@@ -232,7 +243,7 @@ export default function SpeakingPractice({
       );
       return false;
     }
-  }, [clearAttempt, currentSentence, setListening, setUserSpeech, evaluateSpeech]);
+  }, [clearAttempt, currentSentence, setListening, setUserSpeech, evaluateSpeech, source, patternKey]);
 
   const start = useCallback(() => {
     if (isListening) return;
@@ -386,6 +397,11 @@ export default function SpeakingPractice({
             {accuracyScore >= 80 && <Confetti burstId={attempts} />}
             {accuracyScore >= 80 && <FloatUp id={attempts} text="+1 문장" />}
             정확도 <ScoreNumber score={accuracyScore} />점{attempts > 1 ? ` · ${attempts}번째 시도` : ''}
+            {lastOnset != null && (
+              <span className="lat-badge" title="말하기 버튼을 누르고 입이 떨어지기까지 걸린 시간 — 짧아질수록 자동화되고 있다는 뜻">
+                ⚡ {(lastOnset / 1000).toFixed(1)}초
+              </span>
+            )}
             <ComboBadge combo={combo} />
           </div>
           {wordDiff.length > 0 && (

@@ -13,6 +13,15 @@
 import { create } from 'zustand';
 import { addPronLapses, bumpSpoken } from '../lib/state';
 import { diagnose, type PronIssue } from '../lib/pronunciation';
+import { logAttempt } from '../lib/reviewEngine';
+
+/** 시도 로그에 함께 남길 메타 — 측정 가능한 호출부(Whisper 경로)만 채운다 */
+export interface AttemptMeta {
+  latencyMs?: number;
+  durationMs?: number;
+  src?: string;
+  patternKey?: string;
+}
 
 export interface WordDiff {
   w: string;
@@ -37,8 +46,8 @@ export interface LessonState {
   setUserSpeech: (text: string) => void;
   setAccuracyScore: (score: number) => void;
   setListening: (v: boolean) => void;
-  /** 발화 텍스트로 정확도를 계산해 함께 반영한다. */
-  evaluateSpeech: (text: string) => void;
+  /** 발화 텍스트로 정확도를 계산해 함께 반영한다. meta는 학습 이력 로그에 남는다. */
+  evaluateSpeech: (text: string, meta?: AttemptMeta) => void;
   /** 같은 문장을 다시 시도할 때 — 시도 횟수는 유지하고 결과만 지운다. */
   clearAttempt: () => void;
   reset: () => void;
@@ -121,10 +130,12 @@ export const useLessonStore = create<LessonState>((set) => ({
   setAccuracyScore: (score) => set({ accuracyScore: score }),
   setListening: (v) => set({ isListening: v }),
 
-  evaluateSpeech: (text) =>
+  evaluateSpeech: (text, meta) =>
     set((state) => {
       bumpSpoken(); // 발화 1문장 집계(스픽식 지표)
       const { score, diff, missed } = computeAccuracy(state.currentSentence, text);
+      // 학습 이력 — 모든 말하기 채점이 문장 단위로 남는다(추이·자동화 분석의 원천).
+      logAttempt({ t: Date.now(), en: state.currentSentence, score, ...meta });
       // 완벽하게 맞힌 발화는 진단할 것이 없다 — 틀린 자리가 있을 때만 해석한다.
       const pronIssues = missed.length ? diagnose(state.currentSentence, text) : [];
       // 반복되는 축을 주간 리포트가 읽을 수 있게 누적한다(한 번의 오답보다 경향이 중요).

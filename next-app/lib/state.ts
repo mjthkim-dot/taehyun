@@ -10,7 +10,7 @@ import { CEFR_GSE, CEFR_ORDER, gseMid, gseToCefr, scaffoldFor, type Cefr } from 
 export const STORAGE_FULL_EVENT = 'va:storage-full';
 
 /** 용량이 부족할 때 먼저 버려도 되는 것들(오래된 기록 순). 학습 진도는 건드리지 않는다. */
-const EVICTABLE = ['va_chat_logs', 'va_ask_history', 'va_sessions', 'va_spoken_log', 'va_depth_cache'];
+const EVICTABLE = ['va_chat_logs', 'va_ask_history', 'va_sessions', 'va_spoken_log', 'va_depth_cache', 'va_attempt_log'];
 
 export function store(key: string, val: unknown) {
   try {

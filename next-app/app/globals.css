@@ -1159,6 +1159,47 @@ button {
   color: var(--primary-dk);
   margin-bottom: 5px;
 }
+/* 발화 개시 지연 배지 — 자동화의 체감 지표. 본인 추이용이라 색은 중립으로 */
+.lat-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 9px;
+  margin-left: 8px;
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 원어민 단계 2연속 진행 표시 */
+.ss-reps {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+.ss-reps i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  background: transparent;
+  transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
+}
+.ss-reps i.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 0 10px -2px var(--primary);
+}
+.ss-reps-label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
 .ss-nav {
   margin-top: 14px;
 }

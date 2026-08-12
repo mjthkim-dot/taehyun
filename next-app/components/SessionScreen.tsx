@@ -5,12 +5,14 @@
  * 복습 워밍업 → 패턴 스토리(장면으로 배우기) → 말하기 2단 → 실전 리콜이
  * 자동으로 이어진다. 무엇을 할지 고르는 화면이 없다는 것이 이 화면의 존재 이유.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Mode } from './NavBar';
 import { computeMaturity } from '../lib/maturity';
 import { markPatternDone } from '../lib/maturity';
 import { markLadderDone } from '../lib/nativeLadder';
-import { pickTodayPattern, sessionDoneToday, markSessionDone, warmupItems } from '../lib/session';
+import { pickTodayPattern, sessionDoneToday, markSessionDone } from '../lib/session';
+import { setTalkContext } from '../lib/dailyMission';
+import { dueReviews, gradePatternRecall, type PatternRecall } from '../lib/reviewEngine';
 import { markPracticedToday } from '../lib/state';
 import { useLessonStore } from '../store/useLessonStore';
 import SpeakingPractice from './SpeakingPractice';
@@ -20,12 +22,14 @@ import { Confetti } from './Fx';
 
 type Step =
   | { type: 'warmup'; en: string; kr: string }
+  | { type: 'recall'; recall: PatternRecall }
   | { type: 'story' }
   | { type: 'speak'; rung: 'basic' | 'native' }
   | { type: 'challenge' };
 
 const PHASE_OF: Record<Step['type'], string> = {
   warmup: '복습',
+  recall: '복습',
   story: '배우기',
   speak: '말하기',
   challenge: '실전',
@@ -37,9 +41,13 @@ export default function SessionScreen({ onNavigate }: { onNavigate: (m: Mode) =>
   const [setup] = useState(() => {
     const mx = computeMaturity();
     const picked = pickTodayPattern(mx.stage.n);
-    const warmups = warmupItems();
+    // 통합 복습 큐 — 문장 SRS(최대 2) + 지난 패턴 실전 리콜(최대 1).
+    // 리콜은 오늘의 새 패턴과 겹치지 않게 뺀다(같은 걸 두 번 배우게 되지 않도록).
+    const due = dueReviews(2, 1);
+    const recalls = due.recalls.filter((r) => r.pattern.key !== picked?.pattern.key);
     const steps: Step[] = [
-      ...warmups.map((w) => ({ type: 'warmup' as const, en: w.en, kr: w.kr })),
+      ...due.sentences.map((w) => ({ type: 'warmup' as const, en: w.en, kr: w.kr })),
+      ...recalls.map((r) => ({ type: 'recall' as const, recall: r })),
       { type: 'story' as const },
       { type: 'speak' as const, rung: 'basic' as const },
       { type: 'speak' as const, rung: 'native' as const },
@@ -57,15 +65,34 @@ export default function SessionScreen({ onNavigate }: { onNavigate: (m: Mode) =>
 
   const step = setup.steps[Math.min(stepIdx, setup.steps.length - 1)];
 
-  // 스텝이 바뀌면 이전 점수를 지운다 — 안 지우면 이전 스텝의 점수가 새 스텝을 통과시킨다
+  /** 원어민 단계의 연속 통과 수 — 2연속이어야 넘어간다(자동화 반복 훈련).
+   *  실패하면 0으로 끊긴다: "연속"이 매끄러움을 만든다. */
+  const [reps, setReps] = useState(0);
+  const countedRef = useRef(0);
+
+  // 스텝이 바뀌면 이전 점수·반복 카운트를 지운다 — 안 지우면 이전 스텝이 새 스텝을 통과시킨다
   useEffect(() => {
     clearAttempt();
+    setReps(0);
+    countedRef.current = 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepIdx]);
+
+  const isNativeRep = step.type === 'speak' && step.rung === 'native';
+
+  // 시도가 하나 끝날 때마다 연속 통과를 갱신(같은 시도를 두 번 세지 않는다)
+  useEffect(() => {
+    if (!isNativeRep || attempts === 0 || attempts === countedRef.current) return;
+    countedRef.current = attempts;
+    setReps((r) => (accuracyScore >= 80 ? r + 1 : 0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempts]);
 
   const phaseNow = PHASE_OF[step.type];
   const passed = accuracyScore >= 80;
   const attempted = attempts > 0;
+  /** 이 스텝에서 다음으로 갈 수 있는가 — 원어민 단계만 2연속을 요구한다 */
+  const canAdvance = isNativeRep ? reps >= 2 : attempted;
 
   const speakStepsTotal = useMemo(
     () => setup.steps.filter((s) => s.type !== 'story').length,
@@ -73,6 +100,8 @@ export default function SessionScreen({ onNavigate }: { onNavigate: (m: Mode) =>
   );
 
   function next() {
+    // 패턴 리콜은 넘어가는 순간 채점한다 — 시도했을 때만(건너뛰면 내일 다시).
+    if (step.type === 'recall' && attempted) gradePatternRecall(step.recall.pattern.key, accuracyScore);
     if (attempted) setSpokenCount((n) => n + 1);
     if (stepIdx >= setup.steps.length - 1) {
       // 완주 — 패턴 정착 + 사다리 완주로 기록(자동 승급의 재료)
@@ -117,8 +146,22 @@ export default function SessionScreen({ onNavigate }: { onNavigate: (m: Mode) =>
           <p className="muted" style={{ fontSize: '0.78rem', marginTop: 6 }}>
             말하기 {Math.min(spokenCount, speakStepsTotal)}회 · 내일 세션에서 다음 패턴이 열려요.
           </p>
-          <button className="start-drill-btn" style={{ marginTop: 14 }} onClick={() => onNavigate('master')}>홈으로</button>
-          <button className="btn" style={{ marginTop: 8 }} onClick={() => onNavigate('growth')}>성장 현황 보기</button>
+          {/* 전이 — 배운 패턴을 대화에서 꺼내 써야 내 것이 된다. 완주 직후가 최적 타이밍. */}
+          <button
+            className="start-drill-btn ss-talk-btn"
+            style={{ marginTop: 14 }}
+            onClick={() => {
+              setTalkContext({
+                title: `오늘의 패턴 실전 — ${pattern.en}`,
+                desc: `${story.scene} 이 상황의 상대가 되어 대화하라. 사용자가 "${pattern.en}" 패턴을 자연스럽게 쓸 기회를 2번 이상 만들어라.`,
+                examples: [{ en: story.speak.native.en, kr: story.speak.native.kr }],
+              });
+              onNavigate('talk');
+            }}
+          >
+            🎯 오늘 패턴으로 2분 대화 →
+          </button>
+          <button className="btn" style={{ marginTop: 8 }} onClick={() => onNavigate('master')}>홈으로</button>
         </div>
       </div>
     );
@@ -138,7 +181,25 @@ export default function SessionScreen({ onNavigate }: { onNavigate: (m: Mode) =>
       {step.type === 'warmup' && (
         <>
           <div className="ss-title">🔥 워밍업 — 복습 문장을 소리 내어</div>
-          <SpeakingPractice key={`w${stepIdx}`} sentence={step.en} prompt={step.kr} />
+          <SpeakingPractice key={`w${stepIdx}`} sentence={step.en} prompt={step.kr} source="session" />
+        </>
+      )}
+
+      {/* ── 패턴 리콜: 지난 패턴을 상황만 보고 재소환 (D+1/D+3/D+7 간격 반복) ── */}
+      {step.type === 'recall' && (
+        <>
+          <div className="ss-title">🧠 리콜 — 지난 패턴, 상황만 보고 떠올리기</div>
+          <p className="muted" style={{ fontSize: '0.78rem', marginBottom: 8 }}>
+            며칠 전 배운 <b>{step.recall.pattern.en}</b> — 기억에서 꺼내야 진짜 내 것이 됩니다.
+          </p>
+          <SpeakingPractice
+            key={`r${stepIdx}`}
+            sentence={step.recall.story.speak.native.en}
+            prompt={step.recall.story.challenge}
+            hideTarget
+            source="recall"
+            patternKey={step.recall.pattern.key}
+          />
         </>
       )}
 
@@ -176,12 +237,23 @@ export default function SessionScreen({ onNavigate }: { onNavigate: (m: Mode) =>
             {step.rung === 'basic' ? '🗣 말하기 ① — 기본형부터' : '🗣 말하기 ② — 원어민처럼'}
           </div>
           {step.rung === 'native' && (
-            <p className="muted" style={{ fontSize: '0.78rem', marginBottom: 8 }}>같은 말을 원어민의 결로 — 방금 문장과 무엇이 다른지 느껴보세요.</p>
+            <p className="muted" style={{ fontSize: '0.78rem', marginBottom: 8 }}>
+              같은 말을 원어민의 결로 — <b>80점 이상 2회 연속</b>이면 통과예요. 두 번째가 더 빨라지는 게 자동화입니다.
+            </p>
+          )}
+          {step.rung === 'native' && (
+            <div className="ss-reps" aria-label={`연속 통과 ${reps}/2`}>
+              <i className={reps >= 1 ? 'on' : ''} />
+              <i className={reps >= 2 ? 'on' : ''} />
+              <span className="ss-reps-label">{reps >= 2 ? '2연속 통과!' : reps === 1 ? '한 번 더 — 연속으로!' : '2연속 도전'}</span>
+            </div>
           )}
           <SpeakingPractice
             key={`s${stepIdx}`}
             sentence={step.rung === 'basic' ? story.speak.basic.en : story.speak.native.en}
             prompt={step.rung === 'basic' ? story.speak.basic.kr : story.speak.native.kr}
+            source="session"
+            patternKey={pattern.key}
           />
         </>
       )}
@@ -191,7 +263,7 @@ export default function SessionScreen({ onNavigate }: { onNavigate: (m: Mode) =>
         <>
           <div className="ss-title">🎯 실전 — 상황만 보고 떠올려 말하기</div>
           {/* 상황 지문은 연습 카드(hideTarget의 프롬프트)가 크게 보여준다 — 중복 박스 금지 */}
-          <SpeakingPractice key={`c${stepIdx}`} sentence={story.speak.native.en} prompt={story.challenge} hideTarget />
+          <SpeakingPractice key={`c${stepIdx}`} sentence={story.speak.native.en} prompt={story.challenge} hideTarget source="session" patternKey={pattern.key} />
         </>
       )}
 
@@ -201,10 +273,13 @@ export default function SessionScreen({ onNavigate }: { onNavigate: (m: Mode) =>
           <button type="button" className="start-drill-btn" onClick={next}>이해했어요 — 말하러 가기 →</button>
         ) : (
           <>
-            <button type="button" className="start-drill-btn" disabled={!attempted} onClick={next}>
+            <button type="button" className="start-drill-btn" disabled={!canAdvance} onClick={next}>
               {passed ? '✓ 좋아요 — ' : ''}{stepIdx >= setup.steps.length - 1 ? '세션 완주하기' : '다음 →'}
             </button>
             {!attempted && <div className="ss-hint muted">말하기 버튼으로 한 번 말해보면 다음으로 갈 수 있어요</div>}
+            {isNativeRep && attempted && reps < 2 && (
+              <div className="ss-hint muted">80점 이상 2회 연속이면 다음으로 — 다시 말하기를 눌러보세요</div>
+            )}
             <button type="button" className="mini-btn ss-skip" onClick={next}>건너뛰기</button>
           </>
         )}
