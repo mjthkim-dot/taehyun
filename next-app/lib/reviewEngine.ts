@@ -11,7 +11,8 @@
  */
 import { load, store, srsDue, SRS_MAX_BOX, dueWeak } from './state';
 import { donePatterns, STAGE_PATTERNS, type NativePattern } from './maturity';
-import { PATTERN_STORIES, type PatternStory } from './patternStories';
+import { storiesNow } from './storyData';
+import type { PatternStory } from './patternStories';
 
 /* ── ① 시도 로그 ── */
 
@@ -180,7 +181,7 @@ export function duePatternRecalls(max = 1): PatternRecall[] {
     .sort((a, b) => a.due - b.due)
     .map((p) => {
       const pattern = patternByKey(p.key);
-      const story = PATTERN_STORIES[p.key];
+      const story = storiesNow()[p.key];
       return pattern && story ? { pattern, story } : null;
     })
     .filter((x): x is PatternRecall => x !== null)

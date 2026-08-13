@@ -11,7 +11,8 @@
  */
 import { load, store, dueWeak } from './state';
 import { donePatterns, STAGE_PATTERNS, type NativePattern } from './maturity';
-import { PATTERN_STORIES, type PatternStory } from './patternStories';
+import { storiesNow } from './storyData';
+import type { PatternStory } from './patternStories';
 
 const DONE_KEY = 'va_session_last';
 
@@ -31,19 +32,20 @@ export function markSessionDone() {
 /** 현재 성숙도 단계에서 오늘 배울 패턴을 고른다 — 미정착 우선, 다 정착했으면
  *  날짜 기반으로 하나 돌려 복습한다(같은 날엔 같은 패턴 — 재진입해도 안 바뀜). */
 export function pickTodayPattern(stageN: number): { pattern: NativePattern; story: PatternStory; isReview: boolean } | null {
+  const stories = storiesNow();
   const patterns = STAGE_PATTERNS[stageN] || [];
   if (!patterns.length) return null;
   const done = donePatterns();
-  const fresh = patterns.filter((p) => !done.includes(p.key) && PATTERN_STORIES[p.key]);
+  const fresh = patterns.filter((p) => !done.includes(p.key) && stories[p.key]);
   if (fresh.length) {
-    return { pattern: fresh[0], story: PATTERN_STORIES[fresh[0].key], isReview: false };
+    return { pattern: fresh[0], story: stories[fresh[0].key], isReview: false };
   }
   // 전부 정착 — 날짜 시드로 하나 골라 복습
-  const withStory = patterns.filter((p) => PATTERN_STORIES[p.key]);
+  const withStory = patterns.filter((p) => stories[p.key]);
   if (!withStory.length) return null;
   const daySeed = Number(todayStr().replace(/-/g, ''));
   const pick = withStory[daySeed % withStory.length];
-  return { pattern: pick, story: PATTERN_STORIES[pick.key], isReview: true };
+  return { pattern: pick, story: stories[pick.key], isReview: true };
 }
 
 /** 워밍업 문장 — 오늘 복습할 SRS 항목 최대 2개(영어 있는 것만).

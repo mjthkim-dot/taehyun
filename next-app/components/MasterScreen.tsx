@@ -15,6 +15,7 @@ import CurriculumPath from './CurriculumPath';
 import StreakFlame from './StreakFlame';
 import { computeMaturity, type MaturityState } from '../lib/maturity';
 import { pickTodayPattern, sessionDoneToday } from '../lib/session';
+import { loadStories } from '../lib/storyData';
 import { weeklyTestDue } from '../lib/weeklyTest';
 import type { Mode } from './NavBar';
 
@@ -34,9 +35,18 @@ function WeeklyTestBanner({ onNavigate }: { onNavigate: (m: Mode) => void }) {
 function SessionCta({ onNavigate }: { onNavigate: (m: Mode) => void }) {
   const [state, setState] = useState<{ done: boolean; patternEn: string; isReview: boolean } | null>(null);
   useEffect(() => {
-    const mx = computeMaturity();
-    const picked = pickTodayPattern(mx.stage.n);
-    setState({ done: sessionDoneToday(), patternEn: picked?.pattern.en || '', isReview: picked?.isReview ?? false });
+    // 스토리는 비동기 청크 — 홈 번들에 40편을 정적으로 싣지 않기 위한 대가로,
+    // CTA의 패턴 미리보기만 로드 후 채운다(캐시되면 즉시).
+    let alive = true;
+    void loadStories().then(() => {
+      if (!alive) return;
+      const mx = computeMaturity();
+      const picked = pickTodayPattern(mx.stage.n);
+      setState({ done: sessionDoneToday(), patternEn: picked?.pattern.en || '', isReview: picked?.isReview ?? false });
+    });
+    return () => {
+      alive = false;
+    };
   }, []);
   if (!state) return null;
   return (

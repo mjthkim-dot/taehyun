@@ -11,7 +11,8 @@
 import { useEffect, useState } from 'react';
 import type { Mode } from './NavBar';
 import { attemptStats, latencyGoal, type DayStat, type LatencyGoal } from '../lib/reviewEngine';
-import { getMistakes, mistakesForDrill, mistakeTypeCounts, MISTAKE_TYPE_LABEL, patternUseTotal } from '../lib/transfer';
+import { getMistakes, mistakesForDrill, mistakesForDrillByType, mistakeTypeCounts, MISTAKE_TYPE_LABEL, patternUseTotal } from '../lib/transfer';
+import { getWeeklyTests, type WeeklyTestResult } from '../lib/weeklyTest';
 import { getPronLapses, setDrillQueue } from '../lib/state';
 import { LAPSE_TIPS } from '../lib/pronunciation';
 
@@ -74,6 +75,7 @@ export default function TrainingDashboard({ onNavigate, variant = 'hero' }: { on
   const [axes, setAxes] = useState<{ key: string; label: string; count: number }[]>([]);
   const [goal, setGoal] = useState<LatencyGoal | null>(null);
   const [mTypes, setMTypes] = useState<{ type: string; count: number }[]>([]);
+  const [tests, setTests] = useState<WeeklyTestResult[]>([]);
 
   useEffect(() => {
     setStats(attemptStats(14));
@@ -81,6 +83,7 @@ export default function TrainingDashboard({ onNavigate, variant = 'hero' }: { on
     setUsed(patternUseTotal());
     setGoal(latencyGoal());
     setMTypes(mistakeTypeCounts().slice(0, 3));
+    setTests(getWeeklyTests().slice(-6));
     // 발음 축 상위 3 — 최근 14일
     const since = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
     const agg = new Map<string, number>();
@@ -153,6 +156,26 @@ export default function TrainingDashboard({ onNavigate, variant = 'hero' }: { on
         </>
       )}
 
+      {/* 주간 말하기 시험 추이 — 2회부터 그린다(1회로는 추이가 아니다) */}
+      {tests.length >= 2 && (
+        <div className="study-card">
+          <h3>📣 주간 시험 추이 <span className="dash-sub">1분 동안 말한 단어 수</span></h3>
+          <div className="wt-trend">
+            {tests.map((t) => {
+              const max = Math.max(...tests.map((x) => x.words), 1);
+              return (
+                <div className="wt-trend-col" key={t.date}>
+                  <span className="wt-trend-val">{t.words}</span>
+                  <i style={{ height: `${Math.max(8, (t.words / max) * 56)}px` }} />
+                  <span className="wt-trend-date">{t.date.slice(5).replace('-', '/')}</span>
+                  <span className="wt-trend-used">패턴 {t.used.length}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {(axes.length > 0 || mistakes >= 2 || used > 0) && (
         <div className="study-card">
           <h3>🎯 약점과 실전</h3>
@@ -184,6 +207,21 @@ export default function TrainingDashboard({ onNavigate, variant = 'hero' }: { on
               🔁 회화에서 틀린 문장 {mistakes}개 — 드릴로 →
             </button>
           )}
+          {/* 유형이 5건 이상 쌓이면 집중 훈련이 열린다 — 약점이 구체적일수록 훈련도 구체적으로 */}
+          {mTypes.filter((m) => m.count >= 5 && m.type !== 'other').map((m) => (
+            <button
+              key={m.type}
+              type="button"
+              className="mx-practice-btn"
+              style={{ marginTop: 8, marginLeft: 6 }}
+              onClick={() => {
+                setDrillQueue({ label: `${MISTAKE_TYPE_LABEL[m.type] || m.type} 집중`, items: mistakesForDrillByType(m.type) });
+                onNavigate('drill');
+              }}
+            >
+              🎯 {MISTAKE_TYPE_LABEL[m.type] || m.type} 집중 드릴 ({m.count}건) →
+            </button>
+          ))}
         </div>
       )}
     </div>

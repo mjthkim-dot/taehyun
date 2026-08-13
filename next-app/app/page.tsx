@@ -12,6 +12,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import NavBar, { type Mode } from '../components/NavBar';
 import dynamic from 'next/dynamic';
 import { loadLessons, useLessons } from '../lib/lessonData';
+import { loadStories, useStories } from '../lib/storyData';
 
 /**
  * 레슨 데이터 게이트 — lessons.json(199KB)은 화면 코드와 분리된 비동기 청크다.
@@ -21,6 +22,12 @@ import { loadLessons, useLessons } from '../lib/lessonData';
  */
 function LessonsGate({ children }: { children: ReactNode }) {
   const data = useLessons();
+  return data ? <>{children}</> : <ScreenLoading />;
+}
+
+/** 패턴 스토리 게이트 — 세션·리콜 러시·오디오·성장 화면이 이 아래에서 렌더된다. */
+function StoriesGate({ children }: { children: ReactNode }) {
+  const data = useStories();
   return data ? <>{children}</> : <ScreenLoading />;
 }
 
@@ -124,11 +131,11 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
   reading: { title: '읽기', render: () => <ReadingScreen /> },
   writing: { title: '쓰기', render: () => <WritingScreen /> },
   ladder: { title: '원어민 사다리', render: () => <LadderScreen /> },
-  growth: { title: '성장', render: (c) => <MaturityScreen onNavigate={c.setMode} /> },
-  session: { title: '오늘 세션', render: (c) => <SessionScreen onNavigate={c.setMode} /> },
+  growth: { title: '성장', render: (c) => <StoriesGate><MaturityScreen onNavigate={c.setMode} /></StoriesGate> },
+  session: { title: '오늘 세션', render: (c) => <StoriesGate><SessionScreen onNavigate={c.setMode} /></StoriesGate> },
   weeklytest: { title: '주간 말하기 시험', render: (c) => <WeeklyTestScreen onNavigate={c.setMode} /> },
-  audio: { title: '오디오 모드', render: () => <AudioLoopScreen /> },
-  recallrush: { title: '리콜 러시', render: (c) => <RecallRushScreen onNavigate={c.setMode} /> },
+  audio: { title: '오디오 모드', render: () => <StoriesGate><AudioLoopScreen /></StoriesGate> },
+  recallrush: { title: '리콜 러시', render: (c) => <StoriesGate><RecallRushScreen onNavigate={c.setMode} /></StoriesGate> },
   business: {
     title: '비즈니스',
     render: (c) => (
@@ -173,12 +180,16 @@ export default function Page() {
    * 여기서의 import()가 dynamic()이 쓸 청크를 그대로 데운다.
    */
   useEffect(() => {
-    const warm = () => {
-      // 레슨 데이터(199KB)를 화면 코드와 분리했으므로 가장 먼저 데운다 —
-      // 이게 미리 도착해 있으면 레슨·회화 탭의 게이트가 아예 보이지 않는다.
+    // 2단계 프리로드 — 1단계(빨리): 데이터(레슨·스토리)와 첫 탭이 될 확률이 높은
+    // 레슨 화면. "첫 탭 클릭"이 공통 청크 다운로드를 무는 것이 탭 전환 지연의
+    // 남은 근원이라, 데이터+첫 화면만큼은 훨씬 이른 유휴 시점에 데운다.
+    const warmFast = () => {
       void loadLessons();
-      // 사용 빈도 순 — 하단 탭 3개 + 더보기에서 가장 자주 가는 2개
+      void loadStories(); // 홈 세션 CTA도 이걸 기다린다 — 가장 먼저
       void import('../components/StudyScreen');
+    };
+    // 2단계(나중): 나머지 자주 가는 화면들
+    const warmRest = () => {
       void import('../components/DrillScreen');
       void import('../components/TalkScreen');
       void import('../components/ReviewScreen');
@@ -187,11 +198,19 @@ export default function Page() {
     type Ric = (cb: () => void, opts?: { timeout: number }) => number;
     const w = window as unknown as { requestIdleCallback?: Ric; cancelIdleCallback?: (id: number) => void };
     if (w.requestIdleCallback) {
-      const id = w.requestIdleCallback(warm, { timeout: 4000 });
-      return () => w.cancelIdleCallback?.(id);
+      const a = w.requestIdleCallback(warmFast, { timeout: 1200 });
+      const b = w.requestIdleCallback(warmRest, { timeout: 4000 });
+      return () => {
+        w.cancelIdleCallback?.(a);
+        w.cancelIdleCallback?.(b);
+      };
     }
-    const t = window.setTimeout(warm, 2500);
-    return () => window.clearTimeout(t);
+    const t1 = window.setTimeout(warmFast, 800);
+    const t2 = window.setTimeout(warmRest, 2500);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
   }, []);
 
   function setMode(m: Mode) {

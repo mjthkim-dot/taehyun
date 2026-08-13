@@ -143,6 +143,20 @@ export function getMistakes(): Mistake[] {
   return load<Mistake[]>(MISTAKE_KEY, []);
 }
 
+/** 특정 유형의 교정만 드릴 큐로 — 유형이 5건 이상 쌓이면 집중 훈련이 열린다. */
+export function mistakesForDrillByType(type: string, max = 6): { en: string; kr: string }[] {
+  const seen = new Set<string>();
+  const out: { en: string; kr: string }[] = [];
+  for (const m of getMistakes().slice().reverse()) {
+    if ((m.type || 'other') !== type) continue;
+    if (!m.right || seen.has(m.right)) continue;
+    seen.add(m.right);
+    out.push({ en: m.right, kr: m.note || '' });
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
 /** 최근 교정 N건을 드릴 큐 항목으로 — "고친 문장"을 소리 내어 말하는 훈련. */
 export function mistakesForDrill(max = 5): { en: string; kr: string }[] {
   const seen = new Set<string>();

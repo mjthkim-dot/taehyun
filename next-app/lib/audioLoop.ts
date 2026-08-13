@@ -10,7 +10,7 @@
  */
 import { dueWeak } from './state';
 import { donePatterns } from './maturity';
-import { PATTERN_STORIES } from './patternStories';
+import { storiesNow } from './storyData';
 import { computeMaturity } from './maturity';
 import { pickTodayPattern } from './session';
 
@@ -21,7 +21,7 @@ export interface AudioItem {
   tag: string;
 }
 
-const MAX_ITEMS = 20;
+const MAX_ITEMS = 24;
 
 export function buildPlaylist(): AudioItem[] {
   const out: AudioItem[] = [];
@@ -43,9 +43,17 @@ export function buildPlaylist(): AudioItem[] {
   // ② 오늘 복습할 SRS 문장
   for (const w of dueWeak()) push(w.en, w.kr || '', '복습');
 
-  // ③ 최근 정착 패턴들의 원어민 문장 (최신 5개)
-  for (const key of donePatterns().slice(-5).reverse()) {
-    const story = PATTERN_STORIES[key];
+  // ③ 최근 정착 패턴 2개는 대화 전체를 — 어제·그제 배운 장면을 통째로 다시 듣는다
+  const done = donePatterns();
+  for (const key of done.slice(-2).reverse()) {
+    const story = storiesNow()[key];
+    if (!story) continue;
+    for (const l of story.dialogue) push(l.en, l.kr, '최근 패턴');
+  }
+
+  // ④ 그 이전 정착 패턴들의 원어민 문장 (최신 5개)
+  for (const key of done.slice(-7, -2).reverse()) {
+    const story = storiesNow()[key];
     if (story) push(story.speak.native.en, story.speak.native.kr, '정착 패턴');
   }
 

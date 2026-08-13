@@ -18,6 +18,10 @@ export default function AudioLoopScreen() {
   const [playing, setPlaying] = useState(false);
   const [loop, setLoop] = useState(true);
   const [withKr, setWithKr] = useState(true);
+  /** 재생 속도 — 아직 귀가 안 트인 문장은 0.85×로 또렷하게 */
+  const [slow, setSlow] = useState(false);
+  const slowRef = useRef(false);
+  slowRef.current = slow;
 
   // 재생 체인의 세대 토큰 — 정지/건너뛰기 후 늦게 도착한 onend가 다음 문장을
   // 이중으로 밀지 않게 한다.
@@ -59,7 +63,7 @@ export default function AudioLoopScreen() {
     clearWatchdog();
     watchdogRef.current = setTimeout(advance, ITEM_WATCHDOG_MS);
 
-    speakText(item.en, 'en-US', 1, () => {
+    speakText(item.en, 'en-US', slowRef.current ? 0.85 : 1, () => {
       if (genRef.current !== gen) return;
       if (withKr && item.kr) speakText(item.kr, 'ko-KR', 1, advance);
       else advance();
@@ -107,6 +111,9 @@ export default function AudioLoopScreen() {
           </button>
           <button type="button" className={`mini-btn${withKr ? ' on' : ''}`} onClick={() => setWithKr((v) => !v)}>
             🇰🇷 뜻 읽기 {withKr ? 'ON' : 'OFF'}
+          </button>
+          <button type="button" className={`mini-btn${slow ? ' on' : ''}`} onClick={() => setSlow((v) => !v)}>
+            🐢 0.85×
           </button>
         </div>
 
