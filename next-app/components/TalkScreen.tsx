@@ -20,6 +20,7 @@ import { speakText, stopSpeaking, primeAudio, fetchGroqTTS, isKorean } from './S
 import { MicIcon, SendIcon, SpeakerIcon } from './icons';
 import { fetchGloss } from '../lib/gloss';
 import { detectPatternUse, recordPatternUse, recordMistake, sanitizeMistakeType, PATTERN_STEMS } from '../lib/transfer';
+import { saveTutorSnapshot, tutorMemoryBlock } from '../lib/tutorMemory';
 import VoiceOverlay, { type VoiceState } from './VoiceOverlay';
 import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
 
@@ -288,7 +289,11 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
 
     const sysMsg = {
       role: 'system',
-      content: buildSystemPrompt(lesson, missionCtx ? { title: missionCtx.title, desc: missionCtx.desc } : null, prevLessons()),
+      // 교차 세션 기억 — 지난 세션의 마지막 대화와 최근 교정을 참고로 붙인다.
+      // 튜터가 매번 초면으로 시작하지 않게(자연스러울 때만 이어가라고 지시됨).
+      content:
+        buildSystemPrompt(lesson, missionCtx ? { title: missionCtx.title, desc: missionCtx.desc } : null, prevLessons()) +
+        tutorMemoryBlock(),
     };
     const msgs = [sysMsg, ...historyRef.current.slice(-8)];
 
@@ -303,6 +308,8 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
         updateMsg(aiId, { text: fullText });
       }
       historyRef.current.push({ role: 'assistant', content: fullText });
+      // 다음 세션이 이어받을 기억 스냅숏 — 턴마다 마지막 몇 줄을 덮어쓴다
+      saveTutorSnapshot(historyRef.current);
       updateMsg(aiId, { streaming: false });
       setAiSpeaking(true);
       speak(fullText, () => {

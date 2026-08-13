@@ -54,7 +54,8 @@ const rows = await page.evaluate(() =>
 check('7단계 전부 결과 표시', rows.length >= 7, String(rows.length));
 check('장치 출력(비프) 단계 존재', !!rows.find((r) => r.name === '장치 출력(비프)'));
 check('서버→Groq 실연결 통과(목)', rows.find((r) => r.name === '서버→Groq 실연결')?.ok === true);
-check('환경 단계에 버전 포함', !!rows.find((r) => r.name === '환경')?.detail.includes('v0.'));
+// 메이저 버전에 묶이지 않게 — v1.0.0 승격 때 'v0.' 하드코딩이 깨졌던 자리
+check('환경 단계에 버전 포함', /v\d+\./.test(rows.find((r) => r.name === '환경')?.detail || ''));
 const keyRow = rows.find((r) => r.name === 'Groq 키');
 check('키 단계 통과 + 유효 확인 표기', keyRow?.ok === true && keyRow.detail.includes('유효 확인'), keyRow?.detail);
 const tts = rows.find((r) => r.name === 'TTS 서버 호출');
