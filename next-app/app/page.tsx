@@ -77,6 +77,7 @@ const SessionScreen = dynamic(() => import('../components/SessionScreen'), { ssr
 const WeeklyTestScreen = dynamic(() => import('../components/WeeklyTestScreen'), { ssr: false, loading: ScreenLoading });
 const AudioLoopScreen = dynamic(() => import('../components/AudioLoopScreen'), { ssr: false, loading: ScreenLoading });
 const RecallRushScreen = dynamic(() => import('../components/RecallRushScreen'), { ssr: false, loading: ScreenLoading });
+const PreplyScreen = dynamic(() => import('../components/PreplyScreen'), { ssr: false, loading: ScreenLoading });
 const BusinessScreen = dynamic(() => import('../components/BusinessScreen'), { ssr: false, loading: ScreenLoading });
 
 import MasterScreen from '../components/MasterScreen';
@@ -136,6 +137,7 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
   weeklytest: { title: '주간 말하기 시험', render: (c) => <WeeklyTestScreen onNavigate={c.setMode} /> },
   audio: { title: '오디오 모드', render: () => <StoriesGate><AudioLoopScreen /></StoriesGate> },
   recallrush: { title: '리콜 러시', render: (c) => <StoriesGate><RecallRushScreen onNavigate={c.setMode} /></StoriesGate> },
+  preply: { title: '수업 노트', render: (c) => <PreplyScreen onNavigate={c.setMode} /> },
   business: {
     title: '비즈니스',
     render: (c) => (

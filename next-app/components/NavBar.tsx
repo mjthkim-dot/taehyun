@@ -37,7 +37,8 @@ export type Mode =
   | 'session'
   | 'weeklytest'
   | 'audio'
-  | 'recallrush';
+  | 'recallrush'
+  | 'preply';
 
 const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [
   { mode: 'master', icon: 'home', label: '홈' },

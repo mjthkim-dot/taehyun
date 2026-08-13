@@ -64,6 +64,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
         { icon: '🪜', label: '원어민 사다리', sub: '한 문장을 원어민 표현까지', action: { kind: 'nav', mode: 'ladder' } },
         { icon: '🌿', label: '성장', sub: '원어민스러움 성숙도 커리큘럼', action: { kind: 'nav', mode: 'growth' } },
         { icon: '🎧', label: '오디오 모드', sub: '듣기만으로 오늘 복습', action: { kind: 'nav', mode: 'audio' } },
+        { icon: '📒', label: '수업 노트', sub: '진옥 선생님 수업 → SRS', action: { kind: 'nav', mode: 'preply' } },
         { icon: '💼', label: '직무 어휘', sub: 'IT 영업·AI·협상 등 10개 도메인 100개', action: { kind: 'nav', mode: 'vocab' } },
         { icon: '⏱', label: '2분 피치 훈련', sub: '긴 발화 · 시간·속도·채움말·구조 분석', action: { kind: 'nav', mode: 'pitch' } },
         { icon: '🗓', label: '미팅 준비 · 회고', sub: '내일 그 미팅용 표현 · 끝난 뒤 못 한 말 복습', action: { kind: 'nav', mode: 'meeting' } },

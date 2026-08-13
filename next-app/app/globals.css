@@ -1330,6 +1330,139 @@ button {
   margin-top: 6px;
 }
 
+/* ── 수업 노트 (Preply) ── */
+.pp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.pp-src {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+.pp-msg {
+  font-size: 0.76rem;
+  margin-bottom: 8px;
+}
+.pp-imported {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--green);
+  margin-bottom: 8px;
+}
+.pp-setup .pp-steps {
+  margin: 8px 0 0 18px;
+  font-size: 0.8rem;
+  line-height: 1.8;
+  color: var(--text-muted);
+}
+.pp-setup code {
+  background: var(--surface2);
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-size: 0.74rem;
+}
+.pp-note {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.pp-note.open {
+  border-color: var(--primary);
+}
+.pp-note-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  padding: 14px 16px;
+  cursor: pointer;
+  min-height: 48px;
+}
+.pp-round {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+.pp-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.88rem;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pp-date {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.pp-body {
+  padding: 0 16px 16px;
+}
+.pp-sec {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  margin: 12px 0 6px;
+}
+.pp-chip {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--green);
+  background: var(--green-soft);
+  border-radius: 999px;
+  padding: 2px 9px;
+  margin-left: 6px;
+}
+.pp-list {
+  margin: 0 0 0 18px;
+  font-size: 0.8rem;
+  line-height: 1.7;
+  color: var(--text);
+}
+.pp-weak li {
+  color: var(--yellow);
+}
+.pp-sent {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 13px;
+  margin-bottom: 7px;
+}
+.pp-sent-en {
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.55;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.pp-sent-kr {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
 /* ── 오디오 모드 ── */
 .al-now {
   text-align: center;
