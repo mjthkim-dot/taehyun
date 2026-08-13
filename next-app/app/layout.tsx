@@ -1,23 +1,22 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
-import localFont from 'next/font/local';
+import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import './globals.css';
 
 /**
- * Pretendard — 한국어 UI 표준 가변 폰트. 자체 호스팅(woff2)으로 오프라인 PWA에서도
- * 동작하고, next/font 가 빌드 시 최적화 + FOUT 방지(display: swap)를 처리한다.
+ * Pretendard — 한국어 UI 표준 가변 폰트.
+ * 통짜 2MB woff2(next/font localFont)는 느린 4G 시뮬레이션에서 총 전송량을
+ * 지배해 LCP를 12초대로 끌었다(Lighthouse 검출). 공식 동적 서브셋(유니코드
+ * 범위별 분할)으로 바꾸면 화면에 실제로 쓰인 글자 범위만 내려온다(수백 KB).
+ * 폰트 패밀리 변수(--font-pretendard)는 globals.css에서 정의한다.
  */
-const pretendard = localFont({
-  src: './fonts/PretendardVariable.woff2',
-  display: 'swap',
-  weight: '45 920',
-  variable: '--font-pretendard',
-});
 
 export const metadata: Metadata = {
   title: 'My English Coach',
   description: 'AI 영어 회화 코치 — 오프라인 학습 지원 PWA',
-  manifest: 'manifest.json',
+  // basePath(/app) 아래에서 서빙된다 — 상대경로 'manifest.json'은 문서 URL이
+  // /app(슬래시 없음)일 때 루트(/manifest.json)로 풀려 404가 났다(Lighthouse 검출)
+  manifest: '/app/manifest.json',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'EnglishCoach' },
 };
 
@@ -36,7 +35,7 @@ const NO_FLASH = `(function(){try{var t=localStorage.getItem('theme');if(t!=='da
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ko" className={pretendard.variable} suppressHydrationWarning>
+    <html lang="ko" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH }} />
       </head>

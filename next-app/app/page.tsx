@@ -200,15 +200,18 @@ export default function Page() {
     type Ric = (cb: () => void, opts?: { timeout: number }) => number;
     const w = window as unknown as { requestIdleCallback?: Ric; cancelIdleCallback?: (id: number) => void };
     if (w.requestIdleCallback) {
-      const a = w.requestIdleCallback(warmFast, { timeout: 1200 });
-      const b = w.requestIdleCallback(warmRest, { timeout: 4000 });
+      // timeout은 "바쁘더라도 강제 발화"다 — 1.2s로 두면 첫 로드(하이드레이션)
+      // 도중에 발화해 199KB 레슨 청크가 LCP와 대역폭을 다퉜다(Lighthouse 검출).
+      // LCP 창(느린 4G ~3.6s)을 지나서 데워도 실사용 탭 전환에는 충분히 이르다.
+      const a = w.requestIdleCallback(warmFast, { timeout: 4000 });
+      const b = w.requestIdleCallback(warmRest, { timeout: 7000 });
       return () => {
         w.cancelIdleCallback?.(a);
         w.cancelIdleCallback?.(b);
       };
     }
-    const t1 = window.setTimeout(warmFast, 800);
-    const t2 = window.setTimeout(warmRest, 2500);
+    const t1 = window.setTimeout(warmFast, 3000);
+    const t2 = window.setTimeout(warmRest, 6000);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);

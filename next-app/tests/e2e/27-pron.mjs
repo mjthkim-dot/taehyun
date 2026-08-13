@@ -116,6 +116,9 @@ check('리포트에도 교정 방법이 실림', !!wr && wr.tips.every((n) => n 
 
 /* ── 진단에서 훈련으로 ── 축 이름만 알려주면 혼자서는 못 고친다. 최소대립쌍을
  *    펼쳐 귀로 구분하고, 그 문장들을 그대로 드릴 큐로 넘길 수 있어야 한다. */
+// PronDrillCard는 지연 로딩 청크다 — 진단이 뜬 직후엔 아직 마운트 전일 수 있어
+// 즉시 조회하면 레이스로 간헐 실패한다. 나타날 때까지 기다린 뒤 누른다.
+await page.waitForSelector('.pd-toggle', { timeout: 8000 });
 const pd = await page.evaluate(() => {
   const btn = [...document.querySelectorAll('.pd-toggle')][0];
   if (!btn) return null;

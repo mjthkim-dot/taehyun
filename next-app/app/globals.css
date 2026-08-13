@@ -3,6 +3,8 @@
    디자인 강화판: 멀티레이어 그림자, 오로라 배경, 글래스 헤더/네비, 카드 호버 리프트,
    스태거 진입 애니메이션 — 클래스명/구조는 그대로 두어 기능은 동일하게 유지한다. */
 :root {
+  /* 폰트 패밀리 — 동적 서브셋 CSS(layout.tsx에서 import)가 'Pretendard Variable'을 정의한다 */
+  --font-pretendard: 'Pretendard Variable', 'Pretendard';
   --bg: #fafaf8;
   --surface: #ffffff;
   --surface2: #f5f4f1;

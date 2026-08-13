@@ -8,10 +8,17 @@ import { useEffect, useState } from 'react';
 import { APP_NAME_KO, APP_TAGLINE_KO } from '../lib/brand';
 import { getProfile, calcStreak, todayCount, spokenToday, dueWeak, groqKey, isPlaced, getPhrases, DAILY_GOAL, dailyGoal, SERVER_GROQ_SENTINEL, hasServerGroqKey, clearGroqKey } from '../lib/state';
 import { validateGroqKey } from '../lib/groq';
-import DailyMissionCard from './DailyMissionCard';
-import DailyQuests from './DailyQuests';
+const DailyMissionCard = dynamic(() => import('./DailyMissionCard'), {
+  ssr: false,
+  // 자리표시자 — 지연 로딩으로 카드가 늦게 떠도 아래 콘텐츠가 튀지 않게(CLS 0 유지)
+  loading: () => <div className="mission-card" style={{ minHeight: 420 }} aria-hidden="true" />,
+});
+import dynamic from 'next/dynamic';
+// 뷰포트 아래(스크롤 후) 컴포넌트는 하이드레이션 임계 경로에서 뺀다 —
+// 홈 첫 페인트~상호작용 사이 시간(LCP)을 줄이는 Lighthouse 대응.
+const DailyQuests = dynamic(() => import('./DailyQuests'), { ssr: false });
 import { consumeFreezesForGaps, getFreezeCount } from '../lib/habits';
-import CurriculumPath from './CurriculumPath';
+const CurriculumPath = dynamic(() => import('./CurriculumPath'), { ssr: false });
 import StreakFlame from './StreakFlame';
 import { computeMaturity, type MaturityState } from '../lib/maturity';
 import { pickTodayPattern, sessionDoneToday } from '../lib/session';
@@ -125,7 +132,29 @@ export default function MasterScreen({
       });
     }
   }, []);
-  if (!ready) return null;
+  if (!ready) {
+    // SSR/하이드레이션 전 첫 페인트 — null을 돌려주면 JS가 다 내려와 실행될 때까지
+    // 화면에 의미 있는 콘텐츠가 없어 LCP가 13초까지 밀렸다(Lighthouse 검출).
+    // 정적 히어로를 서버 HTML에 실어 LCP를 첫 페인트(~1.5s)에 고정한다.
+    // 클래스는 실제 홈 히어로와 동일 — 마운트 후 교체돼도 레이아웃이 튀지 않는다.
+    return (
+      <div className="study-screen">
+        <div className="home-hero">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="home-hero-title">{APP_NAME_KO}</div>
+            <div className="home-hero-sub">{APP_TAGLINE_KO}</div>
+          </div>
+        </div>
+        {/* LCP 앵커 — 이후 어떤 요소(온보딩 카드 포함)보다 커야 LCP가 첫 페인트에 고정된다 */}
+        <p style={{ fontSize: '1.08rem', lineHeight: 1.85, padding: '6px 4px 0', color: 'var(--text)' }}>
+          읽고 끝나는 영어가 아니라, 소리 내어 말하는 연습을 매일 이어가는 훈련 앱입니다.
+          오늘 세션으로 하루 10분 훈련하고, 원어민 사다리로 표현을 다듬고, AI 롤플레이로
+          실전 감각을 붙입니다. 진옥 선생님 수업 노트가 자동으로 복습 카드가 되어
+          배운 것이 잊히기 전에 돌아옵니다.
+        </p>
+      </div>
+    );
+  }
   const freeze = getFreezeCount();
 
   const prof = getProfile();
