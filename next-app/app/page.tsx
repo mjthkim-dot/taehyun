@@ -139,7 +139,7 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
   audio: { title: '오디오 모드', render: () => <StoriesGate><AudioLoopScreen /></StoriesGate> },
   recallrush: { title: '리콜 러시', render: (c) => <StoriesGate><RecallRushScreen onNavigate={c.setMode} /></StoriesGate> },
   preply: { title: '수업 노트', render: (c) => <PreplyScreen onNavigate={c.setMode} /> },
-  minutes: { title: '회의록 영어', render: (c) => <MinutesScreen onNavigate={c.setMode} /> },
+  minutes: { title: '실전 영어', render: (c) => <MinutesScreen onNavigate={c.setMode} /> },
   business: {
     title: '비즈니스',
     render: (c) => (

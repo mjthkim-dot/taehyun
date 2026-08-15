@@ -32,8 +32,8 @@ async function gotoMinutes(page) {
   await page.click('.mode-tab:has-text("더보기")');
   await page.waitForSelector('.more-sheet .feat-card', { timeout: 8000 });
   await page.click('.more-sheet .feat-card:has-text("기능")');
-  await page.waitForSelector('.feat-grid .feat-card:has-text("회의록 영어")', { timeout: 8000 });
-  await page.click('.feat-grid .feat-card:has-text("회의록 영어")');
+  await page.waitForSelector('.feat-grid .feat-card:has-text("실전 영어")', { timeout: 8000 });
+  await page.click('.feat-grid .feat-card:has-text("실전 영어")');
   await page.waitForSelector('.mn-item', { timeout: 10000 });
 }
 
@@ -44,6 +44,7 @@ const browser = await launch();
   const page = await browser.newPage();
   page.on('pageerror', (e) => console.log('  [pageerror]', e.message));
   await page.route('**/app/api/notion/minutes*', (r) => r.fulfill({ status: 501, contentType: 'application/json', body: '{"configured":false}' }));
+  await page.route('**/app/api/gmail/threads*', (r) => r.fulfill({ status: 501, contentType: 'application/json', body: '{"configured":false}' }));
   await page.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"valid":true}' }));
   await page.route('**/app/api/groq', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{}' } }] }) }));
   await seedKey(page);
@@ -55,7 +56,7 @@ const browser = await launch();
   check('미설정이면 설정 안내가 자동으로 뜬다', (await page.evaluate(() => document.querySelector('.pp-setup')?.textContent || '')).includes('NOTION_API_KEY'));
 
   /* ② 대화 열기 → DialoguePractice */
-  await page.click('.mn-item-head');
+  await page.click('.mn-item:has-text("떠나는 고객과의 마지막 면담") .mn-item-head');
   await page.waitForSelector('.mn-item-body', { timeout: 8000 });
   check('듣기·역할·암기 연습이 그 자리에서 열린다', await page.evaluate(() =>
     ['듣기·따라하기', '역할 연습', '암기 체크'].every((t) => document.body.innerText.includes(t))
@@ -65,7 +66,7 @@ const browser = await launch();
   /* ③ 드릴 핸드오프 */
   await page.click('button:has-text("이 대화 문장으로 드릴")');
   await page.waitForSelector('.drill-source', { timeout: 10000 });
-  check('대화 문장이 드릴 큐로 넘어간다', (await page.evaluate(() => document.querySelector('.drill-source')?.textContent || '')).includes('회의록 영어'));
+  check('대화 문장이 드릴 큐로 넘어간다', (await page.evaluate(() => document.querySelector('.drill-source')?.textContent || '')).includes('실전 영어'));
   await page.close();
 }
 
@@ -80,6 +81,7 @@ const browser = await launch();
     }
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ configured: true, pages: [REMOTE_PAGE] }) });
   });
+  await page.route('**/app/api/gmail/threads*', (r) => r.fulfill({ status: 501, contentType: 'application/json', body: '{"configured":false}' }));
   await page.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"valid":true}' }));
   let genCalls = 0;
   await page.route('**/app/api/groq', (route) => {

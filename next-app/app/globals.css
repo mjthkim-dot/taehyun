@@ -1521,6 +1521,18 @@ button {
 .mn-item-body {
   padding: 0 16px 16px;
 }
+.mn-focus {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 3px 10px;
+  margin-top: 2px;
+}
+.mn-exprs {
+  margin-bottom: 12px;
+}
 .mn-situation {
   font-size: 0.78rem;
   line-height: 1.65;
