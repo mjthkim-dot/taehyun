@@ -127,16 +127,82 @@ function fromName(v: string): string {
   return v.split('@')[0].replace(/[<>]/g, '').trim();
 }
 
+/* ── 코스 갱신용 분석 모드 ──
+ * 발신 90일 스레드를 표본 수집해 상대(외부 도메인) 클러스터를 집계한다.
+ * 2026-08 수동 실사(245 스레드 분석)와 같은 방법의 축소판 — 클라이언트는
+ * 이 집계로 클러스터별 대표 스레드를 골라 새 시나리오를 생성한다. */
+const ANALYZE_PAGES = 3; // 50 × 3 = 최근 150 스레드 id
+const ANALYZE_META = 45; // 메타데이터(제목·수신)를 실제로 읽는 표본 수
+const OWN_DOMAIN_RE = /megazone|mz\.co\.kr/;
+
+async function analyze(token: string, me: string) {
+  const q = process.env.GMAIL_QUERY_SENT || 'in:sent newer_than:90d';
+  const ids: string[] = [];
+  let pageToken = '';
+  for (let i = 0; i < ANALYZE_PAGES; i++) {
+    const page = (await gmailCall(
+      `threads?q=${encodeURIComponent(q)}&maxResults=50${pageToken ? `&pageToken=${pageToken}` : ''}`,
+      token
+    )) as { threads?: { id: string }[]; nextPageToken?: string };
+    ids.push(...(page.threads || []).map((t) => t.id));
+    pageToken = page.nextPageToken || '';
+    if (!pageToken) break;
+  }
+
+  const metas = await Promise.all(
+    ids.slice(0, ANALYZE_META).map(async (tid) => {
+      try {
+        const th = (await gmailCall(
+          `threads/${tid}?format=metadata&metadataHeaders=Subject&metadataHeaders=To&metadataHeaders=Cc`,
+          token
+        )) as { messages?: GmailMessage[] };
+        const msgs = th.messages || [];
+        if (!msgs.length) return null;
+        const subject = decodeSubject(header(msgs[0], 'Subject'));
+        const rcpts = msgs
+          .flatMap((m) => `${header(m, 'To')},${header(m, 'Cc')}`.split(','))
+          .map((r) => (r.match(/[\w.+-]+@[\w.-]+/) || [])[0] || '')
+          .filter((r) => r && !OWN_DOMAIN_RE.test(r) && (me === '' || !r.includes(me)));
+        return { id: tid, subject, domains: [...new Set(rcpts.map((r) => r.split('@')[1]))] };
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  const byDomain = new Map<string, { threads: number; repId: string; repTitle: string; samples: string[] }>();
+  for (const m of metas) {
+    if (!m) continue;
+    for (const d of m.domains) {
+      const cur = byDomain.get(d) || { threads: 0, repId: m.id, repTitle: m.subject, samples: [] };
+      cur.threads += 1;
+      if (m.subject && cur.samples.length < 3) cur.samples.push(m.subject);
+      byDomain.set(d, cur);
+    }
+  }
+  const counterparts = [...byDomain.entries()]
+    .sort((a, b) => b[1].threads - a[1].threads)
+    .slice(0, 6)
+    .map(([domain, v]) => ({ domain, ...v }));
+  return { totalThreads: ids.length, sampled: metas.filter(Boolean).length, counterparts };
+}
+
 export async function GET(req: Request) {
   const { GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN } = process.env;
   if (!GMAIL_CLIENT_ID || !GMAIL_CLIENT_SECRET || !GMAIL_REFRESH_TOKEN) {
     return NextResponse.json({ configured: false }, { status: 501 });
   }
 
-  const id = new URL(req.url).searchParams.get('id');
+  const url = new URL(req.url);
+  const id = url.searchParams.get('id');
+  const mode = url.searchParams.get('mode');
   try {
     const token = await accessToken();
     const me = ((await gmailCall('profile', token)) as { emailAddress?: string }).emailAddress || '';
+
+    if (mode === 'analyze') {
+      return NextResponse.json({ configured: true, analysis: await analyze(token, me) });
+    }
 
     if (id) {
       // 본문 요청 — 스레드 전체를 "나:/상대:" 대화 원문으로

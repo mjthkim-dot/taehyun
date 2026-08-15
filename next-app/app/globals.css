@@ -1711,6 +1711,33 @@ button {
   line-height: 1.6;
   margin-top: 14px;
 }
+.rc-refresh-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.rc-refresh-info {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.rc-stale {
+  font-size: 0.64rem;
+  font-weight: 800;
+  color: var(--yellow);
+  background: var(--yellow-soft, rgba(230, 180, 60, 0.15));
+  border-radius: 999px;
+  padding: 2px 8px;
+  margin-left: 6px;
+}
+.rc-new {
+  font-size: 0.7rem;
+  margin-left: 5px;
+}
 
 /* ── 오디오 모드 ── */
 .al-now {

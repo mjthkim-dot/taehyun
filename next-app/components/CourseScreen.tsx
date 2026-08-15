@@ -13,10 +13,13 @@ import { useState } from 'react';
 import type { Mode } from './NavBar';
 import {
   getCourseMeta,
-  getCourseTracks,
+  getMergedTracks,
+  isStale,
   openScenario,
+  refreshCourse,
+  refreshedAt,
   seenScenarios,
-  totalScenarios,
+  totalMergedScenarios,
   type CourseScenario,
 } from '../lib/realCourse';
 import { setDrillQueue } from '../lib/state';
@@ -24,14 +27,41 @@ import DialoguePractice from './DialoguePractice';
 
 export default function CourseScreen({ onNavigate }: { onNavigate: (m: Mode) => void }) {
   const meta = getCourseMeta();
-  const tracks = getCourseTracks();
+  const [tracks, setTracks] = useState(() => getMergedTracks());
   const [openTrack, setOpenTrack] = useState<string | null>(null);
   const [openSc, setOpenSc] = useState<string | null>(null);
   const [seen, setSeen] = useState<string[]>(() => seenScenarios());
   const [exprMsg, setExprMsg] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMsg, setRefreshMsg] = useState('');
 
-  const total = totalScenarios();
+  const total = totalMergedScenarios();
   const done = seen.filter((id) => tracks.some((t) => t.scenarios.some((s) => s.id === id))).length;
+
+  async function doRefresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    setRefreshMsg('');
+    try {
+      const r = await refreshCourse();
+      if (r.ok) {
+        setTracks(getMergedTracks());
+        setRefreshMsg(
+          r.created
+            ? `재분석 완료 — 최근 스레드 ${r.totalThreads}개에서 새 시나리오 ${r.created}편이 추가됐어요.`
+            : `재분석 완료 — 지난 분석 이후 코스에 담을 새 패턴이 없어요. (스레드 ${r.totalThreads}개 확인)`
+        );
+      } else if (r.unconfigured) {
+        setRefreshMsg('Gmail 연동이 아직 없어요 — 실전 영어 탭의 설정 안내를 먼저 진행해 주세요.');
+      } else if (r.error === 'offline') {
+        setRefreshMsg('오프라인이에요 — 저장된 코스로 계속 연습할 수 있어요.');
+      } else {
+        setRefreshMsg('재분석에 실패했어요 — 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   function handleOpen(s: CourseScenario) {
     if (openSc === s.id) {
@@ -77,8 +107,18 @@ export default function CourseScreen({ onNavigate }: { onNavigate: (m: Mode) => 
             </span>
           ))}
         </div>
+        <div className="rc-refresh-row">
+          <span className="rc-refresh-info">
+            {refreshedAt().slice(0, 10)} 분석
+            {isStale() && <span className="rc-stale">갱신 추천</span>}
+          </span>
+          <button type="button" className="mini-btn" disabled={refreshing} onClick={() => void doRefresh()}>
+            {refreshing ? '재분석 중…' : '🔄 지금 재분석'}
+          </button>
+        </div>
       </div>
 
+      {refreshMsg && <p className="pp-imported">💬 {refreshMsg}</p>}
       {exprMsg && <p className="pp-imported">✅ {exprMsg}</p>}
 
       {tracks.map((t) => {
@@ -103,7 +143,10 @@ export default function CourseScreen({ onNavigate }: { onNavigate: (m: Mode) => 
                     <div key={s.id} className={`rc-sc${sOpen ? ' open' : ''}`}>
                       <button type="button" className="rc-sc-head" onClick={() => handleOpen(s)}>
                         <span className="rc-sc-num">{i + 1}</span>
-                        <span className="rc-sc-title">{s.title}</span>
+                        <span className="rc-sc-title">
+                          {s.title}
+                          {s.extra && <span className="rc-new">🆕</span>}
+                        </span>
                         {seen.includes(s.id) && <span className="rc-seen">연습함 ✓</span>}
                       </button>
                       {sOpen && (
