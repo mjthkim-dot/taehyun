@@ -144,8 +144,9 @@ export function removeMinutes(noteId: string) {
 
 /* ── 표현 수확 → SRS (피드백 루프 ②) ── */
 
-/** 수확 표현을 SRS(cat '실전')·표현장에 등록 — 문서 단위 멱등. */
-export function importExpressions(item: MinutesDialogue): number {
+/** 수확 표현을 SRS(cat '실전')·표현장에 등록 — 문서 단위 멱등.
+ *  실전 코스(lib/realCourse.ts)도 같은 통로를 쓴다 — 필요한 최소 형태만 받는다. */
+export function importExpressions(item: Pick<MinutesDialogue, 'noteId' | 'title' | 'expressions'>): number {
   if (!item.expressions?.length) return 0;
   const done = load<string[]>(EXPR_IMPORTED_KEY, []);
   if (done.includes(item.noteId)) return 0;

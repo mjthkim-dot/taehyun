@@ -1585,6 +1585,133 @@ button {
   flex-shrink: 0;
 }
 
+/* ── 실전 코스 (Real Course) ── */
+.rc-head-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.rc-method {
+  font-size: 0.76rem;
+  line-height: 1.65;
+  margin-bottom: 10px;
+}
+.rc-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.rc-stat {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 4px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rc-stat b {
+  font-size: 0.95rem;
+  color: var(--primary-light, var(--primary));
+  font-variant-numeric: tabular-nums;
+}
+.rc-stat span {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.rc-customers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.rc-cust-chip {
+  font-size: 0.66rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+.rc-progress {
+  font-size: 0.66rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 2px 8px;
+  margin-left: 8px;
+  vertical-align: 2px;
+}
+.rc-why {
+  white-space: normal;
+  line-height: 1.5;
+}
+.rc-sc {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.rc-sc.open {
+  border-color: var(--primary);
+}
+.rc-sc-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface2);
+  border: none;
+  padding: 11px 13px;
+  cursor: pointer;
+  min-height: 44px;
+}
+.rc-sc-num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary-dk);
+  font-size: 0.7rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rc-sc-title {
+  flex: 1;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+.rc-seen {
+  flex-shrink: 0;
+  font-size: 0.66rem;
+  font-weight: 800;
+  color: var(--green);
+}
+.rc-sc-body {
+  padding: 12px 13px;
+}
+.rc-grounding {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0 0 10px;
+}
+.rc-note {
+  font-size: 0.72rem;
+  line-height: 1.6;
+  margin-top: 14px;
+}
+
 /* ── 오디오 모드 ── */
 .al-now {
   text-align: center;
