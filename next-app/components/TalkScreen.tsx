@@ -128,6 +128,11 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   /** 탭한 단어의 뜻 바 — 이 훅도 조기 return(!ready) 위에 있어야 한다 */
   const [gloss, setGloss] = useState<{ word: string; ko: string | null } | null>(null);
   const glossSeqRef = useRef(0);
+  // 돌발 모드 — 예측 불가능한 실전 대화 압박(후속 질문·반론·화제 전환) + 반응 속도 측정.
+  // "이 앱만으로 고수"의 격차 중 '진짜 대화의 예측 불가능성'을 시뮬레이션하는 장치.
+  const [pressure, setPressure] = useState(false);
+  const [latencies, setLatencies] = useState<number[]>([]);
+  const lastAiDoneRef = useRef(0);
   /** 이번 대화에서 이미 축하한 패턴들 — 같은 패턴에 매번 배지를 띄우면 소음이 된다 */
   const usedPatternsRef = useRef<Set<string>>(new Set());
 
@@ -269,6 +274,12 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     primeAudio();
     let userId = -1;
     if (!hidden) {
+      // 반응 속도 — AI 답이 끝난 시각부터 내 다음 발화까지. 고수의 지표는
+      // 정확도가 아니라 이 지연이다(돌발 모드에서 칩으로 보여준다).
+      if (lastAiDoneRef.current > 0) {
+        const lat = Date.now() - lastAiDoneRef.current;
+        if (lat < 120000) setLatencies((prev) => [...prev.slice(-19), lat]);
+      }
       userId = nextId();
       setMessages((prev) => [...prev, { id: userId, kind: 'user', text, time: timeStr() }]);
       markPracticedToday();
@@ -293,7 +304,10 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       // 튜터가 매번 초면으로 시작하지 않게(자연스러울 때만 이어가라고 지시됨).
       content:
         buildSystemPrompt(lesson, missionCtx ? { title: missionCtx.title, desc: missionCtx.desc } : null, prevLessons()) +
-        tutorMemoryBlock(),
+        tutorMemoryBlock() +
+        (pressure
+          ? '\n\n[돌발 모드] 지금은 실전 압박 훈련이다: 매 답변에 예상 밖의 후속 질문을 하나 던져라. 두세 턴에 한 번은 정중하게 반론하거나 화제를 살짝 틀어라. 사용자가 한 문장으로 짧게 답하면 "Tell me more"처럼 더 길게 말하도록 유도하라. 쉬운 어휘로 도망가지 말고 자연스러운 원어민 표현을 그대로 써라.'
+          : ''),
     };
     const msgs = [sysMsg, ...historyRef.current.slice(-8)];
 
@@ -311,6 +325,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       // 다음 세션이 이어받을 기억 스냅숏 — 턴마다 마지막 몇 줄을 덮어쓴다
       saveTutorSnapshot(historyRef.current);
       updateMsg(aiId, { streaming: false });
+      lastAiDoneRef.current = Date.now();
       setAiSpeaking(true);
       speak(fullText, () => {
         setAiSpeaking(false);
@@ -840,6 +855,24 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
               {keyChecking ? '확인 중…' : '등록'}
             </button>
           </div>
+        </div>
+      )}
+
+      {hasKey && (
+        <div className="pressure-bar">
+          <button
+            type="button"
+            className={`pressure-toggle${pressure ? ' on' : ''}`}
+            onClick={() => setPressure((v) => !v)}
+            title="후속 질문·반론·화제 전환이 섞이는 실전 압박 대화"
+          >
+            ⚡ 돌발 모드 {pressure ? 'ON' : 'OFF'}
+          </button>
+          {pressure && latencies.length > 0 && (
+            <span className="pressure-latency" title="AI 답이 끝나고 내가 입을 떼기까지">
+              ⏱ 평균 반응 {(latencies.reduce((a, b) => a + b, 0) / latencies.length / 1000).toFixed(1)}초
+            </span>
+          )}
         </div>
       )}
 

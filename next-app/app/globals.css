@@ -1739,6 +1739,119 @@ button {
   margin-left: 5px;
 }
 
+/* ── 회화 돌발 모드 ── */
+.pressure-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.pressure-toggle {
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 14px;
+  min-height: 36px; /* 접근성 — 터치 타깃 최소 크기 */
+  cursor: pointer;
+}
+.pressure-toggle.on {
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border-color: var(--primary);
+}
+.pressure-latency {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 몰입 스토리 ── */
+.im-controls {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.im-rate-on {
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border-color: var(--primary);
+}
+.im-hint {
+  font-size: 0.72rem;
+  margin: 0 0 10px;
+}
+.im-sent {
+  padding: 7px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.im-sent:hover {
+  background: var(--surface2);
+}
+.im-sent.playing {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.im-sent-en {
+  font-size: 0.92rem;
+  line-height: 1.65;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.im-sent-en .speak-mini {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.im-sent-kr {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-top: 2px;
+}
+.im-quiz {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 11px 13px;
+  margin-bottom: 8px;
+}
+.im-quiz-q {
+  font-size: 0.82rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+.im-quiz-opt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+.im-quiz-opt.correct {
+  border-color: var(--green);
+  color: var(--green);
+  font-weight: 800;
+}
+.im-quiz-opt.wrong {
+  border-color: var(--red);
+  color: var(--red);
+}
+
 /* ── 오디오 모드 ── */
 .al-now {
   text-align: center;

@@ -41,7 +41,8 @@ export type Mode =
   | 'preply'
   | 'minutes'
   | 'course'
-  | 'career';
+  | 'career'
+  | 'immersion';
 
 const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [
   { mode: 'master', icon: 'home', label: '홈' },

@@ -81,6 +81,7 @@ const PreplyScreen = dynamic(() => import('../components/PreplyScreen'), { ssr: 
 const MinutesScreen = dynamic(() => import('../components/MinutesScreen'), { ssr: false, loading: ScreenLoading });
 const CourseScreen = dynamic(() => import('../components/CourseScreen'), { ssr: false, loading: ScreenLoading });
 const CareerScreen = dynamic(() => import('../components/CareerScreen'), { ssr: false, loading: ScreenLoading });
+const ImmersionScreen = dynamic(() => import('../components/ImmersionScreen'), { ssr: false, loading: ScreenLoading });
 const BusinessScreen = dynamic(() => import('../components/BusinessScreen'), { ssr: false, loading: ScreenLoading });
 
 import MasterScreen from '../components/MasterScreen';
@@ -144,6 +145,7 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
   minutes: { title: '실전 영어', render: (c) => <MinutesScreen onNavigate={c.setMode} /> },
   course: { title: '실전 코스', render: (c) => <CourseScreen onNavigate={c.setMode} /> },
   career: { title: '커리어 영어', render: (c) => <CareerScreen onNavigate={c.setMode} /> },
+  immersion: { title: '몰입 스토리', render: () => <ImmersionScreen /> },
   business: {
     title: '비즈니스',
     render: (c) => (
