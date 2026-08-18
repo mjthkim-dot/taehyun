@@ -112,6 +112,10 @@ const browser = await launch();
   await page.route('**/app/api/stt', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: sttReply }) }));
   await seedKey(page);
   await page.addInitScript(MIC_STUB);
+  // 오늘의 패턴은 날짜 로테이션 — id-like만 미정착으로 남겨 결정성 확보
+  await page.addInitScript(() => {
+    localStorage.setItem('va_maturity_patterns', JSON.stringify(['could-you', 'get-back', 'didnt-catch', 'just-to-confirm', 'that-works', 'im-afraid', 'thanks-time']));
+  });
   await page.goto(`${BASE}/app`);
   await page.waitForSelector('.session-cta', { timeout: 15000 });
   await page.click('.session-cta');

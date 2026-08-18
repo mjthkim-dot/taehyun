@@ -57,6 +57,8 @@ await seedKey(page);
 await page.addInitScript(MIC_STUB);
 await page.addInitScript((en) => {
   localStorage.setItem('va_weak', JSON.stringify([{ en, kr: '확인하고 다시 연락드릴게요.', box: 1, lapses: 0, due: 0 }]));
+  // 오늘의 패턴은 날짜 로테이션 — 테스트 결정성을 위해 id-like만 미정착으로 남긴다
+  localStorage.setItem('va_maturity_patterns', JSON.stringify(['could-you', 'get-back', 'didnt-catch', 'just-to-confirm', 'that-works', 'im-afraid', 'thanks-time']));
 }, WARMUP_EN);
 
 await page.goto(`${BASE}/app`);

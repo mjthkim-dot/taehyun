@@ -29,21 +29,26 @@ export function markSessionDone() {
   store(DONE_KEY, todayStr());
 }
 
-/** 현재 성숙도 단계에서 오늘 배울 패턴을 고른다 — 미정착 우선, 다 정착했으면
- *  날짜 기반으로 하나 돌려 복습한다(같은 날엔 같은 패턴 — 재진입해도 안 바뀜). */
+/** 현재 성숙도 단계에서 오늘 배울 패턴을 고른다 — 미정착 우선이되 **날짜로
+ *  로테이션**한다(같은 날엔 같은 패턴, 다음 날엔 다른 패턴). 예전엔 미정착 중
+ *  항상 첫 번째(fresh[0])를 골라서, 세션을 완주하지 않으면 매일 같은
+ *  "I'd like..."가 떠 "맨날 똑같다"는 정확한 불만을 만들었다. 정착 못 해도
+ *  내일은 다른 패턴을 만나고, 못 끝낸 패턴은 로테이션이 다시 데려온다.
+ *  전부 정착했으면 같은 방식으로 복습을 돌린다. */
 export function pickTodayPattern(stageN: number): { pattern: NativePattern; story: PatternStory; isReview: boolean } | null {
   const stories = storiesNow();
   const patterns = STAGE_PATTERNS[stageN] || [];
   if (!patterns.length) return null;
   const done = donePatterns();
+  const daySeed = Number(todayStr().replace(/-/g, ''));
   const fresh = patterns.filter((p) => !done.includes(p.key) && stories[p.key]);
   if (fresh.length) {
-    return { pattern: fresh[0], story: stories[fresh[0].key], isReview: false };
+    const pick = fresh[daySeed % fresh.length];
+    return { pattern: pick, story: stories[pick.key], isReview: false };
   }
   // 전부 정착 — 날짜 시드로 하나 골라 복습
   const withStory = patterns.filter((p) => stories[p.key]);
   if (!withStory.length) return null;
-  const daySeed = Number(todayStr().replace(/-/g, ''));
   const pick = withStory[daySeed % withStory.length];
   return { pattern: pick, story: stories[pick.key], isReview: true };
 }

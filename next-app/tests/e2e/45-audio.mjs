@@ -41,7 +41,8 @@ await page.addInitScript(() => {
   localStorage.setItem('va_weak', JSON.stringify([
     { en: 'Could you send the file?', kr: '파일을 보내주시겠어요?', box: 1, lapses: 0, due: 0 },
   ]));
-  localStorage.setItem('va_maturity_patterns', JSON.stringify(['could-you']));
+  // 오늘의 패턴은 날짜 로테이션 — id-like만 미정착으로 남겨 결정성 확보
+  localStorage.setItem('va_maturity_patterns', JSON.stringify(['could-you', 'get-back', 'didnt-catch', 'just-to-confirm', 'that-works', 'im-afraid', 'thanks-time']));
 });
 
 await page.goto(`${BASE}/app`);

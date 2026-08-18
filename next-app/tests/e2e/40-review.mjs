@@ -120,8 +120,9 @@ const after = await page.evaluate(() => {
   return { len: log2.length, last: log2[log2.length - 1], first: log2[0] };
 });
 check('로그 상한(1000)이 지켜진다', after.len === 1000, String(after.len));
-// 로그의 en은 발화가 아니라 목표 문장이다 — 오늘 패턴(get-back)의 기본 문장
-check('넘치면 오래된 것부터 절삭된다', after.first.en === 'old 1' && after.last.en === 'I will check and tell you later.', `${after.first.en} … ${after.last.en}`);
+// 로그의 en은 발화가 아니라 목표 문장(오늘의 패턴 기본 문장)이다 — 오늘의 패턴은
+// 날짜 로테이션이라 특정 문장을 고정하지 않고, "시드가 아닌 실제 목표 문장"만 확인한다.
+check('넘치면 오래된 것부터 절삭된다', after.first.en === 'old 1' && !!after.last.en && !String(after.last.en).startsWith('old '), `${after.first.en} … ${after.last.en}`);
 
 await browser.close();
 finish();
