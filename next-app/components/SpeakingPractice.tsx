@@ -314,7 +314,10 @@ export default function SpeakingPractice({
       <p className="target">
         {showTarget ? currentSentence || '문장을 선택하세요' : prompt || '뜻을 보고 영어로 말해보세요'}
       </p>
-      {showTarget && hideTarget && prompt && (
+      {/* 뜻(한국어)은 항상 함께 — 뜻 모르고 따라 읽으면 소리 연습이지 학습이
+          아니다("win you back이 무슨 뜻인지는 알아야" 피드백). hideTarget
+          모드는 공개 후에만(정답 노출 방지), 일반 모드는 처음부터 보인다. */}
+      {showTarget && prompt && (
         <div className="muted" style={{ fontSize: '0.82rem', marginTop: 2 }}>{prompt}</div>
       )}
       <div className="sp-tools">

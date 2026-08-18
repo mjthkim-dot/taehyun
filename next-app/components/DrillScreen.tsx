@@ -289,12 +289,8 @@ ${JSON.stringify(weakSentences)}
           {krMode ? '🇰🇷 뜻 보고 말하기' : '🇺🇸 영어 보고 따라하기'}
         </button>
       </div>
+      {/* 뜻(kr)은 SpeakingPractice가 문장 바로 아래에 그린다 — 여기서 또 그리면 중복 */}
       <SpeakingPractice key={idx} sentence={cur.en} prompt={cur.kr} hideTarget={krMode} source="drill" />
-      {!krMode && (
-        <div className="kr muted" style={{ marginTop: 8 }}>
-          {cur.kr}
-        </div>
-      )}
       <div className="drill-nav">
         <button type="button" disabled={idx === 0} onClick={() => setIdx((i) => i - 1)}>
           ← 이전

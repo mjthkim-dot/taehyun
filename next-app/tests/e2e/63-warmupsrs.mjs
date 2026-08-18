@@ -58,6 +58,7 @@ const browser = await launch();
   await page.click('.session-cta');
   await page.waitForSelector('.speaking-practice', { timeout: 10000 });
   check('워밍업에 due 문장이 뜬다', await page.evaluate((en) => document.body.innerText.includes(en), TARGET));
+  check('뜻(한국어)이 함께 보인다 — 뜻 모르고 따라 읽기 금지', await page.evaluate(() => document.body.innerText.includes('오늘 파일 보내주시겠어요?')));
   await page.click('.ss-screen .mic');
   await page.waitForSelector('.speaking-practice .score', { timeout: 20000 });
   await page.click('.ss-nav .start-drill-btn'); // 다음 → 이 순간 채점
