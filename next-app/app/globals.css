@@ -1852,6 +1852,86 @@ button {
   color: var(--red);
 }
 
+/* ── 홈 이어서 하기 ── */
+.hs-wrap {
+  margin: 14px 0;
+}
+.hs-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.hs-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.hs-row::-webkit-scrollbar {
+  display: none;
+}
+.hs-card {
+  flex: 0 0 auto;
+  width: 128px;
+  min-height: 88px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  padding: 11px 12px;
+  cursor: pointer;
+}
+.hs-card.hot {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.hs-card.hs-more {
+  background: var(--surface2);
+}
+.hs-ic {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.hs-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.hs-new {
+  font-size: 0.56rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  padding: 1px 5px;
+}
+.hs-card.hot .hs-new {
+  background: var(--surface);
+}
+.hs-state {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-top: auto;
+}
+.hs-card.hot .hs-state {
+  color: var(--primary-dk);
+}
+
 /* ── 면접 시뮬레이션 ── */
 .iv-history {
   display: flex;

@@ -17,6 +17,12 @@ import dynamic from 'next/dynamic';
 // 뷰포트 아래(스크롤 후) 컴포넌트는 하이드레이션 임계 경로에서 뺀다 —
 // 홈 첫 페인트~상호작용 사이 시간(LCP)을 줄이는 Lighthouse 대응.
 const DailyQuests = dynamic(() => import('./DailyQuests'), { ssr: false });
+// 이어서 하기 — 기능 그리드에 묻힌 핵심 기능을 진행 상태와 함께 홈에 노출.
+// 코스 데이터(JSON)를 끌고 오므로 반드시 지연 청크로(홈 첫 페인트 보호).
+const HomeShortcuts = dynamic(() => import('./HomeShortcuts'), {
+  ssr: false,
+  loading: () => <div className="hs-wrap" style={{ minHeight: 132 }} aria-hidden="true" />,
+});
 import { consumeFreezesForGaps, getFreezeCount } from '../lib/habits';
 const CurriculumPath = dynamic(() => import('./CurriculumPath'), { ssr: false });
 import StreakFlame from './StreakFlame';
@@ -212,6 +218,9 @@ export default function MasterScreen({
 
       {/* 오늘 할 딱 한 가지 — 앱을 열면 바로 이걸 하면 된다 */}
       <DailyMissionCard onNavigate={onNavigate} onProgress={() => setTick((t) => t + 1)} />
+
+      {/* 이어서 하기 — 묻혀 있던 도구들이 진행 상태를 들고 홈에 나온다 */}
+      <HomeShortcuts onNavigate={onNavigate} />
 
       {/* 데일리 퀘스트 — 오늘 할 일 3개와 XP */}
       <DailyQuests refreshKey={tick} />
