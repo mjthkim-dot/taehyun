@@ -198,10 +198,16 @@ export interface DueReviews {
 }
 
 export function dueReviews(maxSentences = 2, maxRecalls = 1): DueReviews {
-  const sentences = dueWeak()
+  const all = dueWeak()
     .filter((w) => w.en && w.en.trim())
-    .sort((a, b) => (a.box || 0) - (b.box || 0))
-    .slice(0, maxSentences)
-    .map((w) => ({ en: w.en, kr: w.kr || '' }));
+    .sort((a, b) => (a.box || 0) - (b.box || 0));
+  // 밀린 문장이 많을 때 항상 같은 첫 2개만 뜨지 않게 — 날짜 시드로 시작
+  // 위치를 돌린다(같은 날엔 안정, 다음 날엔 다른 조합). 우선순위(box 낮은
+  // 순)는 정렬로 이미 반영돼 있어, 회전은 "그중 어디부터"만 바꾼다.
+  const d = new Date();
+  const daySeed = Number(`${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`);
+  const start = all.length > maxSentences ? daySeed % all.length : 0;
+  const rotated = [...all.slice(start), ...all.slice(0, start)];
+  const sentences = rotated.slice(0, maxSentences).map((w) => ({ en: w.en, kr: w.kr || '' }));
   return { sentences, recalls: duePatternRecalls(maxRecalls) };
 }

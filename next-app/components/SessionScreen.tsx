@@ -13,7 +13,7 @@ import { markLadderDone } from '../lib/nativeLadder';
 import { pickTodayPattern, sessionDoneToday, markSessionDone } from '../lib/session';
 import { setTalkContext } from '../lib/dailyMission';
 import { dueReviews, gradePatternRecall, type PatternRecall } from '../lib/reviewEngine';
-import { markPracticedToday } from '../lib/state';
+import { markPracticedToday, gradeWeakItem } from '../lib/state';
 import { useLessonStore } from '../store/useLessonStore';
 import SpeakingPractice from './SpeakingPractice';
 import { speakText } from './SpeakButton';
@@ -102,6 +102,10 @@ export default function SessionScreen({ onNavigate }: { onNavigate: (m: Mode) =>
   function next() {
     // 패턴 리콜은 넘어가는 순간 채점한다 — 시도했을 때만(건너뛰면 내일 다시).
     if (step.type === 'recall' && attempted) gradePatternRecall(step.recall.pattern.key, accuracyScore);
+    // 워밍업도 SRS를 채점한다 — 예전엔 말해도 box·due가 안 움직여서
+    // 같은 복습 문장이 매일 워밍업에 다시 떴다("맨날 A table for two"의 원인).
+    // 60점 이상이면 간격이 늘어나 내일은 다른 문장이 온다. 건너뛰면 내일 다시.
+    if (step.type === 'warmup' && attempted) gradeWeakItem(step.en, accuracyScore >= 60 ? 'good' : 'again');
     if (attempted) setSpokenCount((n) => n + 1);
     if (stepIdx >= setup.steps.length - 1) {
       // 완주 — 패턴 정착 + 사다리 완주로 기록(자동 승급의 재료)
