@@ -43,7 +43,8 @@ export type Mode =
   | 'course'
   | 'career'
   | 'immersion'
-  | 'interview';
+  | 'interview'
+  | 'feedback';
 
 const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [
   { mode: 'master', icon: 'home', label: '홈' },
@@ -61,6 +62,7 @@ const MORE_TABS: { mode: Mode; icon: string; label: string; desc: string }[] = [
   { mode: 'video', icon: '🎬', label: '영상', desc: '레슨 영상으로 듣기 연습' },
   { mode: 'business', icon: '💼', label: '비즈니스', desc: '내 챗으로 회의록 학습 · 비즈니스 회화' },
   { mode: 'features', icon: '🧰', label: '기능', desc: '전체 학습 도구 모음' },
+  { mode: 'feedback', icon: '💬', label: '피드백', desc: '거슬린 것 바로 기록 → 복사해서 개선 요청' },
 ];
 
 export default function NavBar({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {

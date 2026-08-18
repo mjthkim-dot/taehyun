@@ -1852,6 +1852,78 @@ button {
   color: var(--red);
 }
 
+/* ── 피드백 ── */
+.fb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.fb-chip {
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  min-height: 36px;
+  cursor: pointer;
+}
+.fb-chip.on {
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border-color: var(--primary);
+}
+.fb-input {
+  width: 100%;
+  resize: vertical;
+  line-height: 1.6;
+}
+.fb-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 11px 14px;
+  margin-bottom: 8px;
+}
+.fb-item-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+.fb-tag {
+  font-size: 0.64rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.fb-date {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.fb-del {
+  margin-left: auto;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  min-width: 36px;
+  min-height: 36px;
+  cursor: pointer;
+}
+.fb-text {
+  font-size: 0.84rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
 /* ── 홈 이어서 하기 ── */
 .hs-wrap {
   margin: 14px 0;

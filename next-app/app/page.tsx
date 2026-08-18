@@ -83,6 +83,7 @@ const CourseScreen = dynamic(() => import('../components/CourseScreen'), { ssr: 
 const CareerScreen = dynamic(() => import('../components/CareerScreen'), { ssr: false, loading: ScreenLoading });
 const ImmersionScreen = dynamic(() => import('../components/ImmersionScreen'), { ssr: false, loading: ScreenLoading });
 const InterviewScreen = dynamic(() => import('../components/InterviewScreen'), { ssr: false, loading: ScreenLoading });
+const FeedbackScreen = dynamic(() => import('../components/FeedbackScreen'), { ssr: false, loading: ScreenLoading });
 const BusinessScreen = dynamic(() => import('../components/BusinessScreen'), { ssr: false, loading: ScreenLoading });
 
 import MasterScreen from '../components/MasterScreen';
@@ -148,6 +149,7 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
   career: { title: '커리어 영어', render: (c) => <CareerScreen onNavigate={c.setMode} /> },
   immersion: { title: '몰입 스토리', render: () => <ImmersionScreen /> },
   interview: { title: '면접 시뮬레이션', render: (c) => <InterviewScreen onNavigate={c.setMode} /> },
+  feedback: { title: '피드백', render: () => <FeedbackScreen /> },
   business: {
     title: '비즈니스',
     render: (c) => (

@@ -98,6 +98,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
         { icon: '💾', label: '백업 · 복원', sub: '학습 데이터 내보내기/가져오기', action: { kind: 'nav', mode: 'backup' } },
         { icon: '📜', label: '약관 · 개인정보', sub: '이용약관 · 처리방침(초안)', action: { kind: 'nav', mode: 'legal' } },
         { icon: '🩺', label: '음성 진단', sub: '소리가 안 날 때 원인 확인', action: { kind: 'nav', mode: 'audiocheck' } },
+        { icon: '💬', label: '피드백', sub: '거슬린 것 기록 → 복사해서 개선 요청', action: { kind: 'nav', mode: 'feedback' } },
       ],
     },
   ];
