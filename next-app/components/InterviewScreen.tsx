@@ -1,0 +1,371 @@
+'use client';
+
+/**
+ * 면접 시뮬레이션 화면 — 실제 면접의 리듬을 그대로:
+ * 준비(역할 선택·이력) → 진행(면접관 음성 질문 → 내 답변(음성/텍스트, 타이머)
+ * → 짧은 반응 → 얕은 답엔 즉석 후속 질문) → 리포트(점수·강점·교정·모범 답변).
+ *
+ * 교정은 va_mistakes로 들어가 돌발 모드·실전 콘텐츠 생성에 재사용되고,
+ * 모범 답변은 드릴로 핸드오프한다 — "면접 준비"가 앱의 훈련 루프에 합류한다.
+ */
+import { useEffect, useRef, useState } from 'react';
+import type { Mode } from './NavBar';
+import {
+  DEFAULT_QUESTIONS,
+  evaluateInterview,
+  generateQuestions,
+  interviewHistory,
+  reactToAnswer,
+  ROLE_PRESETS,
+  type InterviewReport,
+  type InterviewStep,
+} from '../lib/interview';
+import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
+import { setDrillQueue, groqKey } from '../lib/state';
+import { speakText, stopSpeaking } from './SpeakButton';
+
+type Phase = 'setup' | 'running' | 'evaluating' | 'report';
+
+export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) => void }) {
+  const [phase, setPhase] = useState<Phase>('setup');
+  const [role, setRole] = useState(ROLE_PRESETS[0]);
+  const [customRole, setCustomRole] = useState('');
+  const [starting, setStarting] = useState(false);
+  const [fallbackSet, setFallbackSet] = useState(false);
+
+  const [steps, setSteps] = useState<InterviewStep[]>([]);
+  const [idx, setIdx] = useState(0);
+  const [awaitingFollowUp, setAwaitingFollowUp] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [thinking, setThinking] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [recording, setRecording] = useState(false);
+  const [interim, setInterim] = useState('');
+  const stopRecRef = useRef<(() => void) | null>(null);
+  const timerRef = useRef<number | null>(null);
+
+  const [report, setReport] = useState<InterviewReport | null>(null);
+  const [evalError, setEvalError] = useState('');
+
+  const history = interviewHistory();
+  const activeRole = role === '__custom' ? customRole.trim() || '글로벌 포지션' : role;
+
+  // 답변 타이머 — 실전 면접의 감각(60~90초 권장)을 만든다
+  useEffect(() => {
+    if (phase !== 'running') return;
+    setElapsed(0);
+    timerRef.current = window.setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => {
+      if (timerRef.current) window.clearInterval(timerRef.current);
+    };
+  }, [phase, idx, awaitingFollowUp]);
+
+  useEffect(
+    () => () => {
+      stopRecRef.current?.();
+      stopSpeaking();
+    },
+    []
+  );
+
+  function ask(text: string) {
+    stopSpeaking();
+    speakText(text, 'en-US');
+  }
+
+  async function start() {
+    if (starting) return;
+    setStarting(true);
+    try {
+      const r = groqKey()
+        ? await generateQuestions(activeRole)
+        : { questions: DEFAULT_QUESTIONS, fallback: true };
+      setFallbackSet(r.fallback);
+      setSteps(r.questions.map((q) => ({ q: q.q, qKr: q.qKr })));
+      setIdx(0);
+      setAwaitingFollowUp(false);
+      setDraft('');
+      setReport(null);
+      setEvalError('');
+      setPhase('running');
+      ask(r.questions[0].q);
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  async function submitAnswer() {
+    const text = draft.trim();
+    if (!text || thinking) return;
+    setDraft('');
+    setInterim('');
+    const cur = steps[idx];
+
+    if (awaitingFollowUp) {
+      // 후속 질문에 대한 답 — 기록하고 다음 질문으로
+      const next = steps.slice();
+      next[idx] = { ...cur, followUpAnswer: text };
+      setSteps(next);
+      setAwaitingFollowUp(false);
+      advance(next);
+      return;
+    }
+
+    const next = steps.slice();
+    next[idx] = { ...cur, answer: text };
+    setSteps(next);
+
+    if (groqKey()) {
+      setThinking(true);
+      try {
+        const r = await reactToAnswer(activeRole, cur.q, text);
+        const withReaction = next.slice();
+        withReaction[idx] = { ...withReaction[idx], reaction: r.reaction, followUp: r.followUp || undefined };
+        setSteps(withReaction);
+        if (r.followUp) {
+          setAwaitingFollowUp(true);
+          ask(`${r.reaction} ${r.followUp}`);
+          return;
+        }
+        ask(r.reaction);
+        advance(withReaction);
+      } finally {
+        setThinking(false);
+      }
+    } else {
+      advance(next);
+    }
+  }
+
+  function advance(cur: InterviewStep[]) {
+    if (idx + 1 < cur.length) {
+      const ni = idx + 1;
+      setIdx(ni);
+      ask(cur[ni].q);
+    } else {
+      void finish(cur);
+    }
+  }
+
+  async function finish(finalSteps: InterviewStep[]) {
+    stopSpeaking();
+    if (!groqKey()) {
+      // 키 없이도 연습은 되지만 평가는 AI가 필요하다 — 정직하게 알린다
+      setEvalError('평가 리포트는 AI 키가 필요해요 — 기능 → AI 키 등록 후 다시 시도해 주세요. (연습 자체는 완료!)');
+      setPhase('report');
+      return;
+    }
+    setPhase('evaluating');
+    const r = await evaluateInterview(activeRole, finalSteps);
+    if (r) {
+      setReport(r);
+    } else {
+      setEvalError('평가 생성에 실패했어요 — 잠시 후 다시 시도해 주세요.');
+    }
+    setPhase('report');
+  }
+
+  async function toggleMic() {
+    if (recording) {
+      stopRecRef.current?.();
+      return;
+    }
+    setRecording(true);
+    try {
+      const { text } = await recordAndTranscribe({
+        onPartial: (t) => setInterim(t),
+        // 면접 답변은 길다 — 생각하는 침묵에 끊기지 않게 수동 종료
+        silenceMs: 0,
+        maxMs: 120000,
+        registerStop: (fn) => {
+          stopRecRef.current = fn;
+        },
+      });
+      if (text) setDraft((d) => (d ? `${d} ${text}` : text));
+    } finally {
+      setRecording(false);
+      setInterim('');
+      stopRecRef.current = null;
+    }
+  }
+
+  /* ── 화면 ── */
+
+  if (phase === 'setup') {
+    return (
+      <div className="study-screen">
+        <div className="study-card rc-head">
+          <div className="rc-head-title">🎤 면접 시뮬레이션</div>
+          <p className="muted rc-method">
+            AI 면접관이 직무 맞춤 질문 5개를 던지고, 얕은 답에는 <b>즉석 후속 질문</b>으로 파고듭니다. 끝나면
+            점수·교정·모범 답변 리포트를 받아요. 교정은 복습 루프로, 모범 답변은 드릴로 이어집니다.
+          </p>
+          {history.length > 0 && (
+            <div className="iv-history">
+              {history.slice(-5).map((h, i) => (
+                <span key={i} className="rc-cust-chip" title={h.role}>
+                  {h.date.slice(5, 10)} · {h.score}점
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="study-card">
+          <div className="pp-sec" style={{ marginTop: 0 }}>지원 직무</div>
+          {ROLE_PRESETS.map((r) => (
+            <button key={r} type="button" className={`iv-role${role === r ? ' on' : ''}`} onClick={() => setRole(r)}>
+              {r}
+            </button>
+          ))}
+          <button type="button" className={`iv-role${role === '__custom' ? ' on' : ''}`} onClick={() => setRole('__custom')}>
+            직접 입력
+          </button>
+          {role === '__custom' && (
+            <input
+              className="text-input"
+              style={{ marginTop: 8 }}
+              placeholder="예: 외국계 보험사 B2B 세일즈 매니저"
+              value={customRole}
+              onChange={(e) => setCustomRole(e.target.value)}
+            />
+          )}
+          <button type="button" className="start-drill-btn" style={{ marginTop: 14 }} disabled={starting} onClick={() => void start()}>
+            {starting ? '질문 준비 중…' : '🎬 면접 시작'}
+          </button>
+          <p className="muted" style={{ fontSize: '0.72rem', marginTop: 8, lineHeight: 1.6 }}>
+            답변은 마이크(권장) 또는 입력창으로. 한 답변은 60~90초를 목표로 해보세요.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'evaluating') {
+    return (
+      <div className="study-screen">
+        <div className="study-card" style={{ textAlign: 'center', padding: 32 }}>
+          <div style={{ fontSize: '2rem', marginBottom: 10 }}>📝</div>
+          <b>면접관이 평가를 작성하고 있어요…</b>
+          <p className="muted" style={{ fontSize: '0.78rem', marginTop: 6 }}>점수·교정·모범 답변을 정리하는 중</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'report') {
+    return (
+      <div className="study-screen">
+        {evalError && <p className="muted pp-msg">{evalError}</p>}
+        {report && (
+          <>
+            <div className="study-card rc-head" style={{ textAlign: 'center' }}>
+              <div className="iv-score">{report.score}</div>
+              <div className="muted" style={{ fontSize: '0.72rem', fontWeight: 800 }}>/ 100</div>
+              <p style={{ fontSize: '0.84rem', lineHeight: 1.7, marginTop: 10 }}>{report.summary}</p>
+            </div>
+
+            {report.strengths.length > 0 && (
+              <div className="study-card">
+                <div className="pp-sec" style={{ marginTop: 0 }}>💪 잘한 점</div>
+                <ul className="pp-list">{report.strengths.map((s, i) => <li key={i}>{s}</li>)}</ul>
+              </div>
+            )}
+
+            {report.improvements.length > 0 && (
+              <div className="study-card">
+                <div className="pp-sec" style={{ marginTop: 0 }}>🔧 교정 (복습 루프에 등록됨)</div>
+                {report.improvements.map((m, i) => (
+                  <div className="pp-sent" key={i}>
+                    <div className="iv-wrong">{m.wrong}</div>
+                    <div className="pp-sent-en">→ {m.right}</div>
+                    <div className="pp-sent-kr">{m.note}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="study-card">
+              <div className="pp-sec" style={{ marginTop: 0 }}>⭐ 모범 답변</div>
+              {report.modelAnswers.map((m, i) => (
+                <div className="pp-sent" key={i}>
+                  {m.q && <div className="iv-model-q">{m.q}</div>}
+                  <div className="pp-sent-en">{m.en}</div>
+                  <div className="pp-sent-kr">{m.kr}</div>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="start-drill-btn"
+                style={{ marginTop: 10 }}
+                onClick={() => {
+                  setDrillQueue({
+                    label: `면접 모범 답변 — ${activeRole}`,
+                    items: report.modelAnswers.map((m) => ({ en: m.en, kr: m.kr })),
+                  });
+                  onNavigate('drill');
+                }}
+              >
+                🎤 모범 답변으로 드릴 →
+              </button>
+            </div>
+          </>
+        )}
+        <button type="button" className="btn primary" style={{ width: '100%', marginTop: 4 }} onClick={() => setPhase('setup')}>
+          새 면접 보기
+        </button>
+      </div>
+    );
+  }
+
+  // running
+  const cur = steps[idx];
+  const question = awaitingFollowUp && cur.followUp ? cur.followUp : cur.q;
+  return (
+    <div className="study-screen">
+      <div className="iv-progress">
+        질문 {idx + 1}/{steps.length}
+        {awaitingFollowUp && <span className="mn-badge-new" style={{ marginLeft: 6 }}>후속</span>}
+        {fallbackSet && <span className="muted" style={{ marginLeft: 8, fontSize: '0.68rem' }}>기본 질문 세트</span>}
+        <span className={`iv-timer${elapsed > 90 ? ' over' : ''}`}>⏱ {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}</span>
+      </div>
+
+      <div className="study-card iv-q-card">
+        <div className="iv-q-label">👔 면접관</div>
+        <div className="iv-q">
+          {question}
+          <button type="button" className="mini-btn" style={{ marginLeft: 8 }} onClick={() => ask(question)}>
+            🔊 다시 듣기
+          </button>
+        </div>
+        {!awaitingFollowUp && cur.qKr && <div className="pp-sent-kr" style={{ marginTop: 6 }}>{cur.qKr}</div>}
+        {awaitingFollowUp && cur.reaction && <div className="iv-reaction">{cur.reaction}</div>}
+      </div>
+
+      {thinking ? (
+        <p className="muted pp-msg">면접관이 답변을 듣고 있어요…</p>
+      ) : (
+        <div className="study-card">
+          <textarea
+            className="text-input iv-answer"
+            rows={4}
+            placeholder={recording ? '듣고 있어요 — 말씀하세요…' : '영어로 답변하세요 (마이크 권장)'}
+            value={recording && interim ? `${draft} ${interim}`.trim() : draft}
+            onChange={(e) => setDraft(e.target.value)}
+            readOnly={recording}
+          />
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            {whisperAvailable() && (
+              <button type="button" className={`btn${recording ? ' primary' : ''}`} style={{ flex: 1 }} onClick={() => void toggleMic()}>
+                {recording ? '⏹ 답변 끝내기' : '🎙 말로 답변'}
+              </button>
+            )}
+            <button type="button" className="btn primary" style={{ flex: 1 }} disabled={!draft.trim() || recording} onClick={() => void submitAnswer()}>
+              답변 제출 →
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

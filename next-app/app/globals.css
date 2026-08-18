@@ -1852,6 +1852,94 @@ button {
   color: var(--red);
 }
 
+/* ── 면접 시뮬레이션 ── */
+.iv-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+.iv-role {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 11px 13px;
+  margin-bottom: 7px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.iv-role.on {
+  border-color: var(--primary);
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+}
+.iv-progress {
+  display: flex;
+  align-items: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.iv-timer {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.iv-timer.over {
+  color: var(--yellow);
+}
+.iv-q-card {
+  border-color: var(--primary);
+}
+.iv-q-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.iv-q {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+.iv-reaction {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 8px;
+}
+.iv-answer {
+  width: 100%;
+  resize: vertical;
+  line-height: 1.6;
+}
+.iv-score {
+  font-size: 3rem;
+  font-weight: 900;
+  color: var(--primary-light, var(--primary));
+  line-height: 1;
+  margin-top: 6px;
+}
+.iv-wrong {
+  font-size: 0.84rem;
+  color: var(--red);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.iv-model-q {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+
 /* ── 오디오 모드 ── */
 .al-now {
   text-align: center;

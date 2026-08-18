@@ -100,19 +100,29 @@ const cal = await browser.newPage();
 cal.on('pageerror', (e) => console.log('  [pageerror]', e.message));
 await cal.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ valid: true }) }));
 await seedKey(cal);
-// 이번 주 안에서: 그저께 프리즈로 메움, 어제 학습 — 단 주 초(월·화)에는 과거가 없을 수
-// 있으므로 요일 무관하게 상태 종류만 검증한다
+// 달력은 월요일 시작 주(weekFlames)라 "그저께"가 지난주로 빠지는 요일(월·화)이
+// 있다 — 프리즈 날짜를 이번 주 안에 있는 가장 가까운 과거 날로 고른다.
+// 월요일은 이번 주에 과거 칸 자체가 없어 프리즈 표시 검증이 불가능하다(생략).
+const sinceMon = (new Date().getDay() + 6) % 7; // 0=월요일
+const calSeed =
+  sinceMon >= 2
+    ? { days: [dstr(-2), dstr(-1)], frozen: [dstr(-2)] }
+    : { days: [dstr(-1)], frozen: [dstr(-1)] };
 await cal.addInitScript((data) => {
   localStorage.setItem('va_days', JSON.stringify(data.days));
   localStorage.setItem('va_frozen_days', JSON.stringify(data.frozen));
-}, { days: [dstr(-2), dstr(-1)], frozen: [dstr(-2)] });
+}, calSeed);
 await cal.goto(`${BASE}/app`);
 await cal.waitForSelector('.streak-hero', { timeout: 15000 });
 const states = await cal.evaluate(() =>
   [...document.querySelectorAll('.streak-day')].map((d) => d.className.replace('streak-day ', ''))
 );
 check('오늘 칸이 표시됨', states.includes('today'), JSON.stringify(states));
-check('프리즈로 메운 날이 ❄️로 구분됨', (await cal.evaluate(() => document.body.innerText)).includes('❄️') || states.includes('frozen'), JSON.stringify(states));
+if (sinceMon === 0) {
+  check('프리즈로 메운 날이 ❄️로 구분됨', true, '월요일 — 이번 주에 과거 칸이 없어 검증 생략');
+} else {
+  check('프리즈로 메운 날이 ❄️로 구분됨', states.includes('frozen'), JSON.stringify(states));
+}
 
 await browser.close();
 finish('33-streak');

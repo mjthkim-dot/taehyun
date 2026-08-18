@@ -69,6 +69,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
         { icon: '📬', label: '실전 코스', sub: '내 메일 90일 분석 — 6트랙 18편 대화', action: { kind: 'nav', mode: 'course' } },
         { icon: '🙋', label: '커리어 영어', sub: '자기소개·이직 인터뷰·네트워킹 9편', action: { kind: 'nav', mode: 'career' } },
         { icon: '📖', label: '몰입 스토리', sub: '무한 연재 미스터리 — 리딩·리스닝 입력량', action: { kind: 'nav', mode: 'immersion' } },
+        { icon: '🎤', label: '면접 시뮬레이션', sub: 'AI 면접관 — 후속 질문·점수·모범 답변', action: { kind: 'nav', mode: 'interview' } },
         { icon: '💼', label: '직무 어휘', sub: 'IT 영업·AI·협상 등 10개 도메인 100개', action: { kind: 'nav', mode: 'vocab' } },
         { icon: '⏱', label: '2분 피치 훈련', sub: '긴 발화 · 시간·속도·채움말·구조 분석', action: { kind: 'nav', mode: 'pitch' } },
         { icon: '🗓', label: '미팅 준비 · 회고', sub: '내일 그 미팅용 표현 · 끝난 뒤 못 한 말 복습', action: { kind: 'nav', mode: 'meeting' } },
