@@ -1939,6 +1939,27 @@ button {
   color: var(--text-muted);
   margin-bottom: 3px;
 }
+.iv-role-sub {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+.iv-answers-toggle {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  padding: 2px 0;
+  min-height: 36px;
+  cursor: pointer;
+}
 
 /* ── 오디오 모드 ── */
 .al-now {

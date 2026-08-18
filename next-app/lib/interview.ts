@@ -101,7 +101,13 @@ export async function generateQuestions(role: string): Promise<{ questions: { q:
  * 면접관의 반응 — 실제 면접처럼 답변을 듣고 짧게 반응하고, 얕거나 짧은
  * 답에는 후속 질문을 판다. 실패하면 조용히 다음 질문으로(면접 흐름 우선).
  */
-export async function reactToAnswer(role: string, q: string, answer: string): Promise<{ reaction: string; followUp: string | null }> {
+export async function reactToAnswer(
+  role: string,
+  q: string,
+  answer: string,
+  /** 포지션 JD 요약 — 주면 후속 질문이 그 문맥으로 파고든다 */
+  context?: string
+): Promise<{ reaction: string; followUp: string | null }> {
   try {
     const picked = await groqKoJson<{ reaction: string; followUp: string | null }>(
       [
@@ -109,6 +115,7 @@ export async function reactToAnswer(role: string, q: string, answer: string): Pr
           role: 'system',
           content: [
             `너는 "${role}" 면접의 면접관이다. 지원자의 답변에 대해 아래 JSON만 출력한다:`,
+            ...(context ? [context] : []),
             '{"reaction":"면접관의 짧은 자연스러운 반응 한 문장(영어)",',
             ' "followUp":"후속 질문 한 문장(영어) 또는 null"}',
             '후속 질문 규칙: 답변이 구체적 사례·숫자 없이 짧거나 모호하면 반드시 파고드는 후속 질문을 던져라.',
@@ -148,13 +155,14 @@ function transcript(steps: InterviewStep[]): string {
  * 리포트 생성 + 피드백 루프 기록. 교정은 va_mistakes로(회화·콘텐츠 생성이
  * 다시 읽는다), 시도는 이력에 남아 점수 추이가 된다.
  */
-export async function evaluateInterview(role: string, steps: InterviewStep[]): Promise<InterviewReport | null> {
+export async function evaluateInterview(role: string, steps: InterviewStep[], context?: string): Promise<InterviewReport | null> {
   const picked = await groqKoJson<InterviewReport>(
     [
       {
         role: 'system',
         content: [
           `너는 "${role}" 면접의 시니어 면접관이자 영어 코치다. 면접 전체를 평가해 아래 JSON만 출력한다:`,
+          ...(context ? [context] : []),
           '{"score":0~100 정수(내용 50%+영어 50%),"summary":"총평 두 문장(한국어)",',
           ' "strengths":["잘한 점(한국어)" — 2개],',
           ' "improvements":[{"wrong":"지원자가 실제로 쓴 어색한 영어 표현","right":"자연스러운 교정","note":"왜(한국어)","type":"tense|article|preposition|word-order|word-choice|other"} — 2~3개, 반드시 답변에 실제로 있던 표현만],',

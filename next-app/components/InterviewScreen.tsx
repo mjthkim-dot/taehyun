@@ -23,13 +23,15 @@ import {
 import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
 import { setDrillQueue, groqKey } from '../lib/state';
 import { speakText, stopSpeaking } from './SpeakButton';
+import { nextWorkatoQuestions, WORKATO_ANSWERS, WORKATO_JD_BRIEF, WORKATO_ROLE } from '../lib/workatoPrep';
 
 type Phase = 'setup' | 'running' | 'evaluating' | 'report';
 
 export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) => void }) {
   const [phase, setPhase] = useState<Phase>('setup');
-  const [role, setRole] = useState(ROLE_PRESETS[0]);
+  const [role, setRole] = useState<string>(WORKATO_ROLE);
   const [customRole, setCustomRole] = useState('');
+  const [showAnswers, setShowAnswers] = useState(false);
   const [starting, setStarting] = useState(false);
   const [fallbackSet, setFallbackSet] = useState(false);
 
@@ -49,6 +51,9 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
 
   const history = interviewHistory();
   const activeRole = role === '__custom' ? customRole.trim() || '글로벌 포지션' : role;
+  const isWorkato = role === WORKATO_ROLE;
+  // JD 문맥 — Workato 프리셋이면 후속 질문·평가가 JD 기준으로 파고든다
+  const jdContext = isWorkato ? WORKATO_JD_BRIEF : undefined;
 
   // 답변 타이머 — 실전 면접의 감각(60~90초 권장)을 만든다
   useEffect(() => {
@@ -77,9 +82,12 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
     if (starting) return;
     setStarting(true);
     try {
-      const r = groqKey()
-        ? await generateQuestions(activeRole)
-        : { questions: DEFAULT_QUESTIONS, fallback: true };
+      // Workato 프리셋은 JD 기반 큐레이션 세트(10개 로테이션) — AI 생성 없이 즉시, 항상 JD 적중
+      const r = isWorkato
+        ? { questions: nextWorkatoQuestions(), fallback: false }
+        : groqKey()
+          ? await generateQuestions(activeRole)
+          : { questions: DEFAULT_QUESTIONS, fallback: true };
       setFallbackSet(r.fallback);
       setSteps(r.questions.map((q) => ({ q: q.q, qKr: q.qKr })));
       setIdx(0);
@@ -118,7 +126,7 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
     if (groqKey()) {
       setThinking(true);
       try {
-        const r = await reactToAnswer(activeRole, cur.q, text);
+        const r = await reactToAnswer(activeRole, cur.q, text, jdContext);
         const withReaction = next.slice();
         withReaction[idx] = { ...withReaction[idx], reaction: r.reaction, followUp: r.followUp || undefined };
         setSteps(withReaction);
@@ -156,7 +164,7 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
       return;
     }
     setPhase('evaluating');
-    const r = await evaluateInterview(activeRole, finalSteps);
+    const r = await evaluateInterview(activeRole, finalSteps, jdContext);
     if (r) {
       setReport(r);
     } else {
@@ -213,6 +221,10 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
 
         <div className="study-card">
           <div className="pp-sec" style={{ marginTop: 0 }}>지원 직무</div>
+          <button type="button" className={`iv-role${isWorkato ? ' on' : ''}`} onClick={() => setRole(WORKATO_ROLE)}>
+            {WORKATO_ROLE} <span className="mn-badge-new">내 지원 포지션</span>
+            <span className="iv-role-sub">실제 JD 기반 예상 질문 10개 로테이션 · 핵심 답변 카드 9장</span>
+          </button>
           {ROLE_PRESETS.map((r) => (
             <button key={r} type="button" className={`iv-role${role === r ? ' on' : ''}`} onClick={() => setRole(r)}>
               {r}
@@ -237,6 +249,48 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
             답변은 마이크(권장) 또는 입력창으로. 한 답변은 60~90초를 목표로 해보세요.
           </p>
         </div>
+
+        {isWorkato && (
+          <div className="study-card">
+            <button type="button" className="iv-answers-toggle" onClick={() => setShowAnswers((v) => !v)}>
+              📌 핵심 답변 카드 {showAnswers ? '접기 ▲' : `펼치기 (${WORKATO_ANSWERS.length}장) ▼`}
+            </button>
+            {showAnswers && (
+              <>
+                <p className="muted" style={{ fontSize: '0.74rem', lineHeight: 1.6, margin: '8px 0 10px' }}>
+                  GitLab 최종 면접에서 검증된 서사를 Workato JD에 맞게 옮긴 답변들이에요. 시뮬레이션 전에 소리
+                  내어 읽고, 드릴로 입에 붙이세요.
+                </p>
+                {WORKATO_ANSWERS.map((a, i) => (
+                  <div className="pp-sent" key={i}>
+                    <div className="iv-model-q">{a.topic}</div>
+                    <div className="pp-sent-en">
+                      {a.en}
+                      <button type="button" className="speak-mini" aria-label="듣기" onClick={() => speakText(a.en, 'en-US')}>
+                        🔊
+                      </button>
+                    </div>
+                    <div className="pp-sent-kr">{a.kr}</div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="start-drill-btn"
+                  style={{ marginTop: 10 }}
+                  onClick={() => {
+                    setDrillQueue({
+                      label: '면접 핵심 답변 — Workato EAE',
+                      items: WORKATO_ANSWERS.map((a) => ({ en: a.en, kr: a.kr })),
+                    });
+                    onNavigate('drill');
+                  }}
+                >
+                  🎤 핵심 답변으로 드릴 →
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     );
   }
