@@ -1931,6 +1931,20 @@ button {
 .hs-card.hot .hs-state {
   color: var(--primary-dk);
 }
+.hs-time {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+.hs-card {
+  position: relative;
+}
 
 /* ── 면접 시뮬레이션 ── */
 .iv-history {

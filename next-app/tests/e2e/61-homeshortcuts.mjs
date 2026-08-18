@@ -28,6 +28,20 @@ check('실전 코스 진행률이 실린다', cards.some((c) => c.includes('2/18
 check('면접 최근 점수가 실린다', cards.some((c) => c.includes('최근 78점')));
 check('몰입 스토리 다음 화가 실린다', cards.some((c) => c.includes('몰입 스토리') && c.includes('1화')));
 
+/* 시간대 추천 — 복습(급한 일) 다음 자리는 현재 시간대의 추천이 차지한다 */
+const LABEL = { audio: '오디오 모드', immersion: '몰입 스토리', minutes: '실전 영어', course: '실전 코스', interview: '면접', career: '커리어 영어' };
+const h = new Date().getHours();
+const slot =
+  h >= 6 && h < 10
+    ? { modes: ['audio', 'immersion'], label: '출근길' }
+    : h >= 10 && h < 18
+      ? { modes: ['minutes', 'course'], label: '업무 틈새' }
+      : h >= 18 && h < 23
+        ? { modes: ['immersion', 'interview', 'career'], label: '저녁 몰입' }
+        : { modes: ['audio', 'immersion'], label: '하루 마무리' };
+check('복습 다음 자리에 시간대 추천이 온다', cards[1].includes(LABEL[slot.modes[0]]), `${slot.label} 기대 ${LABEL[slot.modes[0]]} / 실제: ${cards[1]}`);
+check('추천 카드에 시간대 칩이 붙는다', cards[1].includes(slot.label) && (await page.locator('.hs-time').count()) === slot.modes.length, String(await page.locator('.hs-time').count()));
+
 /* ③ 1탭 진입 */
 await page.click('.hs-card:has-text("몰입 스토리")');
 await page.waitForSelector('.rc-head', { timeout: 15000 });

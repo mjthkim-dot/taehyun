@@ -26,6 +26,20 @@ interface Shortcut {
   fresh?: boolean;
   /** 지금 하면 좋은 것(강조 테두리) */
   hot?: boolean;
+  /** 시간대 추천 칩(예: "출근길") */
+  time?: string;
+}
+
+/**
+ * 시간대 추천 — 같은 카드 줄이라도 아침엔 귀 훈련이, 업무 시간엔 실전 문서가,
+ * 저녁엔 스토리·면접 준비가 손에 먼저 닿게 한다. 복습(due)은 시간과 무관하게
+ * 항상 맨 앞(가장 급한 일) — 추천은 그 다음 자리부터다.
+ */
+export function timeSlot(hour: number): { modes: Mode[]; label: string } {
+  if (hour >= 6 && hour < 10) return { modes: ['audio', 'immersion'], label: '출근길' };
+  if (hour >= 10 && hour < 18) return { modes: ['minutes', 'course'], label: '업무 틈새' };
+  if (hour >= 18 && hour < 23) return { modes: ['immersion', 'interview', 'career'], label: '저녁 몰입' };
+  return { modes: ['audio', 'immersion'], label: '하루 마무리' };
 }
 
 function buildShortcuts(): Shortcut[] {
@@ -40,10 +54,7 @@ function buildShortcuts(): Shortcut[] {
   const iv = interviewHistory();
   const last = iv[iv.length - 1];
 
-  const list: Shortcut[] = [];
-  // 복습이 밀려 있으면 맨 앞 — 오늘 가장 급한 것
-  if (due > 0) list.push({ mode: 'review', icon: '📝', label: '복습', state: `오늘 ${due}개 대기`, hot: true });
-  list.push(
+  const pool: Shortcut[] = [
     nextEp
       ? { mode: 'immersion', icon: '📖', label: '몰입 스토리', state: `다음 ${nextEp.no}화 대기`, fresh: read.length === 0 }
       : { mode: 'immersion', icon: '📖', label: '몰입 스토리', state: '다음 화 만들기' },
@@ -51,8 +62,21 @@ function buildShortcuts(): Shortcut[] {
     { mode: 'interview', icon: '🎤', label: '면접', state: last ? `최근 ${last.score}점` : '첫 시뮬레이션', fresh: !last },
     { mode: 'career', icon: '🙋', label: '커리어 영어', state: `${career}/${careerTotal} 연습`, fresh: career === 0 },
     { mode: 'minutes', icon: '🗂', label: '실전 영어', state: '회의록·메일 → 대화' },
-    { mode: 'audio', icon: '🎧', label: '오디오 모드', state: '귀로만 오늘 복습' }
-  );
+    { mode: 'audio', icon: '🎧', label: '오디오 모드', state: '귀로만 오늘 복습' },
+  ];
+
+  // 시간대 추천을 앞으로 — 추천 순서 유지, 나머지는 원래 순서 유지
+  const slot = timeSlot(new Date().getHours());
+  const boosted = slot.modes
+    .map((m) => pool.find((s) => s.mode === m))
+    .filter((s): s is Shortcut => !!s)
+    .map((s) => ({ ...s, time: slot.label }));
+  const rest = pool.filter((s) => !slot.modes.includes(s.mode));
+
+  const list: Shortcut[] = [];
+  // 복습이 밀려 있으면 맨 앞 — 오늘 가장 급한 것(시간대보다 우선)
+  if (due > 0) list.push({ mode: 'review', icon: '📝', label: '복습', state: `오늘 ${due}개 대기`, hot: true });
+  list.push(...boosted, ...rest);
   return list;
 }
 
@@ -77,6 +101,7 @@ export default function HomeShortcuts({ onNavigate }: { onNavigate: (m: Mode) =>
               {s.fresh && <span className="hs-new">NEW</span>}
             </span>
             <span className="hs-state">{s.state}</span>
+            {s.time && <span className="hs-time">{s.time}</span>}
           </button>
         ))}
         <button type="button" role="listitem" className="hs-card hs-more" onClick={() => onNavigate('features')} aria-label="전체 도구 보기">
