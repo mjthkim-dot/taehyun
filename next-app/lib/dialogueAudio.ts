@@ -13,7 +13,7 @@
  */
 import type { Dialogue } from './lessons';
 import { groqKey } from './state';
-import { speakText, stopSpeaking, primeAudio, fetchGroqTTS, playUrl, SPEAKER_GROQ_VOICE, GROQ_TTS_VOICE } from '../components/SpeakButton';
+import { speakText, stopSpeaking, primeAudio, fetchGroqTTS, playUrl, rankedEnVoices, SPEAKER_GROQ_VOICE, GROQ_TTS_VOICE } from '../components/SpeakButton';
 
 interface StopRef {
   stopped: boolean;
@@ -72,9 +72,11 @@ function playViaBrowserQueue(
       onDone?.();
       return;
     }
-    const enVoices = synth.getVoices().filter((v) => v.lang.toLowerCase().startsWith('en'));
+    // 품질 순 목록에서 A/B를 고른다 — 첫 항목이 구형 로봇 음성인 기기에서
+    // "기계음" 폴백을 피한다(rankedEnVoices 주석 참고).
+    const enVoices = rankedEnVoices();
     const voiceA = enVoices[0];
-    const voiceB = enVoices[1] || enVoices[0];
+    const voiceB = enVoices.find((v) => v.name !== voiceA?.name) || enVoices[0];
     const line = dialogue.lines[i];
     const u = new SpeechSynthesisUtterance(line.en);
     u.lang = 'en-US';

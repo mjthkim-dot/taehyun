@@ -200,12 +200,14 @@ export default function Page() {
       void loadStories(); // 홈 세션 CTA도 이걸 기다린다 — 가장 먼저
       void import('../components/StudyScreen');
     };
-    // 2단계(나중): 나머지 자주 가는 화면들
+    // 2단계(나중): 나머지 자주 가는 화면들. FeaturesScreen은 모든 도구의 관문이라
+    // 함께 데운다(실측: 미프리로드 시 첫 진입 +0.5초가 이후 모든 도구 진입에 얹힘).
     const warmRest = () => {
       void import('../components/DrillScreen');
       void import('../components/TalkScreen');
       void import('../components/ReviewScreen');
       void import('../components/ProgressScreen');
+      void import('../components/FeaturesScreen');
     };
     type Ric = (cb: () => void, opts?: { timeout: number }) => number;
     const w = window as unknown as { requestIdleCallback?: Ric; cancelIdleCallback?: (id: number) => void };

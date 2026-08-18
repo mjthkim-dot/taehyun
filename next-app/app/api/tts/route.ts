@@ -14,6 +14,31 @@ import { rateLimit, clientIp, tooManyRequests } from '../../../lib/rateLimit';
 const TTS_MODEL = 'canopylabs/orpheus-v1-english';
 const DEFAULT_VOICE = 'austin';
 
+/**
+ * TTS 폴백 체인 — 채팅 모델(llama-3.3-70b)이 예고 후 종료된 것처럼 TTS 모델도
+ * 언제든 내려갈 수 있다. Orpheus가 모델 오류를 내면 playai-tts로 자동 재시도해
+ * "신경망 음성이 조용히 브라우저 기계음으로 폴백"되는 최악을 막는다.
+ * 목소리 이름은 모델마다 달라서 화자 성별을 유지하며 매핑한다.
+ */
+const PLAYAI_MODEL = 'playai-tts';
+const PLAYAI_VOICE: Record<string, string> = {
+  austin: 'Fritz-PlayAI',
+  daniel: 'Fritz-PlayAI',
+  hannah: 'Arista-PlayAI',
+};
+let ttsModelIdx: 0 | 1 = 0; // 0=Orpheus, 1=playai (모듈 캐시)
+
+function isModelError(status: number, detail: string): boolean {
+  return (status === 400 || status === 404) && /decommission|deprecat|not found|does not exist|invalid model|no longer|unknown model/i.test(detail);
+}
+
+function ttsPayload(idx: 0 | 1, text: string, voice: string) {
+  if (idx === 0) return { model: TTS_MODEL, voice, input: text, response_format: 'wav' };
+  // playai는 Orpheus의 보컬 디렉션 태그([cheerful] 등)를 글자 그대로 읽는다 — 벗겨낸다
+  const clean = text.replace(/^\s*\[[a-z ]+\]\s*/i, '');
+  return { model: PLAYAI_MODEL, voice: PLAYAI_VOICE[voice] || 'Fritz-PlayAI', input: clean, response_format: 'wav' };
+}
+
 /* ── 남용 방어(상용화 Phase 0) ──
  * rate limit: 정상 사용도 버스트가 크다 — 대화문 전체 재생(10줄) + 다음 줄
  * 프리페치 + 문장 분할 재생이 겹치면 분당 20을 훌쩍 넘어, 우리가 만든 제한이
@@ -37,25 +62,35 @@ export async function GET(req: NextRequest) {
   if (!apiKey) {
     return Response.json({ ok: false, where: 'server-key', detail: '서버에 GROQ_API_KEY가 없어요 — 로컬 키 경로만 사용 중' });
   }
-  const resp = await fetch('https://api.groq.com/openai/v1/audio/speech', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model: TTS_MODEL, voice: DEFAULT_VOICE, input: 'Hi there.', response_format: 'wav' }),
-  }).catch(() => null);
-  if (!resp) {
-    return Response.json({ ok: false, where: 'network', detail: '서버에서 Groq 연결 실패' });
-  }
-  if (!resp.ok) {
-    let detail = `HTTP ${resp.status}`;
-    try {
-      detail = (await resp.json()).error?.message || detail;
-    } catch {
-      /* ignore */
+  // 체인 순서대로 실제 합성을 시도 — 어느 모델이 살아 있는지까지 보고한다
+  let lastDetail = '';
+  let lastStatus = 0;
+  for (const idx of [0, 1] as const) {
+    const resp = await fetch('https://api.groq.com/openai/v1/audio/speech', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(ttsPayload(idx, 'Hi there.', DEFAULT_VOICE)),
+    }).catch(() => null);
+    if (!resp) {
+      return Response.json({ ok: false, where: 'network', detail: '서버에서 Groq 연결 실패' });
     }
-    return Response.json({ ok: false, where: 'groq', status: resp.status, detail });
+    if (!resp.ok) {
+      let detail = `HTTP ${resp.status}`;
+      try {
+        detail = (await resp.json()).error?.message || detail;
+      } catch {
+        /* ignore */
+      }
+      lastDetail = detail;
+      lastStatus = resp.status;
+      if (isModelError(resp.status, detail)) continue;
+      return Response.json({ ok: false, where: 'groq', status: resp.status, detail });
+    }
+    ttsModelIdx = idx;
+    const buf = await resp.arrayBuffer();
+    return Response.json({ ok: true, bytes: buf.byteLength, model: idx === 0 ? TTS_MODEL : PLAYAI_MODEL });
   }
-  const buf = await resp.arrayBuffer();
-  return Response.json({ ok: true, bytes: buf.byteLength, model: TTS_MODEL });
+  return Response.json({ ok: false, where: 'groq', status: lastStatus, detail: `모든 TTS 모델 실패 — ${lastDetail}` });
 }
 
 export async function POST(req: NextRequest) {
@@ -75,31 +110,36 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: { message: 'NO_GROQ_KEY' } }, { status: 401 });
   }
 
-  const resp = await fetch('https://api.groq.com/openai/v1/audio/speech', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: TTS_MODEL,
-      voice: voice || DEFAULT_VOICE,
-      input: text,
-      response_format: 'wav', // Orpheus는 현재 wav만 지원 (mp3 요청 시 오류)
-    }),
-  }).catch(() => null);
+  // 캐시된 모델부터 — 모델 오류(종료·미존재)면 다음 모델로 자동 재시도
+  const order: (0 | 1)[] = ttsModelIdx === 0 ? [0, 1] : [1, 0];
+  let lastStatus = 502;
+  let lastDetail = 'Groq 연결 실패';
+  for (const idx of order) {
+    const resp = await fetch('https://api.groq.com/openai/v1/audio/speech', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(ttsPayload(idx, text, voice || DEFAULT_VOICE)),
+    }).catch(() => null);
 
-  if (!resp) {
-    return Response.json({ error: { message: 'Groq 연결 실패' } }, { status: 502 });
-  }
-  if (!resp.ok) {
-    let detail = `HTTP ${resp.status}`;
-    try {
-      const e = await resp.json();
-      detail = e.error?.message || detail;
-    } catch {
-      /* ignore */
+    if (!resp) break; // 네트워크 문제 — 모델 교체 무의미
+    if (!resp.ok) {
+      let detail = `HTTP ${resp.status}`;
+      try {
+        const e = await resp.json();
+        detail = e.error?.message || detail;
+      } catch {
+        /* ignore */
+      }
+      if (isModelError(resp.status, detail)) {
+        lastStatus = resp.status;
+        lastDetail = detail;
+        continue;
+      }
+      if (resp.status === 401) detail = 'API 키가 올바르지 않습니다.';
+      return Response.json({ error: { message: detail } }, { status: resp.status });
     }
-    if (resp.status === 401) detail = 'API 키가 올바르지 않습니다.';
-    return Response.json({ error: { message: detail } }, { status: resp.status });
+    ttsModelIdx = idx;
+    return new Response(resp.body, { headers: { 'Content-Type': 'audio/wav' } });
   }
-
-  return new Response(resp.body, { headers: { 'Content-Type': 'audio/wav' } });
+  return Response.json({ error: { message: lastDetail } }, { status: lastStatus });
 }

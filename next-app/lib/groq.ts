@@ -8,7 +8,9 @@
  */
 import { groqKey, SERVER_GROQ_SENTINEL } from './state';
 
-export const GROQ_MODEL = 'llama-3.3-70b-versatile';
+// 참고용 — 실제 모델은 서버 프록시(app/api/groq)가 폴백 체인으로 결정한다.
+// llama-3.3-70b-versatile은 2026-08-16 서비스 종료(Groq 공지).
+export const GROQ_MODEL = 'openai/gpt-oss-120b';
 
 export class GroqError extends Error {}
 

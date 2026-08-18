@@ -173,6 +173,27 @@ function pickVoice(lang: string): SpeechSynthesisVoice | undefined {
   return voiceCache.find((v) => v.lang === lang) || voiceCache.find((v) => v.lang.startsWith(prefix));
 }
 
+/**
+ * 품질 순으로 정렬한 영어 음성 목록 — 대화문 폴백 재생(dialogueAudio)이 화자
+ * A/B에 서로 다른 목소리를 고를 때 쓴다. 예전엔 getVoices()의 **첫 두 개**를
+ * 그대로 썼는데, 많은 기기에서 첫 항목이 가장 로봇 같은 구형 음성이라
+ * "원어민 대화에서 기계음이 난다"의 원인이 됐다. 이름에 Natural/Neural/
+ * Online/Google/Premium이 붙은 신형 음성을 앞세운다.
+ */
+export function rankedEnVoices(): SpeechSynthesisVoice[] {
+  const en = voiceCache.filter((v) => v.lang.toLowerCase().startsWith('en'));
+  const score = (v: SpeechSynthesisVoice) => {
+    const exact = PREFERRED_VOICE_NAMES.indexOf(v.name);
+    if (exact >= 0) return 100 - exact;
+    if (/natural|neural|online/i.test(v.name)) return 50;
+    if (/google|premium|enhanced|siri/i.test(v.name)) return 40;
+    if (/samantha|aria|jenny|ava|zoe/i.test(v.name)) return 30;
+    if (v.lang === 'en-US') return 10;
+    return 0;
+  };
+  return [...en].sort((a, b) => score(b) - score(a));
+}
+
 function speakWithBrowser(text: string, lang: string, rate: number, onend?: () => void) {
   if (typeof window === 'undefined' || !window.speechSynthesis) return;
   const synth = window.speechSynthesis;

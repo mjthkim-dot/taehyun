@@ -53,11 +53,14 @@ const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [
 ];
 
 const MORE_TABS: { mode: Mode; icon: string; label: string; desc: string }[] = [
-  { mode: 'video', icon: '🎬', label: '영상', desc: '레슨 영상으로 듣기 연습' },
   { mode: 'review', icon: '📝', label: '복습', desc: '틀린 문장 간격 반복' },
   { mode: 'progress', icon: '📊', label: '진도', desc: 'CEFR · GSE 학습 현황' },
-  { mode: 'features', icon: '🧰', label: '기능', desc: '학습 도구 모음' },
+  // 자주 쓰는 실전 화면 직행 — 기능 화면 경유(3탭 ~2.2초)를 1탭으로 줄인다(성능 실측 근거)
+  { mode: 'course', icon: '📬', label: '실전 코스', desc: '내 메일 90일 분석 — 6트랙 대화' },
+  { mode: 'interview', icon: '🎤', label: '면접', desc: 'AI 면접관 시뮬레이션 · Workato 프리셋' },
+  { mode: 'video', icon: '🎬', label: '영상', desc: '레슨 영상으로 듣기 연습' },
   { mode: 'business', icon: '💼', label: '비즈니스', desc: '내 챗으로 회의록 학습 · 비즈니스 회화' },
+  { mode: 'features', icon: '🧰', label: '기능', desc: '전체 학습 도구 모음' },
 ];
 
 export default function NavBar({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
