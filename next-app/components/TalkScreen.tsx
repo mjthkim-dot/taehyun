@@ -133,6 +133,8 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
   const [pressure, setPressure] = useState(false);
   const [latencies, setLatencies] = useState<number[]>([]);
   const lastAiDoneRef = useRef(0);
+  // AI 응답 연속 실패 수 — 2회면 핸즈프리를 멈춰 "듣기만 하는 앱"이 되지 않게 한다
+  const failStreakRef = useRef(0);
   /** 이번 대화에서 이미 축하한 패턴들 — 같은 패턴에 매번 배지를 띄우면 소음이 된다 */
   const usedPatternsRef = useRef<Set<string>>(new Set());
 
@@ -326,6 +328,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       saveTutorSnapshot(historyRef.current);
       updateMsg(aiId, { streaming: false });
       lastAiDoneRef.current = Date.now();
+      failStreakRef.current = 0;
       setAiSpeaking(true);
       speak(fullText, () => {
         setAiSpeaking(false);
@@ -345,11 +348,25 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
         setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: '⚡ AI 강사 연결이 필요해요. 위에서 무료 Groq 키를 등록하면 바로 대화가 됩니다.' }]);
         setHasKey(false);
       } else {
-        setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: `❌ 오류: ${e.message}` }]);
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), kind: 'system', text: `❌ AI 응답에 실패했어요 (${e.message}) — 잠시 후 다시 말해보세요. 계속되면 기능 → 음성 진단에서 연결 상태를 확인할 수 있어요.` },
+        ]);
       }
-      // 오류가 나면 speak()가 호출되지 않아 그 onend로 걸어둔 마이크 자동 재시작도
-      // 같이 사라진다 — 마이크가 켜진 상태였다면 여기서라도 다시 듣게 한다.
-      maybeResumeHandsFree();
+      // "말하면 듣기만 하고 답이 없다" 방지 — 응답이 연속으로 실패하는데 마이크만
+      // 계속 다시 켜면 사용자에겐 앱이 듣기만 하는 것처럼 보인다. 2연속 실패면
+      // 핸즈프리를 멈추고 이유를 말한다(성공하면 카운터는 아래에서 리셋).
+      failStreakRef.current += 1;
+      if (failStreakRef.current >= 2 && micOnRef.current) {
+        stopListening();
+        micOnRef.current = false;
+        setMicOn(false);
+        setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: '🎙 AI 응답이 계속 실패해 마이크를 잠시 껐어요. 연결이 회복되면 마이크 버튼으로 다시 시작하세요.' }]);
+      } else {
+        // 오류가 나면 speak()가 호출되지 않아 그 onend로 걸어둔 마이크 자동 재시작도
+        // 같이 사라진다 — 마이크가 켜진 상태였다면 여기서라도 다시 듣게 한다.
+        maybeResumeHandsFree();
+      }
     } finally {
       isProcessingRef.current = false;
       setIsProcessing(false);
