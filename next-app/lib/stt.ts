@@ -182,7 +182,9 @@ export async function recordAndTranscribe(opts: {
   silenceMs?: number;
   /** 경과 시간을 알려 준다(타이머 표시용) */
   onElapsed?: (ms: number) => void;
-  /** 어느 언어로 받아쓸지. 기본은 영어이고, "한국어로 묻기"에서만 'ko'를 준다. */
+  /** 어느 언어로 받아쓸지. 지정하지 않으면 Whisper가 **자동 감지**한다 —
+   * 회화 마이크가 이 경로라서 한국어로 말해도 한글로 받아써진다(이중언어 회화의 전제).
+   * "한국어로 묻기"는 짧은 한국어 인식 정확도를 위해 'ko'를 명시한다. */
   language?: 'en' | 'ko';
   /** 호출하면 즉시 녹음을 끝낸다 */
   registerStop?: (stop: () => void) => void;

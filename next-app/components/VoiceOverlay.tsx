@@ -9,7 +9,7 @@
 export type VoiceState = 'listening' | 'thinking' | 'speaking' | 'idle';
 
 const STATUS: Record<VoiceState, string> = {
-  listening: '듣고 있어요 — 편하게 말씀하세요',
+  listening: '듣고 있어요 — 편하게 말씀하세요 · 한국어도 알아들어요',
   thinking: '생각하는 중…',
   speaking: '말하는 중 — 탭하면 끼어들 수 있어요',
   idle: '오브를 탭하면 다시 듣기 시작해요',

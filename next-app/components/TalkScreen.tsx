@@ -1082,7 +1082,7 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
           {/* placeholder는 좁은 화면에서 잘리지 않는 길이로 — 마이크 사용법은 옆 버튼이 안내한다 */}
           <input
             className="text-input"
-            placeholder="영어로 입력하기"
+            placeholder="영어로 입력 (한국어도 OK)"
             maxLength={500}
             value={input}
             onChange={(e) => setInput(e.target.value)}
