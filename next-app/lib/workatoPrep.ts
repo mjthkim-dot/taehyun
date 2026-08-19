@@ -17,6 +17,7 @@
  * Workato 문맥으로 파고든다.
  */
 import { load, store } from './state';
+import type { AnswerGuide } from './interview';
 
 export const WORKATO_ROLE = 'Workato Enterprise Account Executive (Seoul)';
 
@@ -28,25 +29,148 @@ export const WORKATO_JD_BRIEF = [
   '요건: 7년+ 풀사이클 클로징 경력, 쿼터 지속 달성/초과 실적, 스타트업의 모호함을 수용하는 팀 플레이어형 헌터.',
 ].join('\n');
 
-export const WORKATO_QUESTIONS: { q: string; qKr: string }[] = [
-  { q: 'To start, walk me through your background and why you think you fit this role.', qKr: '먼저 경력을 소개해 주시고, 이 역할에 맞는 이유를 말씀해 주세요.' },
-  { q: 'Why Workato, and why now?', qKr: '왜 Workato인가요, 그리고 왜 지금인가요?' },
-  { q: 'This role is almost entirely new business. Walk me through a new logo you hunted and closed from scratch.', qKr: '이 역할은 거의 전적으로 신규 영업입니다. 처음부터 발굴해 클로징한 신규 로고 사례를 들려주세요.' },
-  { q: 'Tell me about the largest deal you have closed. How did you build the business case for a six-figure contract?', qKr: '클로징한 가장 큰 딜을 말해 주세요. 10만 달러 이상 계약의 비즈니스 케이스를 어떻게 만들었나요?' },
-  { q: 'How do you multi-thread into multiple business units and reach C-level executives in a target account?', qKr: '타깃 계정에서 여러 사업부를 멀티스레딩하고 C레벨에 닿는 방법은 무엇인가요?' },
-  { q: 'If you joined, how would you build your territory plan for Korea in the first ninety days?', qKr: '합류한다면 첫 90일 한국 테리토리 플랜을 어떻게 세우시겠어요?' },
-  { q: 'Tell me about a time you missed, or nearly missed, your quota. What did you change?', qKr: '쿼터를 놓쳤거나 놓칠 뻔했던 경험과, 그 뒤 무엇을 바꿨는지 말씀해 주세요.' },
-  { q: 'A customer says they can build integrations in-house. How do you position Workato against that?', qKr: '고객이 통합을 내재화로 해결하겠다고 합니다. Workato를 어떻게 포지셔닝하시겠어요?' },
-  { q: 'How do you work with channel partners without losing control of the deal?', qKr: '딜의 주도권을 잃지 않으면서 채널 파트너와 협업하는 방법은요?' },
-  { q: 'You are leaving a stable large company for a startup. How do you handle the ambiguity without big-company support?', qKr: '안정적인 대기업을 떠나 스타트업으로 갑니다. 대기업의 지원 없이 모호함을 어떻게 다루시겠어요?' },
+export const WORKATO_QUESTIONS: { q: string; qKr: string; guide: AnswerGuide }[] = [
+  {
+    q: 'To start, walk me through your background and why you think you fit this role.',
+    qKr: '먼저 경력을 소개해 주시고, 이 역할에 맞는 이유를 말씀해 주세요.',
+    guide: {
+      structure: ['현재 역할 한 줄', '대표 성과 1개(숫자로)', '왜 이 역할인가로 착지'],
+      materials: [
+        '메가존클라우드(한국 최대 클라우드 파트너) AM 4년+ — 클라우드·DevOps·데이터·AI 영업',
+        '엔터프라이즈·디지털 네이티브 50+ 계정 포트폴리오',
+        '만료 계약 → 3년 25만 달러 약정 전환 클로징',
+        '"헌터지만, 큰 딜은 적임자를 모아 만든다"로 마무리',
+      ],
+      opener: "I've spent over four years at Korea's largest cloud partner, selling cloud, DevOps, and AI solutions.",
+    },
+  },
+  {
+    q: 'Why Workato, and why now?',
+    qKr: '왜 Workato인가요, 그리고 왜 지금인가요?',
+    guide: {
+      structure: ['시장 변화 진단', 'Workato의 자리', '나의 방향과 일치'],
+      materials: [
+        '모든 고객 대화가 자동화·AI 거버넌스로 이동 중(현장 관찰)',
+        '에이전틱 시대엔 통합이 기업의 컨트롤 플레인 — Workato가 그 자리',
+        '영어로 매일 일하는 글로벌 환경으로 가려는 커리어 방향',
+      ],
+      opener: 'Because in the agentic era, integration becomes the control plane of the enterprise.',
+    },
+  },
+  {
+    q: 'This role is almost entirely new business. Walk me through a new logo you hunted and closed from scratch.',
+    qKr: '이 역할은 거의 전적으로 신규 영업입니다. 처음부터 발굴해 클로징한 신규 로고 사례를 들려주세요.',
+    guide: {
+      structure: ['어떻게 발견했나', '니즈→기술 적합→비즈니스 가치 순서', '클로징과 결과'],
+      materials: [
+        '넥서스: 기회를 내가 먼저 발굴 → 파트너와 공유 → 빠른 클로징',
+        'AM 네트워크(100+)로 접점을 만든 과정',
+        '고객의 기술 과제와 사업 니즈를 정리해 도입 논리를 만든 것',
+      ],
+      opener: 'Let me walk you through a deal I hunted from scratch.',
+    },
+  },
+  {
+    q: 'Tell me about the largest deal you have closed. How did you build the business case for a six-figure contract?',
+    qKr: '클로징한 가장 큰 딜을 말해 주세요. 10만 달러 이상 계약의 비즈니스 케이스를 어떻게 만들었나요?',
+    guide: {
+      structure: ['딜의 출발점(리스크)', '비즈니스 케이스 재구성', '협상과 클로징(숫자)'],
+      materials: [
+        '씨피랩스 EDP: 미소진 잔액 큰 만료 리스크로 시작',
+        '잔액 전액 → 3년 약정 전환 케이스를 다시 세움',
+        '분납·보증보험을 재무팀과 협상, 모든 전제를 실행 전 서면 확정',
+        '25만 달러+ 클로징, 고객이 과정에 감사를 표함',
+      ],
+      opener: 'My largest recent deal started as a renewal risk.',
+    },
+  },
+  {
+    q: 'How do you multi-thread into multiple business units and reach C-level executives in a target account?',
+    qKr: '타깃 계정에서 여러 사업부를 멀티스레딩하고 C레벨에 닿는 방법은 무엇인가요?',
+    guide: {
+      structure: ['계정 매핑', '이해관계자별 언어', '실전 근거'],
+      materials: [
+        'IT·재무·보안·페인을 느끼는 현업까지 매핑',
+        '재무엔 비용, 보안엔 거버넌스, 현업엔 속도 — 각자의 언어로',
+        '지금도 한 딜에서 고객·하이퍼스케일러·딜리버리 팀을 동시 조율',
+      ],
+      opener: 'Multi-threading is how I de-risk big deals.',
+    },
+  },
+  {
+    q: 'If you joined, how would you build your territory plan for Korea in the first ninety days?',
+    qKr: '합류한다면 첫 90일 한국 테리토리 플랜을 어떻게 세우시겠어요?',
+    guide: {
+      structure: ['30일', '60일', '90일 — 각 단계의 산출물'],
+      materials: [
+        '30일: 온보딩과 병행해 웜 계정 검증 — 통합·AI 자동화 니즈 보이는 우선순위 리스트',
+        '60일: 그 리스트를 첫 미팅으로 전환, 처음부터 멀티스레드',
+        '90일: 검증된 신규 로고 파이프라인 + 6자리 딜 1건 진행 중',
+      ],
+      opener: "In the first thirty days, I'd run onboarding in parallel with territory validation.",
+    },
+  },
+  {
+    q: 'Tell me about a time you missed, or nearly missed, your quota. What did you change?',
+    qKr: '쿼터를 놓쳤거나 놓칠 뻔했던 경험과, 그 뒤 무엇을 바꿨는지 말씀해 주세요.',
+    guide: {
+      structure: ['솔직한 상황 인정', '원인 분석 한 줄', '바꾼 시스템(지금도 유지)'],
+      materials: [
+        '한 분기 대형 딜 지연으로 위태로웠던 경험 — 원인은 파이프라인이 소수 딜에 편중',
+        '바꾼 것: 커버리지 3배 규칙 + 주간 파이프라인 리뷰로 조기 감지',
+        '"운이 아니라 시스템으로 반복 달성"으로 마무리',
+      ],
+      opener: 'Let me be honest about the quarter that taught me the most.',
+    },
+  },
+  {
+    q: 'A customer says they can build integrations in-house. How do you position Workato against that?',
+    qKr: '고객이 통합을 내재화로 해결하겠다고 합니다. Workato를 어떻게 포지셔닝하시겠어요?',
+    guide: {
+      structure: ['반박 대신 질문', '스케일의 현실 3가지', '리프레임'],
+      materials: [
+        '수백 개 연결의 유지보수는 누가?',
+        '프로덕션 데이터를 만지는 AI 에이전트의 거버넌스는?',
+        '엔지니어링 시간의 기회비용은?',
+        '리프레임: 엔지니어를 대체하는 게 아니라 로드맵을 돌려주는 것',
+      ],
+      opener: "I don't argue — I ask what happens at scale.",
+    },
+  },
+  {
+    q: 'How do you work with channel partners without losing control of the deal?',
+    qKr: '딜의 주도권을 잃지 않으면서 채널 파트너와 협업하는 방법은요?',
+    guide: {
+      structure: ['파트너관(觀)', '역할 설계', '주도권의 실체'],
+      materials: [
+        '파트너는 리셀러가 아니라 GTM 생태계 — 접점·기술검증·구축을 나눠 설계',
+        '파트너사 내부에서 딜이 실제로 어떻게 움직이는지 아는 것이 내 강점',
+        '주도권 = 고객의 니즈 정의와 다음 액션을 내가 쥐는 것(서류가 아니라)',
+      ],
+      opener: "I keep control by owning the customer's next step, not the paperwork.",
+    },
+  },
+  {
+    q: 'You are leaving a stable large company for a startup. How do you handle the ambiguity without big-company support?',
+    qKr: '안정적인 대기업을 떠나 스타트업으로 갑니다. 대기업의 지원 없이 모호함을 어떻게 다루시겠어요?',
+    guide: {
+      structure: ['정면 응답(두려움 없음)', '구조와 투명성이라는 방법', '증거'],
+      materials: [
+        '대기업식 안전장치 불필요 — 명확함은 내가 만든다',
+        '모든 미팅 = 니즈·단계·이해관계자·다음 액션·리스크 기록',
+        '주간 서면 업데이트 — 내 파이프라인은 블랙박스가 되지 않는다',
+      ],
+      opener: "I don't need guardrails — I need clarity, and I create it myself.",
+    },
+  },
 ];
 
 const ROTATE_KEY = 'va_workato_q';
 
 /** 이번 세션의 질문 5개 — 호출할 때마다 다음 5개로 로테이션. */
-export function nextWorkatoQuestions(): { q: string; qKr: string }[] {
+export function nextWorkatoQuestions(): { q: string; qKr: string; guide: AnswerGuide }[] {
   const start = load<number>(ROTATE_KEY, 0) % WORKATO_QUESTIONS.length;
-  const out: { q: string; qKr: string }[] = [];
+  const out: { q: string; qKr: string; guide: AnswerGuide }[] = [];
   for (let i = 0; i < 5; i++) out.push(WORKATO_QUESTIONS[(start + i) % WORKATO_QUESTIONS.length]);
   store(ROTATE_KEY, (start + 5) % WORKATO_QUESTIONS.length);
   return out;

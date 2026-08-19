@@ -14,9 +14,11 @@ import {
   DEFAULT_QUESTIONS,
   evaluateInterview,
   generateQuestions,
+  GENERIC_GUIDE,
   interviewHistory,
   reactToAnswer,
   ROLE_PRESETS,
+  type AnswerGuide,
   type InterviewReport,
   type InterviewStep,
 } from '../lib/interview';
@@ -40,6 +42,7 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
   const [awaitingFollowUp, setAwaitingFollowUp] = useState(false);
   const [draft, setDraft] = useState('');
   const [thinking, setThinking] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [recording, setRecording] = useState(false);
   const [interim, setInterim] = useState('');
@@ -59,6 +62,7 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
   useEffect(() => {
     if (phase !== 'running') return;
     setElapsed(0);
+    setShowGuide(false); // 질문이 바뀌면 가이드는 접는다 — 먼저 스스로 생각하게
     timerRef.current = window.setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current);
@@ -89,7 +93,14 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
           ? await generateQuestions(activeRole)
           : { questions: DEFAULT_QUESTIONS, fallback: true };
       setFallbackSet(r.fallback);
-      setSteps(r.questions.map((q) => ({ q: q.q, qKr: q.qKr })));
+      setSteps(
+        r.questions.map((q) => ({
+          q: q.q,
+          qKr: q.qKr,
+          // 큐레이션 세트(Workato)는 질문별 맞춤 가이드, 그 외엔 최소한 뼈대라도
+          guide: (q as { guide?: AnswerGuide }).guide ?? GENERIC_GUIDE,
+        }))
+      );
       setIdx(0);
       setAwaitingFollowUp(false);
       setDraft('');
@@ -394,6 +405,40 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
         </div>
         {!awaitingFollowUp && cur.qKr && <div className="pp-sent-kr" style={{ marginTop: 6 }}>{cur.qKr}</div>}
         {awaitingFollowUp && cur.reaction && <div className="iv-reaction">{cur.reaction}</div>}
+
+        {/* 답변 가이드 — 기본은 접힘(먼저 스스로), 막히면 연다. 후속 질문엔 짧은 원칙만. */}
+        {awaitingFollowUp ? (
+          <p className="iv-guide-hint">💡 후속 질문은 구체성을 원해요 — 숫자 하나, 내 역할 하나, 결과 하나.</p>
+        ) : (
+          <>
+            <button type="button" className="iv-guide-toggle" onClick={() => setShowGuide((v) => !v)}>
+              💡 뭐라고 말하지? {showGuide ? '접기 ▲' : '가이드 보기 ▼'}
+            </button>
+            {showGuide && cur.guide && (
+              <div className="iv-guide">
+                <div className="iv-guide-sec">뼈대</div>
+                <ol className="iv-guide-list">
+                  {cur.guide.structure.map((s, i) => (
+                    <li key={i}>{s}</li>
+                  ))}
+                </ol>
+                <div className="iv-guide-sec">내 재료</div>
+                <ul className="iv-guide-list">
+                  {cur.guide.materials.map((m, i) => (
+                    <li key={i}>{m}</li>
+                  ))}
+                </ul>
+                <div className="iv-guide-sec">첫 문장</div>
+                <div className="iv-guide-opener">
+                  “{cur.guide.opener}”
+                  <button type="button" className="mini-btn" style={{ marginLeft: 8 }} onClick={() => ask(cur.guide!.opener)}>
+                    🔊
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {thinking ? (

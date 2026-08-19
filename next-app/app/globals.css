@@ -2105,6 +2105,51 @@ button {
   color: var(--text-muted);
   margin-bottom: 3px;
 }
+.iv-guide-toggle {
+  display: block;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  background: transparent;
+  border: none;
+  padding: 4px 0;
+  min-height: 36px;
+  margin-top: 8px;
+  cursor: pointer;
+}
+.iv-guide-hint {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin: 10px 0 0;
+  line-height: 1.6;
+}
+.iv-guide {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 11px 13px;
+  margin-top: 6px;
+}
+.iv-guide-sec {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  margin: 8px 0 4px;
+}
+.iv-guide-sec:first-child {
+  margin-top: 0;
+}
+.iv-guide-list {
+  margin: 0 0 0 18px;
+  font-size: 0.78rem;
+  line-height: 1.7;
+}
+.iv-guide-opener {
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
 .iv-role-sub {
   display: block;
   font-size: 0.68rem;

@@ -16,10 +16,33 @@ import { load, store } from './state';
 import { groqKoJson, hasHangul } from './aiGuard';
 import { recordMistake, sanitizeMistakeType } from './transfer';
 
+/** 질문별 답변 가이드 — 일반론이 아니라 내 커리어 재료가 매핑된 "뭐라고 말하지"의 답 */
+export interface AnswerGuide {
+  /** 답변 뼈대(순서) */
+  structure: string[];
+  /** 내 상황 재료 — 실제 커리어 데이터 기반 불릿 */
+  materials: string[];
+  /** 입 떼는 첫 문장 */
+  opener: string;
+}
+
+/** AI 생성 질문 등 맞춤 가이드가 없을 때의 뼈대 — 최소한 구조는 준다 */
+export const GENERIC_GUIDE: AnswerGuide = {
+  structure: ['상황 한 줄(언제·어디서)', '내 역할과 행동(구체적 숫자 하나)', '결과와 배운 점'],
+  materials: [
+    '메가존클라우드 AM 4년+ — 클라우드·DevOps·AI 솔루션 영업',
+    '엔터프라이즈·디지털 네이티브 50+ 계정 담당',
+    '만료 계약을 3년 25만 달러 약정으로 전환한 클로징 경험',
+  ],
+  opener: 'Let me give you a concrete example from my current role.',
+};
+
 export interface InterviewStep {
   q: string;
   /** 질문의 한국어 힌트(내장 세트만 제공, AI 생성은 빈 문자열 가능) */
   qKr?: string;
+  /** 답변 가이드 — 큐레이션 세트는 맞춤, 그 외엔 GENERIC_GUIDE */
+  guide?: AnswerGuide;
   answer?: string;
   reaction?: string;
   followUp?: string;
