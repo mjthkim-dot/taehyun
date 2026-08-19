@@ -46,7 +46,7 @@ function WeeklyTestBanner({ onNavigate }: { onNavigate: (m: Mode) => void }) {
 
 /** 홈의 주인공 — "오늘 세션 시작" 버튼 하나. 무엇을 할지 고르지 않게 한다. */
 function SessionCta({ onNavigate }: { onNavigate: (m: Mode) => void }) {
-  const [state, setState] = useState<{ done: boolean; patternEn: string; isReview: boolean } | null>(null);
+  const [state, setState] = useState<{ done: boolean; patternEn: string; patternKr: string; isReview: boolean } | null>(null);
   useEffect(() => {
     // 스토리는 비동기 청크 — 홈 번들에 40편을 정적으로 싣지 않기 위한 대가로,
     // CTA의 패턴 미리보기만 로드 후 채운다(캐시되면 즉시).
@@ -55,7 +55,7 @@ function SessionCta({ onNavigate }: { onNavigate: (m: Mode) => void }) {
       if (!alive) return;
       const mx = computeMaturity();
       const picked = pickTodayPattern(mx.stage.n);
-      setState({ done: sessionDoneToday(), patternEn: picked?.pattern.en || '', isReview: picked?.isReview ?? false });
+      setState({ done: sessionDoneToday(), patternEn: picked?.pattern.en || '', patternKr: picked?.pattern.kr || '', isReview: picked?.isReview ?? false });
     });
     return () => {
       alive = false;
@@ -71,7 +71,8 @@ function SessionCta({ onNavigate }: { onNavigate: (m: Mode) => void }) {
         <span className="session-cta-sub">
           {state.done
             ? '한 번 더 돌면 복습이 깊어져요'
-            : `약 10분 · ${state.isReview ? '복습' : '오늘의 패턴'}: ${state.patternEn}`}
+            : // 뜻을 함께 — 영어 스템만 보이면 "무슨 뜻인지 모르는 버튼"이 된다
+              `약 10분 · ${state.isReview ? '복습' : '오늘의 패턴'}: ${state.patternEn}${state.patternKr ? ` — ${state.patternKr}` : ''}`}
         </span>
       </span>
       <span className="session-cta-arrow">→</span>

@@ -387,7 +387,10 @@ export default function SpeakingPractice({
         </p>
       </div>
 
-      {accuracyScore > 0 && (
+      {/* 0점도 판정이다 — 예전엔 accuracyScore > 0 가드라 목표와 전혀 안 겹치는
+          발화(STT 오인식 포함)에 아무 피드백이 없었다: 말했는데 화면 무반응.
+          시도했으면 점수를 보여준다. */}
+      {attempts > 0 && userSpeech && (
         <>
           <div
             key={attempts}

@@ -22,13 +22,17 @@ await page.click('button.round-btn.send');
 await page.waitForTimeout(1200);
 check('시스템 프롬프트에 미션 상황 포함', capturedSystem.includes(missionTitle));
 
-// one-shot: 홈에 들렀다 다시 회화로 → 미션이 아니라 레슨 시나리오여야 한다.
+// one-shot: 핸드오프 컨텍스트는 첫 진입에서 소비되어 저장소에서 사라져야 한다.
+// (v1.13.0부터 기본 진입도 "오늘의 미션" 상황을 쓰므로 🎯 자체는 다시 보인다 —
+//  매일 같은 레슨 시나리오 반복을 없앤 의도된 변화. one-shot의 증거는 저장소.)
+const handoffLeft = await page.evaluate(() => localStorage.getItem('va_mission_talk'));
+check('핸드오프 컨텍스트는 1회 소비된다', handoffLeft === 'null' || handoffLeft === null, String(handoffLeft));
 await page.click('.mode-tab:has-text("홈")');
 await page.waitForTimeout(400);
 await page.click('.mode-tab:has-text("회화")');
 await page.waitForTimeout(700);
 const introHead2 = await page.evaluate(() => document.querySelector('.talk-intro .ti-head')?.textContent || '');
-check('일반 진입은 레슨 시나리오(one-shot 소비)', !introHead2.includes('🎯'), introHead2);
+check('기본 진입도 오늘의 미션 상황(매일 회전)', introHead2.includes('🎯'), introHead2);
 
 await browser.close();
 finish('02-mission-talk');

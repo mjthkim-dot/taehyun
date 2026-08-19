@@ -15,7 +15,7 @@ import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, s
 import { groqStream, groqComplete, validateGroqKey, GroqError } from '../lib/groq';
 import { groqKoJson, hasHangul } from '../lib/aiGuard';
 import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, buildScenarioReviewPrompt, parseAiText } from '../lib/talkPrompts';
-import { takeMissionTalkContext, type MissionTalkCtx } from '../lib/dailyMission';
+import { takeMissionTalkContext, getTodayMission, getCustomMissionToday, type MissionTalkCtx } from '../lib/dailyMission';
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS, isKorean } from './SpeakButton';
 import { MicIcon, SendIcon, SpeakerIcon } from './icons';
 import { fetchGloss } from '../lib/gloss';
@@ -168,7 +168,18 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     historyRef.current = [];
     talkStampsRef.current = [];
     sessionIdRef.current = `${lesson.id}-${Date.now()}`;
-    const mission = takeMissionTalkContext();
+    // 기본 진입(레슨 미선택, 핸드오프 없음)은 **오늘의 비즈니스 미션**을 상황으로
+    // 쓴다 — 예전엔 최신 회차의 시나리오로 고정돼 매일 같은 "레스토랑 롤플레이"가
+    // 떴다(반복 + 실무 무관). 미션은 날짜 로테이션이라 매일 새 상황이고,
+    // 레슨에서 넘어오면(lessonId 지정) 기존대로 그 레슨 시나리오를 쓴다.
+    const mission =
+      takeMissionTalkContext() ??
+      (lessonId === 0
+        ? (() => {
+            const m = getCustomMissionToday() ?? getTodayMission();
+            return { title: m.title, desc: m.talkPrompt, examples: m.phrases.slice(0, 3) };
+          })()
+        : null);
     setMissionCtx(mission);
     if (mission) {
       setMessages([
