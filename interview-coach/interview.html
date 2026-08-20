@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>영어 면접 코치 — IT 영업</title>
+<link rel="manifest" href="/interview.webmanifest">
+<meta name="theme-color" content="#0a0b12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="면접코치">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; padding: 24px 16px 64px;
+    background: #0a0b12; color: #e8e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 680px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: #9a9ab0; font-size: 13px; margin-bottom: 20px; }
+  .card {
+    background: #14151f; border: 1px solid #24263a; border-radius: 14px;
+    padding: 16px; margin-bottom: 14px;
+  }
+  label { display: block; font-size: 13px; color: #9a9ab0; margin-bottom: 6px; }
+  select, textarea, input[type=text] {
+    width: 100%; background: #0f1018; color: #e8e8f0; border: 1px solid #2a2c42;
+    border-radius: 10px; padding: 10px; font-size: 15px; font-family: inherit;
+  }
+  textarea { min-height: 90px; resize: vertical; }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  button {
+    padding: 11px 16px; border: none; border-radius: 10px; cursor: pointer;
+    background: #7c6cf6; color: #fff; font-size: 14px; font-weight: 600;
+  }
+  button.secondary { background: #24263a; color: #c8c8e0; }
+  button.rec { background: #e05555; }
+  button:disabled { opacity: .5; cursor: default; }
+  .btnrow { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .btnrow button { flex: 1; min-width: 130px; }
+  .status { font-size: 13px; color: #9a9ab0; margin-top: 8px; min-height: 18px; }
+  .q-en { font-size: 18px; font-weight: 700; line-height: 1.4; }
+  .q-kr { color: #b8b8d0; font-size: 14px; margin-top: 6px; }
+  .q-tip { color: #8f86d8; font-size: 13px; margin-top: 10px; padding: 10px;
+           background: #191a28; border-radius: 8px; }
+  .badge {
+    display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px;
+    background: #24263a; color: #b8b8d0; margin-right: 6px;
+  }
+  .timer { font-variant-numeric: tabular-nums; color: #e0c060; font-weight: 700; }
+  .score { font-size: 28px; font-weight: 800; color: #7c6cf6; }
+  .star-row { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+  .star-item { padding: 6px 12px; border-radius: 8px; background: #191a28;
+               font-size: 13px; color: #9a9ab0; }
+  .star-item.on { background: #1d3324; color: #7ed596; }
+  .imp { border-left: 3px solid #7c6cf6; padding: 8px 12px; margin-top: 10px;
+         background: #0f1018; border-radius: 0 8px 8px 0; font-size: 14px; }
+  .imp .orig { color: #d08080; text-decoration: line-through; }
+  .imp .up { color: #7ed596; font-weight: 600; }
+  .imp .why { color: #8a8aa5; font-size: 12.5px; margin-top: 4px; }
+  .ans-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .ans-tab { flex: 1; text-align: center; padding: 8px; border-radius: 8px;
+             background: #191a28; color: #9a9ab0; cursor: pointer; font-size: 13px; }
+  .ans-tab.active { background: #7c6cf6; color: #fff; }
+  .ans-en { font-size: 15.5px; line-height: 1.65; }
+  .ans-kr { color: #9a9ab0; font-size: 13.5px; margin-top: 10px; }
+  .chip { display: inline-block; background: #1d2030; border: 1px solid #2e3150;
+          border-radius: 8px; padding: 5px 10px; margin: 6px 6px 0 0; font-size: 13px; }
+  .chip .kr { color: #8a8aa5; font-size: 12px; }
+  .good { color: #7ed596; font-size: 14px; margin-top: 6px; }
+  .metrics { color: #8a8aa5; font-size: 12.5px; margin-top: 8px; }
+  .hint-out { margin-top: 10px; padding: 10px; background: #0f1018; border-radius: 8px;
+              min-height: 24px; font-size: 15px; white-space: pre-wrap; }
+  details summary { cursor: pointer; color: #9a9ab0; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎤 영어 면접 코치 — IT 영업 <a href="/live.html" style="font-size:13px; color:#e05555; text-decoration:none; float:right; margin-top:4px;">🔴 실전 라이브 모드 →</a></h1>
+  <div class="sub">질문 듣기 → 영어로 답변 → STAR 피드백 → 모범 답변 비교 · 폰에서도 그대로 동작</div>
+
+  <!-- 설정 + 질문 -->
+  <div class="card">
+    <div class="row">
+      <div>
+        <label for="category">질문 카테고리</label>
+        <select id="category"><option value="">전체 (무작위)</option></select>
+      </div>
+      <div>
+        <label for="cefr">내 영어 레벨</label>
+        <select id="cefr">
+          <option value="A2">A2 (초급)</option>
+          <option value="B1" selected>B1 (중급)</option>
+          <option value="B2">B2 (중상급)</option>
+          <option value="C1">C1 (고급)</option>
+        </select>
+      </div>
+    </div>
+    <div class="btnrow">
+      <button id="btn-question">▶ 질문 받기</button>
+      <button id="btn-speak" class="secondary" disabled>🔊 질문 듣기</button>
+      <button id="btn-prep" class="secondary" title="내 프로필+스토리 기반으로 전체 질문의 답변을 미리 생성 — 라이브 모드에서 즉시 표시됩니다">⚡ 맞춤 답변셋 생성</button>
+    </div>
+    <div class="status" id="prep-status"></div>
+    <!-- 📊 내 데이터 상태 — 답변 품질의 상한을 결정하는 요소 진단 -->
+    <details style="margin-top:12px;" id="kb-box">
+      <summary style="cursor:pointer; color:#9a9ab0; font-size:13px;">
+        📊 내 데이터 상태 <span id="kb-score"></span> — 답변 품질의 상한을 결정합니다
+      </summary>
+      <div id="kb-body" style="margin-top:10px; font-size:13px; color:#9a9ab0; line-height:1.7;"></div>
+    </details>
+    <details style="margin-top:12px;">
+      <summary style="cursor:pointer; color:#9a9ab0; font-size:13px;">🎯 타겟 회사 설정 — 채용공고(JD)를 붙여넣으면 예상 질문 생성 + 모든 답변이 회사 맞춤으로</summary>
+      <textarea id="target-in" style="margin-top:10px;" placeholder="지원하는 회사의 채용공고(JD), 회사 소개, 제품 설명 등을 붙여넣으세요.&#10;예: [회사명] Cloud Solutions Sales Manager 채용 — 담당업무: 엔터프라이즈 고객 대상..."></textarea>
+      <div class="btnrow">
+        <button id="btn-target">🎯 저장 + 예상 질문 생성</button>
+      </div>
+      <div class="status" id="target-status"></div>
+    </details>
+    <div id="question-box" style="margin-top:14px; display:none;">
+      <span class="badge" id="q-cat"></span><span class="badge" id="q-diff"></span>
+      <div class="q-en" id="q-en"></div>
+      <div class="q-kr" id="q-kr"></div>
+      <div class="q-tip" id="q-tip"></div>
+    </div>
+  </div>
+
+  <!-- 답변 (STT) -->
+  <div class="card" id="answer-card" style="display:none;">
+    <label>내 답변 — 🎙 버튼을 누르고 영어로 말하세요 <span class="timer" id="timer"></span></label>
+    <textarea id="transcript" placeholder="음성 인식 결과가 여기 표시됩니다 (직접 타이핑/수정도 가능)"></textarea>
+    <div class="btnrow">
+      <button id="btn-rec" class="secondary">🎙 답변 시작</button>
+      <button id="btn-feedback">📋 피드백 받기</button>
+      <button id="btn-answers" class="secondary">💬 모범 답변 보기</button>
+    </div>
+    <div class="status" id="practice-status"></div>
+    <details style="margin-top:8px;">
+      <summary>🇰🇷 말문이 막혔을 때 — 한국어로 쓰면 영어 힌트</summary>
+      <div class="row" style="margin-top:8px;">
+        <div style="flex:3"><input type="text" id="hint-in" placeholder="예: 재계약률을 10% 올렸다고 말하고 싶어"></div>
+        <div style="flex:1"><button id="btn-hint" style="width:100%">번역</button></div>
+      </div>
+      <div class="hint-out" id="hint-out"></div>
+    </details>
+  </div>
+
+  <!-- 피드백 -->
+  <div class="card" id="feedback-card" style="display:none;">
+    <div class="row" style="align-items:center;">
+      <div><label>답변 평가</label><span class="score" id="fb-score"></span><span style="color:#9a9ab0"> / 10</span></div>
+    </div>
+    <div class="star-row" id="fb-star"></div>
+    <div id="fb-star-note" style="color:#9a9ab0; font-size:13px;"></div>
+    <div id="fb-good"></div>
+    <div id="fb-imps"></div>
+    <div id="fb-summary" style="margin-top:12px; font-size:14.5px;"></div>
+    <div class="metrics" id="fb-metrics"></div>
+  </div>
+
+  <!-- 모범 답변 -->
+  <div class="card" id="answers-card" style="display:none;">
+    <label>모범 답변 (내 프로필 기반 · 길이별 3버전)</label>
+    <div class="ans-tabs" id="ans-tabs"></div>
+    <div class="ans-en" id="ans-en"></div>
+    <div class="ans-kr" id="ans-kr"></div>
+    <div id="ans-chips"></div>
+    <div class="q-tip" id="ans-tip" style="margin-top:12px;"></div>
+    <div class="btnrow"><button id="btn-ans-speak" class="secondary">🔊 이 답변 듣기</button></div>
+  </div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const state = { question: null, asked: [], answers: null, ansIdx: 0, recStart: 0, recSec: 0 };
+
+// ── 카테고리 로드 (타겟 질문 생성 후 재호출됨) ─────────────
+async function loadCategories() {
+  try {
+    const cats = await (await fetch('/api/interview/categories')).json();
+    const sel = $('#category');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">전체 (무작위)</option>';
+    for (const c of cats) {
+      const opt = document.createElement('option');
+      opt.value = c.id; opt.textContent = `${c.label_ko} (${c.count})`;
+      sel.appendChild(opt);
+    }
+    sel.value = cur;
+  } catch { /* 서버 미기동 등 */ }
+}
+loadCategories();
+
+// ── 🎯 타겟 회사 설정 ─────────────────────────────────────
+$('#btn-target').addEventListener('click', async () => {
+  const text = $('#target-in').value.trim();
+  const st = $('#target-status');
+  if (!text) { st.textContent = '채용공고를 먼저 붙여넣으세요.'; return; }
+  $('#btn-target').disabled = true;
+  st.textContent = '⏳ JD 분석 + 예상 질문 생성 중...';
+  try {
+    const r = await fetch('/api/target/set', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    await loadCategories();
+    $('#category').value = 'target';
+    st.textContent = `✅ 예상 질문 ${d.questions}개 생성 — 카테고리가 '🎯 타겟 회사'로 설정됐어요. `
+      + `이제 모든 답변이 이 회사 맞춤으로 생성됩니다. ⚡ 맞춤 답변셋도 다시 생성해 두세요.`;
+  } catch (e) {
+    st.textContent = '⚠️ ' + e.message;
+  } finally { $('#btn-target').disabled = false; }
+});
+
+// ── 질문 받기 ─────────────────────────────────────────────
+async function nextQuestion() {
+  const cat = $('#category').value;
+  const params = new URLSearchParams();
+  if (cat) params.set('category', cat);
+  if (state.asked.length) params.set('exclude', state.asked.join(','));
+  const res = await fetch('/api/interview/question?' + params);
+  if (!res.ok) return;
+  const q = await res.json();
+  state.question = q;
+  state.asked.push(q.id);
+  $('#q-cat').textContent = q.category_label_ko || q.category;
+  $('#q-diff').textContent = '난이도 ' + '★'.repeat(q.difficulty || 1);
+  $('#q-en').textContent = q.en;
+  $('#q-kr').textContent = q.kr;
+  $('#q-tip').textContent = '💡 ' + (q.tip_ko || '');
+  $('#question-box').style.display = 'block';
+  $('#answer-card').style.display = 'block';
+  $('#feedback-card').style.display = 'none';
+  $('#answers-card').style.display = 'none';
+  $('#transcript').value = '';
+  $('#btn-speak').disabled = false;
+  speak(q.en);
+}
+$('#btn-question').addEventListener('click', nextQuestion);
+
+// ── TTS (macOS 내장 영어 음성 — 오프라인 동작) ─────────────
+function speak(text) {
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US'; u.rate = 0.95;
+  const v = speechSynthesis.getVoices().find(v => v.lang.startsWith('en'));
+  if (v) u.voice = v;
+  speechSynthesis.speak(u);
+}
+$('#btn-speak').addEventListener('click', () => state.question && speak(state.question.en));
+
+// ── ⚡ 맞춤 답변셋 사전 생성 (내 프로필 + my_story.md 기반) ──
+let prepPoll = null;
+async function refreshPrepStatus() {
+  try {
+    const s = await (await fetch('/api/prep/status')).json();
+    const el = $('#prep-status');
+    if (s.running) {
+      el.textContent = `⚡ 생성 중... ${s.done}/${s.total} — ${s.current || ''}`;
+    } else {
+      clearInterval(prepPoll); prepPoll = null;
+      $('#btn-prep').disabled = false;
+      el.textContent = s.error ? `⚠️ 중단됨 (${s.done}/${s.total} 저장됨): ${s.error}`
+        : (s.count ? `✅ 맞춤 답변 ${s.count}개 준비됨 — 라이브 모드에서 즉시 표시됩니다` : '');
+    }
+  } catch { /* 서버 재시작 등은 무시 */ }
+}
+$('#btn-prep').addEventListener('click', async () => {
+  if (!confirm('내 프로필과 스토리(my_story.md)를 바탕으로 전체 질문의 답변을 미리 생성합니다.\n약 1분 정도 걸립니다. 시작할까요?')) return;
+  $('#btn-prep').disabled = true;
+  try {
+    const r = await fetch('/api/prep/build', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cefr: $('#cefr').value }) });
+    if (!r.ok && r.status !== 409) {
+      const d = await r.json().catch(() => ({}));
+      $('#prep-status').textContent = '⚠️ ' + (d.error || r.status);
+      $('#btn-prep').disabled = false;
+      return;
+    }
+    prepPoll = setInterval(refreshPrepStatus, 1500);
+    refreshPrepStatus();
+  } catch (e) {
+    $('#prep-status').textContent = '⚠️ ' + e.message;
+    $('#btn-prep').disabled = false;
+  }
+});
+refreshPrepStatus();   // 페이지 로드 시 기존 답변셋 유무 표시
+$('#btn-ans-speak').addEventListener('click', () => {
+  const a = state.answers?.answers?.[state.ansIdx];
+  if (a) speak(a.en);
+});
+
+// ── STT (Groq Whisper — 라이브 모드와 동일한 인식 품질) ────
+// 답변 전체를 한 번에 녹음했다가 종료 시 /api/stt로 보낸다.
+let rec = null, recStream = null, recChunks = [], timerIv = null;
+
+function stopRec() {
+  if (rec && rec.state !== 'inactive') rec.stop();   // onstop에서 전사 처리
+  clearInterval(timerIv);
+  state.recSec = (Date.now() - state.recStart) / 1000;
+  $('#btn-rec').textContent = '🎙 답변 시작';
+  $('#btn-rec').classList.remove('rec');
+}
+
+$('#btn-rec').addEventListener('click', async () => {
+  if (rec) { stopRec(); return; }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true } });
+  } catch {
+    $('#practice-status').textContent = '마이크 권한을 허용해 주세요.';
+    return;
+  }
+  recStream = stream; recChunks = [];
+  // iOS Safari는 webm 미지원 → audio/mp4 폴백 (그래도 없으면 브라우저 기본값)
+  const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+    .find(m => MediaRecorder.isTypeSupported(m)) || '';
+  rec = mime ? new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 48000 })
+             : new MediaRecorder(stream);
+  rec.ondataavailable = (e) => { if (e.data.size) recChunks.push(e.data); };
+  rec.onstop = async () => {
+    recStream.getTracks().forEach(t => t.stop());
+    const blobType = mime || rec.mimeType || 'audio/mp4';
+    const blob = new Blob(recChunks, { type: blobType });
+    rec = null; recStream = null;
+    if (blob.size < 3000) { $('#practice-status').textContent = '녹음이 너무 짧아요.'; return; }
+    $('#practice-status').textContent = '⏳ 음성 인식 중... (Groq Whisper)';
+    try {
+      const res = await fetch('/api/stt?lang=en', {
+        method: 'POST', headers: { 'Content-Type': blobType.split(';')[0] }, body: blob });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || `STT 오류 (${res.status})`);
+      const prev = $('#transcript').value.trim();
+      $('#transcript').value = (prev ? prev + ' ' : '') + (d.text || '').trim();
+      $('#practice-status').textContent = '';
+    } catch (e) {
+      $('#practice-status').textContent = '⚠️ ' + e.message + ' — 직접 타이핑해도 됩니다.';
+    }
+  };
+  rec.start();
+  state.recStart = Date.now();
+  timerIv = setInterval(() => {
+    const s = Math.floor((Date.now() - state.recStart) / 1000);
+    $('#timer').textContent = `⏱ ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  }, 500);
+  $('#btn-rec').textContent = '⏹ 답변 끝';
+  $('#btn-rec').classList.add('rec');
+  $('#practice-status').textContent = '🎙 녹음 중... 답변이 끝나면 ⏹를 누르세요.';
+});
+
+// ── 피드백 ────────────────────────────────────────────────
+$('#btn-feedback').addEventListener('click', async () => {
+  if (rec) stopRec();
+  const transcript = $('#transcript').value.trim();
+  if (!transcript || !state.question) return;
+  const btn = $('#btn-feedback');
+  btn.disabled = true;
+  $('#practice-status').textContent = '분석 중... (모델 로딩 시 수십 초 걸릴 수 있어요)';
+  try {
+    const res = await fetch('/api/interview/feedback', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question: state.question.en, transcript,
+        cefr: $('#cefr').value, duration_sec: state.recSec || null,
+      }),
+    });
+    const d = await res.json();
+    if (!res.ok) { $('#practice-status').textContent = d.error || '오류'; return; }
+    $('#practice-status').textContent = '';
+    renderFeedback(d);
+  } catch (e) {
+    $('#practice-status').textContent = '서버 연결 실패: ' + e.message;
+  } finally { btn.disabled = false; }
+});
+
+function renderFeedback(d) {
+  $('#fb-score').textContent = d.score;
+  const starKo = { situation: 'S 상황', task: 'T 과제', action: 'A 행동', result: 'R 결과' };
+  $('#fb-star').innerHTML = Object.entries(starKo).map(([k, label]) =>
+    `<div class="star-item ${d.star?.[k] ? 'on' : ''}">${d.star?.[k] ? '✅' : '⬜'} ${label}</div>`
+  ).join('');
+  $('#fb-star-note').textContent = d.star?.note_ko || '';
+  $('#fb-good').innerHTML = (d.good_points_ko || []).map(g => `<div class="good">👍 ${g}</div>`).join('');
+  $('#fb-imps').innerHTML = (d.improvements || []).map(i =>
+    `<div class="imp"><span class="orig">${i.original}</span> → <span class="up">${i.upgraded}</span>
+     <div class="why">${i.note_ko || ''}</div></div>`
+  ).join('');
+  $('#fb-summary').textContent = d.summary_ko || '';
+  const m = d.metrics || {};
+  $('#fb-metrics').textContent =
+    `단어 ${m.word_count || 0}개` + (m.wpm ? ` · 속도 ${m.wpm} WPM` : '') +
+    ` · 군말 비율 ${((m.filler_ratio || 0) * 100).toFixed(1)}%`;
+  $('#feedback-card').style.display = 'block';
+  $('#feedback-card').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── 모범 답변 ─────────────────────────────────────────────
+$('#btn-answers').addEventListener('click', async () => {
+  if (!state.question) return;
+  const btn = $('#btn-answers');
+  btn.disabled = true;
+  $('#practice-status').textContent = '내 프로필 기반 모범 답변 생성 중... (30초~1분 정도 걸려요)';
+  try {
+    const res = await fetch('/api/interview/answers', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: state.question.en, cefr: $('#cefr').value }),
+    });
+    const d = await res.json();
+    if (!res.ok) { $('#practice-status').textContent = d.error || '오류'; return; }
+    $('#practice-status').textContent = '';
+    state.answers = d; state.ansIdx = 0;
+    renderAnswers();
+  } catch (e) {
+    $('#practice-status').textContent = '서버 연결 실패: ' + e.message;
+  } finally { btn.disabled = false; }
+});
+
+function renderAnswers() {
+  const answers = state.answers?.answers || [];
+  // version이 빠져 오면 순서로 대체 — 모델이 필드를 누락해도 '⏱ undefined'가 뜨지 않게
+  const LABELS = ['30s', '60s', '90s'];
+  $('#ans-tabs').innerHTML = answers.map((a, i) =>
+    `<div class="ans-tab ${i === state.ansIdx ? 'active' : ''}" data-i="${i}">⏱ ${a.version || LABELS[i] || i + 1}</div>`
+  ).join('');
+  document.querySelectorAll('.ans-tab').forEach(t =>
+    t.addEventListener('click', () => { state.ansIdx = +t.dataset.i; renderAnswers(); }));
+  const a = answers[state.ansIdx];
+  if (!a) return;
+  $('#ans-en').textContent = a.en;
+  $('#ans-kr').textContent = '📝 ' + (a.kr_gist || '');
+  $('#ans-chips').innerHTML = (a.key_expressions || []).map(k =>
+    `<span class="chip">${k.en}<br><span class="kr">${k.kr}</span></span>`).join('');
+  $('#ans-tip').textContent = '💡 ' + (a.tip_ko || '');
+  $('#answers-card').style.display = 'block';
+  $('#answers-card').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── 한국어 → 영어 힌트 (실시간 번역 스트리밍) ──────────────
+$('#btn-hint').addEventListener('click', async () => {
+  const text = $('#hint-in').value.trim();
+  if (!text) return;
+  const out = $('#hint-out');
+  out.textContent = '...';
+  try {
+    const res = await fetch('/api/translate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    out.textContent = '';
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const obj = JSON.parse(line);
+          if (obj.error) { out.textContent = obj.error; return; }
+          if (obj.message?.content) out.textContent += obj.message.content;
+        } catch {}
+      }
+    }
+  } catch (e) { out.textContent = '번역 실패: ' + e.message; }
+});
+$('#hint-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#btn-hint').click(); });
+
+// ── 📊 내 데이터 상태 — 무엇을 채우면 답변이 강해지는지 정확히 알려준다 ──
+async function loadKbHealth() {
+  try {
+    const d = await (await fetch('/api/kb/health')).json();
+    const color = d.score >= 80 ? '#4ade80' : d.score >= 50 ? '#fbbf24' : '#f87171';
+    $('#kb-score').innerHTML = `<b style="color:${color}">${d.score}점</b>`;
+    const rows = [];
+    rows.push(`사례 <b>${d.stories}개</b> (수치까지 채워진 사례 ${d.stories_filled}개) · ` +
+              `검색 인덱스 ${d.indexed ? '✅' : '—'}${d.embeddings ? ' (의미검색 ✅)' : ''} · ` +
+              `사전 답변 ${d.prepared_answers}개`);
+    d.tips.forEach(t => rows.push('· ' + t));
+    if (d.items.length) {
+      const list = d.items.map(i =>
+        `<div style="margin:2px 0"><code style="color:#fbbf24">${i.token}</code> ` +
+        `<span style="color:#6b6b80">${i.file} ${i.line}행</span> — ${i.text.replace(/</g, '&lt;')}</div>`).join('');
+      rows.push(`<details style="margin-top:8px"><summary style="cursor:pointer">채워야 할 항목 ${d.placeholders}개 보기</summary>` +
+                `<div style="margin-top:6px; max-height:260px; overflow:auto; font-size:12px">${list}</div></details>`);
+    }
+    $('#kb-body').innerHTML = rows.join('<br>');
+    if (d.score < 80) $('#kb-box').open = true;      // 보완할 게 있으면 펼쳐서 보여줌
+  } catch { $('#kb-body').textContent = '상태를 불러오지 못했습니다.'; }
+}
+loadKbHealth();
+
+// 음성 목록은 비동기 로드되므로 미리 요청해 둔다
+speechSynthesis.getVoices();
+</script>
+</body>
+</html>

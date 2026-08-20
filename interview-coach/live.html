@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>실시간 면접 코파일럿</title>
+<meta name="theme-color" content="#0B0C0F">
+<style>
+  :root {
+    --bg: #0B0C0F; --panel: #17181D; --panel2: #1E1F26; --border: #2A2B33;
+    --text: #ECECF0; --sub: #A7A7B6; --faint: #6E6E7E;
+    --yellow: #F7CE46; --yellow-deep: #E0B32B;
+    --me-bg: #4A4030; --me-text: #F0E7CB; --me-sub: #C9BC93;
+    --danger: #F06A6A;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  /* ── 상단 컨트롤 바 ─────────────────────────── */
+  header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  .ctrl { display: flex; gap: 6px; }
+  .ctrl button {
+    width: 34px; height: 30px; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--panel2); color: var(--text); font-size: 13px; cursor: pointer;
+  }
+  .ctrl button.live { background: var(--yellow); color: #16130A; border-color: var(--yellow); }
+  .tabs {
+    display: flex; gap: 2px; background: var(--panel2); border-radius: 999px;
+    padding: 3px; border: 1px solid var(--border);
+  }
+  .tab {
+    padding: 5px 16px; border-radius: 999px; font-size: 13px; font-weight: 700;
+    color: var(--sub); cursor: pointer; border: none; background: none; font-family: inherit;
+  }
+  .tab.active { background: var(--text); color: #141519; }
+  .spacer { flex: 1; }
+  header select {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 9px; padding: 5px 8px; font-size: 12.5px; font-family: inherit;
+  }
+  header a { font-size: 12px; color: var(--faint); text-decoration: none; }
+
+  /* ── 실시간 요약 바 ─────────────────────────── */
+  .sumbar {
+    display: flex; align-items: center; gap: 8px;
+    margin: 10px 14px 0; padding: 9px 14px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    font-size: 13px;
+  }
+  .sumbar .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--yellow); flex: none; }
+  .sumbar .label { color: var(--yellow); font-weight: 800; flex: none; }
+  .sumbar .line { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── 오디오 입력 장치 선택 (BlackHole=상대 / 마이크=나) ── */
+  .audiobar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin: 10px 14px 0; padding: 8px 14px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    font-size: 12.5px; color: var(--sub);
+  }
+  .audiobar .grp { display: flex; align-items: center; gap: 6px; }
+  .audiobar .grp b { color: var(--text); font-weight: 700; white-space: nowrap; }
+  .audiobar select {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 5px 8px; font-size: 12.5px; font-family: inherit;
+    max-width: 200px;
+  }
+  .audiobar select:disabled { opacity: .55; }
+  .audiobar button {
+    background: var(--panel2); color: var(--sub); border: 1px solid var(--border);
+    border-radius: 8px; padding: 5px 9px; cursor: pointer; font-size: 12.5px;
+  }
+  .audiobar .warn { color: var(--danger); }
+  .audiobar .meter {
+    width: 48px; height: 8px; border-radius: 4px; background: var(--panel2);
+    border: 1px solid var(--border); overflow: hidden; flex: none;
+  }
+  .audiobar .meter i {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, #16A374, var(--yellow)); transition: width .05s linear;
+  }
+  .audiobar button.mon.on { background: var(--yellow); color: #16130A; border-color: var(--yellow); }
+
+  /* ── 뷰 공통 ────────────────────────────────── */
+  .view { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .view.hidden { display: none; }
+
+  /* ── 라이브: 대화 피드 (채팅 버블) ───────────── */
+  #feed { flex: 1; overflow-y: auto; padding: 12px 14px 8px; }
+  .row { margin-bottom: 12px; max-width: 92%; }
+  .row.me { margin-left: auto; }
+  .row .meta { font-size: 11px; color: var(--faint); margin: 0 6px 4px; }
+  .row.me .meta { text-align: right; }
+  .bubble {
+    background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 10px 13px; position: relative;
+  }
+  .row.me .bubble { background: var(--me-bg); border-color: #5C5138; }
+  .bubble .en { font-size: 14.5px; line-height: 1.55; }
+  .row.me .bubble .en { color: var(--me-text); }
+  .bubble .kr { font-size: 12.5px; color: var(--sub); margin-top: 5px; line-height: 1.5; }
+  .row.me .bubble .kr { color: var(--me-sub); }
+  .bubble .kr:empty { display: none; }
+  .bubble .ask {
+    position: absolute; top: 8px; right: 10px; font-size: 11px; color: var(--yellow);
+    cursor: pointer; font-weight: 700; opacity: .85;
+  }
+  .row.q .bubble { border-color: var(--yellow-deep); }
+  .row.dim { opacity: .45; }
+  .empty { color: var(--faint); text-align: center; margin-top: 56px; font-size: 13.5px; line-height: 2; }
+  .empty .big { font-size: 30px; }
+
+  /* ── 퀵 액션 ────────────────────────────────── */
+  .actions {
+    display: flex; gap: 4px; padding: 8px 14px 0; flex-wrap: wrap;
+  }
+  .actions button {
+    background: none; border: none; color: var(--sub); font-size: 12.5px; font-weight: 600;
+    cursor: pointer; padding: 6px 10px; border-radius: 9px; font-family: inherit;
+  }
+  .actions button:hover { background: var(--panel2); color: var(--text); }
+  .actions .who {
+    margin-left: auto; border: 1px solid var(--border); background: var(--panel2);
+  }
+  .actions .who.me { color: var(--me-sub); border-color: #5C5138; }
+
+  /* ── 한국어 입력 ────────────────────────────── */
+  .quickbar { display: flex; gap: 8px; padding: 8px 14px 12px; }
+  .quickbar input {
+    flex: 1; border: 1px solid var(--border); border-radius: 12px; padding: 10px 13px;
+    font-size: 13.5px; font-family: inherit; background: var(--panel); color: var(--text);
+  }
+  .quickbar input::placeholder { color: var(--faint); }
+  .quickbar button {
+    width: 42px; border: none; border-radius: 12px; background: var(--yellow);
+    color: #16130A; font-size: 16px; font-weight: 800; cursor: pointer;
+  }
+
+  /* ── ✦ 답변 제안 카드 (플로팅) ────────────────── */
+  #card {
+    display: none; position: absolute; left: 14px; right: 14px; bottom: 108px;
+    background: rgba(20, 21, 26, .97); border: 1px solid var(--border);
+    border-radius: 16px; padding: 13px 15px; max-height: 52%; overflow-y: auto;
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, .5); backdrop-filter: blur(6px);
+  }
+  #card .head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  #card .head .gist { font-size: 14px; font-weight: 800; flex: 1; }
+  #card .head .gist::before { content: "✦ "; color: var(--yellow); }
+  #card .head button {
+    background: none; border: none; color: var(--faint); cursor: pointer; font-size: 13px;
+  }
+  #card .head button.on { color: var(--yellow); }
+  .lrow { display: flex; gap: 10px; margin-top: 10px; }
+  .lrow .lab {
+    flex: none; font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 6px;
+    height: fit-content; margin-top: 1px;
+  }
+  .lab.st { background: var(--panel2); color: var(--sub); border: 1px solid var(--border); }
+  .lab.an { background: var(--yellow); color: #16130A; }
+  .lrow .body { flex: 1; min-width: 0; }
+  .lrow .strat { font-size: 13px; color: var(--sub); line-height: 1.55; }
+  /* 답변 글자 크기 — 카메라를 보면서 곁눈질로 읽어야 하므로 3단계로 키울 수 있게 */
+  .lrow .en { font-size: calc(15px * var(--ansz, 1)); font-weight: 700; line-height: 1.6; }
+  .lrow .kr { font-size: calc(12.5px * var(--ansz, 1)); color: var(--sub); line-height: 1.55; margin-top: 6px; }
+  .lrow .say { background: none; border: none; cursor: pointer; font-size: 14px; flex: none; color: var(--sub); }
+  /* 📎 답변 근거 — 어떤 내 사례에서 나온 답변인지 (지어낸 답변이 아님을 보증) */
+  #c-src { display: none; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line);
+           font-size: 11.5px; color: var(--faint); line-height: 1.5; }
+  #c-src b { color: var(--sub); font-weight: 700; }
+  #c-src .warn { color: var(--danger); }
+  #card.spec { box-shadow: 0 0 0 1px var(--yellow) inset; }
+  #card .head .spec-tag { display: none; font-size: 10px; font-weight: 800; color: #111;
+      background: var(--yellow); border-radius: 4px; padding: 2px 5px; flex: none; }
+  #card.spec .head .spec-tag { display: inline-block; }
+
+  /* ── 요약/번역 탭 ───────────────────────────── */
+  .padview { padding: 14px; overflow-y: auto; }
+  .padview pre {
+    white-space: pre-wrap; font-family: inherit; font-size: 13.5px; line-height: 1.7;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px;
+  }
+  .padview textarea {
+    width: 100%; min-height: 90px; background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 12px; padding: 11px; font-size: 14px;
+    font-family: inherit; resize: vertical;
+  }
+  .padview .out {
+    margin-top: 10px; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px; font-size: 15px; line-height: 1.6; min-height: 46px;
+    white-space: pre-wrap;
+  }
+  .padview .btnrow { display: flex; gap: 8px; margin-top: 10px; }
+  .padview .btnrow button {
+    padding: 9px 16px; border: none; border-radius: 10px; background: var(--yellow);
+    color: #16130A; font-weight: 800; font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  .padview .btnrow button.ghost { background: var(--panel2); color: var(--sub); border: 1px solid var(--border); }
+
+  /* 하단 빠른 번역 결과 (답변 카드와 독립 — 생성 중인 답변을 방해하지 않음) */
+  .hint-out {
+    display: none; align-items: center; gap: 8px; margin: 0 14px;
+    background: var(--me-bg); border: 1px solid #5C5138; border-radius: 12px;
+    padding: 9px 13px; font-size: 14.5px; color: var(--me-text); font-weight: 600;
+  }
+  .hint-out .txt { flex: 1; }
+  .hint-out .say { background: none; border: none; cursor: pointer; font-size: 13px; color: var(--me-sub); }
+
+  /* 📋 세션 종료 리포트 */
+  #report {
+    display: none; position: fixed; inset: 0; z-index: 60;
+    background: rgba(8, 8, 11, .94); overflow-y: auto; padding: 24px 16px;
+  }
+  #report .box {
+    max-width: 640px; margin: 0 auto; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 18px; padding: 18px;
+  }
+  #report h2 { font-size: 16px; margin-bottom: 4px; }
+  #report h2::before { content: "📋 "; }
+  #report .meta { font-size: 12px; color: var(--faint); margin-bottom: 14px; }
+  #report pre {
+    white-space: pre-wrap; font-family: inherit; font-size: 13.5px; line-height: 1.75;
+    background: var(--panel2); border: 1px solid var(--border); border-radius: 12px; padding: 14px;
+  }
+  #report details { margin-top: 12px; font-size: 12.5px; color: var(--sub); }
+  #report details pre { max-height: 220px; overflow-y: auto; margin-top: 8px; }
+  #report .btnrow { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  #report .btnrow button {
+    flex: 1; min-width: 130px; padding: 10px; border: none; border-radius: 10px;
+    font-weight: 800; font-size: 13px; cursor: pointer; font-family: inherit;
+    background: var(--panel2); color: var(--sub); border: 1px solid var(--border);
+  }
+  #report .btnrow button.primary { background: var(--yellow); color: #16130A; border: none; }
+
+  .notice { font-size: 11px; color: var(--faint); text-align: center; padding: 0 14px 10px; }
+  .notice b { color: var(--sub); }
+  main { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
+  .m-notice { display: none; }
+  .m-notice { padding: 8px 12px; background: var(--panel); border-top: 1px solid var(--border);
+              font-size: 11.5px; color: var(--faint); line-height: 1.5; text-align: center; }
+  .m-notice b { color: var(--sub); }
+
+  /* ═══ 📱 모바일 (폰) — 별도 오디오 장치가 없으므로 구성이 달라진다 ═══
+     폰은 BlackHole 라우팅이 불가능하다. 대신 '노트북 옆에 폰을 두고 방 소리를
+     듣게 하는 2대 구성'이 실제 사용 시나리오라, 장치 선택 UI를 감추고
+     화면 전체를 자막·답변에 쓴다. */
+  @media (max-width: 760px) {
+    header { flex-wrap: wrap; gap: 6px 8px; padding: 8px 10px; }
+    .tabs { order: 3; width: 100%; justify-content: center; }
+    .tab { flex: 1; padding: 6px 4px; font-size: 13px; }
+    .spacer { display: none; }
+    header select { flex: 1; min-width: 0; padding: 6px; font-size: 12px; }
+    header select#sens, header select#sttmode { display: none; }  /* Whisper 엔진 전용 */
+    header a { margin-left: auto; }
+    .ctrl button { width: 40px; height: 34px; font-size: 15px; }
+    .audiobar { display: none; }            /* 폰에는 BlackHole/이중 장치가 없음 */
+    .sumbar { margin: 8px 10px 0; padding: 8px 10px; font-size: 12.5px; }
+    .sumbar .label { display: none; }
+    #feed { padding: 10px 10px 6px; }
+    .row { max-width: 100%; }
+    .notice { display: none; }
+    .m-notice { display: block; }
+    /* 답변 카드 = 하단 시트. 화면을 다 덮지 않게 높이를 제한하고 내부 스크롤 */
+    /* 하단 시트 — 내용이 길면 내부 스크롤. 잘린 끝을 페이드로 알려 스크롤을 유도한다 */
+    #card { left: 8px; right: 8px; bottom: 8px; max-height: 56vh; overflow-y: auto;
+            padding: 12px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+            -webkit-mask-image: linear-gradient(#000 calc(100% - 22px), transparent);
+            mask-image: linear-gradient(#000 calc(100% - 22px), transparent); }
+    #card.at-end { -webkit-mask-image: none; mask-image: none; }
+    /* 카드를 스크롤해도 📌/✕ 는 항상 닿을 수 있게 헤더 고정 */
+    #card .head { position: sticky; top: -12px; z-index: 2; background: var(--panel2);
+                  margin: -12px -12px 8px; padding: 12px; border-radius: 14px 14px 0 0; }
+    #card .head .gist { font-size: 13.5px; }
+    #card .head button { font-size: 17px; padding: 2px 4px; }   /* 터치 타깃 확대 */
+    .actions { flex-wrap: wrap; gap: 6px; padding: 6px 10px; }
+    .actions button { flex: 1 1 44%; font-size: 12.5px; padding: 9px 6px; }
+    /* 좁은 화면에선 '답변' 배지가 본문과 겹치므로 아래로 내리고 터치 타깃을 키운다 */
+    .bubble .ask { position: static; display: inline-block; margin-top: 8px;
+                   padding: 5px 10px; border: 1px solid var(--yellow-deep);
+                   border-radius: 999px; opacity: 1; font-size: 12px; }
+    .row.q .bubble { display: flex; flex-direction: column; align-items: flex-start; }
+    .row.q .bubble .en, .row.q .bubble .kr { order: -1; width: 100%; }
+    .row.q .bubble .kr { order: 0; }
+    .quickbar { padding: 6px 10px 10px; }
+    .quickbar input { font-size: 16px; }    /* iOS 자동 확대 방지 (16px 미만이면 줌) */
+    .lrow .say { font-size: 20px; padding: 0 4px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="ctrl">
+    <button id="btn-listen" title="듣기 시작/일시정지">▶</button>
+    <button id="btn-stop" title="세션 종료 (기록 지움)">⏹</button>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-v="live">라이브</button>
+    <button class="tab" data-v="summary">요약</button>
+    <button class="tab" data-v="translate">번역</button>
+  </div>
+  <div class="spacer"></div>
+  <select id="sttengine" title="음성 인식 엔진 — 브라우저는 실시간(무료), Whisper는 정확하지만 비실시간(문장 단위 지연)">
+    <option value="web" selected>인식: 브라우저(실시간·무료)</option>
+    <option value="groq">인식: Whisper(정확·비실시간)</option>
+  </select>
+  <select id="sttmode" title="음성 인식 대상 — Groq 요청 한도에 걸리면 '상대만'으로 절약">
+    <option value="both" selected>대상: 양쪽</option>
+    <option value="opp">대상: 상대만(절약)</option>
+  </select>
+  <select id="sens" title="음성 감지 민감도">
+    <option value="high">민감도 높음</option>
+    <option value="mid" selected>민감도 보통</option>
+    <option value="low">민감도 낮음</option>
+  </select>
+  <select id="cefr" title="내 영어 레벨">
+    <option value="A2">A2</option><option value="B1" selected>B1</option>
+    <option value="B2">B2</option><option value="C1">C1</option>
+  </select>
+  <a href="/interview.html">연습 모드</a>
+</header>
+
+<div class="audiobar">
+  <div class="grp"><b>🎧 상대(면접관)</b>
+    <select id="dev-opp" title="면접관 목소리 입력 — BlackHole(루프백) 권장"></select>
+    <span class="meter"><i id="meter-opp"></i></span></div>
+  <div class="grp"><b>🎙 내 목소리</b>
+    <select id="dev-me" title="내 목소리 입력 — 실제 마이크"></select>
+    <span class="meter"><i id="meter-me"></i></span></div>
+  <button id="dev-mon" class="mon" title="소리 테스트 — 유튜브를 틀고 상대 막대가 움직이면 라우팅 정상">🎚 소리 테스트</button>
+  <button id="dev-refresh" title="장치 목록 새로고침">↻ 장치</button>
+  <span id="dev-hint" style="color:var(--faint)"></span>
+</div>
+
+<div class="sumbar">
+  <span class="dot"></span><span class="label">실시간 요약</span>
+  <span class="line" id="sum-line">듣기를 시작하면 대화 요약이 실시간으로 표시됩니다</span>
+</div>
+
+<main>
+  <!-- 라이브 -->
+  <div class="view" id="view-live">
+    <div id="feed">
+      <div class="empty" id="feed-empty">
+        <div class="big">🎧</div>
+        ▶ 버튼을 누르면 대화가 실시간 자막 + 한국어 번역으로 표시되고<br>
+        질문이 감지되면 답변 카드가 자동으로 뜹니다
+      </div>
+    </div>
+    <div class="actions">
+      <button data-intent="agree">👍 동의하기</button>
+      <button data-intent="disagree">👎 반박하기</button>
+      <button data-intent="ask">💬 질문하기</button>
+      <button data-intent="propose">💡 제안하기</button>
+      <span class="who" id="stt-ind" style="display:none; border:none; background:none; color:var(--faint); font-size:11.5px; margin-left:auto; padding:6px 10px;">듣는 중…</span>
+    </div>
+    <div class="hint-out" id="hint-out">
+      <span class="txt" id="hint-txt"></span>
+      <button class="say" id="hint-say">🔊</button>
+      <button class="say" id="hint-x">✕</button>
+    </div>
+    <div class="quickbar">
+      <input type="text" id="hint-in" placeholder="한국어 문장 혹은 단어를 빠르게 번역하기...">
+      <button id="hint-go">↑</button>
+    </div>
+    <!-- ✦ 답변 제안 카드 -->
+    <div id="card">
+      <div class="head">
+        <span class="gist" id="c-gist"></span>
+        <span class="spec-tag" title="질문이 끝나기 전에 미리 생성 중 — 확정되면 자동 갱신됩니다">미리 생성</span>
+        <button id="c-size" title="답변 글자 크기 (단축키 +)">🔎</button>
+        <button id="c-pin" title="고정 — 읽는 동안 새 질문이 덮어쓰지 않게 (단축키 Space)">📌</button>
+        <button id="c-close" title="닫기 (단축키 Esc)">✕</button>
+      </div>
+      <div class="lrow" id="c-strat-row" style="display:none">
+        <span class="lab st">전략</span>
+        <div class="body"><div class="strat" id="c-strat"></div></div>
+      </div>
+      <div id="c-answers"></div>
+      <div id="c-src"></div>
+    </div>
+  </div>
+
+  <!-- 요약 -->
+  <div class="view hidden padview" id="view-summary">
+    <pre id="full-summary">아직 요약할 대화가 없습니다.</pre>
+    <div class="btnrow"><button id="btn-full-summary">요약 새로고침</button></div>
+  </div>
+
+  <!-- 번역 -->
+  <div class="view hidden padview" id="view-translate">
+    <textarea id="tr-in" placeholder="한국어 또는 영어를 입력하세요 (자동 감지)"></textarea>
+    <div class="btnrow">
+      <button id="tr-go">번역</button>
+      <button class="ghost" id="tr-say">🔊 듣기</button>
+    </div>
+    <div class="out" id="tr-out"></div>
+  </div>
+</main>
+
+<div class="notice">
+  🎧 <b>BlackHole</b> 셋업: 화상회의 앱 스피커 출력을 <b>Multi-Output(스피커+BlackHole)</b>으로,
+  위 <b>상대(면접관)</b>를 <b>BlackHole</b>로 · <b>내 목소리</b>를 실제 마이크로 선택 → ▶ 시작 · <b>이어폰 사용 OK · 네이티브 Zoom 앱 OK</b>
+</div>
+<div class="m-notice" id="m-notice">
+  📱 <b>폰을 노트북 옆에 두고</b> ▶ 를 누르세요 — 면접관 목소리를 폰 마이크로 듣고 자막·번역·답변을 띄웁니다
+  (<b>이어폰 대신 노트북 스피커</b> 사용 · Android Chrome 권장)
+</div>
+
+<!-- 📋 세션 종료 리포트 -->
+<div id="report">
+  <div class="box">
+    <h2>세션 리포트</h2>
+    <div class="meta" id="rp-meta"></div>
+    <pre id="rp-body">⏳ 리포트 생성 중...</pre>
+    <details><summary>전체 트랜스크립트 보기</summary><pre id="rp-transcript"></pre></details>
+    <div class="btnrow">
+      <button id="rp-download">⬇ 트랜스크립트 저장 (.txt)</button>
+      <button id="rp-back">계속 이어서 듣기</button>
+      <button id="rp-new" class="primary">새 세션 시작</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+// 📱 폰: 오디오 입력이 하나뿐(BlackHole 라우팅 불가) → 장치 선택/이중 캡처를 쓰지 않는다
+const IS_MOBILE = matchMedia('(max-width: 760px)').matches ||
+                  /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const feed = $('#feed');
+const log = [];                 // {who, text}
+let suggestAbort = null;
+const trQueue = [];             // 자막 번역 대기열
+let translating = 0;            // 진행 중인 번역 레인 수
+let uttCount = 0, lineSumBusy = false;
+
+// ── 질문 감지 휴리스틱 — STT가 물음표를 빠뜨려도 잡아야 한다.
+//    실제 면접관은 "So,", "Okay,", "And..." 로 질문을 시작하므로
+//    ① 문두 군말을 반복 제거하고 ② 세그먼트 안 문장별로 검사한다.
+//    (실측: 면접 말투 18문항 기준 기존 6/18 → 18/18, 오탐 0/16)
+const Q_STARTS = ['what','why','how','when','where','who','which','tell me','tell us',
+  'describe','walk me','walk us','could you','can you','would you','do you','did you',
+  'have you','has your','are you','were you','is there','is it','are there',
+  'give me','give us',"let's say",'suppose','imagine','talk me through','talk about',
+  'explain','share',"i'd love to hear",'i am curious',"i'm curious",'how about','what about'];
+const FILLER_RE = /^(so|okay|ok|well|alright|right|now|and|then|um+|uh+|hmm+|great|nice|good|thanks|thank you|i see|got it)[,.!]?\s+/;
+function isQuestion(text) {
+  const t = text.trim().toLowerCase();
+  if (!t) return false;
+  if (t.includes('?')) return true;
+  for (let s of t.split(/[.!;]/)) {
+    s = s.trim();
+    let prev = null;
+    while (prev !== s) { prev = s; s = s.replace(FILLER_RE, ''); }   // 문두 군말 제거
+    if (s.split(' ').length >= 3 && Q_STARTS.some(q => s.startsWith(q))) return true;
+  }
+  return false;
+}
+
+// ── NDJSON 스트림 공통 리더 ────────────────────────────────
+async function streamChat(url, payload, onToken, signal, onMeta) {
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload), signal,
+    });
+  } catch (e) {
+    if (e.name === 'AbortError') throw e;
+    // 브라우저 기본 문구("Failed to fetch")는 원인을 알려주지 않는다 → 실제 조치를 안내
+    throw new Error('서버에 연결할 수 없어요 — 맥에서 start.sh가 실행 중인지 확인하세요');
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n'); buf = lines.pop();
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const obj = JSON.parse(line);
+        if (obj.error) throw new Error(obj.error);
+        if (obj.meta) { onMeta?.(obj.meta); continue; }   // 📎 답변 근거 (토큰보다 먼저 옴)
+        if (obj.message?.content) onToken(obj.message.content);
+      } catch (e) { if (e.message && !(e instanceof SyntaxError)) throw e; }
+    }
+  }
+}
+
+const now = () => new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+// ── 발화 버블 (who: '상대' | '나' — 스트림 출처로 자동 결정) ─
+function addUtterance(text, who) {
+  $('#feed-empty')?.remove();
+  const me = who === '나';
+  const q = !me && isQuestion(text);
+  log.push({ who, text });
+  const row = document.createElement('div');
+  row.className = 'row' + (me ? ' me' : '') + (q ? ' q' : '');
+  row.innerHTML =
+    `<div class="meta">${me ? '나' : '상대'} · ${now()}</div>` +
+    `<div class="bubble">${me ? '' : '<span class="ask">답변</span>'}<div class="en"></div><div class="kr"></div></div>`;
+  row.querySelector('.en').textContent = text;
+  row.querySelector('.ask')?.addEventListener('click', () => suggest(text, 'answer'));
+  feed.appendChild(row);
+  feed.scrollTop = feed.scrollHeight;
+  // 번역은 '상대(면접관) 발화'에만 — 내가 방금 말한 영어를 한국어로 되돌릴 이유가 없고,
+  // 이 호출이 전체 LLM 요청의 약 30%를 차지해 무료 한도를 그만큼 앞당겨 소진시킨다.
+  if (!me && text.split(' ').length >= 3) {
+    trQueue.push({ el: row.querySelector('.kr'), text });
+    processTrQueue();
+  }
+  if (q) suggest(text, 'answer', true);      // 질문 자동 감지 → 답변 카드 (📌 고정 시 보호)
+  if (++uttCount % 3 === 0) updateLineSummary();  // 3발화마다 실시간 요약 갱신
+  return row;
+}
+
+// ── 자막 번역 큐 — 영어 발화마다 바로 한국어 번역을 채운다.
+//   답변 생성과 독립적으로 동작(막히지 않음)하고, 실패 시 이유를 그 자리에 표시.
+//   면접관이 빠르게 이어 말하면 직렬 처리로는 자막 번역이 밀리므로 2개 레인을 병렬로
+//   돌린다 (각 발화의 번역은 자기 버블에 독립적으로 채워지므로 순서 무관).
+const TR_LANES = 2;
+async function processTrQueue() {
+  while (translating < TR_LANES && trQueue.length) {
+    translating++;
+    const item = trQueue.shift();
+    (async () => {
+      try {
+        let got = false;
+        await streamChat('/api/translate', { text: item.text },
+          tk => { if (!got) { item.el.textContent = ''; got = true; } item.el.textContent += tk; });
+      } catch (e) {
+        // 조용히 감추지 않고 이유를 노출 (예: LLM API 오류 403 → 키 문제라는 걸 바로 알 수 있게)
+        item.el.innerHTML = `<span style="color:var(--danger)">번역 실패: ${e.message}</span>`;
+      } finally { translating--; processTrQueue(); }
+    })();
+  }
+}
+
+// ── 실시간 한 줄 요약 (상단 바) ────────────────────────────
+async function updateLineSummary() {
+  if (lineSumBusy || suggestAbort || !log.length) return;
+  lineSumBusy = true;
+  let out = '';
+  try {
+    await streamChat('/api/live/summary',
+      { transcript: log.slice(-14).map(l => `${l.who}: ${l.text}`).join('\n'), mode: 'line' },
+      tk => { out += tk; });
+    if (out.trim()) $('#sum-line').textContent = out.trim();
+  } catch { /* 요약 실패는 무시 */ }
+  finally { lineSumBusy = false; }
+}
+
+// ── ✦ 답변 카드 렌더링 ─────────────────────────────────────
+let pinned = false;
+
+function answerRow(en, kr, label) {
+  const row = document.createElement('div');
+  row.className = 'lrow';
+  row.innerHTML = `<span class="lab an">${label || '답변'}</span>
+    <div class="body"><div class="en"></div><div class="kr"></div></div>
+    <button class="say">🔊</button>`;
+  row.querySelector('.en').textContent = en;
+  row.querySelector('.kr').textContent = kr || '';
+  row.querySelector('.say').addEventListener('click', () => speak(en));
+  return row;
+}
+
+// 스트리밍 파싱 — 새 형식: EN/KR 블록들 먼저, META(요지|전략)는 맨 뒤
+function renderCard(raw) {
+  const box = $('#c-answers');
+  box.innerHTML = '';
+  for (const b of raw.split('===')) {
+    if (/META|요지\s*=/.test(b)) {
+      const gist = (b.match(/요지\s*=\s*([^|]+)/) || [])[1]?.trim();
+      const strat = (b.match(/전략\s*=\s*(.+)/) || [])[1]?.trim();
+      if (gist) $('#c-gist').textContent = gist;
+      $('#c-strat-row').style.display = strat ? 'flex' : 'none';
+      if (strat) $('#c-strat').textContent = strat;
+      continue;
+    }
+    const en = ((b.match(/EN\s*[:：]\s*([\s\S]*?)(?=\nKR\s*[:：]|$)/) || [])[1] || '').trim();
+    const kr = ((b.match(/KR\s*[:：]\s*([\s\S]*)/) || [])[1] || '').trim();
+    if (en) box.appendChild(answerRow(en, kr));
+  }
+}
+
+// ⚡ 미리 생성된 맞춤 답변 즉시 렌더링 (0초)
+function renderCardData(entry) {
+  const levelNote = entry.cefr && entry.cefr !== $('#cefr').value ? ` (${entry.cefr} 기준 생성)` : '';
+  $('#c-gist').textContent = '⚡ ' + (entry.gist_ko || entry.question_kr || '') + levelNote;
+  $('#c-strat-row').style.display = entry.strategy_ko ? 'flex' : 'none';
+  $('#c-strat').textContent = entry.strategy_ko || '';
+  const box = $('#c-answers');
+  box.innerHTML = '';
+  (entry.answers || []).forEach(a => box.appendChild(answerRow(a.en, a.kr)));
+}
+
+// 📎 답변 근거 — 어떤 내 사례에서 나왔는지 + 수치 미입력 경고
+function renderSources(meta) {
+  const el = $('#c-src');
+  if (!meta || (!meta.sources?.length && !meta.has_placeholder)) { el.style.display = 'none'; return; }
+  const parts = [];
+  if (meta.sources?.length) parts.push(`📎 근거: <b>${meta.sources.join(' · ')}</b>`);
+  if (meta.followup_of) parts.push(`↩︎ 앞 질문 이어받음`);
+  if (meta.has_placeholder)
+    parts.push(`<span class="warn">⚠️ 내 스토리에 숫자가 비어 있어 구체적 수치는 생략됐어요 — my_story.md를 채우면 더 강해집니다</span>`);
+  el.innerHTML = parts.join(' &nbsp;·&nbsp; ');
+  el.style.display = 'block';
+}
+
+// ⚡ 투기적 선생성(speculative prefetch) — Web Speech는 말이 끝난 뒤 1~2초 지나
+//   isFinal이 오므로, 그 전에 "질문처럼 보이는" 중간 결과로 미리 생성을 시작한다.
+//   확정 문장이 도착하면: 거의 같으면 그대로 두고(=지연 0), 다르면 즉시 재생성.
+let specKey = '', specDone = '';
+const normQ = (t) => t.toLowerCase().replace(/[^a-z0-9가-힣 ]/g, '').replace(/\s+/g, ' ').trim();
+// 확정 문장(final)의 내용이 미리 생성에 쓴 문장(spec)에 얼마나 담겨 있는가.
+//  대칭 유사도를 쓰면 "…deal with a really" 처럼 끝이 잘린 조각도 0.87로 통과해
+//  정작 핵심어(difficult customer)가 빠진 답변을 채택하게 된다. 그래서 '방향성'
+//  기준으로 본다 — 확정 문장에 새 단어가 붙었으면 반드시 다시 생성한다.
+function covers(spec, final) {
+  const S = new Set(normQ(spec).split(' ')), F = normQ(final).split(' ').filter(Boolean);
+  if (!S.size || !F.length) return 0;
+  return F.filter(w => S.has(w)).length / F.length;
+}
+function similar(a, b) {
+  const A = new Set(normQ(a).split(' ')), B = new Set(normQ(b).split(' '));
+  if (!A.size || !B.size) return 0;
+  let inter = 0; A.forEach(w => { if (B.has(w)) inter++; });
+  return inter / Math.max(A.size, B.size);
+}
+
+async function suggest(target, intent, auto, speculative) {
+  // 📌 고정 중에는 자동 감지가 카드를 덮어쓰지 않는다 (읽는 중 보호).
+  //    수동 클릭(답변 버튼/퀵 액션)은 사용자 의도이므로 고정을 해제하고 진행.
+  if (auto && pinned) return;
+  if (!auto && pinned) { pinned = false; $('#c-pin').classList.remove('on'); }
+
+  // 확정 문장이 방금 미리 생성한(또는 생성 중인) 것과 거의 같으면 재생성하지 않는다.
+  //  → 이미 화면에 떠 있거나 스트리밍 중인 답변을 그대로 채택 = 체감 지연 0
+  if (!speculative) { specTries = 0; specGaps = []; specLastAt = 0; }  // 다음 발화용 초기화
+  if (!speculative && specKey && covers(specKey, target) >= 0.92 && (specDone || suggestAbort)) {
+    $('#card').classList.remove('spec');
+    specKey = ''; specDone = '';
+    return;
+  }
+  if (speculative) { specKey = target; specDone = ''; }
+
+  if (suggestAbort) suggestAbort.abort();
+  const card = $('#card');
+  card.style.display = 'block';
+  card.classList.toggle('spec', !!speculative);
+  // 1) 미리 준비된 맞춤 답변과 매칭되면 생성 없이 즉시 표시
+  if (intent === 'answer') {
+    try {
+      const r = await fetch('/api/live/cached?q=' + encodeURIComponent(target));
+      const d = await r.json();
+      if (d.hit) {
+        renderCardData(d.entry);
+        if (speculative) specDone = target; else card.classList.remove('spec');
+        processTrQueue();
+        return;
+      }
+    } catch { /* 캐시 실패는 무시하고 생성으로 */ }
+  }
+  // 2) 캐시 미스 → 실시간 생성 (답변이 먼저 스트리밍됨)
+  suggestAbort = new AbortController();
+  const mySignal = suggestAbort.signal;
+  $('#c-gist').textContent = target.length > 60 ? target.slice(0, 60) + '…' : target;
+  $('#c-strat-row').style.display = 'none';
+  $('#c-src').style.display = 'none';
+  $('#c-answers').innerHTML = '<div class="lrow"><span class="lab an">답변</span><div class="body"><div class="en">⏳ 생성 중...</div></div></div>';
+  const context = log.slice(-7).map(l => `${l.who === '나' ? 'Candidate' : 'Interviewer'}: ${l.text}`).join('\n');
+  let raw = '';
+  try {
+    await streamChat('/api/live/suggest',
+      { question: target, cefr: $('#cefr').value, context, intent },
+      tk => { raw += tk; renderCard(raw); }, mySignal, renderSources);
+    if (speculative) specDone = target; else card.classList.remove('spec');
+  } catch (e) {
+    if (e.name !== 'AbortError') $('#c-gist').textContent = '⚠️ ' + e.message;
+  } finally {
+    if (suggestAbort?.signal === mySignal) suggestAbort = null;
+    processTrQueue();
+  }
+}
+$('#c-close').addEventListener('click', () => { $('#card').style.display = 'none'; pinned = false; $('#c-pin').classList.remove('on'); });
+$('#c-pin').addEventListener('click', () => { pinned = !pinned; $('#c-pin').classList.toggle('on', pinned); });
+
+// ── 답변 글자 크기 (1 → 1.2 → 1.45 순환, 저장됨) ──
+const SIZES = [1, 1.2, 1.45];
+let sizeIdx = +(localStorage.getItem('ic_ansz') || 0);
+function applySize() {
+  sizeIdx = ((sizeIdx % SIZES.length) + SIZES.length) % SIZES.length;
+  document.documentElement.style.setProperty('--ansz', SIZES[sizeIdx]);
+  localStorage.setItem('ic_ansz', sizeIdx);
+  $('#c-size').title = `답변 글자 크기 ${Math.round(SIZES[sizeIdx] * 100)}% (단축키 +)`;
+}
+applySize();
+$('#c-size').addEventListener('click', () => { sizeIdx++; applySize(); });
+
+// 하단 시트를 끝까지 내렸으면 페이드 제거 (더 볼 내용이 없다는 신호)
+$('#card').addEventListener('scroll', () => {
+  const c = $('#card');
+  c.classList.toggle('at-end', c.scrollTop + c.clientHeight >= c.scrollHeight - 4);
+}, { passive: true });
+
+// ── ⌨️ 단축키 — 면접 중 마우스 조작은 화면에 드러나므로 키보드로 처리 ──
+//   Space: 카드 고정/해제 (읽는 중 보호) · Esc: 카드 닫기 · +/-: 글자 크기
+document.addEventListener('keydown', (e) => {
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.code === 'Space') { e.preventDefault(); $('#c-pin').click(); }
+  else if (e.key === 'Escape') { e.preventDefault(); $('#c-close').click(); }
+  else if (e.key === '+' || e.key === '=') { e.preventDefault(); sizeIdx++; applySize(); }
+  else if (e.key === '-' || e.key === '_') { e.preventDefault(); sizeIdx--; applySize(); }
+});
+
+// ── 퀵 액션 (동의/반박/질문/제안) — 마지막 상대 발화 기준 ───
+document.querySelectorAll('.actions [data-intent]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const last = [...log].reverse().find(l => l.who === '상대');
+    if (last) suggest(last.text, btn.dataset.intent);
+  });
+});
+
+function speak(text) {
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US'; u.rate = 0.95;
+  const v = speechSynthesis.getVoices().find(v => v.lang.startsWith('en'));
+  if (v) u.voice = v;
+  speechSynthesis.speak(u);
+}
+
+// ════════════════════════════════════════════════════════════
+//  🎙 이중 입력 장치 캡처 + Groq Whisper STT — 화자 물리적 분리
+//    · 상대(면접관): BlackHole(루프백) 입력 — 화상회의 앱 오디오가 여기로 들어옴
+//    · 나:          실제 마이크 입력
+//  두 장치를 각각 VAD(음성 구간 감지)로 세그먼트로 잘라
+//  /api/stt(Groq whisper-large-v3-turbo)에 보낸다.
+//  → 장치가 물리적으로 분리돼 화자 구분이 100% 정확, 이어폰·네이티브 Zoom OK
+// ════════════════════════════════════════════════════════════
+let audioCtx = null, oppCap = null, meCap = null;
+let pendingStt = 0;
+// STT 장애 복원력: 실패 시 지수 백오프(2→4→…→30초) 동안 세그먼트 전송을 멈추고
+// 상태를 화면에 계속 표시한다 — "조용히 죽는" 상황 방지.
+let sttFails = 0, sttBackoffUntil = 0, sttKeyMissing = false, sttLastError = '';
+
+function sttStatus() {
+  const el = $('#stt-ind');
+  if (sttKeyMissing) {
+    el.style.display = 'inline'; el.style.color = 'var(--danger)';
+    el.textContent = '⚠️ GROQ_API_KEY 없음 — 음성 인식 불가';
+  } else if (Date.now() < sttBackoffUntil) {
+    el.style.display = 'inline'; el.style.color = 'var(--danger)';
+    const secs = Math.ceil((sttBackoffUntil - Date.now()) / 1000);
+    // 실제 원인을 그대로 노출 (401=키오류 / 429=요청한도 / 그 외)
+    el.textContent = `⚠️ ${sttLastError || '인식 오류'} — ${secs}초 후 재시도`;
+    setTimeout(sttStatus, 1000);
+  } else if (pendingStt > 0) {
+    el.style.display = 'inline'; el.style.color = 'var(--faint)';
+    el.textContent = '듣는 중…';
+  } else {
+    el.style.display = 'none';
+  }
+}
+function sttPending(delta) { pendingStt += delta; sttStatus(); }
+
+// ── 전역 STT 스케줄러 — Groq 요청 한도(RPM) 회피 ────────────────
+//  · 요청 간 최소 간격(adaptive)을 강제해 분당 요청 수를 한도 아래로
+//  · 상대(면접관) 세그먼트 우선 처리, 큐가 밀리면 '나'부터 버림
+//  · 429가 나면 간격을 자동으로 벌리고, 성공하면 서서히 회복
+let sttQueue = [];                    // {who, blob}
+let sttDraining = false, sttLastSent = 0;
+let sttGap = 3500;                    // 요청 간 최소 간격(ms) — 429 시 자동 증가
+const STT_QUEUE_MAX = 4;              // 이보다 밀리면 '나' 세그먼트부터 폐기
+
+function enqueueStt(who, blob) {
+  if (sttKeyMissing) return;
+  if ($('#sttmode')?.value === 'opp' && who === '나') return;   // 절약: 상대만 인식
+  sttQueue.push({ who, blob });
+  drainStt();
+}
+
+async function drainStt() {
+  if (sttDraining) return;
+  sttDraining = true;
+  try {
+    while (sttQueue.length) {
+      if (Date.now() < sttBackoffUntil)                          // 백오프 중 대기
+        await new Promise(r => setTimeout(r, sttBackoffUntil - Date.now()));
+      // 큐가 밀리면 '나' 세그먼트부터 버려 상대(질문) 인식을 지킨다
+      while (sttQueue.length > STT_QUEUE_MAX) {
+        const idx = sttQueue.findIndex(x => x.who === '나');
+        if (idx >= 0) sttQueue.splice(idx, 1); else break;
+      }
+      let i = sttQueue.findIndex(x => x.who === '상대');          // 상대 우선
+      if (i < 0) i = 0;
+      const item = sttQueue.splice(i, 1)[0];
+      const wait = sttGap - (Date.now() - sttLastSent);
+      if (wait > 0) await new Promise(r => setTimeout(r, wait));
+      sttLastSent = Date.now();
+      const result = await sttSend(item.who, item.blob);
+      // 상대(질문)는 일시 실패(429/네트워크) 시 한 번 재시도 — 질문을 놓치지 않도록
+      if (result === 'retry' && item.who === '상대' && !item.retried) {
+        item.retried = true; sttQueue.unshift(item);
+      }
+    }
+  } finally { sttDraining = false; }
+}
+
+// 반환: 'ok' | 'retry'(일시 실패, 재시도 가치 있음) | 'drop'(키 오류 등, 재시도 무의미)
+async function sttSend(who, blob) {
+  sttPending(1);
+  try {
+    // lang 미지정 → Whisper 언어 자동 감지 (한/영 혼용 대응)
+    const res = await fetch('/api/stt', {
+      method: 'POST', headers: { 'Content-Type': 'audio/webm' }, body: blob });
+    const d = await res.json().catch(() => ({}));
+    if (res.status === 503) { sttKeyMissing = true; sttLastError = d.error || 'GROQ_API_KEY 없음'; sttStatus(); return 'drop'; }
+    if (res.status === 401) { sttLastError = 'API 키 오류(401) — 키를 확인하세요'; sttFails++; sttStatus(); return 'drop'; }
+    if (res.status === 429) {
+      sttGap = Math.min(9000, Math.round(sttGap * 1.5));          // 한도 → 간격 자동 확대
+      sttFails += 1;
+      sttLastError = `Groq 요청 한도 — 간격 ${(sttGap/1000).toFixed(1)}s로 자동 조절`;
+      sttBackoffUntil = Date.now() + Math.min(15, 2 ** sttFails) * 1000;
+      sttStatus();
+      return 'retry';
+    }
+    if (!res.ok) { sttLastError = d.error || `STT 오류 (${res.status})`; sttFails++; sttStatus(); return 'retry'; }
+    sttFails = 0; sttLastError = '';
+    sttGap = Math.max(3000, Math.round(sttGap * 0.95));           // 성공 → 간격 서서히 회복
+    const text = (d.text || '').trim();
+    // Whisper가 무음에서 만들어내는 환청 토막("you", "Thank you." 등) 필터
+    if (text && text.split(' ').length >= 2 && !/^thank you\.?$/i.test(text)) {
+      addUtterance(text, who);
+    }
+    return 'ok';
+  } catch (e) {                                                    // 네트워크 오류 → 재시도 가치
+    sttFails += 1;
+    sttLastError = e.message;
+    sttBackoffUntil = Date.now() + Math.min(15, 2 ** sttFails) * 1000;
+    sttStatus();
+    console.warn('STT 실패:', e.message);
+    return 'retry';
+  } finally { sttPending(-1); }
+}
+
+// 민감도 프리셋 — 적응형 노이즈 플로어에 곱하는 배수 + 최소 임계값
+const SENS = {
+  high: { mult: 1.9, min: 0.005 },
+  mid:  { mult: 2.6, min: 0.009 },
+  low:  { mult: 3.4, min: 0.014 },
+};
+const sensCfg = () => SENS[$('#sens').value] || SENS.mid;
+
+class SegmentRecorder {
+  constructor(stream, who) {
+    this.stream = stream; this.who = who;
+    this.src = audioCtx.createMediaStreamSource(stream);
+    this.analyser = audioCtx.createAnalyser();
+    this.analyser.fftSize = 2048;
+    this.src.connect(this.analyser);
+    this.buf = new Uint8Array(this.analyser.fftSize);
+    this.noise = 0.006;             // 적응형 노이즈 플로어 (조용할 때 학습)
+    this.hadSpeech = false; this.speechMs = 0; this.silenceMs = 0; this.segMs = 0;
+    this.mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+    this._arm();
+    this.timer = setInterval(() => this._tick(), 100);
+  }
+  _arm() {
+    this.chunks = [];
+    this.recorder = new MediaRecorder(this.stream, { mimeType: this.mime, audioBitsPerSecond: 48000 });
+    this.recorder.ondataavailable = (e) => { if (e.data.size) this.chunks.push(e.data); };
+    this.recorder.onstop = () => {
+      const blob = new Blob(this.chunks, { type: this.mime });
+      // 최소 0.4초 이상 실제 발화가 있었던 세그먼트만 전송 (노이즈 팝 필터)
+      const send = this.hadSpeech && this.speechMs >= 400 && blob.size > 2500;
+      this.hadSpeech = false; this.speechMs = 0; this.silenceMs = 0; this.segMs = 0;
+      if (this.stream.active) { this._arm(); }
+      if (send) enqueueStt(this.who, blob);   // 전역 스케줄러로 (요청 한도 회피)
+    };
+    this.recorder.start();
+  }
+  _rms() {
+    this.analyser.getByteTimeDomainData(this.buf);
+    let s = 0;
+    for (let i = 0; i < this.buf.length; i++) { const v = (this.buf[i] - 128) / 128; s += v * v; }
+    return Math.sqrt(s / this.buf.length);
+  }
+  _tick() {
+    if (!this.recorder || this.recorder.state !== 'recording') return;
+    this.segMs += 100;
+    const rms = this._rms();
+    const cfg = sensCfg();
+    // 임계값 = max(최소값, 학습된 노이즈 플로어 × 배수) — 환경 소음에 자동 적응
+    const speaking = rms > Math.max(cfg.min, this.noise * cfg.mult);
+    if (speaking) { this.hadSpeech = true; this.speechMs += 100; this.silenceMs = 0; }
+    else {
+      this.silenceMs += 100;
+      this.noise = this.noise * 0.9 + rms * 0.1;   // 조용할 때만 노이즈 플로어 갱신
+    }
+    // 발화(0.4초+) 후 0.9초 침묵 → 문장 컷 · 14초 강제 컷 · 무음 6초마다 버퍼 리셋
+    // (침묵 컷을 늘리면 세그먼트가 길어져 Groq 요청 수가 줄고 한도(RPM)에 덜 걸린다)
+    if ((this.hadSpeech && this.speechMs >= 400 && this.silenceMs >= 900) ||
+        this.segMs >= 14000 || (!this.hadSpeech && this.segMs >= 6000)) {
+      this.recorder.stop();
+    }
+  }
+  stop() {
+    clearInterval(this.timer);
+    try { if (this.recorder.state !== 'inactive') { this.recorder.onstop = null; this.recorder.stop(); } } catch {}
+    this.src.disconnect();
+    this.stream.getTracks().forEach(t => t.stop());
+  }
+}
+
+// ── 오디오 입력 장치 열거 + 자동 감지 ──────────────────────
+const LOOPBACK_RE = /blackhole|black hole|aggregate|loopback|soundflower|multi-?output|vb-?audio|집계/i;
+async function populateDevices(unlock) {
+  if (unlock) {   // 권한이 없으면 라벨이 비어 나오므로 임시 스트림으로 잠금 해제
+    try {
+      const tmp = await navigator.mediaDevices.getUserMedia({ audio: true });
+      tmp.getTracks().forEach(t => t.stop());
+    } catch { throw new Error('마이크 권한이 필요합니다 (장치 이름을 읽으려면 허용하세요).'); }
+  }
+  const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput');
+  const oppSel = $('#dev-opp'), meSel = $('#dev-me');
+  for (const sel of [oppSel, meSel]) {
+    const cur = sel.value;
+    sel.innerHTML = '';
+    devs.forEach((d, i) => {
+      const o = document.createElement('option');
+      o.value = d.deviceId; o.textContent = d.label || `입력 장치 ${i + 1}`;
+      sel.appendChild(o);
+    });
+    if (cur) sel.value = cur;
+  }
+  // 자동 감지 — 나(실제 마이크) 먼저 정하고, 상대는 그와 '다른' 장치로 (같은 장치 방지)
+  if (!meSel.dataset.userset) {
+    const mic = devs.find(d => !LOOPBACK_RE.test(d.label) && /default|macbook|built-?in|내장|기본/i.test(d.label))
+             || devs.find(d => !LOOPBACK_RE.test(d.label)) || devs[0];
+    if (mic) meSel.value = mic.deviceId;
+  }
+  if (!oppSel.dataset.userset) {
+    const bh = devs.find(d => LOOPBACK_RE.test(d.label));
+    if (bh) oppSel.value = bh.deviceId;
+    else {   // BlackHole 없으면 최소한 '나'와 다른 장치를 골라 같은 장치 자동선택을 피함
+      const other = devs.find(d => d.deviceId !== meSel.value);
+      if (other) oppSel.value = other.deviceId;
+    }
+  }
+  const hasBH = devs.some(d => LOOPBACK_RE.test(d.label));
+  $('#dev-hint').innerHTML = hasBH ? ''
+    : (devs.length ? "<span class='warn'>⚠️ BlackHole을 못 찾았어요 — '상대(면접관)'를 BlackHole로 직접 선택하세요</span>" : '');
+  return devs;
+}
+$('#dev-opp').addEventListener('change', (e) => { e.target.dataset.userset = '1'; if (monOn) restartMonitor(); });
+$('#dev-me').addEventListener('change', (e) => { e.target.dataset.userset = '1'; if (monOn) restartMonitor(); });
+$('#dev-refresh').addEventListener('click', () => populateDevices(true).catch(e => alert(e.message)));
+navigator.mediaDevices?.addEventListener?.('devicechange', () => populateDevices(false).catch(() => {}));
+populateDevices(false).catch(() => {});   // 로드 시 1회 (권한 있으면 라벨까지 채워짐)
+
+// ── 🎚 소리 테스트 — 선택한 두 장치의 실시간 입력 레벨을 막대로 표시.
+//    유튜브/Zoom을 틀고 '상대' 막대가 움직이면 BlackHole 라우팅 정상.
+//    (듣기 시작 전에 셋업을 눈으로 검증 → "왜 안 잡히지" 문제를 즉시 진단)
+let monOn = false, monStreams = [], monRAF = null, monAudioCtx = null;
+async function _monMeter(deviceId, el) {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { deviceId: deviceId ? { exact: deviceId } : undefined,
+             echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  monStreams.push(stream);
+  const src = monAudioCtx.createMediaStreamSource(stream);
+  const an = monAudioCtx.createAnalyser(); an.fftSize = 1024;
+  src.connect(an);
+  const buf = new Uint8Array(an.fftSize);
+  return () => {
+    an.getByteTimeDomainData(buf);
+    let s = 0; for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; s += v * v; }
+    const rms = Math.sqrt(s / buf.length);
+    el.style.width = Math.min(100, rms * 320) + '%';   // 시각적으로 잘 보이게 증폭
+  };
+}
+async function startMonitor() {
+  stopMonitor();
+  monAudioCtx = monAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  await monAudioCtx.resume();
+  try {
+    const draws = await Promise.all([
+      _monMeter($('#dev-opp').value, $('#meter-opp')),
+      _monMeter($('#dev-me').value, $('#meter-me')),
+    ]);
+    const loop = () => { draws.forEach(d => d()); monRAF = requestAnimationFrame(loop); };
+    loop();
+    monOn = true;
+    $('#dev-mon').classList.add('on');
+    $('#dev-hint').innerHTML = '유튜브를 틀어보세요 → <b style="color:var(--text)">상대</b> 막대가 움직이면 정상 · 내가 말하면 <b style="color:var(--text)">내 목소리</b> 막대가 움직여야 함';
+  } catch (e) {
+    alert('소리 테스트 실패: ' + e.message);
+    stopMonitor();
+  }
+}
+function stopMonitor() {
+  monOn = false;
+  if (monRAF) cancelAnimationFrame(monRAF), monRAF = null;
+  monStreams.forEach(s => s.getTracks().forEach(t => t.stop())); monStreams = [];
+  $('#meter-opp').style.width = $('#meter-me').style.width = '0%';
+  $('#dev-mon').classList.remove('on');
+}
+function restartMonitor() { if (monOn) startMonitor(); }
+$('#dev-mon').addEventListener('click', () => monOn ? stopMonitor() : startMonitor());
+
+// ── 브라우저 내장 음성인식(Web Speech API) — 무료·무제한 STT ──────
+//  Google 서버로 실시간 인식. API 키/요청 한도 없음. 단, 입력 장치를
+//  지정할 수 없어 '시스템 기본 입력'만 듣는다 → 시스템 입력을 BlackHole로
+//  두면 면접관 발화가 인식된다. (내 목소리 채널은 이 모드에선 꺼짐)
+// ⚡ 중간 결과 감시 — 질문 형태가 완성되고 350ms 이상 말이 멈추면 미리 생성 시작.
+//   한 발화당 1회만, 📌 고정 중에는 건너뛴다 (요청 낭비/한도 방지).
+let specTimer = null, specLastText = '', specTries = 0, specGaps = [], specLastAt = 0;
+// '말이 끝났다'를 판정하는 침묵 길이는 화자마다 다르다. 고정값(예: 600ms)을 쓰면
+// 천천히 말하는 면접관에서는 단어 사이 침묵이 그보다 길어, 질문 도중에 조각으로
+// 선생성이 터지고(요청 낭비) 정작 완성된 질문은 확정을 기다리게 된다.
+// → 이 발화에서 관측된 중간결과 간격의 중앙값을 보고 임계값을 적응시킨다.
+//   빠른 화자면 짧게(=일찍 선생성), 느린 화자면 길게(=확정을 그냥 기다림).
+const SPEC_MAX_TRIES = 2;      // 한 발화당 선생성 횟수 상한 (요청 낭비 방지)
+function specThreshold() {
+  if (specGaps.length < 3) return 600;
+  const s = [...specGaps].sort((a, b) => a - b);
+  const med = s[Math.floor(s.length / 2)];
+  return Math.min(1500, Math.max(500, Math.round(med * 1.7)));
+}
+function maybeSpeculate(interim) {
+  if (pinned || specTries >= SPEC_MAX_TRIES) return;
+  const t = interim.trim();
+  if (t === specLastText) return;             // 텍스트가 자라는 동안엔 타이머만 갱신
+  const now = Date.now();
+  if (specLastAt) { specGaps.push(now - specLastAt); if (specGaps.length > 8) specGaps.shift(); }
+  specLastAt = now;
+  specLastText = t;
+  clearTimeout(specTimer);
+  if (t.split(/\s+/).length < 6 || !isQuestion(t)) return;
+  if (specKey && covers(specKey, t) >= 0.92) return;   // 이미 이 내용으로 생성 시작함
+  specTimer = setTimeout(() => {
+    if (pinned || specTries >= SPEC_MAX_TRIES) return;
+    if (specKey && covers(specKey, specLastText) >= 0.92) return;
+    if (isQuestion(specLastText)) { specTries++; suggest(specLastText, 'answer', true, true); }
+  }, specThreshold());
+}
+
+let webRec = null;
+function startWebSpeech() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    // iOS Safari/Chrome은 WebKit이라 실시간 인식이 없거나 불안정 → 대안을 화면에 남긴다
+    $('#sum-line').innerHTML = IS_MOBILE
+      ? "⚠️ 이 브라우저는 실시간 음성인식을 지원하지 않아요 — <b>Android Chrome</b>에서 열거나, " +
+        "아이폰이면 <b>연습 모드</b>를 이용하세요 (라이브는 맥 Chrome 권장)"
+      : "⚠️ 이 브라우저는 내장 음성인식을 지원하지 않아요 — Chrome을 쓰거나 헤더에서 'Whisper' 엔진으로 바꾸세요";
+    return false;
+  }
+  webRec = new SR();
+  webRec.lang = 'en-US';
+  webRec.continuous = true;
+  webRec.interimResults = true;
+  let interimRow = null, lastResultAt = Date.now(), heard = false;
+  webRec.onresult = (e) => {
+    lastResultAt = Date.now(); heard = true;
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript.trim();
+      if (e.results[i].isFinal) { if (t) addUtterance(t, '상대'); }  // → 자막+한국어 번역+답변
+      else interim += t + ' ';
+    }
+    if (interim) {
+      if (!interimRow) {
+        $('#feed-empty')?.remove();
+        interimRow = document.createElement('div');
+        interimRow.className = 'row dim';
+        interimRow.innerHTML = '<div class="bubble"><div class="en"></div></div>';
+        feed.appendChild(interimRow);
+      }
+      interimRow.querySelector('.en').textContent = interim;   // 말하는 대로 실시간 표시
+      feed.scrollTop = feed.scrollHeight;
+      maybeSpeculate(interim);        // ⚡ 말이 끝나기 전에 답변 미리 생성
+    } else if (interimRow) { interimRow.remove(); interimRow = null; }
+  };
+  webRec.onerror = (ev) => {
+    if (ev.error === 'not-allowed') { alert('마이크 권한을 허용해 주세요.'); stopListening(); }
+    else if (ev.error === 'no-speech') { /* 무음은 무시 */ }
+  };
+  webRec.onend = () => { if (webRec) { try { webRec.start(); } catch {} } };  // 끊겨도 계속
+  try { webRec.start(); } catch (e) { alert('음성인식 시작 실패: ' + e.message); return false; }
+  // 워치독 — 시작 후 몇 초간 아무 소리도 안 들리면 시스템 입력 설정을 안내
+  webWatchdog = setInterval(() => {
+    if (!webRec) return;
+    if (!heard && Date.now() - lastResultAt > 6000) {
+      $('#sum-line').innerHTML = IS_MOBILE
+        ? "⚠️ 소리가 안 들려요 — <b>노트북 스피커 볼륨을 키우고</b> 폰을 가까이 두세요 (이어폰 사용 중이면 스피커로 전환)"
+        : "⚠️ 면접관 소리가 안 들려요 — <b>시스템 설정 → 사운드 → 입력</b>을 <b>BlackHole</b>로 바꾸세요 (또는 헤더에서 'Whisper' 엔진으로)";
+    }
+  }, 2000);
+  return true;
+}
+let webWatchdog = null;
+function stopWebSpeech() {
+  if (webWatchdog) { clearInterval(webWatchdog); webWatchdog = null; }
+  if (webRec) { webRec.onend = null; try { webRec.stop(); } catch {} webRec = null; }
+}
+const isListening = () => !!(oppCap || webRec);
+
+function stopListening() {
+  oppCap?.stop(); meCap?.stop();
+  oppCap = meCap = null;
+  stopWebSpeech();
+  $('#dev-opp').disabled = $('#dev-me').disabled = false;
+  $('#sttengine').disabled = false;
+  $('#btn-listen').textContent = '▶';
+  $('#btn-listen').classList.remove('live');
+}
+
+// 🎙 브라우저(실시간) 모드에서도 '내 목소리'를 따로 캡처해 화자 분리를 유지한다.
+//   서버에 STT 백엔드(로컬 Whisper 또는 Groq 키)가 없으면 조용히 건너뛴다.
+let sttReady = false;      // /health에서 갱신
+async function startMyVoiceCapture() {
+  // 폰은 마이크가 하나라 Web Speech와 같은 소리를 이중 기록하게 되므로 생략
+  if (IS_MOBILE || !sttReady || $('#sttmode').value === 'opp') return false;
+  const meId = $('#dev-me').value;
+  if (!meId) return false;
+  try {
+    const meStream = await navigator.mediaDevices.getUserMedia({
+      audio: { deviceId: { exact: meId }, echoCancellation: true, noiseSuppression: true } });
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    await audioCtx.resume();
+    meCap = new SegmentRecorder(meStream, '나');
+    $('#dev-me').disabled = true;
+    return true;
+  } catch { return false; }
+}
+
+// ── ▶ 시작 전 프리플라이트 — 면접이 시작된 뒤에 LLM이 죽은 걸 알면 이미 늦다 ──
+//    치명적(LLM 없음)이면 확인을 받고, 권고 사항(사전 답변셋 없음)은 안내만 한다.
+let llmAlive = true, llmWhy = '', prepReady = true, kbTip = '';
+function preflightOk() {
+  if (!llmAlive) {
+    const go = confirm(
+      `⚠️ 번역·답변 LLM에 연결할 수 없습니다\n(${llmWhy})\n\n` +
+      `이 상태로 시작하면 자막은 나오지만 한국어 번역과 답변 카드가 뜨지 않습니다.\n\n` +
+      `해결: cloud.cerebras.ai 또는 aistudio.google.com/apikey 에서 무료 키를 받아\n` +
+      `export CEREBRAS_API_KEY=... 후 재시작\n\n그래도 시작할까요?`);
+    if (!go) return false;
+  }
+  if (kbTip) { $('#sum-line').textContent = kbTip; kbTip = ''; }   // 1회만 안내
+  return true;
+}
+
+async function startListening() {
+  if (!preflightOk()) return;
+  stopMonitor();   // 테스트 중이면 장치를 놓아줘야 실제 캡처가 열린다
+  fetch('/api/live/reset', { method: 'POST' }).catch(() => {});  // 세션 맥락(사용한 스토리·직전 질문) 초기화
+
+  // 🆓 브라우저 무료 엔진 — 시스템 기본 입력(BlackHole 권장)에서 면접관 인식
+  if (($('#sttengine')?.value || 'web') === 'web') {
+    if (!startWebSpeech()) return;
+    $('#sttengine').disabled = true;
+    // 🎙 내 목소리는 별도 마이크 장치로 함께 캡처 → 화자 분리 유지.
+    //    (Web Speech는 시스템 기본 입력만 듣지만 getUserMedia는 장치 지정이 가능)
+    //    내 발화는 실시간일 필요가 없으므로 Whisper 배치로 충분 — 맥락·리포트에 쓰인다.
+    const meOn = await startMyVoiceCapture();
+    $('#dev-hint').innerHTML = IS_MOBILE
+      ? "📱 폰 마이크로 듣는 중 — 노트북 스피커 소리가 폰에 잘 들리게 두세요"
+      : meOn
+      ? "🆓 브라우저 인식(면접관 실시간) + 🎙 내 목소리 별도 캡처 — <b>시스템 기본 입력을 BlackHole로</b> 설정하세요 (Chrome 전용)"
+      : "🆓 브라우저 인식 — <b>시스템 기본 입력을 BlackHole로</b> 설정해야 면접관 소리가 인식됩니다 (내 목소리 기록은 꺼짐 · Chrome 전용)";
+    $('#btn-listen').textContent = '⏸';
+    $('#btn-listen').classList.add('live');
+    return;
+  }
+
+  // 🎤 Groq Whisper 엔진 — 두 입력 장치 각각 캡처 (화자 분리)
+  try { await populateDevices(true); } catch (e) { alert(e.message); return; }
+  const oppId = $('#dev-opp').value, meId = $('#dev-me').value;
+  if (!oppId || !meId) {
+    $('#dev-hint').innerHTML = "<span class='warn'>⚠️ 오디오 입력 장치를 선택하세요</span>";
+    return;
+  }
+  if (oppId === meId) {   // 같은 장치면 화자 구분 불가 — 조용히 취소 대신 눈에 보이는 안내
+    $('#dev-hint').innerHTML = "<span class='warn'>⚠️ '상대'와 '내 목소리'가 같은 장치예요 — '상대(면접관)'를 BlackHole로 바꿔주세요 (🎚 소리 테스트로 확인)</span>";
+    return;
+  }
+
+  let oppStream, meStream;
+  try {
+    // 상대(BlackHole 루프백): 오디오 처리 전부 끔 — 깨끗한 디지털 신호 보존
+    oppStream = await navigator.mediaDevices.getUserMedia({
+      audio: { deviceId: { exact: oppId },
+               echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    // 나(실제 마이크): 에코 캔슬·노이즈 억제 켬
+    meStream = await navigator.mediaDevices.getUserMedia({
+      audio: { deviceId: { exact: meId },
+               echoCancellation: true, noiseSuppression: true } });
+  } catch (e) {
+    oppStream?.getTracks().forEach(t => t.stop());
+    alert('오디오 장치를 열 수 없습니다: ' + e.message + '\n장치 선택을 확인하고 다시 시도하세요.');
+    return;
+  }
+  audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  await audioCtx.resume();
+  oppCap = new SegmentRecorder(oppStream, '상대');
+  meCap = new SegmentRecorder(meStream, '나');
+  // 장치가 사라지면(언플러그 등) 세션 정지
+  oppStream.getAudioTracks()[0].onended = stopListening;
+  $('#dev-opp').disabled = $('#dev-me').disabled = true;
+  $('#dev-hint').innerHTML = '';
+  $('#btn-listen').textContent = '⏸';
+  $('#btn-listen').classList.add('live');
+}
+
+$('#btn-listen').addEventListener('click', () => isListening() ? stopListening() : startListening());
+
+// ── ⏹ 세션 종료 → 📋 사후 리포트 (기록은 리포트 확인 후 지움) ──
+function resetSession() {
+  fetch('/api/live/reset', { method: 'POST' }).catch(() => {});
+  log.length = 0; uttCount = 0;
+  specKey = ''; specDone = ''; specLastText = ''; specTries = 0;
+  specGaps = []; specLastAt = 0; clearTimeout(specTimer);
+  $('#card').classList.remove('spec'); $('#c-src').style.display = 'none';
+  feed.innerHTML = '<div class="empty" id="feed-empty"><div class="big">🎧</div>▶ 버튼을 누르면 대화가 실시간 자막 + 한국어 번역으로 표시되고<br>질문이 감지되면 답변 카드가 자동으로 뜹니다</div>';
+  $('#card').style.display = 'none';
+  pinned = false; $('#c-pin').classList.remove('on');
+  $('#sum-line').textContent = '듣기를 시작하면 대화 요약이 실시간으로 표시됩니다';
+}
+const transcriptText = () => log.map(l => `${l.who}: ${l.text}`).join('\n');
+
+async function openReport() {
+  $('#report').style.display = 'block';
+  const myWords = log.filter(l => l.who === '나')
+                     .reduce((n, l) => n + l.text.split(' ').length, 0);
+  $('#rp-meta').textContent = `발화 ${log.length}개 · 내 발화 단어 수 ${myWords} · ${new Date().toLocaleString('ko-KR')}`;
+  $('#rp-transcript').textContent = transcriptText();
+  const body = $('#rp-body');
+  body.textContent = '⏳ 리포트 생성 중...';
+  try {
+    let first = true;
+    await streamChat('/api/live/report', { transcript: transcriptText() },
+      tk => { if (first) { body.textContent = ''; first = false; } body.textContent += tk; });
+  } catch (e) { body.textContent = '⚠️ 리포트 생성 실패: ' + e.message; }
+}
+
+$('#btn-stop').addEventListener('click', () => {
+  stopListening();
+  if (log.length) openReport();
+  else resetSession();
+});
+$('#rp-back').addEventListener('click', () => { $('#report').style.display = 'none'; });
+$('#rp-new').addEventListener('click', () => { $('#report').style.display = 'none'; resetSession(); });
+$('#rp-download').addEventListener('click', () => {
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, '-');
+  const blob = new Blob([`영어 면접 트랜스크립트 (${new Date().toLocaleString('ko-KR')})\n\n` +
+                         transcriptText() + '\n\n--- 리포트 ---\n' + $('#rp-body').textContent],
+                        { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `interview-${stamp}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+// ── 탭 전환 ────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    ['live', 'summary', 'translate'].forEach(v =>
+      $('#view-' + v).classList.toggle('hidden', v !== tab.dataset.v));
+    if (tab.dataset.v === 'summary' && log.length) fullSummary();
+  });
+});
+
+// ── 요약 탭 ────────────────────────────────────────────────
+async function fullSummary() {
+  const out = $('#full-summary');
+  out.textContent = '⏳ 요약 중...';
+  try {
+    let first = true;
+    await streamChat('/api/live/summary',
+      { transcript: log.map(l => `${l.who}: ${l.text}`).join('\n'), mode: 'full' },
+      tk => { if (first) { out.textContent = ''; first = false; } out.textContent += tk; });
+  } catch (e) { out.textContent = '⚠️ ' + e.message; }
+}
+$('#btn-full-summary').addEventListener('click', () => log.length && fullSummary());
+
+// ── 번역 탭 ────────────────────────────────────────────────
+async function doTranslate() {
+  const text = $('#tr-in').value.trim();
+  if (!text) return;
+  const out = $('#tr-out');
+  out.textContent = '';
+  try {
+    await streamChat('/api/translate', { text }, tk => { out.textContent += tk; });
+  } catch (e) { out.textContent = '⚠️ ' + e.message; }
+}
+$('#tr-go').addEventListener('click', doTranslate);
+$('#tr-in').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) doTranslate(); });
+$('#tr-say').addEventListener('click', () => { const t = $('#tr-out').textContent; if (t) speak(t); });
+
+// ── 🇰🇷 빠른 번역 입력 — 전용 출력줄 사용 (진행 중인 답변 생성을 방해하지 않음) ──
+let hintAbort = null;
+async function quickHint() {
+  const text = $('#hint-in').value.trim();
+  if (!text) return;
+  $('#hint-in').value = '';
+  if (hintAbort) hintAbort.abort();
+  hintAbort = new AbortController();
+  const out = $('#hint-out'), txt = $('#hint-txt');
+  out.style.display = 'flex';
+  txt.textContent = '';
+  try {
+    await streamChat('/api/translate', { text },
+      tk => { txt.textContent += tk; }, hintAbort.signal);
+  } catch (err) {
+    if (err.name !== 'AbortError') txt.textContent = '⚠️ ' + err.message;
+  } finally { hintAbort = null; }
+}
+$('#hint-go').addEventListener('click', quickHint);
+$('#hint-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') quickHint(); });
+$('#hint-say').addEventListener('click', () => { const t = $('#hint-txt').textContent; if (t) speak(t); });
+$('#hint-x').addEventListener('click', () => { $('#hint-out').style.display = 'none'; });
+
+// ── 지원 여부 확인 — 장치 열거/캡처 API가 필요 (BlackHole은 macOS 데스크톱) ──
+if (!navigator.mediaDevices?.getUserMedia) {
+  $('#btn-listen').disabled = true;
+  // 가장 흔한 원인은 브라우저가 아니라 '보안 컨텍스트' — http://192.168.x.x 로 열면
+  // 마이크 API 자체가 제공되지 않는다. 폰에서 처음 겪는 벽이라 원인을 정확히 알려준다.
+  $('#sum-line').innerHTML = !window.isSecureContext
+    ? "⚠️ <b>HTTPS가 아니라 마이크를 쓸 수 없어요</b> — 폰에서는 <b>https://…trycloudflare.com</b> 주소로 여세요 " +
+      "(맥에서 <code>brew install cloudflared</code> 후 start.sh를 실행하면 주소가 출력됩니다)"
+    : "⚠️ 이 브라우저는 마이크 캡처를 지원하지 않아요 — Chrome에서 열어주세요";
+}
+
+// ── 서버 STT 엔진 확인 — 로컬 Whisper가 있으면 무료·무제한이므로 기본 엔진으로 ──
+(async () => {
+  try {
+    const h = await (await fetch('/health')).json();
+    // 로컬 Whisper가 있으면 옵션 라벨만 갱신하고 간격을 줄인다.
+    // 단, 기본 엔진은 '브라우저(실시간)' 유지 — Whisper(로컬/Groq)는 배치라 실시간이 아님.
+    sttReady = !!h.stt_ready;           // 브라우저 모드에서 '내 목소리' 캡처 가능 여부
+    if (h.stt_local) {
+      const opt = document.querySelector('#sttengine option[value="groq"]');
+      if (opt) opt.textContent = '인식: 로컬 Whisper(정확·비실시간)';
+      sttGap = 400;                     // 요청 한도 없음 → 배치 간격 최소화
+    }
+    // LLM 공급자 상태 — 하나도 안 살아있으면 번역·답변이 불가하므로 미리 경고
+    const llm = Array.isArray(h.llm) ? h.llm : [];
+    llmAlive = !(llm.length && !llm.some(p => p.state === 'ok'));
+    if (!llmAlive) {
+      llmWhy = llm.map(p => `${p.name}: ${p.detail || p.state}`).join(' · ');
+      $('#sum-line').innerHTML =
+        `⚠️ 번역·답변 LLM에 연결할 수 없어요 (${llmWhy}) — 무료 키를 하나 넣어주세요: ` +
+        `<b>cloud.cerebras.ai</b>(70B·고품질) 또는 <b>aistudio.google.com/apikey</b> → ` +
+        `export CEREBRAS_API_KEY / GEMINI_API_KEY 후 재시작`;
+    }
+    // ⚡ 사전 답변셋이 없으면 빈출 질문이 매번 생성으로 넘어간다 — 미리 알려준다
+    try {
+      const kb = await (await fetch('/api/kb/health')).json();
+      prepReady = (kb.prepared_answers || 0) > 0;
+      kbTip = prepReady ? '' :
+        '⚡ 맞춤 답변셋이 아직 없어요 — 연습 모드에서 한 번 만들어두면 빈출 질문이 0초로 뜹니다';
+    } catch { /* 진단 실패는 무시 */ }
+  } catch { /* /health 실패는 무시 */ }
+})();
+
+speechSynthesis.getVoices();
+</script>
+</body>
+</html>

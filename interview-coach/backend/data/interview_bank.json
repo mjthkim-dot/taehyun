@@ -1,0 +1,239 @@
+{
+  "meta": {
+    "role": "IT 영업 (클라우드/SaaS 솔루션 세일즈)",
+    "version": 1,
+    "category_labels": {
+      "self_intro": "자기소개",
+      "motivation": "지원동기·이직",
+      "experience": "경험·성과 (STAR)",
+      "sales_skills": "영업 프로세스·역량",
+      "objection": "가격·경쟁·협상",
+      "strengths": "강점·약점",
+      "teamwork": "협업·갈등",
+      "closing": "마무리·역질문"
+    }
+  },
+  "questions": [
+    {
+      "id": "q01", "category": "self_intro", "difficulty": 1,
+      "en": "Tell me about yourself.",
+      "kr": "자기소개를 해주세요.",
+      "tip_ko": "현재 역할 → 대표 성과 1개 → 이 자리에 지원한 이유 순서로 30~60초. 이력서 낭독 금지."
+    },
+    {
+      "id": "q02", "category": "self_intro", "difficulty": 2,
+      "en": "Walk me through your resume.",
+      "kr": "이력서를 따라 경력을 설명해 주세요.",
+      "tip_ko": "연대기 나열이 아니라 '왜 옮겼고 무엇을 배웠는지' 전환점 중심으로."
+    },
+    {
+      "id": "q03", "category": "motivation", "difficulty": 1,
+      "en": "Why do you want to work in IT sales?",
+      "kr": "왜 IT 영업 직무를 하고 싶나요?",
+      "tip_ko": "기술에 대한 관심 + 사람/문제 해결을 좋아하는 성향을 실제 에피소드로 연결."
+    },
+    {
+      "id": "q04", "category": "motivation", "difficulty": 2,
+      "en": "Why do you want to join our company?",
+      "kr": "왜 우리 회사에 지원했나요?",
+      "tip_ko": "회사 제품·시장 포지션을 리서치했다는 걸 구체적으로 언급해야 함."
+    },
+    {
+      "id": "q05", "category": "motivation", "difficulty": 2,
+      "en": "Why are you leaving your current job?",
+      "kr": "현재 회사를 왜 떠나려고 하나요?",
+      "tip_ko": "전 직장 비난 금지. '성장·더 큰 시장·글로벌 고객' 같은 전진 프레임으로."
+    },
+    {
+      "id": "q06", "category": "motivation", "difficulty": 2,
+      "en": "Where do you see yourself in five years?",
+      "kr": "5년 후 본인의 모습은 어떨 것 같나요?",
+      "tip_ko": "이 회사 안에서의 성장 경로로 답하기 (예: 엔터프라이즈 딜 리드, 팀 리드)."
+    },
+    {
+      "id": "q07", "category": "experience", "difficulty": 2,
+      "en": "Tell me about a time you exceeded your sales target.",
+      "kr": "영업 목표를 초과 달성한 경험을 말해 주세요.",
+      "tip_ko": "STAR 구조 + 숫자 필수 (달성률 %, 금액, 기간)."
+    },
+    {
+      "id": "q08", "category": "experience", "difficulty": 3,
+      "en": "Tell me about the most difficult deal you have ever closed.",
+      "kr": "가장 어려웠던 계약 성사 경험을 말해 주세요.",
+      "tip_ko": "장애물(경쟁사, 예산, 내부 반대)을 구체적으로 → 내가 한 행동 → 결과 숫자."
+    },
+    {
+      "id": "q09", "category": "experience", "difficulty": 3,
+      "en": "Describe a time you lost an important deal. What did you learn?",
+      "kr": "중요한 딜을 놓친 경험과 거기서 배운 점을 말해 주세요.",
+      "tip_ko": "실패 자체보다 '배운 것 → 이후 어떻게 바꿨는지'에 시간의 70%를 써야 함."
+    },
+    {
+      "id": "q10", "category": "experience", "difficulty": 2,
+      "en": "Tell me about a time you turned around an unhappy customer.",
+      "kr": "불만 고객을 되돌린 경험을 말해 주세요.",
+      "tip_ko": "경청 → 원인 파악 → 구체적 조치 → 재계약/관계 회복 결과 순서."
+    },
+    {
+      "id": "q11", "category": "experience", "difficulty": 3,
+      "en": "Give me an example of working with technical teams to win a deal.",
+      "kr": "기술팀과 협업해 딜을 따낸 사례를 말해 주세요.",
+      "tip_ko": "프리세일즈/엔지니어와 역할 분담을 어떻게 했는지가 포인트."
+    },
+    {
+      "id": "q12", "category": "sales_skills", "difficulty": 2,
+      "en": "How do you approach a brand-new prospect who has never heard of your product?",
+      "kr": "우리 제품을 전혀 모르는 신규 고객에게 어떻게 접근하나요?",
+      "tip_ko": "리서치 → 고객의 페인포인트 가설 → 가치 중심 첫 미팅, 순서를 프로세스로 설명."
+    },
+    {
+      "id": "q13", "category": "sales_skills", "difficulty": 2,
+      "en": "Walk me through your sales process from first contact to closing.",
+      "kr": "첫 컨택부터 클로징까지 본인의 영업 프로세스를 설명해 주세요.",
+      "tip_ko": "discovery → qualification(BANT) → POC/제안 → 협상 → 클로징 단계별로."
+    },
+    {
+      "id": "q14", "category": "sales_skills", "difficulty": 2,
+      "en": "How do you manage and prioritize your pipeline?",
+      "kr": "파이프라인을 어떻게 관리하고 우선순위를 정하나요?",
+      "tip_ko": "CRM(Salesforce) 활용 + 딜 크기/성사 확률/타임라인 기준을 구체적으로."
+    },
+    {
+      "id": "q15", "category": "sales_skills", "difficulty": 3,
+      "en": "How do you explain a complex technical product to a non-technical decision maker?",
+      "kr": "기술을 모르는 의사결정권자에게 복잡한 기술 제품을 어떻게 설명하나요?",
+      "tip_ko": "기능(feature)이 아니라 비즈니스 가치(비용 절감, 매출, 리스크)로 번역하는 사례 제시."
+    },
+    {
+      "id": "q16", "category": "sales_skills", "difficulty": 2,
+      "en": "What CRM tools do you use, and how do you use data in your sales work?",
+      "kr": "어떤 CRM 도구를 쓰고, 데이터를 영업에 어떻게 활용하나요?",
+      "tip_ko": "Salesforce 자동화 직접 구축 경험은 강력한 차별화 포인트 — 반드시 언급."
+    },
+    {
+      "id": "q17", "category": "objection", "difficulty": 2,
+      "en": "A customer says your solution is too expensive. How do you respond?",
+      "kr": "고객이 '너무 비싸다'고 하면 어떻게 대응하나요?",
+      "tip_ko": "바로 할인 X. 비교 대상 확인 → ROI/총소유비용(TCO)으로 재프레임."
+    },
+    {
+      "id": "q18", "category": "objection", "difficulty": 3,
+      "en": "The customer is happy with a competitor. How do you get in the door?",
+      "kr": "고객이 경쟁사에 만족하고 있다면 어떻게 파고들 건가요?",
+      "tip_ko": "경쟁사 비방 금지. 작은 영역부터(세컨드 벤더, 신규 프로젝트) 진입하는 전략."
+    },
+    {
+      "id": "q19", "category": "objection", "difficulty": 3,
+      "en": "Describe your most difficult negotiation.",
+      "kr": "가장 어려웠던 협상 경험을 말해 주세요.",
+      "tip_ko": "가격만이 아니라 계약 조건·기간·범위 등 창의적 트레이드오프를 보여줄 것."
+    },
+    {
+      "id": "q20", "category": "strengths", "difficulty": 1,
+      "en": "What is your greatest strength as a salesperson?",
+      "kr": "영업인으로서 가장 큰 강점은 무엇인가요?",
+      "tip_ko": "강점 1개 + 그것을 증명하는 짧은 사례 1개. 나열하면 오히려 약해짐."
+    },
+    {
+      "id": "q21", "category": "strengths", "difficulty": 2,
+      "en": "What is your biggest weakness?",
+      "kr": "가장 큰 약점은 무엇인가요?",
+      "tip_ko": "진짜 약점 + 개선을 위해 실제로 하고 있는 행동. '완벽주의' 같은 가짜 약점 금지."
+    },
+    {
+      "id": "q22", "category": "strengths", "difficulty": 2,
+      "en": "How would your customers describe you?",
+      "kr": "고객들은 당신을 어떤 사람이라고 말할까요?",
+      "tip_ko": "실제 고객이 했던 말/피드백을 인용하면 신뢰도가 확 올라감."
+    },
+    {
+      "id": "q23", "category": "teamwork", "difficulty": 2,
+      "en": "Tell me about a conflict with a colleague and how you resolved it.",
+      "kr": "동료와의 갈등과 해결 과정을 말해 주세요.",
+      "tip_ko": "감정이 아니라 관점 차이로 프레임 → 대화로 해결 → 이후 관계/프로세스 개선."
+    },
+    {
+      "id": "q24", "category": "teamwork", "difficulty": 2,
+      "en": "How do you work with pre-sales engineers and product teams?",
+      "kr": "프리세일즈 엔지니어, 제품팀과는 어떻게 협업하나요?",
+      "tip_ko": "고객 기술 요구를 정리해 전달하고, 기술 검증은 위임하되 딜 오너십은 유지."
+    },
+    {
+      "id": "q25", "category": "closing", "difficulty": 2,
+      "en": "How would you approach your first 90 days in this role?",
+      "kr": "입사 후 첫 90일을 어떻게 보낼 건가요?",
+      "tip_ko": "30일 학습(제품·고객) → 60일 관계 구축 → 90일 첫 파이프라인 성과, 단계로."
+    },
+    {
+      "id": "q26", "category": "closing", "difficulty": 3,
+      "en": "What are your salary expectations?",
+      "kr": "희망 연봉이 어떻게 되나요?",
+      "tip_ko": "인센티브 구조(OTE)를 먼저 묻고, 범위로 답하며 협상 여지를 남길 것."
+    },
+    {
+      "id": "q27", "category": "closing", "difficulty": 1,
+      "en": "Do you have any questions for us?",
+      "kr": "저희에게 궁금한 점 있으신가요?",
+      "tip_ko": "'없습니다'는 최악. 역질문 2~3개 준비 (성과 측정 기준, 팀 구조, 당면 과제)."
+    }
+  ],
+  "phrases": [
+    { "en": "Thank you for the opportunity to interview today.", "kr": "오늘 면접 기회를 주셔서 감사합니다.", "category": "opener" },
+    { "en": "I'm a B2B sales professional with several years of experience in the cloud industry.", "kr": "저는 클라우드 업계에서 수년간 일해 온 B2B 영업 전문가입니다.", "category": "opener" },
+    { "en": "I currently manage enterprise accounts at a cloud solutions provider.", "kr": "현재 클라우드 솔루션 기업에서 엔터프라이즈 고객을 담당하고 있습니다.", "category": "opener" },
+    { "en": "What drives me is helping customers solve real business problems with technology.", "kr": "저를 움직이는 건 기술로 고객의 실제 비즈니스 문제를 해결하는 일입니다.", "category": "opener" },
+    { "en": "That's exactly why I applied for this position.", "kr": "그게 바로 제가 이 포지션에 지원한 이유입니다.", "category": "opener" },
+
+    { "en": "Let me share a specific example.", "kr": "구체적인 예를 말씀드리겠습니다.", "category": "star", "note_ko": "STAR 답변 시작 신호 — 면접관이 가장 듣고 싶어하는 문장" },
+    { "en": "The situation was that our biggest client was considering switching to a competitor.", "kr": "상황은 최대 고객사가 경쟁사로 전환을 검토 중이었다는 것이었습니다.", "category": "star", "note_ko": "S(Situation) — 배경을 한 문장으로" },
+    { "en": "My task was to rebuild trust and demonstrate our long-term value.", "kr": "제 과제는 신뢰를 회복하고 장기적 가치를 입증하는 것이었습니다.", "category": "star", "note_ko": "T(Task) — 내 책임 범위 명시" },
+    { "en": "So what I did was set up weekly check-ins with their technical team.", "kr": "그래서 제가 한 일은 고객사 기술팀과 주간 미팅을 만든 것이었습니다.", "category": "star", "note_ko": "A(Action) — 'So what I did was...'로 행동 강조" },
+    { "en": "As a result, we not only kept the account but grew it by 40 percent.", "kr": "그 결과 고객을 지켰을 뿐 아니라 계약 규모를 40% 키웠습니다.", "category": "star", "note_ko": "R(Result) — 반드시 숫자로 마무리" },
+    { "en": "Looking back, the key lesson was to involve technical stakeholders early.", "kr": "돌이켜보면 핵심 교훈은 기술 관계자를 초기에 참여시키는 것이었습니다.", "category": "star", "note_ko": "실패 질문에서 배운 점을 말할 때" },
+
+    { "en": "I consistently achieved over 100 percent of my quarterly quota.", "kr": "분기 목표를 꾸준히 100% 이상 달성해 왔습니다.", "category": "numbers", "note_ko": "quota = 영업 목표(할당량)" },
+    { "en": "I grew my territory's annual revenue by more than 50 percent in two years.", "kr": "담당 지역 연매출을 2년 만에 50% 이상 성장시켰습니다.", "category": "numbers" },
+    { "en": "I managed a pipeline of about 30 active opportunities at any given time.", "kr": "항상 30여 개의 활성 영업 기회를 파이프라인으로 관리했습니다.", "category": "numbers", "note_ko": "opportunity = CRM상의 영업 기회(딜)" },
+    { "en": "Our renewal rate improved from 85 to 95 percent under my management.", "kr": "제가 담당한 후 재계약률이 85%에서 95%로 개선됐습니다.", "category": "numbers", "note_ko": "renewal rate = 재계약률" },
+
+    { "en": "I always start with a discovery call to understand the customer's pain points.", "kr": "저는 항상 고객의 페인포인트를 파악하는 디스커버리 콜로 시작합니다.", "category": "sales_vocab", "note_ko": "discovery call = 니즈 파악용 첫 미팅" },
+    { "en": "I qualify leads based on budget, authority, need, and timeline.", "kr": "예산·결정권·니즈·타임라인 기준으로 리드를 검증합니다.", "category": "sales_vocab", "note_ko": "BANT 프레임워크 — 그대로 말하면 전문성 어필" },
+    { "en": "We ran a proof of concept to address their technical concerns.", "kr": "기술적 우려를 해소하기 위해 POC를 진행했습니다.", "category": "sales_vocab", "note_ko": "proof of concept(POC) = 사전 기술 검증" },
+    { "en": "I work closely with procurement to finalize contract terms.", "kr": "구매팀과 긴밀히 협력해 계약 조건을 마무리합니다.", "category": "sales_vocab", "note_ko": "procurement = 고객사 구매 부서" },
+    { "en": "Upselling and cross-selling to existing accounts is my strongest area.", "kr": "기존 고객 대상 업셀·크로스셀이 제가 가장 잘하는 영역입니다.", "category": "sales_vocab" },
+    { "en": "I use Salesforce to track every stage of my pipeline and forecast accurately.", "kr": "Salesforce로 파이프라인 전 단계를 추적하고 정확하게 매출을 예측합니다.", "category": "sales_vocab", "note_ko": "forecast = 매출 예측 — 영업 면접 단골 어휘" },
+    { "en": "I even built an automation tool on top of our CRM to save the team hours of manual reporting.", "kr": "CRM 위에 자동화 도구를 직접 만들어 팀의 수작업 리포트 시간을 줄이기도 했습니다.", "category": "sales_vocab", "note_ko": "차별화 포인트 — 직접 개발 경험" },
+    { "en": "I focus on business outcomes, not product features.", "kr": "저는 제품 기능이 아니라 비즈니스 성과에 집중합니다.", "category": "sales_vocab" },
+    { "en": "I map out all the stakeholders before making a proposal.", "kr": "제안 전에 모든 이해관계자를 먼저 파악합니다.", "category": "sales_vocab", "note_ko": "stakeholder mapping = 의사결정 구조 파악" },
+
+    { "en": "I understand price is a concern. May I ask what you're comparing it to?", "kr": "가격이 부담되시는 것 이해합니다. 어떤 것과 비교하고 계신지 여쭤봐도 될까요?", "category": "objection", "note_ko": "가격 저항 대응 1단계 — 비교 기준 확인" },
+    { "en": "Rather than lowering the price, I focus on demonstrating return on investment.", "kr": "가격을 낮추기보다 투자 대비 효과(ROI)를 입증하는 데 집중합니다.", "category": "objection" },
+    { "en": "That's a fair point. Let me explain how we address that.", "kr": "타당한 지적입니다. 저희가 그 부분을 어떻게 해결하는지 설명드리겠습니다.", "category": "objection", "note_ko": "반론을 인정하고 받아치는 만능 문장" },
+    { "en": "Many of our current customers had the same concern at first.", "kr": "지금 고객사들도 처음엔 같은 우려를 갖고 계셨습니다.", "category": "objection", "note_ko": "사회적 증거(social proof)로 전환" },
+    { "en": "I never badmouth competitors; I let the results speak for themselves.", "kr": "경쟁사를 험담하지 않습니다. 결과가 말하게 합니다.", "category": "objection" },
+    { "en": "We found a creative middle ground by adjusting the contract length instead of the price.", "kr": "가격 대신 계약 기간을 조정해 창의적인 절충점을 찾았습니다.", "category": "objection", "note_ko": "협상 질문에서 '가격 외 카드'를 보여주는 문장" },
+
+    { "en": "My greatest strength is building long-term relationships based on trust.", "kr": "저의 가장 큰 강점은 신뢰 기반의 장기적 관계 구축입니다.", "category": "strengths" },
+    { "en": "I'm particularly good at translating technical features into business value.", "kr": "특히 기술적 기능을 비즈니스 가치로 번역하는 데 강합니다.", "category": "strengths", "note_ko": "IT 영업 면접에서 가장 먹히는 강점 문장" },
+    { "en": "One area I've been working on is delegating instead of trying to do everything myself.", "kr": "제가 개선 중인 부분은 모든 걸 직접 하려 하지 않고 위임하는 것입니다.", "category": "strengths", "note_ko": "약점 답변 템플릿 — 개선 노력과 세트로" },
+    { "en": "To improve my English, I've been practicing speaking every single day.", "kr": "영어 실력을 키우기 위해 매일 스피킹 연습을 하고 있습니다.", "category": "strengths", "note_ko": "약점을 성실함 어필로 전환" },
+    { "en": "My customers would say I'm responsive and that I always follow through on my promises.", "kr": "고객들은 제가 반응이 빠르고 약속을 끝까지 지키는 사람이라고 말할 겁니다.", "category": "strengths", "note_ko": "follow through = 끝까지 해내다" },
+
+    { "en": "That's a great question. Let me think for a second.", "kr": "좋은 질문이네요. 잠시 생각해 보겠습니다.", "category": "recovery", "note_ko": "생각할 시간 벌기 — 침묵보다 훨씬 낫다" },
+    { "en": "Could you rephrase the question, please?", "kr": "질문을 다시 말씀해 주시겠어요?", "category": "recovery", "note_ko": "못 알아들었을 때 정중하게" },
+    { "en": "What I mean to say is...", "kr": "제가 말씀드리려는 것은...", "category": "recovery", "note_ko": "말이 꼬였을 때 정정 신호" },
+    { "en": "To put it simply, we helped them cut infrastructure costs in half.", "kr": "간단히 말해, 인프라 비용을 절반으로 줄여드렸습니다.", "category": "recovery", "note_ko": "복잡한 설명이 길어질 때 'To put it simply'로 정리" },
+    { "en": "I haven't faced that exact situation, but here's how I would approach it.", "kr": "정확히 그 상황을 겪어보진 않았지만, 저라면 이렇게 접근하겠습니다.", "category": "recovery", "note_ko": "경험 없는 질문 대응 — 솔직함 + 사고력 어필" },
+
+    { "en": "I'm confident my enterprise sales experience would translate well to this role.", "kr": "제 엔터프라이즈 영업 경험이 이 역할에서도 잘 발휘될 거라 확신합니다.", "category": "closing" },
+    { "en": "I'd love the chance to bring my customer relationships and cloud expertise to your team.", "kr": "제 고객 네트워크와 클라우드 전문성을 귀사 팀에서 발휘하고 싶습니다.", "category": "closing" },
+    { "en": "In my first 90 days, I would focus on learning the product, meeting key accounts, and building my pipeline.", "kr": "첫 90일은 제품 학습, 핵심 고객 미팅, 파이프라인 구축에 집중하겠습니다.", "category": "closing" },
+
+    { "en": "How do you measure success for this role in the first year?", "kr": "이 역할의 첫해 성과는 어떤 기준으로 평가하나요?", "category": "questions_to_ask", "note_ko": "역질문 1순위 추천 — 성과 지향적 인상" },
+    { "en": "What does the team structure look like, and who would I work most closely with?", "kr": "팀 구조는 어떻게 되고, 누구와 가장 긴밀히 일하게 되나요?", "category": "questions_to_ask" },
+    { "en": "What are the biggest challenges the sales team is facing right now?", "kr": "지금 영업팀이 마주한 가장 큰 과제는 무엇인가요?", "category": "questions_to_ask", "note_ko": "답변을 듣고 '제가 기여할 수 있는 부분'으로 연결하면 최상" },
+
+    { "en": "Could you tell me more about the incentive structure before I give a specific number?", "kr": "구체적인 숫자를 말씀드리기 전에 인센티브 구조를 먼저 여쭤봐도 될까요?", "category": "salary", "note_ko": "연봉 질문 대응 1단계 — OTE(기본급+인센티브) 확인" },
+    { "en": "Based on my experience and market rates, I'm looking for a range of..., but I'm flexible on the total package.", "kr": "제 경력과 시장 수준을 고려하면 ~ 범위를 생각하지만, 전체 패키지에 따라 유연합니다.", "category": "salary", "note_ko": "범위로 답하고 협상 여지 남기기" }
+  ]
+}
