@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Mode } from './NavBar';
 import {
   DEFAULT_QUESTIONS,
+  draftAnswer,
   evaluateInterview,
   generateQuestions,
   GENERIC_GUIDE,
@@ -43,6 +44,9 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
   const [draft, setDraft] = useState('');
   const [thinking, setThinking] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  // AI 즉석 예시 답변 — 후속 질문·AI 생성 질문처럼 내장 예시가 없을 때
+  const [aiSample, setAiSample] = useState<{ en: string; kr: string } | null>(null);
+  const [drafting, setDrafting] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [recording, setRecording] = useState(false);
   const [interim, setInterim] = useState('');
@@ -63,6 +67,8 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
     if (phase !== 'running') return;
     setElapsed(0);
     setShowGuide(false); // 질문이 바뀌면 가이드는 접는다 — 먼저 스스로 생각하게
+    setAiSample(null);
+    setDrafting(false);
     timerRef.current = window.setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current);
@@ -406,38 +412,65 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
         {!awaitingFollowUp && cur.qKr && <div className="pp-sent-kr" style={{ marginTop: 6 }}>{cur.qKr}</div>}
         {awaitingFollowUp && cur.reaction && <div className="iv-reaction">{cur.reaction}</div>}
 
-        {/* 답변 가이드 — 기본은 접힘(먼저 스스로), 막히면 연다. 후속 질문엔 짧은 원칙만. */}
-        {awaitingFollowUp ? (
-          <p className="iv-guide-hint">💡 후속 질문은 구체성을 원해요 — 숫자 하나, 내 역할 하나, 결과 하나.</p>
-        ) : (
-          <>
-            <button type="button" className="iv-guide-toggle" onClick={() => setShowGuide((v) => !v)}>
-              💡 뭐라고 말하지? {showGuide ? '접기 ▲' : '가이드 보기 ▼'}
-            </button>
-            {showGuide && cur.guide && (
-              <div className="iv-guide">
+        {/* 답변 가이드 — 본체는 "그대로 소리 내어 읽을 수 있는 영어 답변".
+            내장 예시가 없는 질문(후속·AI 생성)은 버튼 한 번으로 내 커리어
+            사실 기반 영어 답변을 즉석 생성한다("어떻게 답할지 모르겠어" 탈출구). */}
+        <button type="button" className="iv-guide-toggle" onClick={() => setShowGuide((v) => !v)}>
+          💡 영어로 어떻게 말하지? {showGuide ? '접기 ▲' : '보기 ▼'}
+        </button>
+        {showGuide && (
+          <div className="iv-guide">
+            {(() => {
+              const sample = !awaitingFollowUp && cur.guide?.sample ? cur.guide.sample : aiSample;
+              if (sample) {
+                return (
+                  <>
+                    <div className="iv-guide-sec">🗣 이렇게 말해보세요</div>
+                    <div className="iv-sample-en">
+                      {sample.en}
+                      <button type="button" className="mini-btn" style={{ marginLeft: 6 }} onClick={() => ask(sample.en)}>
+                        🔊
+                      </button>
+                    </div>
+                    <div className="iv-sample-kr">{sample.kr}</div>
+                    <button type="button" className="mini-btn" style={{ marginTop: 8 }} onClick={() => setDraft(sample.en)}>
+                      ✍️ 답변란에 넣고 고쳐 쓰기
+                    </button>
+                  </>
+                );
+              }
+              return (
+                <button
+                  type="button"
+                  className="start-drill-btn iv-draft-btn"
+                  disabled={drafting}
+                  onClick={async () => {
+                    if (drafting) return;
+                    setDrafting(true);
+                    try {
+                      const q = awaitingFollowUp && cur.followUp ? cur.followUp : cur.q;
+                      const r = await draftAnswer(activeRole, q, { context: jdContext, previousAnswer: cur.answer });
+                      if (r) setAiSample(r);
+                    } finally {
+                      setDrafting(false);
+                    }
+                  }}
+                >
+                  {drafting ? '내 경력으로 답변 쓰는 중…' : '✨ 내 경력으로 영어 답변 만들어줘'}
+                </button>
+              );
+            })()}
+            {!awaitingFollowUp && cur.guide && (
+              <>
                 <div className="iv-guide-sec">뼈대</div>
                 <ol className="iv-guide-list">
                   {cur.guide.structure.map((s, i) => (
                     <li key={i}>{s}</li>
                   ))}
                 </ol>
-                <div className="iv-guide-sec">내 재료</div>
-                <ul className="iv-guide-list">
-                  {cur.guide.materials.map((m, i) => (
-                    <li key={i}>{m}</li>
-                  ))}
-                </ul>
-                <div className="iv-guide-sec">첫 문장</div>
-                <div className="iv-guide-opener">
-                  “{cur.guide.opener}”
-                  <button type="button" className="mini-btn" style={{ marginLeft: 8 }} onClick={() => ask(cur.guide!.opener)}>
-                    🔊
-                  </button>
-                </div>
-              </div>
+              </>
             )}
-          </>
+          </div>
         )}
       </div>
 

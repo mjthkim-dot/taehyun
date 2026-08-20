@@ -2150,6 +2150,20 @@ button {
   font-weight: 700;
   line-height: 1.6;
 }
+.iv-sample-en {
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.7;
+}
+.iv-sample-kr {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.65;
+  margin-top: 6px;
+}
+.iv-draft-btn {
+  margin-top: 0;
+}
 .iv-role-sub {
   display: block;
   font-size: 0.68rem;

@@ -24,6 +24,56 @@ export interface AnswerGuide {
   materials: string[];
   /** 입 떼는 첫 문장 */
   opener: string;
+  /** 그대로 소리 내어 읽을 수 있는 영어 예시 답변 — 가이드의 본체 */
+  sample?: { en: string; kr: string };
+}
+
+/** AI 즉석 답변 생성에 쓰는 지원자 프로필 — 실제 커리어 사실만 */
+export const MY_PROFILE_BRIEF = [
+  '지원자: Taehyun. 메가존클라우드(한국 최대 클라우드 파트너) Account Manager 4년+.',
+  '엔터프라이즈·디지털 네이티브 50+ 계정 포트폴리오 담당.',
+  '대표 실적: 만료되던 EDP 계약을 3년 $253K 약정으로 전환(분납·보증보험을 재무팀과 협상, 모든 조건 서면 확정 후 실행).',
+  '월 $430K 규모 계정의 FinOps 월례 리뷰 운영(RI 커버리지 90%+, 비용 급증 근본원인 분석).',
+  '신규 로고 직접 발굴·클로징 경험(발굴 → 파트너 협업 → 빠른 클로징), 이탈 고객 윈백 진행 중.',
+  '사내 AM 100+ 신뢰 네트워크(합산 1,700+ 고객 계정 접점) — 반복 가능한 신규 로고 소싱 채널.',
+  '스타일: 헌터형이지만 큰 딜은 팀을 모아 클로징. 미팅 기록·주간 서면 공유로 파이프라인을 투명하게 관리.',
+].join('\n');
+
+/**
+ * 즉석 영어 답변 생성 — "어떻게 답해야 할지 모르겠어"의 탈출구.
+ * 예상 못 한 후속 질문·AI 생성 질문에도, 내 커리어 사실로만 쓴 3~5문장의
+ * 소리 내어 읽을 수 있는 답을 만들어준다.
+ */
+export async function draftAnswer(
+  role: string,
+  question: string,
+  opts?: { context?: string; previousAnswer?: string }
+): Promise<{ en: string; kr: string } | null> {
+  return groqKoJson<{ en: string; kr: string }>(
+    [
+      {
+        role: 'system',
+        content: [
+          '너는 영어 면접 답변 코치다. 지원자가 그대로 소리 내어 말할 수 있는 답변 예시를 만든다. 아래 JSON만 출력한다:',
+          '{"en":"3~5문장의 영어 답변(1인칭, 자연스러운 구어체, 지원자 프로필의 사실만 사용 — 지어내기 금지)","kr":"그 답변의 한국어 번역"}',
+          `지원 포지션: ${role}`,
+          ...(opts?.context ? [opts.context] : []),
+          '지원자 프로필:',
+          MY_PROFILE_BRIEF,
+        ].join('\n'),
+      },
+      {
+        role: 'user',
+        content: `면접관 질문: ${question}${opts?.previousAnswer ? `\n\n(직전 내 답변: ${opts.previousAnswer.slice(0, 400)})` : ''}\n\n이 질문에 대한 영어 답변 예시를 만들어라.`,
+      },
+    ],
+    { temperature: 0.4, maxTokens: 500 },
+    (data) => {
+      const o = (data ?? {}) as { en?: unknown; kr?: unknown };
+      if (typeof o.en !== 'string' || !o.en.trim() || hasHangul(o.en) || !hasHangul(o.kr)) return null;
+      return { en: o.en.trim(), kr: String(o.kr).trim() };
+    }
+  ).catch(() => null);
 }
 
 /** AI 생성 질문 등 맞춤 가이드가 없을 때의 뼈대 — 최소한 구조는 준다 */

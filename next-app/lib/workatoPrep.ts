@@ -42,6 +42,10 @@ export const WORKATO_QUESTIONS: { q: string; qKr: string; guide: AnswerGuide }[]
         '"헌터지만, 큰 딜은 적임자를 모아 만든다"로 마무리',
       ],
       opener: "I've spent over four years at Korea's largest cloud partner, selling cloud, DevOps, and AI solutions.",
+      sample: {
+        en: "I've spent over four years at MegazoneCloud, Korea's largest cloud partner, selling cloud, DevOps, and AI solutions. I manage a portfolio of over fifty enterprise accounts, and I've closed complex six-figure deals — including converting an expiring enterprise agreement into a three-year, quarter-million-dollar commitment. I'm a hunter by nature, but I close big deals by pulling the right people together. That's exactly the profile this role is asking for.",
+        kr: '저는 한국 최대 클라우드 파트너인 메가존클라우드에서 4년 넘게 클라우드·DevOps·AI 솔루션을 판매해 왔습니다. 50개 이상의 엔터프라이즈 계정을 담당하고, 만료되던 기업 계약을 3년 25만 달러 약정으로 전환하는 등 복잡한 6자리 딜을 클로징해 왔습니다. 천성은 헌터지만, 큰 딜은 적임자들을 모아 함께 만듭니다. 이 역할이 원하는 프로필이 정확히 그것이라고 생각합니다.',
+      },
     },
   },
   {
@@ -55,6 +59,10 @@ export const WORKATO_QUESTIONS: { q: string; qKr: string; guide: AnswerGuide }[]
         '영어로 매일 일하는 글로벌 환경으로 가려는 커리어 방향',
       ],
       opener: 'Because in the agentic era, integration becomes the control plane of the enterprise.',
+      sample: {
+        en: "Because in the agentic era, integration becomes the control plane of the enterprise — and Workato sits exactly there. In my current role, I've watched every customer conversation drift toward automation and AI governance. I want to sell the platform that answers that question, as a hunter, from day one. And personally, this is the right time for me to move into a global environment where I work in English every day.",
+        kr: '에이전트 시대에는 통합이 기업의 컨트롤 플레인이 되는데, Workato가 정확히 그 자리에 있기 때문입니다. 지금 역할에서 모든 고객 대화가 자동화와 AI 거버넌스로 흘러가는 걸 지켜봤습니다. 그 질문에 답하는 플랫폼을 첫날부터 헌터로서 팔고 싶습니다. 그리고 개인적으로도, 매일 영어로 일하는 글로벌 환경으로 옮길 적기입니다.',
+      },
     },
   },
   {
@@ -68,6 +76,10 @@ export const WORKATO_QUESTIONS: { q: string; qKr: string; guide: AnswerGuide }[]
         '고객의 기술 과제와 사업 니즈를 정리해 도입 논리를 만든 것',
       ],
       opener: 'Let me walk you through a deal I hunted from scratch.',
+      sample: {
+        en: "Let me walk you through a deal I hunted from scratch. I spotted the opportunity myself — a customer whose development process was clearly hitting its limits — before anyone had it in a pipeline. I mapped their technical pain and business needs, built the case for why now, and brought in the right partner to move fast. We closed it quickly, and that motion — find it early, frame the value, pull in the right people — is exactly how I'd hunt new logos here.",
+        kr: '처음부터 발굴한 딜을 말씀드리겠습니다. 개발 프로세스가 한계에 부딪힌 고객을 파이프라인에 잡히기 전에 제가 먼저 포착했습니다. 기술적 페인과 사업 니즈를 정리해 "왜 지금인가"의 논리를 만들었고, 빠르게 움직일 적임 파트너를 붙였습니다. 딜은 빠르게 클로징됐고 — 일찍 발견하고, 가치를 프레이밍하고, 적임자를 모으는 이 동작이 여기서 신규 로고를 사냥할 제 방식입니다.',
+      },
     },
   },
   {
@@ -82,6 +94,10 @@ export const WORKATO_QUESTIONS: { q: string; qKr: string; guide: AnswerGuide }[]
         '25만 달러+ 클로징, 고객이 과정에 감사를 표함',
       ],
       opener: 'My largest recent deal started as a renewal risk.',
+      sample: {
+        en: "My largest recent deal started as a renewal risk — an enterprise agreement expiring with a large unspent balance. I rebuilt the business case around converting the entire balance into a three-year commitment, negotiated installment terms and security with our finance team, and put every assumption in writing before execution. It closed at over a quarter million dollars, and the customer actually thanked us for the process.",
+        kr: '최근 가장 큰 딜은 갱신 리스크로 시작됐습니다 — 미소진 잔액이 큰 채로 만료되는 기업 계약이었죠. 잔액 전액을 3년 약정으로 전환하는 비즈니스 케이스를 다시 세우고, 재무팀과 분납·담보 조건을 협상했으며, 실행 전에 모든 전제를 서면으로 확정했습니다. 25만 달러가 넘는 규모로 클로징됐고, 고객은 오히려 그 과정에 감사를 표했습니다.',
+      },
     },
   },
   {
@@ -95,6 +111,10 @@ export const WORKATO_QUESTIONS: { q: string; qKr: string; guide: AnswerGuide }[]
         '지금도 한 딜에서 고객·하이퍼스케일러·딜리버리 팀을 동시 조율',
       ],
       opener: 'Multi-threading is how I de-risk big deals.',
+      sample: {
+        en: "Multi-threading is how I de-risk big deals. I map the account across IT, finance, security, and the business unit that actually feels the pain, and I give each stakeholder a reason to care in their own language — cost for finance, governance for security, speed for the business. In my current role I routinely coordinate customers, hyperscalers, and internal delivery teams on a single deal, so working six threads at once is my normal.",
+        kr: '멀티스레딩은 큰 딜의 리스크를 줄이는 제 방식입니다. IT·재무·보안·페인을 실제로 느끼는 현업까지 계정을 매핑하고, 각 이해관계자에게 그들의 언어로 관심 가질 이유를 만듭니다 — 재무엔 비용, 보안엔 거버넌스, 현업엔 속도. 지금도 한 딜에서 고객·하이퍼스케일러·내부 딜리버리 팀을 동시에 조율하는 게 일상이라, 여섯 갈래를 동시에 굴리는 건 제 평소 방식입니다.',
+      },
     },
   },
   {
@@ -108,6 +128,10 @@ export const WORKATO_QUESTIONS: { q: string; qKr: string; guide: AnswerGuide }[]
         '90일: 검증된 신규 로고 파이프라인 + 6자리 딜 1건 진행 중',
       ],
       opener: "In the first thirty days, I'd run onboarding in parallel with territory validation.",
+      sample: {
+        en: "In the first thirty days, I'd run onboarding in parallel with territory validation — building a prioritized list of warm accounts from my network where integration and AI-automation needs are already visible. Days thirty-one to sixty, I'd convert that list into first meetings, multi-threaded from the start. By day ninety, my goal is a qualified new-logo pipeline and at least one deal moving toward a six-figure close. The metrics I'd track are simple: first meetings booked, qualified opportunities, and pipeline coverage against quota.",
+        kr: '첫 30일은 온보딩과 테리토리 검증을 병행하겠습니다 — 통합·AI 자동화 니즈가 이미 보이는 웜 계정을 제 네트워크에서 추려 우선순위 리스트를 만듭니다. 31~60일엔 그 리스트를 첫 미팅으로 전환하고, 처음부터 멀티스레드로 접근합니다. 90일차 목표는 검증된 신규 로고 파이프라인과 6자리 클로징을 향해 움직이는 딜 최소 1건입니다. 추적할 지표는 단순합니다: 첫 미팅 수, 검증된 기회 수, 쿼터 대비 파이프라인 커버리지.',
+      },
     },
   },
   {
@@ -121,6 +145,10 @@ export const WORKATO_QUESTIONS: { q: string; qKr: string; guide: AnswerGuide }[]
         '"운이 아니라 시스템으로 반복 달성"으로 마무리',
       ],
       opener: 'Let me be honest about the quarter that taught me the most.',
+      sample: {
+        en: "Let me be honest about the quarter that taught me the most. I nearly missed my number because my pipeline was concentrated in a few large deals, and one of them slipped. What I changed was the system, not the effort: I now keep pipeline coverage at roughly three times quota, and I run a weekly review to catch slipping deals early. Since then, hitting the number has been about discipline, not luck.",
+        kr: '가장 많이 배운 분기를 솔직히 말씀드리겠습니다. 파이프라인이 소수의 큰 딜에 편중돼 있었고 그중 하나가 밀리면서 목표를 놓칠 뻔했습니다. 바꾼 건 노력이 아니라 시스템입니다: 지금은 파이프라인 커버리지를 쿼터의 약 3배로 유지하고, 주간 리뷰로 밀리는 딜을 조기에 잡아냅니다. 그 뒤로 목표 달성은 운이 아니라 규율의 문제가 됐습니다.',
+      },
     },
   },
   {
@@ -135,6 +163,10 @@ export const WORKATO_QUESTIONS: { q: string; qKr: string; guide: AnswerGuide }[]
         '리프레임: 엔지니어를 대체하는 게 아니라 로드맵을 돌려주는 것',
       ],
       opener: "I don't argue — I ask what happens at scale.",
+      sample: {
+        en: "I don't argue — I ask what happens at scale. Who maintains hundreds of connections a year from now? Who governs the AI agents touching production data? And what does that cost in engineering time that should go to the product? Then I reframe it: Workato isn't replacing their engineers — it's giving them back their roadmap.",
+        kr: '반박하지 않고, 스케일에서 무슨 일이 생기는지 묻습니다. 1년 뒤 수백 개의 연결은 누가 유지보수하나요? 프로덕션 데이터를 만지는 AI 에이전트는 누가 통제하나요? 그리고 제품에 써야 할 엔지니어링 시간으로 얼마가 드나요? 그리고 프레임을 바꿉니다: Workato는 엔지니어를 대체하는 게 아니라, 그들의 로드맵을 돌려주는 것이라고.',
+      },
     },
   },
   {
@@ -148,6 +180,10 @@ export const WORKATO_QUESTIONS: { q: string; qKr: string; guide: AnswerGuide }[]
         '주도권 = 고객의 니즈 정의와 다음 액션을 내가 쥐는 것(서류가 아니라)',
       ],
       opener: "I keep control by owning the customer's next step, not the paperwork.",
+      sample: {
+        en: "I keep control by owning the customer's next step, not the paperwork. To me, partners aren't resellers — they're a go-to-market ecosystem, and I design their role deal by deal: who opens the door, who runs the technical validation, who delivers. I've worked inside a partner, so I know exactly where deals stall on that side and how to unblock them. As long as I own the customer's needs and the next action, the deal stays mine.",
+        kr: '저는 서류가 아니라 고객의 다음 스텝을 쥐는 것으로 주도권을 지킵니다. 파트너는 리셀러가 아니라 GTM 생태계라, 딜마다 역할을 설계합니다: 누가 문을 열고, 누가 기술 검증을 하고, 누가 구축하는지. 저는 파트너사 안에서 일해봐서 딜이 그쪽에서 어디서 막히는지, 어떻게 푸는지 정확히 압니다. 고객의 니즈와 다음 액션을 제가 쥐고 있는 한, 딜은 제 것입니다.',
+      },
     },
   },
   {
@@ -161,6 +197,10 @@ export const WORKATO_QUESTIONS: { q: string; qKr: string; guide: AnswerGuide }[]
         '주간 서면 업데이트 — 내 파이프라인은 블랙박스가 되지 않는다',
       ],
       opener: "I don't need guardrails — I need clarity, and I create it myself.",
+      sample: {
+        en: "I don't need big-company guardrails — I need clarity, and I create it myself. English isn't my first language, so I manage that risk with structure and transparency rather than promises: every meeting becomes a clear record — needs, stage, stakeholders, next action, risk — and a weekly written update to the team. Good communication isn't speaking the most; it's making sure my pipeline is never a black box.",
+        kr: '저는 대기업식 안전장치가 필요하지 않습니다 — 필요한 건 명확함이고, 그건 제가 직접 만듭니다. 영어가 모국어가 아니기에 이 리스크를 다짐이 아니라 구조와 투명성으로 관리합니다: 모든 미팅은 니즈·단계·이해관계자·다음 액션·리스크가 담긴 명확한 기록이 되고, 매주 서면 업데이트로 팀과 공유합니다. 좋은 커뮤니케이션은 말을 많이 하는 게 아니라, 제 파이프라인이 블랙박스가 되지 않게 하는 것입니다.',
+      },
     },
   },
 ];
