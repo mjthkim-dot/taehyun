@@ -63,7 +63,7 @@ await page.click('.feat-grid .feat-card:has-text("면접 시뮬레이션")');
 await page.waitForSelector('.iv-role', { timeout: 10000 });
 
 /* ① 시작 — AI 질문 생성 경로는 일반 프리셋으로 검증(Workato는 큐레이션 세트라 57에서 따로) */
-check('역할 프리셋(Workato+2) + 직접 입력이 있다', (await page.locator('.iv-role').count()) === 4);
+check('역할 프리셋(HR+심층+2) + 직접 입력이 있다', (await page.locator('.iv-role').count()) === 5);
 await page.click('.iv-role:has-text("Customer Success Manager")');
 await page.click('button:has-text("면접 시작")');
 await page.waitForSelector('.iv-q', { timeout: 15000 });

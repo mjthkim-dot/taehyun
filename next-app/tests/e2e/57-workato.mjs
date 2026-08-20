@@ -37,10 +37,12 @@ await page.waitForSelector('.feat-grid .feat-card:has-text("면접 시뮬레이�
 await page.click('.feat-grid .feat-card:has-text("면접 시뮬레이션")');
 await page.waitForSelector('.iv-role', { timeout: 10000 });
 
-/* ① 프리셋 */
+/* ① 프리셋 — 최상단은 임박한 HR 라운드, 심층은 그 다음 */
 const first = await page.evaluate(() => document.querySelector('.iv-role')?.textContent || '');
-check('Workato 프리셋이 최상단 + 배지', first.includes('Workato Enterprise Account Executive') && first.includes('내 지원 포지션'));
-check('기본 선택이 Workato다', await page.evaluate(() => document.querySelector('.iv-role.on')?.textContent.includes('Workato')));
+check('HR 스크리닝 프리셋이 최상단 + 배지', first.includes('HR 스크리닝') && first.includes('월요일 미팅'));
+check('기본 선택이 HR 라운드다', await page.evaluate(() => document.querySelector('.iv-role.on')?.textContent.includes('HR')));
+// 이 테스트는 심층 프리셋을 검증한다 — 명시적으로 선택
+await page.click('.iv-role:has-text("내 지원 포지션")');
 
 /* ② 핵심 답변 카드 */
 await page.click('.iv-answers-toggle');
@@ -60,6 +62,7 @@ await page.click('.more-sheet .feat-card:has-text("기능")');
 await page.waitForSelector('.feat-grid .feat-card:has-text("면접 시뮬레이션")', { timeout: 8000 });
 await page.click('.feat-grid .feat-card:has-text("면접 시뮬레이션")');
 await page.waitForSelector('.iv-role', { timeout: 10000 });
+await page.click('.iv-role:has-text("내 지원 포지션")'); // 심층 프리셋(기본은 HR 라운드)
 await page.click('button:has-text("면접 시작")');
 await page.waitForSelector('.iv-q', { timeout: 10000 });
 check('AI 질문 생성 없이 즉시 시작(큐레이션)', genCalls === 0);

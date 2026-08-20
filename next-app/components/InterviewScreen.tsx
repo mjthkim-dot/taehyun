@@ -26,13 +26,22 @@ import {
 import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
 import { setDrillQueue, groqKey } from '../lib/state';
 import { speakText, stopSpeaking } from './SpeakButton';
-import { nextWorkatoQuestions, WORKATO_ANSWERS, WORKATO_JD_BRIEF, WORKATO_ROLE } from '../lib/workatoPrep';
+import {
+  nextWorkatoHrQuestions,
+  nextWorkatoQuestions,
+  WORKATO_ANSWERS,
+  WORKATO_HR_BRIEF,
+  WORKATO_HR_ROLE,
+  WORKATO_JD_BRIEF,
+  WORKATO_ROLE,
+} from '../lib/workatoPrep';
 
 type Phase = 'setup' | 'running' | 'evaluating' | 'report';
 
 export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) => void }) {
   const [phase, setPhase] = useState<Phase>('setup');
-  const [role, setRole] = useState<string>(WORKATO_ROLE);
+  // 기본 선택은 임박한 라운드(월요일 HR 미팅) — 끝나면 심층 프리셋으로 바꿔 쓰면 된다
+  const [role, setRole] = useState<string>(WORKATO_HR_ROLE);
   const [customRole, setCustomRole] = useState('');
   const [showAnswers, setShowAnswers] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -59,8 +68,10 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
   const history = interviewHistory();
   const activeRole = role === '__custom' ? customRole.trim() || '글로벌 포지션' : role;
   const isWorkato = role === WORKATO_ROLE;
-  // JD 문맥 — Workato 프리셋이면 후속 질문·평가가 JD 기준으로 파고든다
-  const jdContext = isWorkato ? WORKATO_JD_BRIEF : undefined;
+  const isWorkatoHr = role === WORKATO_HR_ROLE;
+  // JD 문맥 — Workato 프리셋이면 후속 질문·평가가 JD 기준으로 파고든다.
+  // HR 라운드는 라운드 성격(TA 파트너·간결·조건 확인)까지 얹는다.
+  const jdContext = isWorkatoHr ? WORKATO_HR_BRIEF : isWorkato ? WORKATO_JD_BRIEF : undefined;
 
   // 답변 타이머 — 실전 면접의 감각(60~90초 권장)을 만든다
   useEffect(() => {
@@ -92,12 +103,15 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
     if (starting) return;
     setStarting(true);
     try {
-      // Workato 프리셋은 JD 기반 큐레이션 세트(10개 로테이션) — AI 생성 없이 즉시, 항상 JD 적중
-      const r = isWorkato
-        ? { questions: nextWorkatoQuestions(), fallback: false }
-        : groqKey()
-          ? await generateQuestions(activeRole)
-          : { questions: DEFAULT_QUESTIONS, fallback: true };
+      // Workato 프리셋은 JD 기반 큐레이션 세트 — AI 생성 없이 즉시, 항상 JD 적중.
+      // HR 라운드는 별도 세트(적합성·동기·조건 8문항 로테이션).
+      const r = isWorkatoHr
+        ? { questions: nextWorkatoHrQuestions(), fallback: false }
+        : isWorkato
+          ? { questions: nextWorkatoQuestions(), fallback: false }
+          : groqKey()
+            ? await generateQuestions(activeRole)
+            : { questions: DEFAULT_QUESTIONS, fallback: true };
       setFallbackSet(r.fallback);
       setSteps(
         r.questions.map((q) => ({
@@ -238,9 +252,13 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
 
         <div className="study-card">
           <div className="pp-sec" style={{ marginTop: 0 }}>지원 직무</div>
+          <button type="button" className={`iv-role${isWorkatoHr ? ' on' : ''}`} onClick={() => setRole(WORKATO_HR_ROLE)}>
+            {WORKATO_HR_ROLE} <span className="mn-badge-new">월요일 미팅</span>
+            <span className="iv-role-sub">TA 파트너와 30~45분 — 동기·이직 사유·연봉·노티스·역질문 8문항</span>
+          </button>
           <button type="button" className={`iv-role${isWorkato ? ' on' : ''}`} onClick={() => setRole(WORKATO_ROLE)}>
             {WORKATO_ROLE} <span className="mn-badge-new">내 지원 포지션</span>
-            <span className="iv-role-sub">실제 JD 기반 예상 질문 10개 로테이션 · 핵심 답변 카드 9장</span>
+            <span className="iv-role-sub">심층 라운드용 — JD 기반 질문 10개 로테이션 · 핵심 답변 카드 9장</span>
           </button>
           {ROLE_PRESETS.map((r) => (
             <button key={r} type="button" className={`iv-role${role === r ? ' on' : ''}`} onClick={() => setRole(r)}>

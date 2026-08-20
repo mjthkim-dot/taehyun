@@ -206,6 +206,138 @@ export const WORKATO_QUESTIONS: { q: string; qKr: string; guide: AnswerGuide }[]
 ];
 
 const ROTATE_KEY = 'va_workato_q';
+const HR_ROTATE_KEY = 'va_workato_hr_q';
+
+/* ── HR 스크리닝 라운드 (1차, TA 파트너와 30~45분 Zoom) ──
+ * 심층 면접과 다른 게임이다: STAR 딥다이브가 아니라 적합성·동기·조건 확인.
+ * 실제 초대 메일(Haruka, Talent Acquisition Partner, Workato Japan & Korea:
+ * "discuss your background and interests... details about the role, the
+ * hiring process, and our team") 기반으로 라운드 성격을 프롬프트에 주입한다. */
+
+export const WORKATO_HR_ROLE = 'Workato EAE — 1차 HR 스크리닝 (TA 파트너)';
+
+export const WORKATO_HR_BRIEF = [
+  WORKATO_JD_BRIEF,
+  '이번 라운드: 1차 HR 스크리닝. 면접관은 Talent Acquisition 파트너(Workato Japan & Korea 담당, 세일즈 실무자 아님). 30~45분 Zoom.',
+  '이 라운드의 목적: 배경·동기 확인, 기본 적합성(경력 연차·신규 영업 성향), 조건(연봉 기대·노티스 기간), 프로세스 안내. 딥 테크니컬·딜 딥다이브는 다음 라운드.',
+  '면접관 톤: 우호적이고 대화체. 지원자 답변은 간결(30~60초)할수록 좋고, 너무 깊게 파고들 필요 없다.',
+].join('\n');
+
+export const WORKATO_HR_QUESTIONS: { q: string; qKr: string; guide: AnswerGuide }[] = [
+  {
+    q: 'Thanks for making time today! Could you briefly introduce yourself and your current role?',
+    qKr: '시간 내주셔서 감사해요! 간단히 자기소개와 현재 역할을 말씀해 주시겠어요?',
+    guide: {
+      structure: ['현재 소속·역할 한 줄', '무엇을 파는지·규모', '한 문장 성과로 마무리 — 60초 안에'],
+      materials: ['HR 라운드는 짧은 버전 — 딥다이브는 다음 라운드에서', '숫자 하나만: 50+ 계정 또는 $253K 딜 중 택1'],
+      opener: "Thanks for having me! I'm Taehyun, an account manager at MegazoneCloud.",
+      sample: {
+        en: "Thanks for having me! I'm Taehyun, an account manager at MegazoneCloud, Korea's largest cloud partner. I manage a portfolio of over fifty enterprise accounts, selling cloud, DevOps, and AI solutions — and recently closed a three-year, quarter-million-dollar commitment. I'm excited to learn more about the Enterprise AE role today.",
+        kr: '초대해 주셔서 감사합니다! 저는 한국 최대 클라우드 파트너인 메가존클라우드의 어카운트 매니저 태현입니다. 50개 이상의 엔터프라이즈 계정을 담당하며 클라우드·DevOps·AI 솔루션을 판매하고 있고, 최근 3년 25만 달러 약정을 클로징했습니다. 오늘 Enterprise AE 역할에 대해 더 알게 되길 기대합니다.',
+      },
+    },
+  },
+  {
+    q: 'What made you interested in Workato specifically?',
+    qKr: '특별히 Workato에 관심을 갖게 된 계기가 무엇인가요?',
+    guide: {
+      structure: ['현장에서 본 변화', 'Workato의 자리', '개인적 동기 한 줄'],
+      materials: ['고객 대화가 자동화·AI 거버넌스로 이동', '에이전틱 시대 통합 = 컨트롤 플레인', '글로벌 환경에서 영어로 일하고 싶은 방향'],
+      opener: "I've been watching my customers' priorities shift toward automation and AI.",
+      sample: {
+        en: "In my current role, I've watched every customer conversation shift toward automation and AI governance — and Workato sits exactly where that question gets answered. The fact that half of the Fortune 500 trusts the platform says a lot. Personally, it's also the right time for me to move into a global environment where I work in English every day.",
+        kr: '지금 역할에서 모든 고객 대화가 자동화와 AI 거버넌스로 옮겨가는 걸 지켜봤는데, Workato가 바로 그 질문에 답하는 자리에 있습니다. 포춘 500의 절반이 신뢰하는 플랫폼이라는 점도 많은 걸 말해주죠. 개인적으로도 매일 영어로 일하는 글로벌 환경으로 옮길 적기입니다.',
+      },
+    },
+  },
+  {
+    q: "You've been at MegazoneCloud for a while. Why are you considering a move now?",
+    qKr: '메가존클라우드에 꽤 계셨는데, 왜 지금 이직을 고려하시나요?',
+    guide: {
+      structure: ['현 회사에 대한 감사 한 줄', '도망 아닌 성장 프레임', '이 역할과의 연결'],
+      materials: ['부정적 이유 금지 — 회사 험담은 감점', '"성장의 문제": 글로벌 고객 직접 상대, 영어로 네이티브하게', '헌터 본능 — 신규 개척에 집중하고 싶다'],
+      opener: "I'm grateful for my time at Megazone — this is about growth, not escape.",
+      sample: {
+        en: "I'm really grateful for my time at Megazone — it's where I learned enterprise sales end to end. This move is about growth, not escape: I want direct exposure to global customers and to work in English natively, not through translation. And honestly, I'm a hunter at heart — a role that's almost entirely new business is exactly where I do my best work.",
+        kr: '메가존에서의 시간에 정말 감사합니다 — 엔터프라이즈 영업을 처음부터 끝까지 배운 곳이니까요. 이번 이동은 도망이 아니라 성장의 문제입니다: 글로벌 고객을 직접 상대하고, 번역을 거치지 않고 영어로 일하고 싶습니다. 그리고 솔직히 저는 천성이 헌터라, 거의 전적으로 신규 영업인 이 역할이 제가 가장 잘하는 일과 정확히 맞습니다.',
+      },
+    },
+  },
+  {
+    q: 'Could you walk me through your quota and how you have performed against it?',
+    qKr: '쿼터와 그 대비 실적을 간단히 말씀해 주시겠어요?',
+    guide: {
+      structure: ['쿼터 구조 한 줄', '달성률·대표 숫자', '재현 가능한 이유 한 줄'],
+      materials: ['정확한 숫자는 솔직하게 — HR은 검증 가능한 걸 좋아한다', '$253K 딜, 월 $430K 계정 운영, 커버리지 3배 규칙'],
+      opener: 'Sure — let me give you the headline numbers.',
+      sample: {
+        en: "Sure — let me give you the headline numbers. I carry an annual revenue quota across my account portfolio, and I've consistently hit it — my largest recent close was a three-year, quarter-million-dollar commitment. What makes it repeatable is discipline: I keep pipeline coverage at roughly three times quota and review it weekly.",
+        kr: '네 — 핵심 숫자부터 말씀드릴게요. 계정 포트폴리오 기준 연간 매출 쿼터를 갖고 있고 꾸준히 달성해 왔습니다 — 최근 가장 큰 클로징은 3년 25만 달러 약정이었습니다. 반복 가능한 이유는 규율입니다: 파이프라인 커버리지를 쿼터의 약 3배로 유지하고 매주 리뷰합니다.',
+      },
+    },
+  },
+  {
+    q: 'What do you know about Workato and our platform so far?',
+    qKr: 'Workato와 저희 플랫폼에 대해 어디까지 알고 계신가요?',
+    guide: {
+      structure: ['한 문장 정의(정확하게)', '나에게 와닿은 포인트', '더 알고 싶은 것 하나(호기심)'],
+      materials: ['에이전틱 시대의 iPaaS — 앱·데이터·프로세스·AI를 한 플랫폼에서 오케스트레이션', '엔터프라이즈 MCP 선두, 포춘 500의 50%', '질문으로 마무리하면 대화가 된다'],
+      opener: "From my research, Workato is redefining iPaaS for the agentic era.",
+      sample: {
+        en: "From my research, Workato is redefining iPaaS for the agentic era — one platform that connects apps, data, processes, and now AI agents, with enterprise-grade governance. What stood out to me is that half of the Fortune 500 already trusts it, and the leadership in enterprise MCP. I'd actually love to hear how the Korea team positions it against local build-it-yourself tendencies.",
+        kr: '제가 조사한 바로는, Workato는 에이전틱 시대에 맞게 iPaaS를 재정의하고 있습니다 — 앱·데이터·프로세스, 이제 AI 에이전트까지 엔터프라이즈급 거버넌스로 한 플랫폼에서 연결하죠. 포춘 500의 절반이 이미 신뢰한다는 점과 엔터프라이즈 MCP 선두라는 점이 인상적이었습니다. 한국 팀은 국내의 자체 구축 성향에 어떻게 포지셔닝하는지 오히려 듣고 싶습니다.',
+      },
+    },
+  },
+  {
+    q: 'May I ask about your compensation expectations for this role?',
+    qKr: '이 역할에 대한 연봉 기대치를 여쭤봐도 될까요?',
+    guide: {
+      structure: ['구조 먼저 묻기(OTE·베이스 비율)', '범위로 말하기(단일 숫자 앵커링 금지)', '유연성 신호'],
+      materials: ['글로벌 세일즈는 OTE(베이스+변동) 구조 — 분할 비율을 먼저 확인', '현재 총보상 기준 범위 제시, "역할과 총 패키지에 따라 유연"', '숫자를 말하기 전에 밴드를 물어봐도 실례가 아니다'],
+      opener: "Happy to discuss — could you first share how the OTE is structured for this role?",
+      sample: {
+        en: "Happy to discuss that. Could you first share how the OTE is structured for this role — the base-to-variable split and the typical band? Based on my current total compensation, I'm looking at a reasonable step up, but I think in ranges rather than a single number, and I'm flexible depending on the overall package and the opportunity itself.",
+        kr: '기꺼이 논의하겠습니다. 먼저 이 역할의 OTE 구조를 여쭤봐도 될까요 — 베이스와 변동급 비율, 그리고 통상적인 밴드요? 현재 총보상 기준으로 합리적인 상승을 기대하지만, 단일 숫자보다는 범위로 생각하고 있고, 전체 패키지와 기회 자체에 따라 유연합니다.',
+      },
+    },
+  },
+  {
+    q: 'If things move forward, what would your notice period and earliest start date look like?',
+    qKr: '진행된다면 인수인계 기간과 가장 빠른 입사 가능일은 어떻게 되나요?',
+    guide: {
+      structure: ['표준 노티스 명시', '인수인계를 책임 있게', '유연성 한 줄'],
+      materials: ['한국 표준 4주 — 고객 인수인계를 깔끔히 하는 프로답음이 오히려 플러스', '급하면 조정 여지도 열어두기'],
+      opener: 'My standard notice period is about four weeks.',
+      sample: {
+        en: "My standard notice period is about four weeks — I manage a large customer portfolio, so I'd want to hand it over responsibly, the same way I'd want my own accounts treated. That said, there's some flexibility if the timeline needs it. Realistically, I could start within four to six weeks of an offer.",
+        kr: '표준 인수인계 기간은 약 4주입니다 — 큰 고객 포트폴리오를 담당하고 있어서, 제 계정이 그렇게 다뤄지길 바라는 만큼 책임 있게 넘기고 싶습니다. 다만 일정이 필요하면 조정 여지는 있습니다. 현실적으로 오퍼 후 4~6주 안에 시작할 수 있습니다.',
+      },
+    },
+  },
+  {
+    q: "That's all from my side — do you have any questions for me?",
+    qKr: '제 쪽 질문은 여기까지예요 — 저에게 궁금한 점 있으신가요?',
+    guide: {
+      structure: ['프로세스 질문 1개', '팀·역할 질문 1개', '다음 단계 의지 표현으로 마무리'],
+      materials: ['"다음 라운드 구성과 일정?" — 준비성 신호', '"코리아 팀 구성과 이 포지션의 배경(증원? 백필?)"', '마무리: 다음 단계가 기대된다'],
+      opener: 'Yes, two quick ones.',
+      sample: {
+        en: "Yes, two quick ones. First, could you walk me through the rest of the hiring process — who I'd meet next and the rough timeline? And second, I'm curious about the Korea team: is this role a new headcount for expansion, or a backfill? Either way, I'm excited about the next steps.",
+        kr: '네, 짧게 두 가지요. 먼저 남은 채용 프로세스를 알려주시겠어요 — 다음에 누구를 만나고 대략적인 일정은 어떻게 되는지요? 둘째로 코리아 팀이 궁금합니다: 이 포지션은 확장을 위한 신규 채용인가요, 아니면 백필인가요? 어느 쪽이든 다음 단계가 기대됩니다.',
+      },
+    },
+  },
+];
+
+/** HR 라운드 질문 5개 — 세션마다 로테이션(두 번이면 8문항 전부 커버). */
+export function nextWorkatoHrQuestions(): { q: string; qKr: string; guide: AnswerGuide }[] {
+  const start = load<number>(HR_ROTATE_KEY, 0) % WORKATO_HR_QUESTIONS.length;
+  const out: { q: string; qKr: string; guide: AnswerGuide }[] = [];
+  for (let i = 0; i < 5; i++) out.push(WORKATO_HR_QUESTIONS[(start + i) % WORKATO_HR_QUESTIONS.length]);
+  store(HR_ROTATE_KEY, (start + 5) % WORKATO_HR_QUESTIONS.length);
+  return out;
+}
 
 /** 이번 세션의 질문 5개 — 호출할 때마다 다음 5개로 로테이션. */
 export function nextWorkatoQuestions(): { q: string; qKr: string; guide: AnswerGuide }[] {
