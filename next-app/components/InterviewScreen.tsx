@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Mode } from './NavBar';
 import {
   DEFAULT_QUESTIONS,
+  deliveryMetrics,
   draftAnswer,
   evaluateInterview,
   generateQuestions,
@@ -56,6 +57,9 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
   // AI 즉석 예시 답변 — 후속 질문·AI 생성 질문처럼 내장 예시가 없을 때
   const [aiSample, setAiSample] = useState<{ en: string; kr: string } | null>(null);
   const [drafting, setDrafting] = useState(false);
+  // 답변 직후의 전달력 확인 단계 — 다음/다시 답하기를 사용자가 고른다
+  const [pause, setPause] = useState<null | { reaction?: string }>(null);
+  const lastDurationRef = useRef<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [recording, setRecording] = useState(false);
   const [interim, setInterim] = useState('');
@@ -80,6 +84,7 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
     setShowGuide(false); // 질문이 바뀌면 가이드는 접는다 — 먼저 스스로 생각하게
     setAiSample(null);
     setDrafting(false);
+    setPause(null);
     timerRef.current = window.setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current);
@@ -150,8 +155,13 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
       return;
     }
 
+    // 전달력 지표 — STT 전사에서 결정적으로(벤치마크: Yoodli의 WPM·필러,
+    // Warmup의 talking-points). 텍스트 입력은 WPM 없이 나머지만.
+    const metrics = deliveryMetrics(text, lastDurationRef.current);
+    lastDurationRef.current = null;
+
     const next = steps.slice();
-    next[idx] = { ...cur, answer: text };
+    next[idx] = { ...cur, answer: text, metrics };
     setSteps(next);
 
     if (groqKey()) {
@@ -167,13 +177,25 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
           return;
         }
         ask(r.reaction);
-        advance(withReaction);
+        // 바로 다음으로 넘기지 않는다 — 전달력 미터를 보고 "다시 답하기"를
+        // 고를 기회(Warmup의 re-answer 루프). 다음은 사용자가 누른다.
+        setPause({ reaction: r.reaction });
       } finally {
         setThinking(false);
       }
     } else {
-      advance(next);
+      setPause({});
     }
+  }
+
+  /** 다시 답하기 — 같은 질문을 새로 답한다(이전 답·지표는 버림) */
+  function retryAnswer() {
+    const next = steps.slice();
+    next[idx] = { ...next[idx], answer: undefined, metrics: undefined, reaction: undefined };
+    setSteps(next);
+    setPause(null);
+    setDraft('');
+    ask(steps[idx].q);
   }
 
   function advance(cur: InterviewStep[]) {
@@ -211,7 +233,7 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
     }
     setRecording(true);
     try {
-      const { text } = await recordAndTranscribe({
+      const { text, durationMs } = await recordAndTranscribe({
         onPartial: (t) => setInterim(t),
         // 면접 답변은 길다 — 생각하는 침묵에 끊기지 않게 수동 종료
         silenceMs: 0,
@@ -220,7 +242,11 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
           stopRecRef.current = fn;
         },
       });
-      if (text) setDraft((d) => (d ? `${d} ${text}` : text));
+      if (text) {
+        setDraft((d) => (d ? `${d} ${text}` : text));
+        // WPM 계산용 — 이어 말하기(여러 번 녹음)면 합산
+        lastDurationRef.current = (lastDurationRef.current || 0) + (durationMs || 0);
+      }
     } finally {
       setRecording(false);
       setInterim('');
@@ -361,6 +387,35 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
               </div>
             )}
 
+            {/* 전달력 종합 — 클라이언트 계산(벤치마크: Yoodli 스타일 딜리버리 리포트) */}
+            {(() => {
+              const ms = steps.map((s) => s.metrics).filter((m): m is NonNullable<typeof m> => !!m);
+              if (!ms.length) return null;
+              const avgWords = Math.round(ms.reduce((a, m) => a + m.words, 0) / ms.length);
+              const wpms = ms.map((m) => m.wpm).filter((w): w is number => w !== null);
+              const avgWpm = wpms.length ? Math.round(wpms.reduce((a, b) => a + b, 0) / wpms.length) : null;
+              const fillers = ms.reduce((a, m) => a + m.fillerCount, 0);
+              const points = ms.reduce((a, m) => a + (m.hasNumber ? 1 : 0) + (m.hasOwnership ? 1 : 0) + (m.hasResult ? 1 : 0), 0);
+              const tips: string[] = [];
+              if (avgWpm !== null && avgWpm < 100) tips.push('말 속도가 느린 편이에요 — 문장을 짧게 끊으면 속도가 붙습니다.');
+              if (avgWpm !== null && avgWpm > 160) tips.push('조금 빠릅니다 — 핵심 숫자 앞에서 반 박자 쉬어보세요.');
+              if (fillers > ms.length * 2) tips.push('필러가 잦아요 — "um" 대신 조용한 1초 멈춤이 더 프로답게 들립니다.');
+              if (points < ms.length * 2) tips.push('답변마다 숫자·내 역할·결과 중 2개 이상을 넣는 걸 목표로.');
+              if (!tips.length) tips.push('전달력이 안정적이에요 — 이 리듬을 유지하세요.');
+              return (
+                <div className="study-card">
+                  <div className="pp-sec" style={{ marginTop: 0 }}>🎙 전달력 종합</div>
+                  <div className="iv-meter-row">
+                    <span className="iv-meter">평균 {avgWords}단어</span>
+                    {avgWpm !== null && <span className="iv-meter">평균 {avgWpm} WPM</span>}
+                    <span className={`iv-meter${fillers > ms.length * 2 ? ' warn' : ''}`}>필러 총 {fillers}회</span>
+                    <span className="iv-meter">포인트 {points}/{ms.length * 3}</span>
+                  </div>
+                  <ul className="pp-list" style={{ marginTop: 8 }}>{tips.map((t, i) => <li key={i}>{t}</li>)}</ul>
+                </div>
+              );
+            })()}
+
             {report.improvements.length > 0 && (
               <div className="study-card">
                 <div className="pp-sec" style={{ marginTop: 0 }}>🔧 교정 (복습 루프에 등록됨)</div>
@@ -494,6 +549,46 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
 
       {thinking ? (
         <p className="muted pp-msg">면접관이 답변을 듣고 있어요…</p>
+      ) : pause ? (
+        /* 전달력 체크포인트 — 답변 직후 미터를 보고 다시 답하거나 다음으로 */
+        <div className="study-card">
+          <div className="pp-sec" style={{ marginTop: 0 }}>🎙 방금 답변의 전달력</div>
+          {(() => {
+            const m = steps[idx].metrics;
+            if (!m) return null;
+            return (
+              <>
+                <div className="iv-meter-row">
+                  <span className="iv-meter">
+                    단어 {m.words}
+                    {m.words < 30 ? ' · 짧아요' : m.words > 160 ? ' · 길어요' : ' ✓'}
+                  </span>
+                  {m.wpm !== null && (
+                    <span className={`iv-meter${m.wpm >= 100 && m.wpm <= 160 ? '' : ' warn'}`}>
+                      속도 {m.wpm} WPM{m.wpm < 100 ? ' · 더 자신 있게' : m.wpm > 160 ? ' · 천천히' : ' ✓'}
+                    </span>
+                  )}
+                  <span className={`iv-meter${m.fillerCount > 3 ? ' warn' : ''}`}>
+                    필러 {m.fillerCount}회{m.fillers.length ? ` (${m.fillers.slice(0, 3).join(', ')})` : ''}
+                  </span>
+                </div>
+                <div className="iv-meter-row">
+                  <span className={`iv-point${m.hasNumber ? ' on' : ''}`}>숫자 {m.hasNumber ? '✓' : '✗'}</span>
+                  <span className={`iv-point${m.hasOwnership ? ' on' : ''}`}>내 역할 {m.hasOwnership ? '✓' : '✗'}</span>
+                  <span className={`iv-point${m.hasResult ? ' on' : ''}`}>결과 {m.hasResult ? '✓' : '✗'}</span>
+                </div>
+              </>
+            );
+          })()}
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button type="button" className="btn" style={{ flex: 1 }} onClick={retryAnswer}>
+              ↺ 다시 답하기
+            </button>
+            <button type="button" className="btn primary" style={{ flex: 1 }} onClick={() => { setPause(null); advance(steps); }}>
+              다음 질문 →
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="study-card">
           <textarea

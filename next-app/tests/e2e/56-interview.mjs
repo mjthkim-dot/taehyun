@@ -80,10 +80,12 @@ await page.click('button:has-text("답변 제출")');
 await page.waitForFunction(() => document.body.innerText.includes('질문 2/5'), null, { timeout: 15000 });
 check('후속 답변 후 다음 질문으로', true);
 
-/* 나머지 4문항 — 반응은 null이라 바로 넘어간다 */
+/* 나머지 4문항 — 후속 없는 답변은 전달력 체크포인트를 거쳐 다음으로(v1.17) */
 for (let i = 2; i <= 5; i++) {
   await page.fill('.iv-answer', `My answer for question number ${i} with enough detail and numbers.`);
   await page.click('button:has-text("답변 제출")');
+  await page.waitForSelector('button:has-text("다음 질문")', { timeout: 15000 });
+  await page.click('button:has-text("다음 질문")');
   if (i < 5) await page.waitForFunction((n) => document.body.innerText.includes(`질문 ${n}/5`), i + 1, { timeout: 15000 });
 }
 

@@ -47,6 +47,8 @@ check('HR용 영어 예시 답변 내장', await page.evaluate(() => document.qu
 /* ③ 라운드 성격 주입 */
 await page.fill('.iv-answer', "I'm Taehyun, an account manager at MegazoneCloud managing fifty enterprise accounts.");
 await page.click('button:has-text("답변 제출")');
+await page.waitForSelector('button:has-text("다음 질문")', { timeout: 15000 }); // 전달력 체크포인트(v1.17)
+await page.click('button:has-text("다음 질문")');
 await page.waitForFunction(() => document.body.innerText.includes('질문 2/5'), null, { timeout: 15000 });
 check('HR 라운드 성격이 반응 프롬프트에 주입', reactSys.includes('HR 스크리닝') && reactSys.includes('Talent Acquisition 파트너'), reactSys.slice(0, 80));
 

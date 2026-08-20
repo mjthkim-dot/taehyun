@@ -87,6 +87,45 @@ export const GENERIC_GUIDE: AnswerGuide = {
   opener: 'Let me give you a concrete example from my current role.',
 };
 
+/* ── 전달력 분석 (벤치마크: Yoodli·Big Interview의 딜리버리 코칭,
+ *    Google Interview Warmup의 talking-points 감지) ──
+ * 실전 면접은 "무엇을"만큼 "어떻게"로 평가된다. STT 전사에서 결정적으로
+ * 계산한다(AI 불필요·비용 0·테스트 가능). */
+
+const FILLER_WORDS = ['um', 'uh', 'like', 'you know', 'actually', 'basically', 'kind of', 'sort of', 'i mean', 'so yeah'];
+
+export interface DeliveryMetrics {
+  words: number;
+  /** 분당 단어 수 — 녹음 답변만(텍스트 입력은 null). 원어민 면접 적정 110~150 */
+  wpm: number | null;
+  /** 감지된 필러 단어(중복 포함 총수) */
+  fillerCount: number;
+  fillers: string[];
+  /** 좋은 답의 3요소 감지 — 숫자, 내 역할(주도), 결과 */
+  hasNumber: boolean;
+  hasOwnership: boolean;
+  hasResult: boolean;
+}
+
+export function deliveryMetrics(text: string, durationMs?: number | null): DeliveryMetrics {
+  const t = ` ${text.toLowerCase().replace(/[^a-z0-9$%' ]+/g, ' ')} `;
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  const fillers: string[] = [];
+  for (const f of FILLER_WORDS) {
+    const m = t.split(` ${f} `).length - 1;
+    for (let i = 0; i < m; i++) fillers.push(f);
+  }
+  return {
+    words,
+    wpm: durationMs && durationMs > 3000 ? Math.round(words / (durationMs / 60000)) : null,
+    fillerCount: fillers.length,
+    fillers: [...new Set(fillers)],
+    hasNumber: /\d|\$|%|percent|million|thousand|hundred|dozen/.test(t),
+    hasOwnership: /\bi (led|built|drove|owned|managed|closed|negotiated|created|ran|designed|hunted|converted|rebuilt)\b/.test(t),
+    hasResult: /\b(closed|achieved|increased|reduced|resulted|delivered|won|grew|saved|hit|exceeded)\b/.test(t),
+  };
+}
+
 export interface InterviewStep {
   q: string;
   /** 질문의 한국어 힌트(내장 세트만 제공, AI 생성은 빈 문자열 가능) */
@@ -97,6 +136,8 @@ export interface InterviewStep {
   reaction?: string;
   followUp?: string;
   followUpAnswer?: string;
+  /** 본답변의 전달력 지표 — 리포트의 전달력 종합에 쓴다 */
+  metrics?: DeliveryMetrics;
 }
 
 export interface InterviewReport {

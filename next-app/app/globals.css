@@ -2164,6 +2164,38 @@ button {
 .iv-draft-btn {
   margin-top: 0;
 }
+.iv-meter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.iv-meter {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+.iv-meter.warn {
+  color: var(--yellow);
+  border-color: var(--yellow);
+}
+.iv-point {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+.iv-point.on {
+  color: var(--green);
+  border-color: var(--green);
+}
 .iv-role-sub {
   display: block;
   font-size: 0.68rem;

@@ -73,6 +73,8 @@ check('로테이션 인덱스가 저장된다', await page.evaluate(() => JSON.p
 /* ④ JD 컨텍스트 주입 */
 await page.fill('.iv-answer', 'I have been selling cloud solutions for over four years and closed six-figure deals.');
 await page.click('button:has-text("답변 제출")');
+await page.waitForSelector('button:has-text("다음 질문")', { timeout: 15000 }); // 전달력 체크포인트(v1.17)
+await page.click('button:has-text("다음 질문")');
 await page.waitForFunction(() => document.body.innerText.includes('질문 2/5'), null, { timeout: 15000 });
 check('JD 요약이 반응 프롬프트에 주입된다', reactSys.includes('Workato Enterprise Account Executive') && reactSys.includes('$100K'), reactSys.slice(0, 80));
 
