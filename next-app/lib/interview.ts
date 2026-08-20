@@ -175,6 +175,34 @@ export function interviewHistory(): InterviewRecord[] {
   return load<InterviewRecord[]>(HISTORY_KEY, []);
 }
 
+/* ── 다가오는 실제 면접 D-day — 준비의 마감을 눈에 보이게 ── */
+
+const DATE_KEY = 'va_interview_date';
+
+export interface UpcomingInterview {
+  /** YYYY-MM-DD */
+  date: string;
+  label: string;
+}
+
+export function upcomingInterview(): UpcomingInterview | null {
+  const v = load<UpcomingInterview | null>(DATE_KEY, null);
+  if (!v?.date || !/^\d{4}-\d{2}-\d{2}$/.test(v.date)) return null;
+  return v;
+}
+
+export function setUpcomingInterview(v: UpcomingInterview | null) {
+  store(DATE_KEY, v);
+}
+
+/** 오늘 기준 남은 일수 — 오늘이면 0, 지났으면 음수 */
+export function daysUntilInterview(v: UpcomingInterview): number {
+  const today = new Date();
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const [y, m, d] = v.date.split('-').map(Number);
+  return Math.round((new Date(y, m - 1, d).getTime() - t0) / 86400000);
+}
+
 /* ── 1) 질문 생성 ── */
 
 /** 역할 맞춤 질문 5개 — AI 실패 시 내장 세트로 폴백(면접은 항상 시작된다). */

@@ -13,7 +13,7 @@ import type { Mode } from './NavBar';
 import { getEpisodes, readEpisodes } from '../lib/immersion';
 import { seenScenarios, totalMergedScenarios } from '../lib/realCourse';
 import { seenCareer, totalCareerScenarios } from '../lib/careerPack';
-import { interviewHistory } from '../lib/interview';
+import { daysUntilInterview, interviewHistory, upcomingInterview } from '../lib/interview';
 import { dueWeak } from '../lib/state';
 
 interface Shortcut {
@@ -59,7 +59,15 @@ function buildShortcuts(): Shortcut[] {
       ? { mode: 'immersion', icon: '📖', label: '몰입 스토리', state: `다음 ${nextEp.no}화 대기`, fresh: read.length === 0 }
       : { mode: 'immersion', icon: '📖', label: '몰입 스토리', state: '다음 화 만들기' },
     { mode: 'course', icon: '📬', label: '실전 코스', state: `${course}/${courseTotal} 연습`, fresh: course === 0 },
-    { mode: 'interview', icon: '🎤', label: '면접', state: last ? `최근 ${last.score}점` : '첫 시뮬레이션', fresh: !last },
+    // 실제 면접이 잡혀 있으면 D-day가 상태가 된다 — D-3 이내면 강조(오늘 할 일)
+    (() => {
+      const up = upcomingInterview();
+      const dday = up ? daysUntilInterview(up) : -1;
+      if (up && dday >= 0) {
+        return { mode: 'interview' as Mode, icon: '🎤', label: '면접', state: `D-${dday} · ${up.label}`, hot: dday <= 3 };
+      }
+      return { mode: 'interview' as Mode, icon: '🎤', label: '면접', state: last ? `최근 ${last.score}점` : '첫 시뮬레이션', fresh: !last };
+    })(),
     { mode: 'career', icon: '🙋', label: '커리어 영어', state: `${career}/${careerTotal} 연습`, fresh: career === 0 },
     { mode: 'minutes', icon: '🗂', label: '실전 영어', state: '회의록·메일 → 대화' },
     { mode: 'audio', icon: '🎧', label: '오디오 모드', state: '귀로만 오늘 복습' },

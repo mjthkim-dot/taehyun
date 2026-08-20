@@ -17,9 +17,12 @@ import {
   evaluateInterview,
   generateQuestions,
   GENERIC_GUIDE,
+  daysUntilInterview,
   interviewHistory,
   reactToAnswer,
   ROLE_PRESETS,
+  setUpcomingInterview,
+  upcomingInterview,
   type AnswerGuide,
   type InterviewReport,
   type InterviewStep,
@@ -70,6 +73,9 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
   const [evalError, setEvalError] = useState('');
 
   const history = interviewHistory();
+  const [upcoming, setUpcoming] = useState(() => upcomingInterview());
+  const [dateInput, setDateInput] = useState('');
+  const [labelInput, setLabelInput] = useState('');
   const activeRole = role === '__custom' ? customRole.trim() || '글로벌 포지션' : role;
   const isWorkato = role === WORKATO_ROLE;
   const isWorkatoHr = role === WORKATO_HR_ROLE;
@@ -90,6 +96,12 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
       if (timerRef.current) window.clearInterval(timerRef.current);
     };
   }, [phase, idx, awaitingFollowUp]);
+
+  // 체크포인트 진입/이탈(다시 답하기 포함) 때 답변 타이머를 리셋한다 —
+  // 안 하면 재답변의 타이머가 이전 답변 시간에서 이어져 90초 경고가 오작동.
+  useEffect(() => {
+    setElapsed(0);
+  }, [pause]);
 
   useEffect(
     () => () => {
@@ -195,6 +207,9 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
     setSteps(next);
     setPause(null);
     setDraft('');
+    // 이전 녹음 시간을 버린다 — 안 버리면 재답변을 타이핑으로 해도
+    // 예전 녹음 기준으로 WPM이 계산되는 오염이 생긴다(자가 진단에서 발견).
+    lastDurationRef.current = null;
     ask(steps[idx].q);
   }
 
@@ -272,6 +287,41 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
                   {h.date.slice(5, 10)} · {h.score}점
                 </span>
               ))}
+            </div>
+          )}
+
+          {/* 실제 면접 D-day — 준비의 마감이 눈에 보여야 매일 연습한다 */}
+          {upcoming && daysUntilInterview(upcoming) >= 0 ? (
+            <div className="iv-dday">
+              📅 <b>D-{daysUntilInterview(upcoming)}</b> · {upcoming.label} ({upcoming.date})
+              <button
+                type="button"
+                className="fb-del"
+                aria-label="면접 일정 삭제"
+                onClick={() => {
+                  setUpcomingInterview(null);
+                  setUpcoming(null);
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <div className="iv-dday-set">
+              <input className="text-input" type="date" value={dateInput} onChange={(e) => setDateInput(e.target.value)} aria-label="면접 날짜" />
+              <input className="text-input" placeholder="예: Workato HR 미팅" value={labelInput} onChange={(e) => setLabelInput(e.target.value)} />
+              <button
+                type="button"
+                className="mini-btn"
+                disabled={!dateInput}
+                onClick={() => {
+                  const v = { date: dateInput, label: labelInput.trim() || '면접' };
+                  setUpcomingInterview(v);
+                  setUpcoming(v);
+                }}
+              >
+                D-day 설정
+              </button>
             </div>
           )}
         </div>

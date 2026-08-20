@@ -2196,6 +2196,30 @@ button {
   color: var(--green);
   border-color: var(--green);
 }
+.iv-dday {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary-dk);
+  background: var(--primary-soft);
+  border: 1px solid var(--primary);
+  border-radius: 12px;
+  padding: 9px 12px;
+  margin-top: 10px;
+}
+.iv-dday-set {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.iv-dday-set .text-input {
+  flex: 1;
+  min-width: 120px;
+}
 .iv-role-sub {
   display: block;
   font-size: 0.68rem;
