@@ -63,6 +63,7 @@ await page.waitForSelector('.feat-grid .feat-card:has-text("면접 시뮬레이�
 await page.click('.feat-grid .feat-card:has-text("면접 시뮬레이션")');
 await page.waitForSelector('.iv-role', { timeout: 10000 });
 await page.click('.iv-role:has-text("내 지원 포지션")'); // 심층 프리셋(기본은 HR 라운드)
+await page.click('.iv-mode:has-text("연습 모드")'); // 텍스트 입력 플로우 검증용(기본은 실전 모드)
 await page.click('button:has-text("면접 시작")');
 await page.waitForSelector('.iv-q', { timeout: 10000 });
 check('AI 질문 생성 없이 즉시 시작(큐레이션)', genCalls === 0);

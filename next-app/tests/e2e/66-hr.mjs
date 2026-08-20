@@ -33,6 +33,7 @@ await page.waitForSelector('.iv-role', { timeout: 10000 });
 
 /* ① 기본 = HR, HR 질문 세트 */
 check('HR 프리셋이 기본 선택', await page.evaluate(() => document.querySelector('.iv-role.on')?.textContent.includes('HR 스크리닝')));
+await page.click('.iv-mode:has-text("연습 모드")'); // 텍스트 입력 플로우 검증용(기본은 실전 모드)
 await page.click('button:has-text("면접 시작")');
 await page.waitForSelector('.iv-q', { timeout: 10000 });
 check('첫 질문이 HR 세트 1번(가벼운 자기소개)', await page.evaluate(() => document.querySelector('.iv-q')?.textContent.includes('briefly introduce yourself')));

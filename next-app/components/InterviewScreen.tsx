@@ -60,9 +60,18 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
   // AI 즉석 예시 답변 — 후속 질문·AI 생성 질문처럼 내장 예시가 없을 때
   const [aiSample, setAiSample] = useState<{ en: string; kr: string } | null>(null);
   const [drafting, setDrafting] = useState(false);
-  // 답변 직후의 전달력 확인 단계 — 다음/다시 답하기를 사용자가 고른다
+  // 답변 직후의 전달력 확인 단계 — 다음/다시 답하기를 사용자가 고른다(연습 모드)
   const [pause, setPause] = useState<null | { reaction?: string }>(null);
   const lastDurationRef = useRef<number | null>(null);
+  // 실전 모드(핸즈프리) — 질문 낭독이 끝나면 자동 청취, 말이 끝나면 자동 제출
+  const [modeChoice, setModeChoice] = useState<'live' | 'manual'>(() => (whisperAvailable() ? 'live' : 'manual'));
+  const [live, setLive] = useState(false);
+  const liveRef = useRef(false);
+  const [liveState, setLiveState] = useState<'idle' | 'listening' | 'transcribing'>('idle');
+  const liveStopRef = useRef<(() => void) | null>(null);
+  const startLiveListenRef = useRef<(() => Promise<void>) | null>(null);
+  const phaseRef = useRef<Phase>('setup');
+  phaseRef.current = phase;
   const [elapsed, setElapsed] = useState(0);
   const [recording, setRecording] = useState(false);
   const [interim, setInterim] = useState('');
@@ -106,15 +115,60 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
   useEffect(
     () => () => {
       stopRecRef.current?.();
+      liveStopRef.current?.(); // 실전 모드 자동 청취도 화면 이탈 시 정리
       stopSpeaking();
     },
     []
   );
 
-  function ask(text: string) {
+  function ask(text: string, thenListen = false) {
     stopSpeaking();
-    speakText(text, 'en-US');
+    // 실전 모드: 면접관 발화가 끝나면 자동으로 청취를 시작한다 —
+    // "질문 듣고 → 말하고 → 끝나면 흐른다"는 진짜 면접의 리듬.
+    // 주의: onend는 몇 초 뒤에 온다 — 그 사이 렌더가 바뀌므로 ref로 항상
+    // 최신 클로저를 부른다(스테일 steps/idx로 제출이 죽는 버그 방지).
+    speakText(text, 'en-US', 1, () => {
+      if (thenListen && liveRef.current && phaseRef.current === 'running') void startLiveListenRef.current?.();
+    });
   }
+
+  /** 실전 모드 자동 청취 — 침묵 3초(생각 멈춤 허용) 또는 ⏹ 탭으로 종료 → 자동 제출 */
+  async function startLiveListen() {
+    if (!whisperAvailable()) {
+      setLive(false);
+      liveRef.current = false;
+      return;
+    }
+    setLiveState('listening');
+    setInterim('');
+    try {
+      const { text, durationMs } = await recordAndTranscribe({
+        onPartial: (t) => setInterim(t),
+        onState: (s) => {
+          if (s === 'transcribing') setLiveState('transcribing');
+        },
+        silenceMs: 3000,
+        maxMs: 120000,
+        registerStop: (fn) => {
+          liveStopRef.current = fn;
+        },
+      });
+      liveStopRef.current = null;
+      setLiveState('idle');
+      if (phaseRef.current !== 'running') return;
+      if (text && text.trim()) {
+        lastDurationRef.current = (lastDurationRef.current || 0) + (durationMs || 0);
+        setInterim('');
+        await submitText(text.trim());
+      }
+      // 빈 결과면 idle 패널(다시 듣기/직접 입력)로 — 조용히 무한 재시도하지 않는다
+    } catch {
+      liveStopRef.current = null;
+      setLiveState('idle');
+    }
+  }
+  // 렌더마다 최신 클로저를 ref에 — onend(수 초 뒤)에서도 현재 steps/idx로 동작
+  startLiveListenRef.current = startLiveListen;
 
   async function start() {
     if (starting) return;
@@ -143,15 +197,23 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
       setDraft('');
       setReport(null);
       setEvalError('');
+      const useLive = modeChoice === 'live' && whisperAvailable();
+      setLive(useLive);
+      liveRef.current = useLive;
+      setLiveState('idle');
       setPhase('running');
-      ask(r.questions[0].q);
+      phaseRef.current = 'running';
+      ask(r.questions[0].q, useLive);
     } finally {
       setStarting(false);
     }
   }
 
   async function submitAnswer() {
-    const text = draft.trim();
+    await submitText(draft.trim());
+  }
+
+  async function submitText(text: string) {
     if (!text || thinking) return;
     setDraft('');
     setInterim('');
@@ -163,7 +225,7 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
       next[idx] = { ...cur, followUpAnswer: text };
       setSteps(next);
       setAwaitingFollowUp(false);
-      advance(next);
+      advance(next, liveRef.current ? { listen: true } : undefined);
       return;
     }
 
@@ -185,16 +247,24 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
         setSteps(withReaction);
         if (r.followUp) {
           setAwaitingFollowUp(true);
-          ask(`${r.reaction} ${r.followUp}`);
+          ask(`${r.reaction} ${r.followUp}`, true); // 실전 모드면 후속 질문 후 자동 청취
+          return;
+        }
+        if (liveRef.current) {
+          // 실전 모드: 체크포인트 없이 흐른다 — 반응을 다음 질문 앞에 이어 읽는다.
+          // 전달력 지표는 기록되어 리포트 종합에 남는다.
+          advance(withReaction, { listen: true, prefix: r.reaction });
           return;
         }
         ask(r.reaction);
-        // 바로 다음으로 넘기지 않는다 — 전달력 미터를 보고 "다시 답하기"를
-        // 고를 기회(Warmup의 re-answer 루프). 다음은 사용자가 누른다.
+        // 연습 모드: 전달력 미터를 보고 "다시 답하기"를 고를 기회(Warmup의
+        // re-answer 루프). 다음은 사용자가 누른다.
         setPause({ reaction: r.reaction });
       } finally {
         setThinking(false);
       }
+    } else if (liveRef.current) {
+      advance(next, { listen: true });
     } else {
       setPause({});
     }
@@ -213,11 +283,11 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
     ask(steps[idx].q);
   }
 
-  function advance(cur: InterviewStep[]) {
+  function advance(cur: InterviewStep[], opts?: { listen?: boolean; prefix?: string }) {
     if (idx + 1 < cur.length) {
       const ni = idx + 1;
       setIdx(ni);
-      ask(cur[ni].q);
+      ask(`${opts?.prefix ? `${opts.prefix} ` : ''}${cur[ni].q}`, !!opts?.listen);
     } else {
       void finish(cur);
     }
@@ -353,11 +423,30 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
               onChange={(e) => setCustomRole(e.target.value)}
             />
           )}
+          {/* 진행 방식 — 실전은 버튼이 없어야 면접이다 */}
+          <div className="pp-sec">진행 방식</div>
+          <button
+            type="button"
+            className={`iv-mode${modeChoice === 'live' ? ' on' : ''}`}
+            disabled={!whisperAvailable()}
+            onClick={() => setModeChoice('live')}
+          >
+            🎙 실전 모드 — 버튼 없이 대화처럼
+            <span className="iv-role-sub">
+              질문이 끝나면 자동으로 듣기 시작 → 말을 마치면(3초 침묵) 자동 제출 → 다음 질문
+              {!whisperAvailable() ? ' · 마이크/AI 키 필요' : ''}
+            </span>
+          </button>
+          <button type="button" className={`iv-mode${modeChoice === 'manual' ? ' on' : ''}`} onClick={() => setModeChoice('manual')}>
+            ✍️ 연습 모드 — 가이드·다시 답하기
+            <span className="iv-role-sub">텍스트 입력 가능 · 답변마다 전달력 체크포인트에서 재도전</span>
+          </button>
+
           <button type="button" className="start-drill-btn" style={{ marginTop: 14 }} disabled={starting} onClick={() => void start()}>
-            {starting ? '질문 준비 중…' : '🎬 면접 시작'}
+            {starting ? '질문 준비 중…' : modeChoice === 'live' ? '🎬 면접 시작 — 소리 내어 답하세요' : '🎬 면접 시작'}
           </button>
           <p className="muted" style={{ fontSize: '0.72rem', marginTop: 8, lineHeight: 1.6 }}>
-            답변은 마이크(권장) 또는 입력창으로. 한 답변은 60~90초를 목표로 해보세요.
+            한 답변은 60~90초를 목표로. 실전 모드에서도 ⏹ 버튼으로 언제든 답변을 끝낼 수 있어요.
           </p>
         </div>
 
@@ -599,6 +688,44 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
 
       {thinking ? (
         <p className="muted pp-msg">면접관이 답변을 듣고 있어요…</p>
+      ) : live ? (
+        /* 실전 모드 — 버튼 없는 대화 흐름. 상태만 보여주고 탈출구 두 개(끝내기·전환) */
+        <div className="study-card iv-live">
+          {liveState === 'listening' ? (
+            <>
+              <div className="iv-live-state">🎙 듣고 있어요 — 편하게 답하세요</div>
+              {interim && <p className="iv-live-interim">{interim}</p>}
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                <button type="button" className="btn primary" style={{ flex: 1 }} onClick={() => liveStopRef.current?.()}>
+                  ⏹ 답변 끝내기
+                </button>
+              </div>
+              <p className="muted" style={{ fontSize: '0.7rem', marginTop: 8 }}>3초 조용하면 자동으로 제출돼요.</p>
+            </>
+          ) : liveState === 'transcribing' ? (
+            <div className="iv-live-state">✍️ 방금 답변을 받아 적는 중…</div>
+          ) : (
+            <>
+              <div className="iv-live-state muted">잠시 멈췄어요 — 이어가려면:</div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                <button type="button" className="btn primary" style={{ flex: 1 }} onClick={() => void startLiveListen()}>
+                  🎙 다시 듣기 시작
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ flex: 1 }}
+                  onClick={() => {
+                    setLive(false);
+                    liveRef.current = false;
+                  }}
+                >
+                  ⌨ 직접 입력으로
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       ) : pause ? (
         /* 전달력 체크포인트 — 답변 직후 미터를 보고 다시 답하거나 다음으로 */
         <div className="study-card">

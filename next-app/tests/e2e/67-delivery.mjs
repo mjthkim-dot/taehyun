@@ -34,6 +34,7 @@ await page.click('.mode-tab:has-text("더보기")');
 await page.waitForSelector('.more-sheet .feat-card', { timeout: 8000 });
 await page.click('.more-sheet .feat-card:has-text("면접")');
 await page.waitForSelector('.iv-role', { timeout: 10000 });
+await page.click('.iv-mode:has-text("연습 모드")'); // 텍스트 입력 플로우 검증용(기본은 실전 모드)
 await page.click('button:has-text("면접 시작")');
 await page.waitForSelector('.iv-q', { timeout: 10000 });
 
