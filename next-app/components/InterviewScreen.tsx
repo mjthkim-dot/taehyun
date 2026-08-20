@@ -11,12 +11,15 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Mode } from './NavBar';
 import {
+  CLOSING_LINE,
   DEFAULT_QUESTIONS,
   deliveryMetrics,
   draftAnswer,
   evaluateInterview,
   generateQuestions,
   GENERIC_GUIDE,
+  ICEBREAKERS,
+  OPENING_TRANSITION,
   daysUntilInterview,
   interviewHistory,
   reactToAnswer,
@@ -53,6 +56,10 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
 
   const [steps, setSteps] = useState<InterviewStep[]>([]);
   const [idx, setIdx] = useState(0);
+  // 아이스브레이킹 — 실제 면접처럼 인사·스몰토크(비채점)로 시작. null = 본론.
+  const [opening, setOpening] = useState<number | null>(null);
+  const openingRef = useRef<number | null>(null);
+  openingRef.current = opening;
   const [awaitingFollowUp, setAwaitingFollowUp] = useState(false);
   const [draft, setDraft] = useState('');
   const [thinking, setThinking] = useState(false);
@@ -203,7 +210,10 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
       setLiveState('idle');
       setPhase('running');
       phaseRef.current = 'running';
-      ask(r.questions[0].q, useLive);
+      // 실제 면접처럼 인사부터 — 본론은 스몰토크 2턴 뒤에
+      setOpening(0);
+      openingRef.current = 0;
+      ask(ICEBREAKERS[0].en, useLive);
     } finally {
       setStarting(false);
     }
@@ -213,10 +223,30 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
     await submitText(draft.trim());
   }
 
+  /** 스몰토크에서 본론으로 — 전환 멘트와 함께 1번 질문 */
+  function startMainQuestions() {
+    setOpening(null);
+    openingRef.current = null;
+    ask(`${OPENING_TRANSITION} ${steps[0].q}`, liveRef.current);
+  }
+
   async function submitText(text: string) {
     if (!text || thinking) return;
     setDraft('');
     setInterim('');
+    // 아이스브레이킹 턴 — 채점·반응 없이 자연스럽게 다음으로(실제처럼)
+    if (openingRef.current !== null) {
+      lastDurationRef.current = null;
+      const next = openingRef.current + 1;
+      if (next < ICEBREAKERS.length) {
+        setOpening(next);
+        openingRef.current = next;
+        ask(ICEBREAKERS[next].en, liveRef.current);
+      } else {
+        startMainQuestions();
+      }
+      return;
+    }
     const cur = steps[idx];
 
     if (awaitingFollowUp) {
@@ -295,6 +325,8 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
 
   async function finish(finalSteps: InterviewStep[]) {
     stopSpeaking();
+    // 실제 면접처럼 따뜻하게 마무리 — 평가 화면이 뜨는 동안 낭독된다
+    ask(CLOSING_LINE);
     if (!groqKey()) {
       // 키 없이도 연습은 되지만 평가는 AI가 필요하다 — 정직하게 알린다
       setEvalError('평가 리포트는 AI 키가 필요해요 — 기능 → AI 키 등록 후 다시 시도해 주세요. (연습 자체는 완료!)');
@@ -603,13 +635,14 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
 
   // running
   const cur = steps[idx];
-  const question = awaitingFollowUp && cur.followUp ? cur.followUp : cur.q;
+  const opener = opening !== null ? ICEBREAKERS[opening] : null;
+  const question = opener ? opener.en : awaitingFollowUp && cur.followUp ? cur.followUp : cur.q;
   return (
     <div className="study-screen">
       <div className="iv-progress">
-        질문 {idx + 1}/{steps.length}
-        {awaitingFollowUp && <span className="mn-badge-new" style={{ marginLeft: 6 }}>후속</span>}
-        {fallbackSet && <span className="muted" style={{ marginLeft: 8, fontSize: '0.68rem' }}>기본 질문 세트</span>}
+        {opener ? '☕ 인사 나누는 중 — 곧 시작해요' : `질문 ${idx + 1}/${steps.length}`}
+        {!opener && awaitingFollowUp && <span className="mn-badge-new" style={{ marginLeft: 6 }}>후속</span>}
+        {!opener && fallbackSet && <span className="muted" style={{ marginLeft: 8, fontSize: '0.68rem' }}>기본 질문 세트</span>}
         <span className={`iv-timer${elapsed > 90 ? ' over' : ''}`}>⏱ {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}</span>
       </div>
 
@@ -621,16 +654,30 @@ export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) 
             🔊 다시 듣기
           </button>
         </div>
-        {!awaitingFollowUp && cur.qKr && <div className="pp-sent-kr" style={{ marginTop: 6 }}>{cur.qKr}</div>}
+        {opener && (
+          <>
+            <div className="pp-sent-kr" style={{ marginTop: 6 }}>{opener.kr}</div>
+            {/* 스몰토크는 채점 없음 — 짧은 예시만 슬쩍 */}
+            <p className="iv-guide-hint">
+              💬 예: “{opener.sample.en}” <span className="muted">({opener.sample.kr})</span>
+            </p>
+            <button type="button" className="mini-btn iv-skip-open" onClick={startMainQuestions}>
+              바로 본론으로 →
+            </button>
+          </>
+        )}
+        {!opener && !awaitingFollowUp && cur.qKr && <div className="pp-sent-kr" style={{ marginTop: 6 }}>{cur.qKr}</div>}
         {awaitingFollowUp && cur.reaction && <div className="iv-reaction">{cur.reaction}</div>}
 
         {/* 답변 가이드 — 본체는 "그대로 소리 내어 읽을 수 있는 영어 답변".
             내장 예시가 없는 질문(후속·AI 생성)은 버튼 한 번으로 내 커리어
-            사실 기반 영어 답변을 즉석 생성한다("어떻게 답할지 모르겠어" 탈출구). */}
-        <button type="button" className="iv-guide-toggle" onClick={() => setShowGuide((v) => !v)}>
-          💡 영어로 어떻게 말하지? {showGuide ? '접기 ▲' : '보기 ▼'}
-        </button>
-        {showGuide && (
+            사실 기반 영어 답변을 즉석 생성한다. 스몰토크 구간엔 없음(위 예시로 충분). */}
+        {!opener && (
+          <button type="button" className="iv-guide-toggle" onClick={() => setShowGuide((v) => !v)}>
+            💡 영어로 어떻게 말하지? {showGuide ? '접기 ▲' : '보기 ▼'}
+          </button>
+        )}
+        {!opener && showGuide && (
           <div className="iv-guide">
             {(() => {
               const sample = !awaitingFollowUp && cur.guide?.sample ? cur.guide.sample : aiSample;

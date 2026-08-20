@@ -55,9 +55,15 @@ check('실전 모드가 기본 선택', await page.evaluate(() => [...document.q
 await page.click('button:has-text("면접 시작")');
 await page.waitForSelector('.iv-live', { timeout: 15000 });
 await page.waitForFunction(() => document.body.innerText.includes('듣고 있어요'), null, { timeout: 10000 });
-check('질문이 음성으로 낭독된다', await page.evaluate(() => (window.__spoken || []).some((t) => /introduce yourself|background/i.test(t))));
+check('실전 모드도 아이스브레이킹 인사부터 낭독된다', await page.evaluate(() => (window.__spoken || []).some((t) => /hear me okay/i.test(t))));
 check('낭독 후 자동으로 듣기 시작(버튼 없이)', true);
 check('⏹ 답변 끝내기 탈출구가 있다', await page.evaluate(() => document.body.innerText.includes('답변 끝내기')));
+
+/* 아이스브레이킹 2턴 자동 통과 → 전환 멘트와 함께 본론 진입 (전부 무클릭) */
+await page.waitForFunction(() => document.body.innerText.includes('질문 1/5'), null, { timeout: 30000 });
+await page.waitForFunction(() => (window.__spoken || []).some((t) => /introduce yourself|background/i.test(t)), null, { timeout: 15000 }); // TTS는 Groq 폴백 뒤 비동기
+check('스몰토크 2턴 뒤 자동으로 본론 질문이 낭독된다', true);
+check('전환 멘트가 낭독된다', await page.evaluate(() => (window.__spoken || []).some((t) => t.includes("let's dive in"))));
 
 /* ② 침묵 → 자동 제출 → 자동으로 다음 질문 + 재청취 (클릭 0회) */
 await page.waitForFunction(() => document.body.innerText.includes('질문 2/5'), null, { timeout: 30000 });

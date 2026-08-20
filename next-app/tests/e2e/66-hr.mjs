@@ -35,7 +35,9 @@ await page.waitForSelector('.iv-role', { timeout: 10000 });
 check('HR 프리셋이 기본 선택', await page.evaluate(() => document.querySelector('.iv-role.on')?.textContent.includes('HR 스크리닝')));
 await page.click('.iv-mode:has-text("연습 모드")'); // 텍스트 입력 플로우 검증용(기본은 실전 모드)
 await page.click('button:has-text("면접 시작")');
-await page.waitForSelector('.iv-q', { timeout: 10000 });
+await page.waitForSelector('.iv-skip-open', { timeout: 15000 }); // 아이스브레이킹 오프닝은 70번 테스트에서 검증 — 여기선 바로 본론
+await page.click('.iv-skip-open');
+await page.waitForFunction(() => document.body.innerText.includes('질문 1/5'), null, { timeout: 10000 });
 check('첫 질문이 HR 세트 1번(가벼운 자기소개)', await page.evaluate(() => document.querySelector('.iv-q')?.textContent.includes('briefly introduce yourself')));
 check('한국어 힌트', await page.evaluate(() => document.body.innerText.includes('간단히 자기소개')));
 check('로테이션 인덱스 저장(8문항 순환)', await page.evaluate(() => JSON.parse(localStorage.getItem('va_workato_hr_q') || '0') === 5));

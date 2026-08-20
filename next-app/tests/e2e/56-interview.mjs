@@ -67,7 +67,9 @@ check('역할 프리셋(HR+심층+2) + 직접 입력이 있다', (await page.loc
 await page.click('.iv-role:has-text("Customer Success Manager")');
 await page.click('.iv-mode:has-text("연습 모드")'); // 텍스트 입력 플로우 검증용(기본은 실전 모드)
 await page.click('button:has-text("면접 시작")');
-await page.waitForSelector('.iv-q', { timeout: 15000 });
+await page.waitForSelector('.iv-skip-open', { timeout: 15000 }); // 아이스브레이킹 오프닝은 70번 테스트에서 검증 — 여기선 바로 본론
+await page.click('.iv-skip-open');
+await page.waitForFunction(() => document.body.innerText.includes('질문 1/5'), null, { timeout: 10000 });
 check('첫 질문이 영어로 뜬다', await page.evaluate(() => document.querySelector('.iv-q')?.textContent.includes('tell me about yourself')));
 check('진행 표시 1/5', await page.evaluate(() => document.body.innerText.includes('질문 1/5')));
 

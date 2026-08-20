@@ -36,7 +36,9 @@ await page.click('.more-sheet .feat-card:has-text("면접")');
 await page.waitForSelector('.iv-role', { timeout: 10000 });
 await page.click('.iv-mode:has-text("연습 모드")'); // 텍스트 입력 플로우 검증용(기본은 실전 모드)
 await page.click('button:has-text("면접 시작")');
-await page.waitForSelector('.iv-q', { timeout: 10000 });
+await page.waitForSelector('.iv-skip-open', { timeout: 15000 }); // 아이스브레이킹 오프닝은 70번 테스트에서 검증 — 여기선 바로 본론
+await page.click('.iv-skip-open');
+await page.waitForFunction(() => document.body.innerText.includes('질문 1/5'), null, { timeout: 10000 });
 
 /* ① 미터 */
 await page.fill('.iv-answer', 'Um you know I led the migration and closed a deal worth $250,000. Um it resulted in a three-year commitment.');

@@ -65,7 +65,9 @@ await page.waitForSelector('.iv-role', { timeout: 10000 });
 await page.click('.iv-role:has-text("내 지원 포지션")'); // 심층 프리셋(기본은 HR 라운드)
 await page.click('.iv-mode:has-text("연습 모드")'); // 텍스트 입력 플로우 검증용(기본은 실전 모드)
 await page.click('button:has-text("면접 시작")');
-await page.waitForSelector('.iv-q', { timeout: 10000 });
+await page.waitForSelector('.iv-skip-open', { timeout: 15000 }); // 아이스브레이킹 오프닝은 70번 테스트에서 검증 — 여기선 바로 본론
+await page.click('.iv-skip-open');
+await page.waitForFunction(() => document.body.innerText.includes('질문 1/5'), null, { timeout: 10000 });
 check('AI 질문 생성 없이 즉시 시작(큐레이션)', genCalls === 0);
 check('첫 질문이 JD 세트 1번', await page.evaluate(() => document.querySelector('.iv-q')?.textContent.includes('walk me through your background')));
 check('한국어 힌트가 붙는다', await page.evaluate(() => document.body.innerText.includes('이 역할에 맞는 이유')));

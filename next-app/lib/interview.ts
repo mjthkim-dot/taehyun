@@ -175,6 +175,37 @@ export function interviewHistory(): InterviewRecord[] {
   return load<InterviewRecord[]>(HISTORY_KEY, []);
 }
 
+/* ── 아이스브레이킹 — 실제 면접은 본론 전에 인사·스몰토크로 시작한다 ──
+ * Zoom 면접의 첫 1~2분을 그대로: 연결 확인 → 가벼운 근황 → 전환 멘트.
+ * 채점·평가 대상이 아니다(실제처럼 편하게 워밍업하는 구간). */
+
+export interface Icebreaker {
+  en: string;
+  kr: string;
+  /** 이렇게 답하면 되는 예시 — 짧게 */
+  sample: { en: string; kr: string };
+}
+
+export const ICEBREAKERS: Icebreaker[] = [
+  {
+    en: 'Hi Taehyun, thanks so much for hopping on today! Can you hear me okay?',
+    kr: '태현님 안녕하세요, 시간 내주셔서 감사해요! 제 소리 잘 들리시나요?',
+    sample: { en: "Yes, I can hear you perfectly. Thanks for having me — I've been looking forward to this!", kr: '네, 아주 잘 들립니다. 초대해 주셔서 감사해요 — 기대하고 있었습니다!' },
+  },
+  {
+    en: "Great! How's your day going so far?",
+    kr: '좋아요! 오늘 하루는 어떻게 보내고 계세요?',
+    sample: { en: "It's going well, thank you! I had a couple of customer meetings this morning, so it's been a productive day. How about you?", kr: '잘 보내고 있습니다, 감사해요! 오전에 고객 미팅이 두어 개 있어서 알찬 하루네요. 그쪽은 어떠세요?' },
+  },
+];
+
+/** 스몰토크 → 본론 전환 멘트 */
+export const OPENING_TRANSITION = "That's great to hear. Well, let's dive in.";
+
+/** 마지막 질문 후 실제 면접처럼 따뜻하게 마무리 */
+export const CLOSING_LINE =
+  "That's everything from my side. Thank you so much for your time today — we'll be in touch about next steps soon. Have a great rest of your day!";
+
 /* ── 다가오는 실제 면접 D-day — 준비의 마감을 눈에 보이게 ── */
 
 const DATE_KEY = 'va_interview_date';
