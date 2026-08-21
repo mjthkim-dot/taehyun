@@ -95,20 +95,38 @@ Rules for the EN options:
             "has_placeholder": has_ph}
 
 
-TRANSLATE_SYSTEM = """You translate a live business meeting for a Korean professional.
-Detect the language: English → natural Korean, Korean → natural spoken English.
-Keep it concise and idiomatic. Reply with ONLY the translation."""
+# 자막 번역 — 읽는 사람은 미팅 중이라 0.5초 안에 뜻만 잡으면 된다.
+# 문어체 번역("~하는 것으로 사료됩니다")은 읽는 데 시간이 더 걸려서 실패다.
+TRANSLATE_SYSTEM = """You are subtitling a live English business meeting for a Korean
+cloud-sales professional who is reading at a glance while the meeting continues.
+
+Translate English → Korean (or Korean → natural spoken English if the input is Korean).
+
+Rules:
+- 구어체로. 실제로 회의에서 말하듯 자연스러운 한국어. 문어체·번역투 금지
+  (예: "~하는 것으로 사료됩니다" ✗ → "~인 것 같아요" ✓).
+- 짧게. 원문보다 길어지지 않게. 군더더기 접속사를 넣지 말 것.
+- 비즈니스 맥락을 유지: 업계 용어(TCO, Savings Plans, egress 등)는 억지로
+  풀지 말고 그대로 두거나 괄호로 짧게만 보충한다.
+- 상대의 어조(우려·반박·확정)를 살린다. 반론을 평서문으로 눌러 쓰지 말 것.
+- 문장이 중간에 끊겼으면 끊긴 대로 옮긴다. 없는 말을 채우지 않는다.
+
+Reply with ONLY the translation — no quotes, no labels, no explanation."""
 
 
 def build_summary(transcript: str, mode: str = "line") -> str:
     if mode == "line":
-        return f"""Below is the live transcript of an ongoing English business meeting.
+        # 상단 배너용 — '지금 무슨 얘기 중인가'를 놓친 사람이 한눈에 따라잡는 용도.
+        # 요약이 아니라 '현재 논의 주제' 한 줄이다.
+        return f"""Below are the most recent utterances of an ongoing English business meeting
+(most recent last).
 
-Transcript (most recent last):
 \"\"\"{transcript}\"\"\"
 
-지금 대화의 핵심을 한국어 한 문장(40자 이내)으로 요약하세요.
-문장 하나만 출력하고 다른 말은 붙이지 마세요."""
+지금 **무슨 주제를 논의 중인지** 한국어 한 문장(35자 이내)으로 쓰세요.
+· 대화를 요약하지 말고, 지금 걸려 있는 쟁점을 쓰세요.
+  예: "견적가가 경쟁사보다 높다는 반론" / "데이터 소재지 규제 확인 중"
+· 명사형으로 끝내세요. 문장 하나만 출력하고 다른 말은 붙이지 마세요."""
     return f"""Below is the transcript of an English business meeting (cloud sales).
 
 Transcript:

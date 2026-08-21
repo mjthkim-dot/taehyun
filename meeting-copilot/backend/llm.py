@@ -44,8 +44,19 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:8b")
 # 검색용 임베딩 — 한·영 교차 검색에 강한 오픈소스 (설치: ollama pull bge-m3, ~1GB)
 # 없으면 키워드 검색으로 자동 폴백되므로 필수는 아니다.
 EMBED_MODEL = os.environ.get("EMBED_MODEL", "bge-m3")
+# Claude(Anthropic) — 번역·요약의 기본 공급자. 미팅 어시스턴트는 구어체 한국어
+# 품질이 곧 체감 품질이라 여기를 1순위로 둔다.
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+ANTHROPIC_URL = os.environ.get("ANTHROPIC_URL", "https://api.anthropic.com/v1")
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
+# 실시간 경로(자막 번역·한 줄 요약)는 지연이 품질이다 → 빠른 모델을 따로 둔다
+ANTHROPIC_FAST_MODEL = os.environ.get("ANTHROPIC_FAST_MODEL", "claude-haiku-4-5-20251001")
 LLM_ORDER = [p.strip() for p in
-             os.environ.get("LLM_ORDER", "groq,cerebras,gemini,ollama").split(",") if p.strip()]
+             os.environ.get("LLM_ORDER", "anthropic,cerebras,groq,gemini,ollama").split(",")
+             if p.strip()]
+
+# 공급자별 '빠른 모델' — fast=True로 호출하면 이걸 쓴다 (없으면 기본 모델)
+FAST_MODELS = {"anthropic": ANTHROPIC_FAST_MODEL}
 
 # 🆓 로컬 STT — faster-whisper가 설치돼 있으면 맥에서 직접 인식 (무료·무제한·비공개)
 # STT_LOCAL=0 으로 끌 수 있고, 미설치 시 자동으로 Groq Whisper로 폴백된다.
@@ -127,6 +138,54 @@ def _cerebras_chat(messages, json_mode, temperature, max_tokens, model):
 def _cerebras_stream(messages, temperature, max_tokens, model):
     return _oai_stream(CEREBRAS_URL, CEREBRAS_API_KEY, CEREBRAS_MODEL,
                        messages, temperature, max_tokens, model)
+
+
+def _anthropic_payload(messages, temperature, max_tokens, model, stream):
+    """Anthropic은 system을 messages가 아니라 최상위 필드로 받는다."""
+    sys_parts = [m["content"] for m in messages if m["role"] == "system"]
+    conv = [{"role": ("assistant" if m["role"] == "assistant" else "user"),
+             "content": m["content"]} for m in messages if m["role"] != "system"]
+    payload = {"model": model or ANTHROPIC_MODEL, "messages": conv or [{"role": "user", "content": ""}],
+               "max_tokens": max_tokens, "temperature": temperature}
+    if sys_parts:
+        payload["system"] = "\n\n".join(sys_parts)
+    if stream:
+        payload["stream"] = True
+    return payload
+
+
+def _anthropic_headers():
+    return {"x-api-key": ANTHROPIC_API_KEY or "", "anthropic-version": "2023-06-01"}
+
+
+def _anthropic_chat(messages, json_mode, temperature, max_tokens, model):
+    payload = _anthropic_payload(messages, temperature, max_tokens, model, False)
+    if json_mode:   # JSON 강제 문법이 없으므로 프리필로 유도한다
+        payload["messages"] = payload["messages"] + [{"role": "assistant", "content": "{"}]
+    with _open(f"{ANTHROPIC_URL}/messages", payload, _anthropic_headers()) as r:
+        blocks = json.loads(r.read()).get("content") or []
+        text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text")
+    return ("{" + text) if json_mode else text
+
+
+def _anthropic_stream(messages, temperature, max_tokens, model):
+    payload = _anthropic_payload(messages, temperature, max_tokens, model, True)
+    with _open(f"{ANTHROPIC_URL}/messages", payload, _anthropic_headers(), timeout=120) as resp:
+        for raw in resp:                      # SSE: event: ... / data: {...}
+            line = raw.decode("utf-8", "ignore").strip()
+            if not line.startswith("data:"):
+                continue
+            try:
+                ev = json.loads(line[5:].strip())
+            except json.JSONDecodeError:
+                continue
+            if ev.get("type") == "content_block_delta":
+                tok = (ev.get("delta") or {}).get("text")
+                if tok:
+                    yield (json.dumps({"message": {"content": tok}}) + "\n").encode("utf-8")
+            elif ev.get("type") == "message_stop":
+                break
+    yield (json.dumps({"done": True}) + "\n").encode("utf-8")
 
 
 def _gemini_payload(messages, json_mode, temperature, max_tokens):
@@ -226,9 +285,9 @@ def _ollama_stream(messages, temperature, max_tokens, model):
 # ─────────────────────────────────────────────────────────────
 #  디스패처 — 순서대로 시도, 실패한 공급자는 60초 건너뜀
 # ─────────────────────────────────────────────────────────────
-_CHAT = {"groq": _groq_chat, "cerebras": _cerebras_chat,
+_CHAT = {"anthropic": _anthropic_chat, "groq": _groq_chat, "cerebras": _cerebras_chat,
          "gemini": _gemini_chat, "ollama": _ollama_chat}
-_STREAM = {"groq": _groq_stream, "cerebras": _cerebras_stream,
+_STREAM = {"anthropic": _anthropic_stream, "groq": _groq_stream, "cerebras": _cerebras_stream,
            "gemini": _gemini_stream, "ollama": _ollama_stream}
 _bad_until: dict[str, float] = {}
 _last_error: dict[str, str] = {}
@@ -236,6 +295,8 @@ _active: str | None = None
 
 
 def _configured(name: str) -> bool:
+    if name == "anthropic":
+        return bool(ANTHROPIC_API_KEY)
     if name == "groq":
         return bool(GROQ_API_KEY)
     if name == "cerebras":
@@ -273,12 +334,20 @@ def provider() -> str:
 
 def model_name() -> str:
     p = provider()
-    return {"groq": GROQ_MODEL, "cerebras": CEREBRAS_MODEL, "gemini": GEMINI_MODEL,
+    return {"anthropic": ANTHROPIC_MODEL, "groq": GROQ_MODEL,
+            "cerebras": CEREBRAS_MODEL, "gemini": GEMINI_MODEL,
             "ollama": _ollama_pick_model() or OLLAMA_MODEL}.get(p, "-")
 
 
+def _pick_model(name: str, model: str | None, fast: bool) -> str | None:
+    """fast=True면 그 공급자의 빠른 모델을 쓴다 (실시간 자막 번역·한 줄 요약용)."""
+    if model:
+        return model
+    return FAST_MODELS.get(name) if fast else None
+
+
 def chat_once(messages: list[dict], json_mode: bool = False, temperature: float = 0.3,
-              max_tokens: int = 800, model: str | None = None) -> str:
+              max_tokens: int = 800, model: str | None = None, fast: bool = False) -> str:
     """단발 호출 → 응답 텍스트. 공급자 자동 전환."""
     global _active
     errs: list[str] = []
@@ -288,7 +357,8 @@ def chat_once(messages: list[dict], json_mode: bool = False, temperature: float 
                 errs.append(f"{name}: {_last_error.get(name, '일시 제외')}")
             continue
         try:
-            out = _CHAT[name](messages, json_mode, temperature, max_tokens, model)
+            out = _CHAT[name](messages, json_mode, temperature, max_tokens,
+                              _pick_model(name, model, fast))
             _active = name
             return out
         except urllib.error.HTTPError as e:
@@ -305,7 +375,8 @@ def chat_once(messages: list[dict], json_mode: bool = False, temperature: float 
 
 
 def stream_ndjson(messages: list[dict], temperature: float = 0.4,
-                  max_tokens: int = 400, model: str | None = None) -> Iterator[bytes]:
+                  max_tokens: int = 400, model: str | None = None,
+                  fast: bool = False) -> Iterator[bytes]:
     """토큰 스트림 (Ollama NDJSON 통일 형식). 첫 청크 전 실패 시 다음 공급자로 전환."""
     global _active
     errs: list[str] = []
@@ -315,7 +386,8 @@ def stream_ndjson(messages: list[dict], temperature: float = 0.4,
                 errs.append(f"{name}: {_last_error.get(name, '일시 제외')}")
             continue
         try:
-            it = _STREAM[name](messages, temperature, max_tokens, model)
+            it = _STREAM[name](messages, temperature, max_tokens,
+                               _pick_model(name, model, fast))
             first = next(it, None)
         except urllib.error.HTTPError as e:
             if e.code in (401, 403, 404, 429):
@@ -341,7 +413,7 @@ def probe() -> list[dict]:
     for name in LLM_ORDER:
         if not _configured(name):
             results.append({"name": name, "state": "미설정",
-                            "detail": {"groq": "GROQ_API_KEY 없음",
+                            "detail": {"anthropic": "ANTHROPIC_API_KEY 없음", "groq": "GROQ_API_KEY 없음",
                                        "cerebras": "CEREBRAS_API_KEY 없음",
                                        "gemini": "GEMINI_API_KEY 없음",
                                        "ollama": "미실행/모델 없음"}.get(name, "")})

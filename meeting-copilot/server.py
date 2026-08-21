@@ -36,9 +36,9 @@ STATIC = {
 }
 
 
-def _stream(handler, messages, temperature, max_tokens, meta=None):
+def _stream(handler, messages, temperature, max_tokens, meta=None, fast=False):
     """LLM 토큰 스트림을 NDJSON으로 프록시. 첫 청크를 당겨 연결 실패가 200 뒤로 새지 않게."""
-    it = llm.stream_ndjson(messages, temperature, max_tokens, None)
+    it = llm.stream_ndjson(messages, temperature, max_tokens, None, fast=fast)
     first = next(it, None)
     handler.send_response(200)
     handler.send_header("Content-Type", "application/x-ndjson")
@@ -135,9 +135,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             req = json.loads(body or b"{}")
 
             if path == "/api/translate":
+                # 자막 번역은 지연이 곧 품질 → 빠른 모델 경로
                 _stream(self, [{"role": "system", "content": prompts.TRANSLATE_SYSTEM},
                                {"role": "user", "content": req.get("text", "")}],
-                        0.3, 300)
+                        0.3, 300, fast=True)
                 return
 
             if path == "/api/suggest":
@@ -153,7 +154,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 mode = req.get("mode", "line")
                 _stream(self, [{"role": "user", "content":
                                 prompts.build_summary(req.get("transcript", ""), mode)}],
-                        0.3, 60 if mode == "line" else 500)
+                        0.3, 60 if mode == "line" else 500, fast=(mode == "line"))
                 return
 
             # ── 인제스트 ──
