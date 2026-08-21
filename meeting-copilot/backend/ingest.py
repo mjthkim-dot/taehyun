@@ -16,6 +16,7 @@ import json
 import re
 from pathlib import Path
 
+import llm
 import rag
 
 SEED = Path(__file__).parent / "data" / "glossary_seed.json"
@@ -134,3 +135,144 @@ def ensure_seeded() -> dict:
     items = load_seed_glossary()
     r = rag.add_chunks(items) if items else {"added": 0}
     return {"seeded": r.get("added", 0), **rag.stats()}
+
+
+# ── 4. 용어집 자동 성장 (P1) ─────────────────────────────────
+# 미팅에서 반복해서 나오는 도메인 표현을 후보로 뽑는다.
+# 자동 승격하지 않는다 — 잘못된 용어가 들어가면 제안 문장이 통째로 틀어지므로
+# 사용자가 승인한 것만 용어집이 된다.
+# 용어의 양 끝에 올 수 없는 기능어 — "the data", "along with" 같은 쓰레기를 걸러낸다
+_EDGE_STOP = {
+    "the", "a", "an", "of", "in", "on", "to", "for", "with", "and", "or", "but",
+    "is", "are", "was", "were", "be", "been", "will", "would", "can", "could",
+    "we", "you", "i", "they", "it", "he", "she", "our", "your", "their", "my",
+    "this", "that", "these", "those", "there", "here", "also", "along", "yes",
+    "no", "so", "just", "very", "about", "from", "at", "by", "as", "than", "then",
+    "do", "does", "did", "have", "has", "had", "get", "got", "make", "made",
+    "let", "like", "want", "need", "think", "know", "see", "say", "said", "go",
+    "up", "out", "off", "over", "into", "when", "what", "how", "why", "who",
+}
+# 동사가 끼면 명사구가 아니다 → 용어 후보에서 제외
+_VERBS = {
+    "handle", "handles", "handled", "review", "reviews", "reviewed", "send",
+    "sends", "sent", "lower", "lowers", "lowered", "align", "aligns", "aligned",
+    "keep", "keeps", "kept", "move", "moves", "moved", "model", "models",
+    "walk", "walks", "put", "puts", "take", "takes", "took",
+    "provide", "provides", "stay", "stays", "give", "gives", "bring", "brings",
+    "help", "helps", "use", "uses", "used", "build", "builds", "built",
+}
+# run/model/scope/cover/commit/rate 등은 명사로도 쓰인다(run rate, cost model,
+# commitment). 통계 단계에서 미리 죽이면 LLM이 볼 기회조차 없어진다.
+# 전부 흔한 단어면 도메인 용어가 아니다
+_COMMON = _EDGE_STOP | {
+    "time", "thing", "things", "people", "team", "work", "one", "two", "way",
+    "day", "week", "month", "year", "side", "point", "part", "case", "sure",
+    "good", "great", "right", "well", "much", "more", "most", "some", "any",
+    "other", "next", "last", "first", "back", "still", "even", "really",
+}
+
+
+def _sentences(text: str) -> list[str]:
+    """문장 경계를 넘어 n-gram이 만들어지지 않게 자른다.
+    (청크가 2줄 겹치도록 만들어져 있어 'backups yes backups' 같은 게 생겼다)"""
+    body = re.sub(r"^\s*(상대|나|Me|Them)\s*:", "\n", text, flags=re.M)
+    body = body.split("[검색어]")[0]
+    return [x for x in re.split(r"[.!?;\n]+", body) if x.strip()]
+
+
+def _ngrams(tokens: list[str], n: int):
+    for i in range(len(tokens) - n + 1):
+        yield " ".join(tokens[i:i + n])
+
+
+def glossary_candidates(min_count: int = 3, limit: int = 40) -> list[dict]:
+    """트랜스크립트에서 반복 등장하는 2~3어절 도메인 표현을 뽑는다.
+    자동 승격하지 않는다 — 틀린 용어가 들어가면 제안 문장이 통째로 틀어지므로
+    사용자가 승인한 것만 용어집이 된다.
+    limit은 넉넉히 둔다 — 여기서 자르면 LLM 판별 단계가 볼 기회조차 없어진다."""
+    with rag.connect() as con:
+        texts = [r[0] for r in con.execute(
+            "SELECT text FROM chunks WHERE source='transcript'")]
+        known = {r[0].lower() for r in con.execute(
+            "SELECT title FROM chunks WHERE source='glossary'")}
+    if not texts:
+        return []
+
+    counts: dict[str, int] = {}
+    for t in texts:
+        seen_here: set[str] = set()
+        for sent in _sentences(t):
+            toks = re.findall(r"[a-zA-Z][a-zA-Z0-9-]{1,}", sent.lower())
+            for n in (3, 2):
+                for g in _ngrams(toks, n):
+                    w = g.split()
+                    # 통계 단계는 재현율만 담당한다 — 경계의 기능어·동사만 막고,
+                    # 무엇이 진짜 용어인지는 LLM 판별 단계가 정한다.
+                    if w[0] in _EDGE_STOP or w[-1] in _EDGE_STOP:
+                        continue
+                    if w[0] in _VERBS or w[-1] in _VERBS:
+                        continue
+                    if all(x in _COMMON for x in w):
+                        continue
+                    if any(len(x) <= 2 for x in w) or g in known:
+                        continue
+                    if g in seen_here:                 # 한 청크 안 중복은 1회
+                        continue
+                    seen_here.add(g)
+                    counts[g] = counts.get(g, 0) + 1
+
+    # 포함 관계 정리: "data residency"와 같은 횟수면 "residency"류 짧은 건 버린다
+    # 포함 관계 정리 — 짧은 표현이 '항상 더 긴 표현의 일부로만' 등장할 때만 지운다.
+    # (횟수가 같다 = 독립적으로 쓰인 적이 없다) 조금이라도 단독 등장하면 남긴다.
+    kept: dict[str, int] = dict(counts)
+    for g, c in list(counts.items()):
+        for k, ck in counts.items():
+            if g != k and f" {g} " in f" {k} " and ck >= c:
+                kept.pop(g, None)
+                break
+
+    cands = [{"term": g, "count": c} for g, c in kept.items() if c >= min_count]
+    cands.sort(key=lambda d: (-d["count"], -len(d["term"].split()), d["term"]))
+    return cands[:limit]
+
+
+def refine_candidates(cands: list[dict], model: str | None = None) -> list[dict]:
+    """통계로 뽑은 후보를 LLM이 걸러내고 한국어 뜻을 붙인다.
+
+    불용어 목록을 손으로 늘리는 방식은 한계가 분명하다("annual not three",
+    "rate significantly" 같은 조각이 계속 새어 나온다). 후보 추출은 재현율만
+    담당하고, 무엇이 도메인 용어인지는 LLM이 판단하게 한다.
+    미팅 중이 아니라 사후에 도는 경로라 호출 1회로 충분하다.
+    실패하면 통계 결과를 그대로 돌려준다 — 이 기능 때문에 앱이 멈추면 안 된다.
+    """
+    if not cands:
+        return []
+    listed = "\n".join(f"- {c['term']} ({c['count']}x)" for c in cands[:40])
+    prompt = f"""These phrases were extracted from a Korean cloud-sales professional's
+English business meeting transcripts by frequency counting. Most are sentence
+fragments, not real terms.
+
+Candidates:
+{listed}
+
+Keep ONLY the ones that are genuine domain terms or fixed business expressions
+worth adding to a sales glossary (cloud infrastructure, pricing/FinOps, security,
+compliance, contracts, procurement). Drop sentence fragments, adjective+noun
+combinations that are not terms, and anything containing a number or adverb.
+
+Return ONLY valid JSON:
+{{"terms": [{{"term": "exact phrase from the list", "ko": "짧은 한국어 뜻"}}]}}"""
+    try:
+        out = json.loads(llm.chat_once([{"role": "user", "content": prompt}],
+                                       json_mode=True, temperature=0.1,
+                                       max_tokens=900, model=model))
+    except Exception:  # noqa: BLE001 — 판별 실패가 기능을 막지 않게
+        return cands
+    by_count = {c["term"]: c["count"] for c in cands}
+    kept = []
+    for t in (out.get("terms") or []):
+        term = (t.get("term") or "").strip().lower()
+        if term in by_count:
+            kept.append({"term": term, "ko": (t.get("ko") or "").strip(),
+                         "count": by_count[term]})
+    return kept or cands

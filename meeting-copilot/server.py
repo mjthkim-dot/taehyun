@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import http.server
 import json
+import re
 import os
 import sys
 import threading
@@ -115,7 +116,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._json(200, {"status": "ok", "provider": llm.provider(),
                              "model": llm.model_name(),
                              "llm": llm.probe_cached(refresh="probe" in q),
+                             "stt_local": llm.stt_local_available(),
+                             "stt_ready": bool(llm.stt_local_available() or llm.GROQ_API_KEY),
                              "rag": rag.stats()})
+        elif path == "/api/glossary/candidates":
+            # raw=1이면 통계 결과 그대로(디버깅), 기본은 LLM 판별을 거친 것
+            raw = ingest.glossary_candidates(min_count=int((q.get("min") or ["3"])[0]))
+            self._json(200, {"candidates": raw if "raw" in q
+                             else ingest.refine_candidates(raw)})
+
         elif path == "/api/rag/stats":
             self._json(200, rag.stats())
         elif path == "/api/rag/search":            # 검색 단독 확인용 (디버깅·설명)
@@ -132,7 +141,28 @@ class Handler(http.server.BaseHTTPRequestHandler):
         body = self.rfile.read(n)
         path = self.path.split("?", 1)[0]
         try:
-            req = json.loads(body or b"{}")
+            # /api/stt만 바이너리(오디오)라 JSON 파싱 대상이 아니다
+            req = {} if path == "/api/stt" else json.loads(body or b"{}")
+
+            # 🎙 오디오 세그먼트 → 텍스트 (탭 오디오 캡처 경로)
+            #   Web Speech는 MediaStream을 입력으로 받지 못한다. 그래서 탭 오디오는
+            #   VAD로 문장 단위로 잘라 여기로 보내 Whisper로 인식한다.
+            if path == "/api/stt":
+                qs = urllib.parse.parse_qs(self.path.partition("?")[2])
+                lang = (qs.get("lang") or [None])[0]
+                ct = (self.headers.get("Content-Type") or "audio/webm").split(";")[0].strip()
+                ext = {"audio/mp4": ".mp4", "audio/mpeg": ".mp3", "audio/wav": ".wav",
+                       "audio/ogg": ".ogg", "audio/x-m4a": ".m4a"}.get(ct, ".webm")
+                try:
+                    if llm.stt_local_available():      # 로컬 우선 — 무료·무제한·비공개
+                        text = llm.transcribe_local(body, filename=f"a{ext}", language=lang or None)
+                    else:
+                        text = llm.transcribe(body, filename=f"a{ext}", language=lang or None)
+                except RuntimeError as e:
+                    self._json(503, {"error": str(e)})
+                    return
+                self._json(200, {"text": text})
+                return
 
             if path == "/api/translate":
                 # 자막 번역은 지연이 곧 품질 → 빠른 모델 경로
@@ -162,6 +192,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 items = ingest.notes_from_markdown(req.get("text", ""),
                                                    req.get("title", "수업 노트"))
                 self._json(200, {**rag.add_chunks(items), "chunks": len(items)})
+                return
+
+            if path == "/api/ingest/notes_bulk":
+                # 여러 노트를 한 번에 (Notion 내보내기 폴더를 통째로 붙여넣는 경우).
+                # 각 파일은 "=== 파일명 ===" 로 구분한다.
+                raw = req.get("text", "")
+                docs = re.split(r"^===\s*(.+?)\s*===$", raw, flags=re.M)
+                items = []
+                if len(docs) > 1:
+                    for i in range(1, len(docs), 2):
+                        items += ingest.notes_from_markdown(docs[i + 1], docs[i])
+                else:
+                    items = ingest.notes_from_markdown(raw, req.get("title", "수업 노트"))
+                self._json(200, {**rag.add_chunks(items), "chunks": len(items),
+                                 "docs": max(1, (len(docs) - 1) // 2)})
                 return
 
             if path == "/api/ingest/glossary":

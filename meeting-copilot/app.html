@@ -137,6 +137,10 @@
     <button class="tab" data-v="lib">자료</button>
   </div>
   <span class="spacer"></span>
+  <select id="engine" title="음성 인식 방식">
+    <option value="web" selected>🎤 브라우저(실시간)</option>
+    <option value="tab">🖥 탭 오디오(설정 불필요)</option>
+  </select>
   <select id="cefr" title="내 영어 레벨"><option>A2</option><option selected>B1</option><option>B2</option><option>C1</option></select>
 </header>
 
@@ -190,13 +194,20 @@
     <p>제안 문장은 <b>여기 있는 자료에서만</b> 나옵니다. 자료가 늘수록 “내가 실제로 말할 법한 문장”에 가까워집니다.</p>
 
     <h3>① Notion 수업 노트</h3>
-    <p>Notion에서 <b>내보내기 → Markdown</b> 한 내용을 그대로 붙여넣으세요. 제목(#) 단위로 잘려 색인됩니다.</p>
+    <p>Notion에서 <b>내보내기 → Markdown</b> 한 내용을 붙여넣으세요. 제목(#) 단위로 잘려 색인됩니다.<br>
+       여러 파일을 한 번에 넣으려면 각 파일 앞에 <code>=== 파일명 ===</code> 줄을 두세요.</p>
     <textarea id="note-in" placeholder="# 가격 반론 대응&#10;고객이 비싸다고 할 때 바로 할인하지 말고…"></textarea>
     <button class="go" id="note-go">노트 적재</button>
     <div class="note" id="note-st"></div>
 
     <h3>② 미팅 트랜스크립트</h3>
     <p>⏹ 로 세션을 끝내면 <b>자동으로 적재</b>됩니다. 쓸수록 내 말투가 쌓입니다.</p>
+
+    <h3>🌱 용어 후보 (미팅에서 자동 추출)</h3>
+    <p>지난 미팅에서 <b>반복해 나온 표현</b>입니다. 도메인 용어만 골라 승인하세요 —
+       자동으로 넣지 않습니다(틀린 용어가 들어가면 제안 문장이 통째로 틀어집니다).</p>
+    <button class="go ghost" id="cand-go">후보 찾기</button>
+    <div id="cand-list" class="note"></div>
 
     <h3>③ 도메인 용어집</h3>
     <p>클라우드 세일즈 기본 용어가 미리 들어 있습니다. <code>term / ko / note / say</code> 형식의 JSON 배열로 추가할 수 있어요.</p>
@@ -539,6 +550,143 @@ function maybeSpeculate(interim){
   }, specThreshold());
 }
 
+
+// ════════════════════════════════════════════════════════════
+//  🖥 탭 오디오 캡처 (P1) — 오디오 라우팅 설정을 0으로
+//
+//  Web Speech API는 MediaStream을 입력으로 받지 못한다(시스템 기본 입력만 듣는다).
+//  그래서 탭 오디오는 VAD로 문장 단위로 잘라 서버 Whisper로 인식한다.
+//   · 장점: BlackHole 같은 가상 장치 설정이 필요 없고, 디지털 신호라 잡음이 없다
+//   · 대가: interim 자막이 없다 → 말하는 중 미리보기와 투기적 선생성이 빠진다
+//  화자 분리는 물리적으로 확실하다 — 탭 오디오=상대, 마이크=나.
+// ════════════════════════════════════════════════════════════
+let audioCtx = null, tabCap = null, micCap = null, tabStream = null, micStream = null;
+let sttBusy = 0, sttFails = 0, sttBackoffUntil = 0;
+
+class SegmentRecorder {
+  //  적응형 노이즈 플로어: 고정 임계값은 회의실·회선마다 빗나간다.
+  //  조용한 구간의 소음 레벨을 학습해 그 배수를 발화 임계값으로 쓴다.
+  constructor(stream, who){
+    this.who = who; this.stream = stream; this.chunks = [];
+    this.speaking = false; this.silence = 0; this.floor = 0.004; this.started = 0;
+    const mime = ['audio/webm;codecs=opus','audio/webm','audio/mp4']
+      .find(m => MediaRecorder.isTypeSupported(m)) || '';
+    this.mime = mime;
+    this.rec = new MediaRecorder(stream, mime ? {mimeType: mime} : undefined);
+    this.rec.ondataavailable = e => { if(e.data.size > 0) this.chunks.push(e.data); };
+    this.rec.onstop = () => this.flush();
+    const src = audioCtx.createMediaStreamSource(stream);
+    this.an = audioCtx.createAnalyser();
+    this.an.fftSize = 1024;
+    src.connect(this.an);
+    this.buf = new Float32Array(this.an.fftSize);
+    this.timer = setInterval(() => this.tick(), 100);
+  }
+  rms(){
+    this.an.getFloatTimeDomainData(this.buf);
+    let s = 0;
+    for(let i=0;i<this.buf.length;i++) s += this.buf[i]*this.buf[i];
+    return Math.sqrt(s/this.buf.length);
+  }
+  tick(){
+    const lv = this.rms();
+    if(!this.speaking){
+      this.floor = this.floor*0.95 + lv*0.05;                 // 조용할 때만 학습
+      if(lv > Math.max(this.floor*3.2, 0.006)){
+        this.speaking = true; this.silence = 0; this.started = Date.now();
+        this.chunks = [];
+        try{ this.rec.start(); }catch{}
+      }
+    } else {
+      const dur = Date.now() - this.started;
+      if(lv < Math.max(this.floor*2.0, 0.005)) this.silence += 100; else this.silence = 0;
+      // 0.9초 침묵이면 문장이 끝난 것으로 보고 컷. 14초를 넘으면 강제로 자른다.
+      if((this.silence >= 900 && dur > 400) || dur > 14000){
+        this.speaking = false; this.silence = 0;
+        try{ this.rec.stop(); }catch{ this.flush(); }
+      }
+    }
+  }
+  async flush(){
+    const parts = this.chunks; this.chunks = [];
+    if(!parts.length) return;
+    const blob = new Blob(parts, {type: this.mime || 'audio/webm'});
+    if(blob.size < 2000) return;                              // 너무 짧으면 잡음
+    sendSegment(blob, this.who, this.mime);
+  }
+  stop(){
+    clearInterval(this.timer);
+    try{ if(this.rec.state !== 'inactive') this.rec.stop(); }catch{}
+    this.stream.getTracks().forEach(t => t.stop());
+  }
+}
+
+async function sendSegment(blob, who, mime){
+  if(Date.now() < sttBackoffUntil) return;
+  sttBusy++; updateSttStatus();
+  try{
+    const r = await fetch('/api/stt?lang=en', {method:'POST',
+      headers:{'Content-Type': (mime || 'audio/webm').split(';')[0]}, body: blob});
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+    sttFails = 0;
+    const t = (d.text || '').trim();
+    // Whisper는 무음에 "Thank you." 같은 환청을 낸다 — 짧은 상투구는 버린다
+    if(t && t.length > 3 && !/^(you|thank you|thanks|bye|okay)\.?$/i.test(t)) addUtterance(t, who);
+  }catch(e){
+    sttFails++;
+    sttBackoffUntil = Date.now() + Math.min(30000, 2000 * 2**(sttFails-1));
+    setBanner(`⚠️ 음성 인식 실패: ${e.message} — ${Math.ceil((sttBackoffUntil-Date.now())/1000)}초 후 재시도`);
+  }finally{ sttBusy--; updateSttStatus(); }
+}
+function updateSttStatus(){
+  if(engineMode() !== 'tab') return;
+  const el = $('#status-txt');
+  if(sttBusy > 0 && !el.textContent.startsWith('⚠️')) el.textContent = '🖥 탭 오디오 인식 중…';
+}
+const engineMode = () => $('#engine')?.value || 'web';
+
+async function startTabCapture(){
+  if(!navigator.mediaDevices?.getDisplayMedia){
+    setBanner('⚠️ 이 브라우저는 탭 오디오 캡처를 지원하지 않아요 — 데스크톱 Chrome을 쓰세요');
+    return false;
+  }
+  try{
+    // Chrome은 video를 함께 요청해야 '탭 오디오 공유' 체크박스가 나온다. 영상은 즉시 버린다.
+    tabStream = await navigator.mediaDevices.getDisplayMedia({
+      video: true, audio: {echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+  }catch(e){
+    setBanner(e.name === 'NotAllowedError' ? '탭 공유가 취소됐어요' : '탭 캡처 실패: ' + e.message);
+    return false;
+  }
+  tabStream.getVideoTracks().forEach(t => t.stop());          // 화면은 쓰지 않는다
+  if(!tabStream.getAudioTracks().length){
+    tabStream.getTracks().forEach(t=>t.stop()); tabStream = null;
+    setBanner('⚠️ 오디오가 공유되지 않았어요 — 공유 창에서 <b>"탭 오디오도 공유"</b>를 체크하세요');
+    return false;
+  }
+  audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  await audioCtx.resume();
+  tabCap = new SegmentRecorder(tabStream, '상대');
+  tabStream.getAudioTracks()[0].onended = () => { if(listening()) stopListening(); };
+
+  // 내 목소리는 마이크에서 따로 — 화자 분리가 물리적으로 확실해진다
+  try{
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio:{echoCancellation:true, noiseSuppression:true}});
+    micCap = new SegmentRecorder(micStream, '나');
+  }catch{ /* 마이크 거부해도 상대 인식은 계속 */ }
+
+  setBanner(micCap ? '🖥 탭 오디오 + 🎤 내 마이크 — 화자가 분리되어 기록됩니다'
+                   : '🖥 탭 오디오 인식 중 (마이크 미허용 — 내 발화는 기록되지 않습니다)');
+  return true;
+}
+function stopTabCapture(){
+  tabCap?.stop(); micCap?.stop();
+  tabCap = micCap = null; tabStream = micStream = null;
+  sttFails = 0; sttBackoffUntil = 0;
+}
+
 // ── STT (P0: Web Speech) ──
 let rec = null, watchdog = null;
 function startSTT(){
@@ -582,8 +730,14 @@ function startSTT(){
 function stopSTT(){
   if(watchdog){ clearInterval(watchdog); watchdog=null; }
   if(rec){ rec.onend=null; try{ rec.stop(); }catch{} rec=null; }
+  stopTabCapture();
 }
-const listening = ()=>!!rec;
+const listening = ()=>!!(rec || tabCap);
+function stopListening(){
+  stopSTT(); stopSummaryTimer();
+  $('#btn-listen').textContent='▶'; $('#btn-listen').classList.remove('live');
+  $('#status').classList.remove('on'); $('#engine').disabled = false;
+}
 
 function preflight(){
   if(!llmAlive){
@@ -594,22 +748,21 @@ function preflight(){
   }
   return true;
 }
-$('#btn-listen').onclick = ()=>{
-  if(listening()){ stopSTT(); stopSummaryTimer();
-    $('#btn-listen').textContent='▶'; $('#btn-listen').classList.remove('live');
-    $('#status').classList.remove('on'); return; }
+$('#btn-listen').onclick = async ()=>{
+  if(listening()){ stopListening(); return; }
   if(!preflight()) return;
-  if(!startSTT()) return;
+  const ok = engineMode() === 'tab' ? await startTabCapture() : startSTT();
+  if(!ok) return;
+  $('#engine').disabled = true;
   $('#btn-listen').textContent='⏸'; $('#btn-listen').classList.add('live');
   $('#status').classList.add('on');
-  $('#status-txt').textContent = '듣는 중 — 상대 발언이 자막으로 표시됩니다';
+  if(engineMode() !== 'tab') $('#status-txt').textContent = '듣는 중 — 상대 발언이 자막으로 표시됩니다';
 };
 
 // ── ⏹ 세션 종료: 요약 + 자료로 적재 ──
 $('#btn-stop').onclick = async ()=>{
   if(!log.length){ $('#status-txt').textContent='아직 기록된 대화가 없습니다'; return; }
-  stopSTT(); $('#btn-listen').textContent='▶'; $('#btn-listen').classList.remove('live');
-  $('#status').classList.remove('on');
+  stopListening();
   const name = prompt('이 미팅의 이름을 적어주세요 (자료로 저장됩니다)',
     new Date().toISOString().slice(0,10) + ' 미팅');
   if(name === null) return;
@@ -681,9 +834,9 @@ $('#note-go').onclick = async ()=>{
   if(!text){ $('#note-st').textContent='내용을 붙여넣어 주세요'; return; }
   $('#note-st').textContent='적재 중…';
   try{
-    const r = await (await fetch('/api/ingest/note',{method:'POST',
+    const r = await (await fetch('/api/ingest/notes_bulk',{method:'POST',
       headers:{'Content-Type':'application/json'}, body:JSON.stringify({text})})).json();
-    $('#note-st').textContent = `✅ ${r.added}개 청크 적재 (임베딩 ${r.embedded})`;
+    $('#note-st').textContent = `✅ 문서 ${r.docs}개 → ${r.added}개 청크 적재 (임베딩 ${r.embedded})`;
     $('#note-in').value=''; refreshStats();
   }catch(e){ $('#note-st').textContent='실패: '+e.message; }
 };
@@ -698,6 +851,34 @@ $('#gl-go').onclick = async ()=>{
     $('#gl-in').value=''; refreshStats();
   }catch(e){ $('#gl-st').textContent='실패: '+e.message; }
 };
+// 용어 후보 — 승인한 것만 용어집으로
+$('#cand-go').onclick = async ()=>{
+  const box = $('#cand-list');
+  box.textContent = '찾는 중…';
+  try{
+    const d = await (await fetch('/api/glossary/candidates')).json();
+    if(!d.candidates.length){
+      box.textContent = '아직 후보가 없어요 — 미팅을 몇 번 기록하면 반복 표현이 쌓입니다';
+      return;
+    }
+    box.innerHTML = d.candidates.map((c,i)=>
+      `<label style="display:flex;gap:7px;align-items:center;margin:5px 0">
+         <input type="checkbox" data-t="${c.term.replace(/"/g,'&quot;')}" ${i<5?'checked':''}>
+         <b style="color:var(--text)">${c.term}</b>
+         <span style="color:var(--faint)">${c.count}회</span></label>`).join('') +
+      `<button class="go" id="cand-add" style="margin-top:8px">선택 항목을 용어집에 추가</button>`;
+    $('#cand-add').onclick = async ()=>{
+      const picked = [...box.querySelectorAll('input:checked')].map(i=>i.dataset.t);
+      if(!picked.length){ return; }
+      const entries = picked.map(t=>({term:t, ko:'', note:'미팅에서 반복 등장', say:'', triggers:t}));
+      const r = await (await fetch('/api/ingest/glossary',{method:'POST',
+        headers:{'Content-Type':'application/json'}, body:JSON.stringify({entries})})).json();
+      box.innerHTML = `✅ ${r.added}개 추가됨 — '③ 도메인 용어집'에서 뜻과 예문을 채우면 더 정확해집니다`;
+      refreshStats();
+    };
+  }catch(e){ box.textContent = '실패: ' + e.message; }
+};
+
 $('#reembed').onclick = async ()=>{
   $('#re-st').textContent='임베딩 중…';
   try{

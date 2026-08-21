@@ -165,7 +165,12 @@ def _anthropic_chat(messages, json_mode, temperature, max_tokens, model):
     with _open(f"{ANTHROPIC_URL}/messages", payload, _anthropic_headers()) as r:
         blocks = json.loads(r.read()).get("content") or []
         text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text")
-    return ("{" + text) if json_mode else text
+    if not json_mode:
+        return text
+    # 프리필("{")을 쓰면 모델은 그 뒤부터 이어 쓴다. 다만 모델이 여는 중괄호를
+    # 다시 내보내는 경우도 있어, 무조건 붙이면 '{{'가 되어 파싱이 깨진다.
+    t = text.lstrip()
+    return t if t.startswith("{") else "{" + text
 
 
 def _anthropic_stream(messages, temperature, max_tokens, model):
