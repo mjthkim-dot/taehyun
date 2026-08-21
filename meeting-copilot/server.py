@@ -24,8 +24,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "backend"))
 import ingest  # noqa: E402
 import llm  # noqa: E402
+import notion  # noqa: E402
 import prompts  # noqa: E402
 import rag  # noqa: E402
+import review  # noqa: E402
 
 PORT = int(os.environ.get("PORT", "3799"))
 HOST = os.environ.get("HOST", "127.0.0.1")
@@ -125,6 +127,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._json(200, {"candidates": raw if "raw" in q
                              else ingest.refine_candidates(raw)})
 
+        elif path == "/api/review/cards":
+            self._json(200, {"cards": review.due_cards(
+                limit=int((q.get("limit") or ["20"])[0]),
+                include_future="all" in q), **review.counts()})
         elif path == "/api/rag/stats":
             self._json(200, rag.stats())
         elif path == "/api/rag/search":            # 검색 단독 확인용 (디버깅·설명)
@@ -177,6 +183,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     req.get("intent", "reply"), req.get("cefr", "B1"))
                 _stream(self, [{"role": "user", "content": built["prompt"]}], 0.4, 700,
                         meta={"sources": built["sources"],
+                              "phrases": built["phrases"],
+                              "rag_used": built["rag_used"],
                               "has_placeholder": built["has_placeholder"]})
                 return
 
@@ -212,6 +220,77 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if path == "/api/ingest/glossary":
                 items = ingest.chunks_from_glossary(req.get("entries") or [])
                 self._json(200, {**rag.add_chunks(items), "chunks": len(items)})
+                return
+
+            # Notion 수업 노트 → [표현/예문/교정받은 문장] 청킹
+            #   page: 페이지 ID 또는 URL (NOTION_TOKEN 필요)
+            #   text: 붙여넣기 (토큰 없이도 되는 경로)
+            if path == "/api/ingest/notion":
+                title = req.get("title") or "수업 노트"
+                if (req.get("text") or "").strip():
+                    items = notion.chunks_from_markdown(req["text"], title)
+                else:
+                    page = (req.get("page") or "").strip()
+                    if not page:
+                        self._json(400, {"error": "page(페이지 ID/URL) 또는 text가 필요합니다."})
+                        return
+                    try:
+                        items = notion.chunks_from_page(page)
+                    except RuntimeError as e:
+                        self._json(400, {"error": str(e)})
+                        return
+                    except urllib.error.HTTPError as e:
+                        self._json(e.code, {"error":
+                            f"Notion {e.code} — 페이지가 통합에 공유되어 있는지 확인하세요."})
+                        return
+                self._json(200, {**rag.add_chunks(items), "chunks": len(items)})
+                return
+
+            # 수동 '동기화' — 자동 백그라운드 갱신은 하지 않는다(설계 결정).
+            # 시드 보충 + 임베딩 누락분 채우기를 한 번에 처리한다.
+            if path == "/api/sync":
+                seeded = ingest.ensure_seeded()
+                pages = [p for p in (req.get("pages") or []) if str(p).strip()]
+                notes, errors = 0, []
+                for pg in pages:
+                    try:
+                        items = notion.chunks_from_page(pg)
+                        notes += rag.add_chunks(items).get("added", 0)
+                    except Exception as e:  # noqa: BLE001
+                        errors.append(f"{pg}: {e}")
+                embedded = rag.reembed_missing() if req.get("embed", True) else 0
+                self._json(200, {"seeded": seeded.get("seeded", 0), "notes": notes,
+                                 "embedded": embedded, "errors": errors,
+                                 "rag": rag.stats()})
+                return
+
+            # ── 복습 자산화 (P1) ──
+            if path == "/api/review/build":
+                rev = review.build(req.get("lines") or [], req.get("meeting") or "미팅")
+                if req.get("save_cards", True) and rev.get("expressions"):
+                    rev["srs"] = review.add_cards(rev["expressions"], rev.get("meeting"))
+                rev["markdown"] = review.to_markdown(rev)
+                self._json(200, rev)
+                return
+
+            if path == "/api/review/grade":
+                self._json(200, review.grade(int(req.get("id", 0)), bool(req.get("ok"))))
+                return
+
+            # Notion 쓰기는 명시적 확인이 있어야만 — 기본 OFF
+            if path == "/api/notion/save":
+                if not req.get("confirm"):
+                    self._json(400, {"error": "확인되지 않은 저장 요청입니다 "
+                                              "(Notion 쓰기는 기본 꺼져 있습니다)."})
+                    return
+                try:
+                    self._json(200, notion.append_markdown(
+                        req.get("page") or "", req.get("markdown") or ""))
+                except RuntimeError as e:
+                    self._json(400, {"error": str(e)})
+                except urllib.error.HTTPError as e:
+                    self._json(e.code, {"error":
+                        f"Notion {e.code} — 페이지가 통합에 공유·편집 허용되어 있는지 확인하세요."})
                 return
 
             if path == "/api/session/archive":

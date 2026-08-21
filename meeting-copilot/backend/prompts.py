@@ -15,14 +15,17 @@ import rag
 
 # 퀵 액션 의도
 INTENTS = {
-    "reply": "Respond directly to what was just said.",
-    "agree": "AGREE and reinforce it with one concrete supporting point.",
+    "agree":    "AGREE with what was just said and add one concrete supporting point.",
     "pushback": "Politely PUSH BACK with one respectful, concrete reason.",
-    "ask": "ASK one sharp clarifying question about what was just said.",
-    "propose": "Propose one concrete next step.",
-    "buytime": "Buy a few seconds gracefully while staying in control — "
-               "acknowledge, restate what you heard, and signal you're about to answer.",
+    "ask":      "ASK one sharp clarifying question about what was just said.",
+    "propose":  "PROPOSE one concrete next step.",
+    "reply":    "Respond directly to what was just said.",
+    "buytime":  "Buy a few seconds gracefully while staying in control.",
+    "translate": "Say the candidate's Korean intent below in natural business English.",
 }
+
+# 검색 결과가 이보다 빈약하면 RAG를 건너뛴다 — 지연을 줄이는 게 낫다
+RAG_MIN_HITS = 2
 
 _PLACEHOLDER = re.compile(r"\[[^\]\n]{1,30}\]")
 
@@ -37,62 +40,108 @@ def _evidence_block(hits: list[dict]) -> tuple[str, list[str]]:
     return "\n\n".join(lines), labels
 
 
+# 검색 전용 꼬리표 — 말할 문장이 아니므로 뱃지 판정에서 제외한다
+_TAIL = re.compile(r"\[검색어\].*", re.S)
+# 한국어 주석 사이에 낀 영어 덩어리 (수업 노트는 대부분 이 형태다)
+_EN_SPAN = re.compile(r"[A-Za-z][A-Za-z0-9'’.,!?\-]*(?:\s+[A-Za-z0-9'’.,!?\-]+){2,}")
+
+
+def _learned_phrases(hits: list[dict], limit: int = 10) -> list[str]:
+    """검색된 자료에서 '바로 쓸 수 있는 영어 표현'을 뽑는다.
+    UI가 '📚 수업에서 배운 표현' 뱃지를 붙일지 판단하는 근거가 된다.
+
+    수업 노트는 완결된 문장이 아니라 `I am looking forward to {weekend / trip ...}`
+    처럼 한국어 주석·기호가 섞인 줄이 대부분이다. 마침표로 끝나는 문장만 찾으면
+    정작 '수업에서 배운 표현' 뱃지가 수업 노트에서는 한 번도 켜지지 않는다.
+    그래서 인용문 → 용어집의 실제 문장 → 노트 속 영어 덩어리 순으로 훑는다."""
+    out: list[str] = []
+    for h in hits:
+        body = _TAIL.sub("", h["text"])
+        for m in re.findall(r'["\u201c]([^"\u201d]{8,120})["\u201d]', body):
+            out.append(m.strip())
+        for m in re.findall(r"실제 문장:\s*(.+)", body):
+            out.append(m.strip())
+        for m in _EN_SPAN.findall(body):
+            out.append(m.strip(" .,-"))
+    seen, uniq = set(), []
+    for ph in out:
+        k = re.sub(r"[^a-z ]+", "", ph.lower()).strip()
+        if k and k not in seen and len(ph.split()) >= 3:
+            seen.add(k); uniq.append(ph)
+    return uniq[:limit]
+
+
 def build_suggest(said: str, context: str = "", intent: str = "reply",
-                  cefr: str = "B1", k: int = 6) -> dict:
-    """검색 → 프롬프트. 반환에 근거(sources)를 함께 실어 UI가 표시할 수 있게 한다."""
-    query = f"{context}\n{said}".strip()[-800:] if context else said
-    hits = rag.search(query, k=k)
-    evidence, labels = _evidence_block(hits)
-    # [대괄호] 미입력 표기는 사용자가 직접 쓰는 노트·용어집의 규약이다.
-    # 트랜스크립트는 그런 규약이 없으므로 대괄호가 있어도 경고하지 않는다(오탐 방지).
+                  cefr: str = "B1", k: int = 3) -> dict:
+    """4버튼/퀵번역 공통 파이프라인.
+
+      1) [직전 상대 발화 + 맥락 5문장]으로 벡터 스토어 검색 (top 3)
+      2) 검색된 [내가 배운 표현 / 도메인 어휘]를 프롬프트에 주입
+      3) 15단어 이내 · 비즈니스 톤 · 검색된 표현 우선 활용으로 2문장 생성
+      4) 검색이 빈약하면 RAG 없이 폴백 (프롬프트가 짧아져 지연이 준다)
+    """
+    ctx_lines = [l for l in (context or "").splitlines() if l.strip()][-5:]
+    # 퀵 번역은 사용자가 직접 친 의도가 곧 질의다. 여기에 미팅 맥락을 섞으면
+    # 맥락 쪽 토큰이 많아 검색이 통째로 트랜스크립트로 끌려간다(실측 확인).
+    # 맥락은 프롬프트에는 그대로 남겨 어조를 잡는 데만 쓴다.
+    query = said if intent == "translate" else (
+        "\n".join(ctx_lines) + "\n" + said)
+    hits = rag.search(query.strip()[-800:], k=k)
+    if len(hits) < RAG_MIN_HITS:
+        hits = []                                   # 폴백: 근거 없이 빠르게
+
+    phrases = _learned_phrases(hits)
+    labels = [f"{h['source_label']}: {h['title']}" for h in hits]
     has_ph = any(_PLACEHOLDER.search(h["text"])
                  for h in hits if h["source"] in ("note", "glossary"))
+
+    if hits:
+        material = "\n\n".join(
+            f"[{h['source_label']} · {h['title']}]\n{h['text'][:500]}" for h in hits)
+        material_block = f"""
+THEIR OWN MATERIAL (retrieved from their English class notes, past meetings and
+domain glossary — this is the point: make them sound like themselves):
+\"\"\"{material}\"\"\"
+
+Use it: if a class note gives a phrase for this exact situation, USE that phrase
+verbatim or nearly so. If the glossary has the precise term, use it.
+"""
+    else:
+        material_block = "\n(No personal material matched — keep it safe and generic.)\n"
+
     goal = INTENTS.get(intent, INTENTS["reply"])
-    ctx = (f"\nRecent meeting transcript (for resolving references):\n\"\"\"{context}\"\"\"\n"
-           if context.strip() else "")
+    ctx = (f"\nRecent meeting context:\n\"\"\"{chr(10).join(ctx_lines)}\"\"\"\n"
+           if ctx_lines else "")
 
     prompt = f"""You are a real-time meeting copilot for a Korean cloud-sales professional
-who is IN A LIVE English business meeting RIGHT NOW. Speed matters — they are about to speak.
+in a LIVE English business meeting. They are about to speak — speed matters.
 {ctx}
 The other side just said:
 
 "{said}"
 
 Their goal right now: {goal}
-Their spoken English level: CEFR {cefr} — the sentences must be comfortably sayable at that level.
+Their spoken English level: CEFR {cefr}.
+{material_block}
+TRUTHFULNESS: use only numbers, names and commitments that appear in the material.
+Never invent a figure or a promise.
 
-THEIR OWN MATERIAL (retrieved from their study notes, past meeting transcripts and
-domain glossary — this is the whole point: make them sound like themselves, not like a
-translation engine):
-\"\"\"{evidence}\"\"\"
-
-How to use the material:
-- If a study note gives a phrase for this exact situation, USE that phrase.
-- If a past transcript shows how they actually phrase things, match that rhythm.
-- If the glossary has the precise domain term, use it instead of a vague word.
-
-TRUTHFULNESS (they will say this out loud to a real customer):
-- Use ONLY numbers, company names and commitments that appear in the material above.
-- NEVER invent a figure, a customer name, or a promise. If a value is missing,
-  speak qualitatively ("a significant share", "a major account").
-
-Respond in EXACTLY this format (plain text, no markdown), nothing else —
-the first EN line MUST come first so they can start speaking immediately:
-EN: <Option 1 — short and safe, 15-30 words>
-KR: <자연스러운 한국어 번역>
+Respond in EXACTLY this format (plain text, no markdown), nothing else:
+EN: <option 1 — MAXIMUM 15 words>
+KR: <한국어 뜻>
 ===
-EN: <Option 2 — stronger, uses a specific term or example from the material, 35-60 words>
-KR: <자연스러운 한국어 번역>
+EN: <option 2, a different angle — MAXIMUM 15 words>
+KR: <한국어 뜻>
 ===
-META: 요지=<상대 발언의 핵심 한국어 한 줄> | 전략=<지금 말하기 전략 한국어 한 줄>
+META: 요지=<상대 발언 핵심 한국어 한 줄> | 전략=<말하기 전략 한국어 한 줄>
 
-Rules for the EN options:
-- First person, natural spoken business English, contractions, a light opener
-  ("Sure —", "That's fair,", "Good question —").
-- The two options must take different angles, not paraphrases of each other.
-- No bullet points inside EN — it has to flow as speech."""
+Hard rules for EN:
+- **15 words or fewer each.** Count them. Long sentences are unusable live.
+- Business tone: professional, spoken, contractions fine. No slang, no filler.
+- The two options must take different angles.
+- Prefer wording from THEIR OWN MATERIAL over inventing new phrasing."""
     return {"prompt": prompt, "sources": labels, "hits": hits,
-            "has_placeholder": has_ph}
+            "phrases": phrases, "rag_used": bool(hits), "has_placeholder": has_ph}
 
 
 # 자막 번역 — 읽는 사람은 미팅 중이라 0.5초 안에 뜻만 잡으면 된다.

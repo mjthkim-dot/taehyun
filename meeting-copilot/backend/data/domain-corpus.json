@@ -1,0 +1,492 @@
+[
+ {
+  "term": "Savings Plans",
+  "ko": "약정 할인",
+  "note": "AWS의 사용량 약정 할인. 1년/3년 약정으로 단가를 낮춘다.",
+  "say": "We can bring the run rate down with a one-year Savings Plan commitment.",
+  "triggers": "discount commitment lower the bill reduce cost cheaper rate volume deal better price"
+ },
+ {
+  "term": "Reserved Instance",
+  "ko": "예약 인스턴스",
+  "note": "인스턴스 단위 약정. Savings Plans보다 유연성이 낮다.",
+  "say": "Reserved Instances lock you into an instance family, so Savings Plans usually fit better.",
+  "triggers": "discount reserve prepay upfront commitment lock in"
+ },
+ {
+  "term": "total cost of ownership (TCO)",
+  "ko": "총소유비용",
+  "note": "단가 비교에서 벗어날 때 쓰는 핵심 개념. 운영 인건비·장애 대응까지 포함.",
+  "say": "Let me put that in the context of total cost of ownership, not just the license fee.",
+  "triggers": "quote is higher expensive price too high unit price cheaper elsewhere other vendor competitor pricing compare cost budget over budget"
+ },
+ {
+  "term": "run rate",
+  "ko": "연환산 비용/매출",
+  "note": "현재 추세를 1년으로 환산한 값.",
+  "say": "That brings the annual run rate down by about fifteen percent.",
+  "triggers": "annual cost monthly bill how much per year spend burn ongoing cost"
+ },
+ {
+  "term": "FinOps",
+  "ko": "클라우드 비용 최적화",
+  "note": "비용을 조직 차원에서 관리하는 운영 체계.",
+  "say": "We'd start with a FinOps assessment to find the quick wins before any commitment.",
+  "triggers": "cost optimization reduce spend wasted spend bill is growing cloud bill"
+ },
+ {
+  "term": "landing zone",
+  "ko": "랜딩 존",
+  "note": "계정·네트워크·보안 기준을 갖춘 초기 클라우드 환경.",
+  "say": "We'll set up a landing zone first so the account structure and guardrails are in place.",
+  "triggers": "where do we start account setup foundation getting started first phase"
+ },
+ {
+  "term": "lift and shift",
+  "ko": "단순 이전",
+  "note": "재설계 없이 그대로 옮기는 마이그레이션.",
+  "say": "A lift and shift gets you off the data center fast, then we optimize in phase two.",
+  "triggers": "migrate move workloads data center exit rehost how long migration"
+ },
+ {
+  "term": "data residency",
+  "ko": "데이터 소재지",
+  "note": "규제 대응에서 자주 나오는 요구사항.",
+  "say": "All customer data stays within the Seoul region to meet data residency requirements.",
+  "triggers": "where is the data stored data leave the country region location sovereignty overseas"
+ },
+ {
+  "term": "ISMS-P",
+  "ko": "정보보호 및 개인정보보호 관리체계 인증",
+  "note": "국내 인증. 영어로는 풀어서 설명해야 통한다.",
+  "say": "ISMS-P is the Korean information security and privacy certification — similar in scope to ISO 27001 plus privacy controls.",
+  "triggers": "security certification audit compliance requirement local regulation certification body"
+ },
+ {
+  "term": "전자금융감독규정",
+  "ko": "electronic financial supervision regulation",
+  "note": "금융권 클라우드 도입 시 핵심 제약.",
+  "say": "Financial customers here are bound by the electronic financial supervision regulation, which shapes the architecture.",
+  "triggers": "financial regulation banking compliance regulator supervisory fss fsc"
+ },
+ {
+  "term": "shared responsibility model",
+  "ko": "공동 책임 모델",
+  "note": "클라우드 사업자와 고객의 보안 책임 경계.",
+  "say": "Under the shared responsibility model, the provider secures the infrastructure and you secure what you put on it.",
+  "triggers": "who is responsible security responsibility liability if something happens"
+ },
+ {
+  "term": "proof of concept (PoC)",
+  "ko": "개념 검증",
+  "note": "본계약 전 소규모 검증.",
+  "say": "Let's scope a two-week PoC on one workload so your team can validate it themselves.",
+  "triggers": "try it first pilot test validate small scale before we commit trial"
+ },
+ {
+  "term": "MSP",
+  "ko": "관리형 서비스 제공자",
+  "note": "메가존클라우드 같은 운영 대행 사업자.",
+  "say": "As an MSP we handle the day-two operations so your team stays focused on the product.",
+  "triggers": "who operates it manage day to day support operations run it for us"
+ },
+ {
+  "term": "co-sell / ACE",
+  "ko": "파트너 공동 영업",
+  "note": "AWS와 함께 딜을 진행하는 프로그램.",
+  "say": "We can register this as a co-sell opportunity so AWS engages alongside us.",
+  "triggers": "aws involvement partner discount marketplace joint work with aws"
+ },
+ {
+  "term": "procurement",
+  "ko": "구매팀",
+  "note": "딜이 자주 멈추는 지점.",
+  "say": "Who owns the procurement process on your side, and what does the approval path look like?",
+  "triggers": "approval process purchasing sign off legal review paperwork how do we buy"
+ },
+ {
+  "term": "blast radius",
+  "ko": "장애 영향 범위",
+  "note": "보안·아키텍처 논의에서 CISO가 신경 쓰는 개념.",
+  "say": "Segmenting the accounts keeps the blast radius small if anything goes wrong.",
+  "triggers": "if it breaks impact risk failure isolation what happens if"
+ },
+ {
+  "term": "egress cost",
+  "ko": "데이터 전송 비용",
+  "note": "예상 못한 비용의 주범.",
+  "say": "Egress is the line item that usually surprises people, so let's model it up front.",
+  "triggers": "data transfer cost hidden cost unexpected charges surprise bill bandwidth"
+ },
+ {
+  "term": "commit / commitment",
+  "ko": "약정",
+  "note": "할인의 대가로 거는 사용량 약속.",
+  "say": "Instead of discounting the rate, we can restructure the commitment term.",
+  "triggers": "discount in exchange lock in term length contract length how long"
+ },
+ {
+  "term": "champion",
+  "ko": "내부 지지자",
+  "note": "MEDDPICC의 C. 고객사 내부에서 우리를 밀어주는 사람.",
+  "say": "Who inside your team would feel this pain the most day to day?",
+  "triggers": "who cares about this internally stakeholder owner day to day user"
+ },
+ {
+  "term": "decision criteria",
+  "ko": "의사결정 기준",
+  "note": "MEDDPICC의 DC. 무엇으로 우리를 평가하는지.",
+  "say": "What are the two or three criteria this decision will actually come down to?",
+  "triggers": "how will you decide what matters most evaluation criteria comparison"
+ },
+ {
+  "term": "discovery call",
+  "ko": "디스커버리 콜",
+  "note": "본격 제안 전 요구사항을 캐는 첫 미팅",
+  "say": "Before we scope anything, I'd like to run a short discovery call with your team.",
+  "triggers": "first meeting initial call understand requirements what do you need scoping"
+ },
+ {
+  "term": "pilot",
+  "ko": "파일럿",
+  "note": "PoC보다 실제 운영에 가까운 소규모 도입",
+  "say": "We can start with a pilot on one business unit and expand from there.",
+  "triggers": "try small start small one team limited rollout test drive"
+ },
+ {
+  "term": "rollout plan",
+  "ko": "단계별 도입 계획",
+  "note": "전사 확대 일정",
+  "say": "Here's a phased rollout plan so nothing breaks on day one.",
+  "triggers": "how do we deploy timeline phases go live schedule expand"
+ },
+ {
+  "term": "cutover",
+  "ko": "전환 시점",
+  "note": "기존 시스템에서 신규로 넘기는 순간",
+  "say": "We'd schedule the cutover for a weekend to minimize business impact.",
+  "triggers": "switch over go live downtime migration day when do we move"
+ },
+ {
+  "term": "downtime window",
+  "ko": "중단 허용 시간",
+  "note": "전환 중 서비스 중단이 허용되는 구간",
+  "say": "What downtime window can your business tolerate for the cutover?",
+  "triggers": "service interruption outage maintenance window cannot stop business"
+ },
+ {
+  "term": "SLA",
+  "ko": "서비스 수준 협약",
+  "note": "가용성·대응시간 약속",
+  "say": "Our SLA commits to 99.9% availability with a one-hour response target.",
+  "triggers": "uptime guarantee response time availability commitment penalty"
+ },
+ {
+  "term": "RPO / RTO",
+  "ko": "복구 목표 시점·시간",
+  "note": "재해복구 설계의 두 축",
+  "say": "Let's define RPO and RTO first — the architecture follows from those numbers.",
+  "triggers": "disaster recovery backup how fast recover data loss dr plan"
+ },
+ {
+  "term": "multi-account strategy",
+  "ko": "멀티 계정 전략",
+  "note": "환경·조직별 계정 분리",
+  "say": "A multi-account strategy keeps prod and dev isolated from day one.",
+  "triggers": "account structure separate environments isolation organization setup"
+ },
+ {
+  "term": "guardrails",
+  "ko": "가드레일",
+  "note": "조직 차원의 정책 통제",
+  "say": "We put guardrails in place so teams move fast without breaking policy.",
+  "triggers": "policy control governance prevent mistakes restrictions compliance rules"
+ },
+ {
+  "term": "least privilege",
+  "ko": "최소 권한",
+  "note": "보안 설계 원칙",
+  "say": "Access follows least privilege, so each role sees only what it needs.",
+  "triggers": "permissions access control who can see security roles iam"
+ },
+ {
+  "term": "IAM",
+  "ko": "자격 증명·권한 관리",
+  "note": "클라우드 접근 제어 서비스",
+  "say": "We'll map your org chart into IAM roles before anyone gets access.",
+  "triggers": "user access permissions login roles authentication"
+ },
+ {
+  "term": "encryption at rest",
+  "ko": "저장 데이터 암호화",
+  "note": "규제 대응 필수 항목",
+  "say": "Everything is encrypted at rest with keys you control.",
+  "triggers": "is data encrypted security requirement protect data keys"
+ },
+ {
+  "term": "KMS",
+  "ko": "키 관리 서비스",
+  "note": "암호화 키를 고객이 통제",
+  "say": "With KMS you hold the keys, so we can't read your data even if we wanted to.",
+  "triggers": "encryption keys who controls keys key management"
+ },
+ {
+  "term": "private link",
+  "ko": "프라이빗 연결",
+  "note": "인터넷을 거치지 않는 연결",
+  "say": "We can expose it over PrivateLink so traffic never touches the public internet.",
+  "triggers": "public internet exposure network security private connection vpn"
+ },
+ {
+  "term": "Direct Connect",
+  "ko": "전용선 연결",
+  "note": "온프레미스와 클라우드 전용 회선",
+  "say": "For steady large transfers, Direct Connect beats VPN on both cost and latency.",
+  "triggers": "dedicated line network bandwidth latency stable connection on premise"
+ },
+ {
+  "term": "well-architected review",
+  "ko": "아키텍처 진단",
+  "note": "AWS 표준 점검 프레임워크",
+  "say": "A Well-Architected Review is free and usually surfaces two or three quick wins.",
+  "triggers": "health check assessment review our setup is it right best practice"
+ },
+ {
+  "term": "quick win",
+  "ko": "단기 성과",
+  "note": "초기 신뢰를 만드는 작은 성과",
+  "say": "Let's start with a quick win your team can show in the first month.",
+  "triggers": "fast result show value early prove it small step"
+ },
+ {
+  "term": "business case",
+  "ko": "사업 타당성 근거",
+  "note": "내부 승인용 논리",
+  "say": "I'll put together the business case your CFO needs for approval.",
+  "triggers": "justify internally approval need numbers convince management roi"
+ },
+ {
+  "term": "ROI",
+  "ko": "투자 대비 수익",
+  "note": "재무 담당이 보는 지표",
+  "say": "The ROI turns positive around month fourteen on this model.",
+  "triggers": "payback return on investment worth it justify cost benefit"
+ },
+ {
+  "term": "payback period",
+  "ko": "투자 회수 기간",
+  "note": "언제 본전이 되는가",
+  "say": "The payback period is under a year once the commitment kicks in.",
+  "triggers": "how long until when do we break even recover cost"
+ },
+ {
+  "term": "chargeback / showback",
+  "ko": "부서별 비용 배분",
+  "note": "FinOps 운영 체계",
+  "say": "Tagging lets you do showback per team before you move to full chargeback.",
+  "triggers": "who pays cost allocation department budget internal billing tags"
+ },
+ {
+  "term": "right-sizing",
+  "ko": "자원 최적화",
+  "note": "과대 프로비저닝 제거",
+  "say": "Right-sizing alone usually cuts fifteen to twenty percent before any commitment.",
+  "triggers": "reduce cost too big oversized waste optimize instances"
+ },
+ {
+  "term": "autoscaling",
+  "ko": "자동 확장",
+  "note": "수요에 따른 자원 조절",
+  "say": "Autoscaling means you stop paying for peak capacity around the clock.",
+  "triggers": "traffic spikes peak load scale up down capacity"
+ },
+ {
+  "term": "spot instances",
+  "ko": "스팟 인스턴스",
+  "note": "중단 감수 대신 큰 할인",
+  "say": "Batch workloads can run on spot and cut that line item by more than half.",
+  "triggers": "cheaper compute batch jobs discount interruptible"
+ },
+ {
+  "term": "managed service",
+  "ko": "관리형 서비스",
+  "note": "운영 부담을 사업자가 짐",
+  "say": "Moving to a managed service takes the patching burden off your team.",
+  "triggers": "who maintains it operations burden patching upgrades manage for us"
+ },
+ {
+  "term": "day-two operations",
+  "ko": "운영 단계",
+  "note": "구축 이후의 실제 운영",
+  "say": "Most of the cost lives in day-two operations, not the migration itself.",
+  "triggers": "after go live ongoing operations maintenance support run it"
+ },
+ {
+  "term": "observability",
+  "ko": "관측 가능성",
+  "note": "로그·지표·추적",
+  "say": "Without observability you'll find out about incidents from your customers.",
+  "triggers": "monitoring alerts logs visibility know what is happening incidents"
+ },
+ {
+  "term": "incident response",
+  "ko": "장애 대응",
+  "note": "사고 발생 시 절차",
+  "say": "We run incident response with a defined escalation path and postmortems.",
+  "triggers": "when things break outage support escalation who to call"
+ },
+ {
+  "term": "vendor lock-in",
+  "ko": "종속성",
+  "note": "고객이 가장 자주 꺼내는 우려",
+  "say": "Fair concern — we can keep the data layer portable to limit lock-in.",
+  "triggers": "stuck with you locked in switch later portability dependency"
+ },
+ {
+  "term": "exit strategy",
+  "ko": "이탈 계획",
+  "note": "종속성 우려에 대한 답",
+  "say": "We document an exit strategy up front so the decision feels reversible.",
+  "triggers": "what if we leave get out change vendor reversible"
+ },
+ {
+  "term": "reference architecture",
+  "ko": "레퍼런스 아키텍처",
+  "note": "검증된 표준 구성",
+  "say": "Here's the reference architecture we've deployed for similar manufacturers.",
+  "triggers": "how does it look diagram standard setup example design"
+ },
+ {
+  "term": "case study",
+  "ko": "고객 사례",
+  "note": "유사 고객 검증",
+  "say": "I can share a case study from a customer with almost the same constraints.",
+  "triggers": "who else uses this similar customer proof reference examples"
+ },
+ {
+  "term": "reference call",
+  "ko": "레퍼런스 콜",
+  "note": "기존 고객과 통화 주선",
+  "say": "If it helps, I can arrange a reference call with a current customer.",
+  "triggers": "talk to someone using it customer reference validation"
+ },
+ {
+  "term": "stakeholder mapping",
+  "ko": "이해관계자 지도",
+  "note": "누가 결정에 관여하는가",
+  "say": "Who else needs to be in the room before this can move forward?",
+  "triggers": "who decides other people involved approval chain stakeholders"
+ },
+ {
+  "term": "economic buyer",
+  "ko": "최종 결재자",
+  "note": "예산 승인 권한자",
+  "say": "Who signs off on the budget once we agree on scope?",
+  "triggers": "who approves budget owner final decision signs"
+ },
+ {
+  "term": "paper process",
+  "ko": "계약 절차",
+  "note": "법무·구매 프로세스",
+  "say": "What does the paper process look like — legal review, then PO?",
+  "triggers": "contract steps legal review purchase order how do we sign"
+ },
+ {
+  "term": "MSA / SOW",
+  "ko": "기본계약·작업기술서",
+  "note": "계약 문서 구조",
+  "say": "We'd sign an MSA once, then each project runs on its own SOW.",
+  "triggers": "contract documents agreement scope of work paperwork"
+ },
+ {
+  "term": "NDA",
+  "ko": "비밀유지협약",
+  "note": "민감 정보 공유 전 단계",
+  "say": "Happy to go deeper once we have an NDA in place.",
+  "triggers": "confidential share details sensitive information sign first"
+ },
+ {
+  "term": "budget cycle",
+  "ko": "예산 주기",
+  "note": "타이밍이 딜을 좌우한다",
+  "say": "When does your budget cycle reset? That usually shapes the timeline more than anything.",
+  "triggers": "fiscal year annual budget when money available planning cycle"
+ },
+ {
+  "term": "capex vs opex",
+  "ko": "자본지출 대 운영지출",
+  "note": "클라우드 전환의 재무 논리",
+  "say": "Cloud shifts this from capex to opex, which is often the real win for finance.",
+  "triggers": "accounting treatment depreciation upfront investment finance prefers"
+ },
+ {
+  "term": "TCO model",
+  "ko": "총비용 모델",
+  "note": "비교 근거 자료",
+  "say": "I'll send the TCO model so your team can change the assumptions themselves.",
+  "triggers": "cost comparison spreadsheet show me the math assumptions"
+ },
+ {
+  "term": "unit economics",
+  "ko": "단위 경제성",
+  "note": "고객·거래당 비용",
+  "say": "Let's look at cost per transaction rather than the total bill.",
+  "triggers": "cost per user per transaction scale efficiency"
+ },
+ {
+  "term": "landing the plane",
+  "ko": "딜 마무리",
+  "note": "클로징 단계 표현",
+  "say": "What would we need to land this by end of quarter?",
+  "triggers": "close the deal finalize wrap up sign this quarter"
+ },
+ {
+  "term": "next steps",
+  "ko": "후속 조치",
+  "note": "모든 미팅의 마무리",
+  "say": "Let me recap the next steps so we're aligned before we drop off.",
+  "triggers": "what happens now follow up action items after this meeting"
+ },
+ {
+  "term": "parking lot",
+  "ko": "보류 항목",
+  "note": "지금 다루지 않고 미루는 주제",
+  "say": "Let's put that in the parking lot and come back to it next session.",
+  "triggers": "discuss later not now table this move on come back to"
+ },
+ {
+  "term": "circle back",
+  "ko": "다시 논의하기",
+  "note": "즉답이 어려울 때",
+  "say": "I don't want to guess on that — let me confirm and circle back tomorrow.",
+  "triggers": "i will check get back to you not sure confirm later follow up"
+ },
+ {
+  "term": "align internally",
+  "ko": "내부 정렬",
+  "note": "상대가 시간을 벌 때 쓰는 말",
+  "say": "Take the time you need to align internally — what would help that conversation?",
+  "triggers": "need to discuss internally check with team get buy in"
+ },
+ {
+  "term": "scope creep",
+  "ko": "범위 확대",
+  "note": "프로젝트 리스크",
+  "say": "We'll fix the scope in the SOW so it doesn't drift mid-project.",
+  "triggers": "requirements growing adding more changes project risk"
+ },
+ {
+  "term": "change request",
+  "ko": "변경 요청",
+  "note": "범위 변경 절차",
+  "say": "Anything beyond that goes through a change request, so costs stay predictable.",
+  "triggers": "additional work extra requirements not in scope more budget"
+ },
+ {
+  "term": "handover",
+  "ko": "인수인계",
+  "note": "운영 이관",
+  "say": "The handover includes runbooks and two weeks of shadowing with your team.",
+  "triggers": "training documentation transfer knowledge after project takeover"
+ }
+]

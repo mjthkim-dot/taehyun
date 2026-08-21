@@ -19,7 +19,11 @@ from pathlib import Path
 import llm
 import rag
 
-SEED = Path(__file__).parent / "data" / "glossary_seed.json"
+# 도메인 용어집 시드 — 클라우드/AWS 세일즈 표현 70개(domain-corpus.json).
+# glossary_seed.json은 초기 20개 버전으로, 파일이 없는 환경을 위한 폴백으로만 둔다.
+_DATA = Path(__file__).parent / "data"
+SEED = _DATA / "domain-corpus.json"
+SEED_FALLBACK = _DATA / "glossary_seed.json"
 
 
 def _clean(t: str) -> str:
@@ -69,11 +73,43 @@ _BRIDGE = {
 }
 
 
+# 반대 방향 다리 — 영어만 있는 줄에 한국어 검색어를 심는다.
+# 수업 노트에는 "I am looking forward to ..." 처럼 한국어가 한 글자도 없는 줄이 많은데,
+# 하단 퀵 번역은 사용자가 **한국어로** 친다. 임베딩이 없는 환경에서는 이 줄이
+# 한국어 질의와 한 토큰도 겹치지 않아 영영 검색되지 않는다.
+_BRIDGE_EN = {
+    r"look(ing)? forward|can't wait": "기대 기대된다 기대돼요 고대 설렌다 다음이 기대",
+    r"\bgrateful|thank(s| you)|appreciate": "감사 고맙다 감사합니다 고마워요 사의",
+    r"\bsorry|apolog": "사과 미안 죄송 유감",
+    r"can i get|i'?ll (have|take)|order|please\b.*(hot|iced|medium)": "주문 카페 커피 시키다 주문하기",
+    r"how have you been|it'?s been a while|nice to (meet|see)": "인사 안부 오랜만 스몰토크 잘 지냈어요",
+    r"\bprice|quote|discount|cost|budget|expensive": "가격 비싸다 견적 할인 단가 예산 비용",
+    r"schedul|reschedul|availab|next week|deadline|timeline": "일정 날짜 조율 마감 스케줄 시간",
+    r"\bagree|makes sense|fair point": "동의 맞아요 공감 인정",
+    r"disagree|push back|however|that said|i'?m not sure": "반박 이견 반대 다르게 생각",
+    r"could you|would you mind|can you (share|explain|walk)": "요청 부탁 물어보기 질문 되묻기",
+    r"next steps|follow up|recap|wrap up|action item": "마무리 정리 후속 다음 단계 액션",
+    r"\bcompliance|security|audit|certif": "보안 규제 인증 컴플라이언스 감사",
+    r"contract|terms|commitment|sign off": "계약 조건 협상 약정 승인",
+    r"pronunciation|accent|intonation|syllab": "발음 억양 교정 소리",
+    r"tense|verb|preposition|article|grammar|-ing\b": "문법 시제 동사 전치사 관사 어미",
+    r"i'?m going to|gonna|will\b": "미래 예정 계획 하려고",
+    r"\bdid\b|\bwas\b|\bwere\b|yesterday|last (night|week)": "과거 시제 지난 어제",
+}
+
+
 def _with_keywords(text: str) -> str:
-    """본문에서 상황을 감지해 영문 검색어를 덧붙인다 (검색 전용 꼬리표)."""
+    """본문에서 상황을 감지해 반대 언어의 검색어를 덧붙인다 (검색 전용 꼬리표).
+
+    한국어 노트 → 영문 키워드, 영어 노트 → 한국어 키워드. 양방향 모두 필요하다:
+    미팅 중에는 영어 발화로 검색하고, 퀵 번역에서는 한국어로 검색하기 때문이다."""
     hits: list[str] = []
     for pat, kws in _BRIDGE.items():
         if re.search(pat, text):
+            hits.append(kws)
+    low = text.lower()
+    for pat, kws in _BRIDGE_EN.items():
+        if re.search(pat, low):
             hits.append(kws)
     return text + ("\n\n[검색어] " + " ".join(hits) if hits else "")
 
@@ -122,18 +158,29 @@ def chunks_from_glossary(entries: list[dict]) -> list[dict]:
 
 
 def load_seed_glossary() -> list[dict]:
-    if not SEED.exists():
+    path = SEED if SEED.exists() else SEED_FALLBACK
+    if not path.exists():
         return []
-    return chunks_from_glossary(json.loads(SEED.read_text(encoding="utf-8")))
+    return chunks_from_glossary(json.loads(path.read_text(encoding="utf-8")))
 
 
 def ensure_seeded() -> dict:
-    """용어집이 비어 있으면 시드를 넣는다 — 처음 켰을 때 검색이 빈손이 아니게."""
-    st = rag.stats()
-    if st["by_source"].get("glossary"):
-        return {"seeded": 0, **st}
+    """시드 용어집 중 아직 색인에 없는 것만 넣는다.
+
+    "비어 있을 때만"으로 하면 시드가 20개→70개로 늘어도 기존 사용자는 영영
+    20개에 머문다. uid(`gl:{term}`)가 유일키라 이미 있는 항목을 다시 넣어도
+    중복되지 않지만, 매 기동마다 70개를 재임베딩하는 건 낭비라 차집합만 넣는다."""
     items = load_seed_glossary()
-    r = rag.add_chunks(items) if items else {"added": 0}
+    if not items:
+        return {"seeded": 0, **rag.stats()}
+    with rag.connect() as con:
+        have = {r[0] for r in con.execute(
+            "SELECT uid FROM chunks WHERE source='glossary'")}
+    todo = [c for c in items if c["uid"] not in have]
+    # embed=False: 기동 시에는 네트워크를 타지 않는다. 임베딩 채우기는 사용자가
+    # '동기화'를 눌렀을 때만 — "자동 백그라운드 색인 금지" 원칙(docs/PLAN.md A16).
+    # 임베딩이 없어도 키워드 경로로 검색은 동작한다(설계 원칙).
+    r = rag.add_chunks(todo, embed=False) if todo else {"added": 0}
     return {"seeded": r.get("added", 0), **rag.stats()}
 
 

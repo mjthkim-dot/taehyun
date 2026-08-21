@@ -6,10 +6,11 @@
 <title>미팅 어시스턴트</title>
 <link rel="manifest" href="/app.webmanifest">
 <meta name="theme-color" content="#0E1116">
+<meta name="description" content="실시간 영어 미팅 어시스턴트 — 상대 발언을 자막·번역하고, 내 수업 노트와 미팅 기록을 검색해 바로 말할 영어 문장을 제안합니다.">
 <style>
   :root{
     --bg:#0E1116; --panel:#161A21; --panel2:#1D222B; --line:#2A303B;
-    --text:#ECEFF4; --sub:#A3ADBD; --faint:#6B7688;
+    --text:#ECEFF4; --sub:#A3ADBD; --faint:#8A94A6;
     --accent:#5EE6A8; --accent-deep:#38C98A; --warn:#F0C86A; --danger:#F0736A;
     --ansz:1;
     color-scheme:dark;
@@ -70,6 +71,25 @@
   .actions button{flex:1 1 30%;background:var(--panel2);color:var(--sub);border:1px solid var(--line);
     border-radius:8px;padding:7px 4px;font-size:11px;cursor:pointer;font-family:inherit}
   .actions button:hover{color:var(--text);border-color:var(--accent-deep)}
+  /* 지정된 4버튼(동의·반박·질문·제안)이 주(主)다 — 나머지는 보조로 한 줄 아래 작게 */
+  .actions button.main{flex:1 1 22%;background:var(--panel);color:var(--text);
+    border-color:var(--accent-deep);font-weight:700}
+  .actions button.more{flex:1 1 46%;font-size:10.5px;color:var(--sub);padding:5px 4px}
+
+  /* 📚 수업에서 배운 표현 — 검색된 내 자료의 표현이 실제로 쓰였을 때만 */
+  .learned{display:inline-block;margin-top:4px;font-size:9.5px;font-weight:700;
+    padding:2px 6px;border-radius:999px;background:var(--accent-deep);color:var(--text)}
+
+  /* 복습 카드 (SRS) */
+  .card-rev{border:1px solid var(--line);border-radius:11px;padding:10px;margin-bottom:8px;
+    background:var(--panel2)}
+  .card-rev .en{font-size:13px;font-weight:600;line-height:1.45}
+  .card-rev .ko{font-size:11.5px;color:var(--sub);margin-top:3px}
+  .card-rev .why{font-size:10.5px;color:var(--faint);margin-top:3px}
+  .card-rev .grade{display:flex;gap:6px;margin-top:8px}
+  .card-rev .grade button{flex:1;border-radius:8px;padding:6px;font-size:11px;cursor:pointer;
+    font-family:inherit;background:var(--panel);color:var(--sub);border:1px solid var(--line)}
+  .card-rev .grade button.ok{color:var(--accent);border-color:var(--accent-deep)}
 
   /* ── 제안 카드 (하단 시트) ── */
   /* 제안 카드는 하단 컨트롤(퀵 액션·입력)을 덮지 않는다 —
@@ -135,6 +155,7 @@
   <div class="tabs">
     <button class="tab active" data-v="live">라이브</button>
     <button class="tab" data-v="lib">자료</button>
+    <button class="tab" data-v="rev">복습<span id="rev-badge"></span></button>
   </div>
   <span class="spacer"></span>
   <select id="engine" title="음성 인식 방식">
@@ -161,15 +182,15 @@
       </div>
     </div>
     <div class="actions">
-      <button data-intent="reply">💬 답하기</button>
-      <button data-intent="agree">👍 동의</button>
-      <button data-intent="pushback">👎 반박</button>
-      <button data-intent="ask">❓ 되묻기</button>
-      <button data-intent="propose">💡 제안</button>
-      <button data-intent="buytime">⏳ 시간 벌기</button>
+      <button class="main" data-intent="agree">👍 동의</button>
+      <button class="main" data-intent="pushback">👎 반박</button>
+      <button class="main" data-intent="ask">❓ 질문</button>
+      <button class="main" data-intent="propose">💡 제안</button>
+      <button class="more" data-intent="reply">💬 그냥 답하기</button>
+      <button class="more" data-intent="buytime">⏳ 시간 벌기</button>
     </div>
     <div class="quickbar">
-      <input type="text" id="say-in" placeholder="한국어로 쓰면 영어 문장으로…">
+      <input type="text" id="say-in" placeholder="한국어로 쓰면 → 내 자료 표현으로 영어 문장">
       <button id="say-go">↑</button>
     </div>
     <div id="card">
@@ -193,11 +214,23 @@
     <div class="stat" id="lib-stat"></div>
     <p>제안 문장은 <b>여기 있는 자료에서만</b> 나옵니다. 자료가 늘수록 “내가 실제로 말할 법한 문장”에 가까워집니다.</p>
 
+    <h3>🔄 동기화</h3>
+    <p>색인은 <b>이 버튼을 눌렀을 때와 미팅을 끝냈을 때만</b> 갱신됩니다 —
+       배경에서 자동으로 돌지 않습니다(내 노트를 몰래 읽어가지 않게).<br>
+       아래에 Notion 수업 노트 페이지 주소를 한 줄에 하나씩 넣어두면 함께 당겨옵니다
+       (<code>NOTION_TOKEN</code> 필요 · 페이지를 통합에 공유해 두세요).</p>
+    <textarea id="sync-pages" placeholder="https://www.notion.so/… (수업 노트 페이지 주소)&#10;382bfa76-5996-818e-863a-f8c217652a43"></textarea>
+    <button class="go" id="sync-go">지금 동기화</button>
+    <div class="note" id="sync-st"></div>
+
     <h3>① Notion 수업 노트</h3>
-    <p>Notion에서 <b>내보내기 → Markdown</b> 한 내용을 붙여넣으세요. 제목(#) 단위로 잘려 색인됩니다.<br>
-       여러 파일을 한 번에 넣으려면 각 파일 앞에 <code>=== 파일명 ===</code> 줄을 두세요.</p>
-    <textarea id="note-in" placeholder="# 가격 반론 대응&#10;고객이 비싸다고 할 때 바로 할인하지 말고…"></textarea>
-    <button class="go" id="note-go">노트 적재</button>
+    <p>표현 · 예문 · <b>교정받은 문장</b> 단위로 쪼개 색인합니다.
+       페이지 주소를 넣거나(토큰 필요), 노트 내용을 그대로 붙여넣으세요.</p>
+    <input type="text" id="np-in" placeholder="Notion 페이지 주소 또는 ID">
+    <button class="go ghost" id="np-go">이 페이지 가져오기</button>
+    <div class="note" id="np-st"></div>
+    <textarea id="note-in" placeholder="🗣 표현·어휘 뱅크&#10;take it from the top — 처음부터 다시&#10;sleep in ✗ → &quot;sleeping in on Saturday morning&quot;"></textarea>
+    <button class="go" id="note-go">붙여넣은 노트 적재</button>
     <div class="note" id="note-st"></div>
 
     <h3>② 미팅 트랜스크립트</h3>
@@ -224,6 +257,23 @@
     <input type="text" id="q-in" placeholder="영어 문장을 넣어 무엇이 검색되는지 확인">
     <button class="go ghost" id="q-go">검색</button>
     <div class="note" id="q-out"></div>
+  </div>
+
+  <div class="view hidden pad" id="view-rev">
+    <h3>🧠 복습 (1일 · 3일 · 7일)</h3>
+    <p>미팅을 ⏹ 로 끝내면 <b>표현 10개 · 놓쳤을 구간 · 다음에 물어볼 질문</b>을 뽑아 카드로 만듭니다.
+       카드는 1일 → 3일 → 7일 간격으로 다시 나타나고, 세 번 맞히면 졸업합니다.</p>
+    <div class="stat" id="rev-stat"></div>
+    <button class="go ghost" id="rev-refresh">오늘 볼 카드 불러오기</button>
+    <div id="rev-list" style="margin-top:10px"></div>
+
+    <h3>📝 최근 미팅 복습 자료</h3>
+    <div class="note" id="rev-doc"></div>
+    <p style="margin-top:8px">Notion 저장은 <b>기본 꺼져 있습니다.</b> 저장할 페이지를 넣고 버튼을 눌러 확인한 것만 기록됩니다.</p>
+    <input type="text" id="rev-page" placeholder="저장할 Notion 페이지 주소 (비워두면 저장하지 않음)">
+    <button class="go ghost" id="rev-copy">마크다운 복사</button>
+    <button class="go" id="rev-save">Notion에 저장</button>
+    <div class="note" id="rev-save-st"></div>
   </div>
 </main>
 
@@ -275,6 +325,15 @@ function wantsReply(t){
 }
 
 // ── NDJSON 스트림 ──
+// 서버 오류를 삼키지 않는다 — 실패 원인이 화면에 보여야 고칠 수 있다
+async function postJSON(url, payload){
+  const res = await fetch(url, {method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
 async function streamChat(url, payload, onToken, signal, onMeta){
   let res;
   try{
@@ -427,6 +486,23 @@ function covers(spec, fin){
   if(!S.size || !F.length) return 0;
   return F.filter(w=>S.has(w)).length / F.length;
 }
+// 서버가 meta로 내려준 '검색된 내 자료의 표현'. 생성된 문장이 이걸 실제로
+// 썼을 때만 뱃지를 붙인다 — 검색만 됐다고 붙이면 뱃지가 늘 켜져 의미가 없다.
+let lastPhrases = [];
+const wordsOf = t => t.toLowerCase().replace(/[^a-z0-9' ]+/g,' ').split(/\s+/).filter(Boolean);
+function usedLearned(en){
+  const E = ' ' + wordsOf(en).join(' ') + ' ';
+  for(const ph of lastPhrases){
+    const w = wordsOf(ph);
+    if(w.length < 3) continue;
+    // 표현 전체가 아니라 '연속 3어절'이 겹치면 쓴 것으로 본다.
+    // 시제·주어가 바뀌어도 배운 표현을 쓴 것은 맞기 때문이다.
+    for(let i=0; i+3<=w.length; i++){
+      if(E.includes(' ' + w.slice(i,i+3).join(' ') + ' ')) return ph;
+    }
+  }
+  return '';
+}
 function answerRow(en,kr){
   const r = document.createElement('div');
   r.className = 'lrow';
@@ -434,6 +510,14 @@ function answerRow(en,kr){
     <div class="body"><div class="en"></div><div class="kr"></div></div><button class="say">🔊</button>`;
   r.querySelector('.en').textContent = en;
   r.querySelector('.kr').textContent = kr || '';
+  const learned = usedLearned(en);
+  if(learned){
+    const b = document.createElement('span');
+    b.className = 'learned';
+    b.textContent = '📚 수업에서 배운 표현';
+    b.title = learned;
+    r.querySelector('.body').appendChild(b);
+  }
   r.querySelector('.say').onclick = ()=>speak(en);
   return r;
 }
@@ -454,12 +538,14 @@ function renderCard(raw){
   }
 }
 function renderSources(meta){
+  lastPhrases = meta?.phrases || [];
   const el = $('#c-src');
   if(!meta || (!meta.sources?.length && !meta.has_placeholder)){ el.style.display='none'; return; }
   const p = [];
   if(meta.sources?.length) p.push(`📎 근거: <b>${meta.sources.join(' · ')}</b>`);
   else p.push(`<span class="warn">📎 내 자료에서 찾은 근거가 없어요 — '자료' 탭에서 노트를 넣어주세요</span>`);
   if(meta.has_placeholder) p.push(`<span class="warn">⚠️ 자료에 미입력 값이 있어 수치는 생략됩니다</span>`);
+  if(meta.rag_used === false && meta.sources?.length) p.push(`<span class="warn">근거가 빈약해 일반 문장으로 생성했습니다</span>`);
   el.innerHTML = p.join(' &nbsp;·&nbsp; ');
   el.style.display = 'block';
 }
@@ -481,6 +567,7 @@ async function suggest(said, intent, auto, speculative){
   $('#c-gist').textContent = said.length > 46 ? said.slice(0,46)+'…' : said;
   $('#c-strat-row').style.display = 'none';
   $('#c-src').style.display = 'none';
+  lastPhrases = [];
   $('#c-answers').innerHTML = '<div class="lrow"><span class="lab an">제안</span><div class="body"><div class="en">⏳ 생성 중…</div></div></div>';
   const context = log.slice(-7).map(l=>`${l.who==='나'?'Me':'Them'}: ${l.text}`).join('\n');
   let raw = '';
@@ -772,13 +859,21 @@ $('#btn-stop').onclick = async ()=>{
     await streamChat('/api/summary',{transcript: log.map(l=>`${l.who}: ${l.text}`).join('\n'), mode:'full'},
       tk=>{ out += tk; });
   }catch(e){ out = '요약 실패: '+e.message; }
+  const lines = log.map(l=>`${l.who}: ${l.text}`);
   try{
-    const r = await (await fetch('/api/session/archive',{method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({meeting:name, lines:log})})).json();
+    const r = await postJSON('/api/session/archive', {meeting:name, lines:log});
     out += `\n\n📚 내 자료에 ${r.added}개 청크로 적재됨 (다음 미팅부터 검색에 쓰입니다)`;
     refreshStats();
   }catch{}
+  // 미팅 종료 훅 — 색인 갱신은 여기와 '동기화' 버튼에서만 일어난다
+  $('#status-txt').textContent = '복습 카드 생성 중…';
+  try{
+    const rev = await postJSON('/api/review/build', {meeting:name, lines});
+    paintReview(rev);
+    const n = (rev.expressions||[]).length;
+    if(n) out += `\n🧠 복습 카드 ${n}장 생성 — '복습' 탭에서 1일/3일/7일 간격으로 확인하세요`;
+    loadCards();
+  }catch(e){ out += `\n⚠️ 복습 카드 생성 실패: ${e.message}`; }
   $('#feed-empty')?.remove();
   const box = document.createElement('div');
   box.className='row';
@@ -796,7 +891,8 @@ async function quickSay(){
   const v = $('#say-in').value.trim();
   if(!v) return;
   $('#say-in').value = '';
-  suggest(v, 'reply');
+  // 4버튼과 같은 파이프라인을 탄다 — 단순 번역이 아니라 '내 자료의 표현으로' 말하기.
+  suggest(v, 'translate');
 }
 $('#say-go').onclick = quickSay;
 $('#say-in').addEventListener('keydown', e=>{ if(e.key==='Enter') quickSay(); });
@@ -808,7 +904,9 @@ document.querySelectorAll('.tab').forEach(t=>{
     t.classList.add('active');
     $('#view-live').classList.toggle('hidden', t.dataset.v !== 'live');
     $('#view-lib').classList.toggle('hidden', t.dataset.v !== 'lib');
+    $('#view-rev').classList.toggle('hidden', t.dataset.v !== 'rev');
     if(t.dataset.v === 'lib') refreshStats();
+    if(t.dataset.v === 'rev') loadCards();
   };
 });
 
@@ -829,16 +927,59 @@ async function refreshStats(){
       : `⚠️ 지금은 <b>키워드 전용</b>입니다. <code>ollama pull ${s.embed_model}</code> 하면 한국어 노트를 영어로 검색할 수 있어요 (무료·로컬)`;
   }catch{}
 }
+// 붙여넣은 수업 노트 — 표현 / 예문 / 교정받은 문장 단위로 쪼갠다
 $('#note-go').onclick = async ()=>{
   const text = $('#note-in').value.trim();
   if(!text){ $('#note-st').textContent='내용을 붙여넣어 주세요'; return; }
   $('#note-st').textContent='적재 중…';
   try{
-    const r = await (await fetch('/api/ingest/notes_bulk',{method:'POST',
-      headers:{'Content-Type':'application/json'}, body:JSON.stringify({text})})).json();
-    $('#note-st').textContent = `✅ 문서 ${r.docs}개 → ${r.added}개 청크 적재 (임베딩 ${r.embedded})`;
+    const r = await postJSON('/api/ingest/notion', {text, title:'수업 노트'});
+    $('#note-st').textContent = `✅ ${r.added}개 표현 적재 (임베딩 ${r.embedded})`;
     $('#note-in').value=''; refreshStats();
   }catch(e){ $('#note-st').textContent='실패: '+e.message; }
+};
+// Notion 페이지 직접 가져오기 (NOTION_TOKEN 필요)
+$('#np-go').onclick = async ()=>{
+  const page = $('#np-in').value.trim();
+  if(!page){ $('#np-st').textContent='페이지 주소나 ID를 넣어주세요'; return; }
+  $('#np-st').textContent='Notion에서 가져오는 중…';
+  try{
+    const r = await postJSON('/api/ingest/notion', {page});
+    $('#np-st').textContent = `✅ ${r.added}개 표현 적재 (임베딩 ${r.embedded})`;
+    rememberPage(page); refreshStats();
+  }catch(e){ $('#np-st').textContent='실패: '+e.message; }
+};
+
+// ── 🔄 수동 동기화 — 배경에서 자동으로 돌지 않는다 ──
+const SYNC_KEY = 'mc_sync_pages';
+$('#sync-pages').value = localStorage.getItem(SYNC_KEY) || '';
+$('#sync-pages').addEventListener('change', ()=>
+  localStorage.setItem(SYNC_KEY, $('#sync-pages').value));
+function rememberPage(p){
+  const cur = ($('#sync-pages').value || '').split('\n').map(x=>x.trim()).filter(Boolean);
+  if(cur.includes(p.trim())) return;
+  cur.push(p.trim());
+  $('#sync-pages').value = cur.join('\n');
+  localStorage.setItem(SYNC_KEY, $('#sync-pages').value);
+}
+async function runSync(pages, statusEl){
+  const el = statusEl && $(statusEl);
+  if(el) el.textContent = '동기화 중… (Notion 페이지 수에 따라 몇 초)';
+  const r = await postJSON('/api/sync', {pages});
+  if(el){
+    const bits = [`용어집 +${r.seeded}`, `노트 +${r.notes}`, `임베딩 +${r.embedded}`,
+                  `전체 ${r.rag.total}`];
+    el.innerHTML = `✅ ${bits.join(' · ')}` +
+      (r.errors?.length ? `<br><span style="color:var(--danger)">⚠️ ${r.errors.join('<br>')}</span>` : '');
+  }
+  refreshStats();
+  return r;
+}
+$('#sync-go').onclick = async ()=>{
+  localStorage.setItem(SYNC_KEY, $('#sync-pages').value);
+  const pages = ($('#sync-pages').value||'').split('\n').map(x=>x.trim()).filter(Boolean);
+  try{ await runSync(pages, '#sync-st'); }
+  catch(e){ $('#sync-st').textContent='실패: '+e.message; }
 };
 $('#gl-go').onclick = async ()=>{
   let entries;
@@ -901,6 +1042,105 @@ $('#q-go').onclick = async ()=>{
   }catch(e){ $('#q-out').textContent='실패: '+e.message; }
 };
 
+// ── 🧠 복습 (SRS 1일/3일/7일) ──
+let lastReview = null;
+function esc(t){ return (t||'').replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function paintRevBadge(c){
+  const b = $('#rev-badge');
+  b.textContent = c.due ? ` ${c.due}` : '';
+  $('#rev-stat').innerHTML =
+    `<span class="pill">오늘 ${c.due}</span><span class="pill">전체 ${c.total}</span>`+
+    `<span class="pill">졸업 ${c.graduated}</span>`;
+}
+async function loadCards(){
+  try{
+    const r = await (await fetch('/api/review/cards')).json();
+    paintRevBadge(r);
+    const box = $('#rev-list');
+    box.innerHTML = '';
+    if(r.cards.length){ for(const c of r.cards) box.appendChild(revCard(c)); return; }
+    // 오늘 볼 게 없어도 '아무것도 없음'으로 보이면 안 된다 —
+    // 방금 만든 카드는 내일이 첫 복습이라, 예정 카드를 보여줘야 만들어진 게 확인된다.
+    const all = await (await fetch('/api/review/cards?all=1&limit=10')).json();
+    if(!all.cards.length){
+      box.innerHTML = `<div class="note">아직 카드가 없습니다 — 미팅을 ⏹ 로 끝내면 표현 10개가 카드로 만들어집니다.</div>`;
+      return;
+    }
+    box.innerHTML = `<div class="note">✅ 오늘 볼 카드는 없습니다. 예정된 카드 ${all.cards.length}장:</div>`;
+    for(const c of all.cards){
+      const d = revCard(c);
+      d.querySelector('.grade').innerHTML =
+        `<span class="why">${new Date(c.due_at*1000).toLocaleDateString('ko-KR')} 예정 · ${c.stage+1}단계</span>`;
+      d.querySelectorAll('.ko,.why').forEach(x=>x.style.display='block');
+      box.appendChild(d);
+    }
+  }catch(e){ $('#rev-list').innerHTML = `<div class="note">불러오기 실패: ${esc(e.message)}</div>`; }
+}
+function revCard(c){
+  const d = document.createElement('div');
+  d.className = 'card-rev';
+  // 뜻은 처음엔 가린다 — 보고 아는 것과 떠올려 아는 것은 다르다
+  d.innerHTML = `<div class="en">${esc(c.en)}</div>
+    <div class="ko" style="display:none">${esc(c.ko)}</div>
+    ${c.note ? `<div class="why" style="display:none">${esc(c.note)}</div>` : ''}
+    <div class="grade">
+      <button class="reveal">뜻 보기</button>
+      <button class="again">다시 (1일)</button>
+      <button class="ok">알았음</button>
+    </div>`;
+  const show = ()=>{ d.querySelectorAll('.ko,.why').forEach(x=>x.style.display='block'); };
+  d.querySelector('.reveal').onclick = show;
+  d.querySelector('.en').onclick = ()=>speak(c.en);
+  const grade = async ok=>{
+    try{ paintRevBadge(await postJSON('/api/review/grade', {id:c.id, ok})); }catch{}
+    d.remove();
+    if(!$('#rev-list').children.length) loadCards();
+  };
+  d.querySelector('.again').onclick = ()=>grade(false);
+  d.querySelector('.ok').onclick = ()=>grade(true);
+  return d;
+}
+$('#rev-refresh').onclick = loadCards;
+
+function paintReview(rev){
+  lastReview = rev;
+  const p = [];
+  if(rev.expressions?.length){
+    p.push('<b>🗣 이번 미팅 표현</b>');
+    p.push(rev.expressions.map(e=>`· <b>${esc(e.en)}</b> — ${esc(e.ko)}`).join('<br>'));
+  }
+  if(rev.missed?.length){
+    p.push('<b style="display:block;margin-top:8px">🔍 놓쳤을 구간</b>');
+    p.push(rev.missed.map(m=>`· "${esc(m.quote)}" — ${esc(m.ko)}`).join('<br>'));
+  }
+  if(rev.questions?.length){
+    p.push('<b style="display:block;margin-top:8px">❓ 다음에 물어볼 질문</b>');
+    p.push(rev.questions.map(q=>`· ${esc(q)}`).join('<br>'));
+  }
+  $('#rev-doc').innerHTML = p.length ? p.join('<br>')
+    : '아직 만들어진 복습 자료가 없습니다.';
+}
+$('#rev-copy').onclick = async ()=>{
+  if(!lastReview?.markdown){ $('#rev-save-st').textContent='복사할 자료가 없습니다'; return; }
+  try{ await navigator.clipboard.writeText(lastReview.markdown);
+       $('#rev-save-st').textContent='✅ 마크다운을 복사했습니다 — Notion에 붙여넣으세요'; }
+  catch{ $('#rev-save-st').textContent='복사 권한이 없습니다 — 아래 내용을 직접 선택해 복사하세요'; }
+};
+// Notion 쓰기는 이 버튼(사용자 확인)을 거쳐야만 일어난다 — 자동 저장은 없다
+$('#rev-save').onclick = async ()=>{
+  const page = $('#rev-page').value.trim();
+  if(!lastReview?.markdown){ $('#rev-save-st').textContent='저장할 자료가 없습니다'; return; }
+  if(!page){ $('#rev-save-st').textContent='저장할 Notion 페이지 주소를 넣어주세요'; return; }
+  const n = (lastReview.expressions||[]).length;
+  if(!confirm(`이 미팅의 복습 자료(표현 ${n}개)를 Notion 페이지에 추가할까요?`)) return;
+  $('#rev-save-st').textContent='저장 중…';
+  try{
+    const r = await postJSON('/api/notion/save',
+      {page, markdown:lastReview.markdown, confirm:true});
+    $('#rev-save-st').textContent = `✅ ${r.blocks}개 블록을 Notion에 추가했습니다`;
+  }catch(e){ $('#rev-save-st').textContent='실패: '+e.message; }
+};
+
 // ── 초기화 ──
 (async ()=>{
   try{
@@ -913,6 +1153,7 @@ $('#q-go').onclick = async ()=>{
     }
     if(h.rag){ ragStat = h.rag; $('#status-rag').textContent = `📚 ${h.rag.total}`; }
   }catch{}
+  try{ paintRevBadge(await (await fetch('/api/review/cards')).json()); }catch{}
 })();
 // 하단 컨트롤 높이를 재서 카드 위치를 맞춘다 (버튼 줄바꿈에 따라 달라짐)
 function fitCard(){
