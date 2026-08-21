@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+# 미팅 트랜스크립트·개인 노트가 들어가는 로컬 저장소 — 절대 커밋하지 않는다
+backend/data/store.db
+backend/data/store.db-*
+backend/data/imported/

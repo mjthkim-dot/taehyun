@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>미팅 어시스턴트</title>
+<link rel="manifest" href="/app.webmanifest">
+<meta name="theme-color" content="#0E1116">
+<style>
+  :root{
+    --bg:#0E1116; --panel:#161A21; --panel2:#1D222B; --line:#2A303B;
+    --text:#ECEFF4; --sub:#A3ADBD; --faint:#6B7688;
+    --accent:#5EE6A8; --accent-deep:#38C98A; --warn:#F0C86A; --danger:#F0736A;
+    --ansz:1;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);display:flex;flex-direction:column;overflow:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",sans-serif}
+
+  /* ── 헤더: 좁은 폭 기준 ── */
+  header{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--panel);
+    border-bottom:1px solid var(--line);flex-wrap:wrap}
+  header .brand{font-size:12px;font-weight:800;color:var(--accent);flex:none}
+  header select{background:var(--panel2);color:var(--text);border:1px solid var(--line);
+    border-radius:8px;padding:4px 6px;font-size:11.5px;font-family:inherit;min-width:0}
+  .spacer{flex:1}
+  .btn{width:32px;height:28px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--text);font-size:13px;cursor:pointer;flex:none}
+  .btn.live{background:var(--accent);color:#0B1410;border-color:var(--accent)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+
+  /* ── 상태 줄 ── */
+  .status{display:flex;align-items:center;gap:6px;padding:6px 10px;font-size:11.5px;
+    color:var(--sub);background:var(--panel);border-bottom:1px solid var(--line)}
+  .status .dot{width:6px;height:6px;border-radius:50%;background:var(--faint);flex:none}
+  .status.on .dot{background:var(--accent);box-shadow:0 0 0 3px rgba(94,230,168,.15)}
+  .status .txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+  .status .rag{color:var(--faint);flex:none}
+
+  main{flex:1;display:flex;flex-direction:column;min-height:0;position:relative}
+  .view{flex:1;display:flex;flex-direction:column;min-height:0}
+  .view.hidden{display:none}
+
+  /* ── 자막 피드 ── */
+  #feed{flex:1;overflow-y:auto;padding:10px}
+  .row{margin-bottom:10px}
+  .row .meta{font-size:10px;color:var(--faint);margin-bottom:3px}
+  .bubble{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 11px}
+  .row.me .bubble{background:#1A2430;border-color:#2B3A4A}
+  .row.q .bubble{border-color:var(--accent-deep)}
+  .row.dim{opacity:.45}
+  .bubble .en{font-size:13.5px;line-height:1.55}
+  .bubble .kr{font-size:12px;color:var(--sub);line-height:1.5;margin-top:5px}
+  .empty{color:var(--faint);text-align:center;margin-top:40px;font-size:12.5px;line-height:1.9;padding:0 14px}
+  .empty .big{font-size:26px;margin-bottom:6px}
+
+  /* ── 퀵 액션 ── */
+  .actions{display:flex;flex-wrap:wrap;gap:5px;padding:6px 10px;border-top:1px solid var(--line);
+    background:var(--panel)}
+  .actions button{flex:1 1 30%;background:var(--panel2);color:var(--sub);border:1px solid var(--line);
+    border-radius:8px;padding:7px 4px;font-size:11px;cursor:pointer;font-family:inherit}
+  .actions button:hover{color:var(--text);border-color:var(--accent-deep)}
+
+  /* ── 제안 카드 (하단 시트) ── */
+  /* 제안 카드는 하단 컨트롤(퀵 액션·입력)을 덮지 않는다 —
+     제안이 뜬 직후에 '반박으로 다시'를 누르는 흐름이 가장 잦기 때문이다. */
+  #card{position:absolute;left:8px;right:8px;bottom:var(--ctrl-h,96px);background:var(--panel2);
+    border:1px solid var(--line);border-radius:14px;padding:11px;display:none;
+    box-shadow:0 12px 40px rgba(0,0,0,.55);max-height:58%;overflow-y:auto;overscroll-behavior:contain}
+  #card.spec{box-shadow:0 0 0 1px var(--accent) inset,0 12px 40px rgba(0,0,0,.55)}
+  #card .head{position:sticky;top:-11px;z-index:2;background:var(--panel2);margin:-11px -11px 8px;
+    padding:11px;border-radius:14px 14px 0 0;display:flex;align-items:center;gap:6px}
+  #card .head .gist{font-size:12.5px;font-weight:800;flex:1;line-height:1.4}
+  #card .head .gist::before{content:"✦ ";color:var(--accent)}
+  #card .head button{background:none;border:none;color:var(--sub);font-size:14px;cursor:pointer;padding:2px 3px}
+  #card .head button.on{color:var(--accent)}
+  .spec-tag{display:none;font-size:9.5px;font-weight:800;color:#0B1410;background:var(--accent);
+    border-radius:4px;padding:2px 4px;flex:none}
+  #card.spec .spec-tag{display:inline-block}
+  .lrow{display:flex;gap:8px;margin-top:9px}
+  .lab{font-size:9.5px;font-weight:800;border-radius:5px;padding:3px 5px;height:fit-content;flex:none}
+  .lab.an{background:var(--accent);color:#0B1410}
+  .lab.st{background:var(--panel);color:var(--sub);border:1px solid var(--line)}
+  .lrow .body{flex:1;min-width:0}
+  .lrow .en{font-size:calc(14px * var(--ansz));font-weight:700;line-height:1.55}
+  .lrow .kr{font-size:calc(11.5px * var(--ansz));color:var(--sub);line-height:1.5;margin-top:5px}
+  .lrow .strat{font-size:11.5px;color:var(--sub);line-height:1.5}
+  .say{background:none;border:none;cursor:pointer;font-size:13px;color:var(--sub);flex:none}
+  #c-src{display:none;margin-top:9px;padding-top:7px;border-top:1px solid var(--line);
+    font-size:10.5px;color:var(--faint);line-height:1.5}
+  #c-src b{color:var(--sub)}
+  #c-src .warn{color:var(--danger)}
+
+  /* ── 자료·설정 패널 ── */
+  .pad{padding:12px;overflow-y:auto}
+  .pad h3{font-size:12px;margin:14px 0 6px;color:var(--accent)}
+  .pad h3:first-child{margin-top:0}
+  .pad p{font-size:11.5px;color:var(--sub);line-height:1.6;margin-bottom:6px}
+  textarea,input[type=text]{width:100%;background:var(--panel);color:var(--text);
+    border:1px solid var(--line);border-radius:9px;padding:9px;font-size:16px;font-family:inherit}
+  textarea{min-height:110px;resize:vertical;line-height:1.5}
+  .go{background:var(--accent);color:#0B1410;border:none;border-radius:9px;padding:9px 14px;
+    font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:7px}
+  .go.ghost{background:var(--panel2);color:var(--sub);border:1px solid var(--line)}
+  .note{font-size:11px;color:var(--faint);margin-top:6px;line-height:1.55}
+  .stat{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+  .pill{background:var(--panel);border:1px solid var(--line);border-radius:999px;
+    padding:4px 9px;font-size:11px;color:var(--sub)}
+  .quickbar{display:flex;gap:6px;padding:6px 10px 10px;border-top:1px solid var(--line);background:var(--panel)}
+  .quickbar input{flex:1;padding:8px 10px;border-radius:9px}
+  .quickbar button{background:var(--accent);color:#0B1410;border:none;border-radius:9px;
+    padding:0 13px;font-size:14px;cursor:pointer}
+  .tabs{display:flex;gap:2px;background:var(--panel2);border-radius:999px;padding:2px;border:1px solid var(--line)}
+  .tab{padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:700;color:var(--sub);
+    cursor:pointer;border:none;background:none;font-family:inherit}
+  .tab.active{background:var(--text);color:#141519}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="brand">🗣 미팅</span>
+  <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
+  <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
+  <div class="tabs">
+    <button class="tab active" data-v="live">라이브</button>
+    <button class="tab" data-v="lib">자료</button>
+  </div>
+  <span class="spacer"></span>
+  <select id="cefr" title="내 영어 레벨"><option>A2</option><option selected>B1</option><option>B2</option><option>C1</option></select>
+</header>
+
+<div class="status" id="status">
+  <span class="dot"></span>
+  <span class="txt" id="status-txt">▶ 를 누르면 상대 발언이 자막·번역되고 제안이 뜹니다</span>
+  <span class="rag" id="status-rag"></span>
+</div>
+
+<main>
+  <div class="view" id="view-live">
+    <div id="feed">
+      <div class="empty" id="feed-empty">
+        <div class="big">🎧</div>
+        미팅 화면 옆에 이 창을 두세요<br>
+        상대 영어 → <b>자막 + 한국어</b><br>
+        말할 차례엔 <b>내 자료에 근거한 문장</b>이 뜹니다
+      </div>
+    </div>
+    <div class="actions">
+      <button data-intent="reply">💬 답하기</button>
+      <button data-intent="agree">👍 동의</button>
+      <button data-intent="pushback">👎 반박</button>
+      <button data-intent="ask">❓ 되묻기</button>
+      <button data-intent="propose">💡 제안</button>
+      <button data-intent="buytime">⏳ 시간 벌기</button>
+    </div>
+    <div class="quickbar">
+      <input type="text" id="say-in" placeholder="한국어로 쓰면 영어 문장으로…">
+      <button id="say-go">↑</button>
+    </div>
+    <div id="card">
+      <div class="head">
+        <span class="gist" id="c-gist"></span>
+        <span class="spec-tag" title="말이 끝나기 전에 미리 생성 중">미리</span>
+        <button id="c-size" title="글자 크기 (+/-)">🔎</button>
+        <button id="c-pin" title="고정 (Space)">📌</button>
+        <button id="c-close" title="닫기 (Esc)">✕</button>
+      </div>
+      <div class="lrow" id="c-strat-row" style="display:none">
+        <span class="lab st">전략</span><div class="body"><div class="strat" id="c-strat"></div></div>
+      </div>
+      <div id="c-answers"></div>
+      <div id="c-src"></div>
+    </div>
+  </div>
+
+  <div class="view hidden pad" id="view-lib">
+    <h3>📚 내 자료 (RAG)</h3>
+    <div class="stat" id="lib-stat"></div>
+    <p>제안 문장은 <b>여기 있는 자료에서만</b> 나옵니다. 자료가 늘수록 “내가 실제로 말할 법한 문장”에 가까워집니다.</p>
+
+    <h3>① Notion 수업 노트</h3>
+    <p>Notion에서 <b>내보내기 → Markdown</b> 한 내용을 그대로 붙여넣으세요. 제목(#) 단위로 잘려 색인됩니다.</p>
+    <textarea id="note-in" placeholder="# 가격 반론 대응&#10;고객이 비싸다고 할 때 바로 할인하지 말고…"></textarea>
+    <button class="go" id="note-go">노트 적재</button>
+    <div class="note" id="note-st"></div>
+
+    <h3>② 미팅 트랜스크립트</h3>
+    <p>⏹ 로 세션을 끝내면 <b>자동으로 적재</b>됩니다. 쓸수록 내 말투가 쌓입니다.</p>
+
+    <h3>③ 도메인 용어집</h3>
+    <p>클라우드 세일즈 기본 용어가 미리 들어 있습니다. <code>term / ko / note / say</code> 형식의 JSON 배열로 추가할 수 있어요.</p>
+    <textarea id="gl-in" placeholder='[{"term":"egress cost","ko":"데이터 전송 비용","note":"…","say":"Let'"'"'s model egress up front."}]'></textarea>
+    <button class="go" id="gl-go">용어 적재</button>
+    <div class="note" id="gl-st"></div>
+
+    <h3>의미 검색</h3>
+    <p id="embed-note"></p>
+    <button class="go ghost" id="reembed">비어 있는 임베딩 채우기</button>
+    <div class="note" id="re-st"></div>
+
+    <h3>검색 확인</h3>
+    <input type="text" id="q-in" placeholder="영어 문장을 넣어 무엇이 검색되는지 확인">
+    <button class="go ghost" id="q-go">검색</button>
+    <div class="note" id="q-out"></div>
+  </div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const IS_NARROW = matchMedia('(max-width: 520px)').matches;
+const feed = $('#feed');
+const log = [];            // {who,text}
+let suggestAbort = null, translating = 0, uttCount = 0, sumBusy = false;
+const trQueue = [];
+let llmAlive = true, llmWhy = '', ragStat = null;
+
+// ── 발언 차례 감지 — 미팅은 면접과 다르다.
+//    면접에선 질문만 답하면 되지만, 미팅에서는 반론·우려·결정 요구도 내 차례를 넘긴다.
+//    ("Your quote is higher than the other vendor" 는 물음표가 없지만 반드시 답해야 한다)
+const Q_STARTS = ['what','why','how','when','where','who','which','tell me','tell us','describe',
+ 'walk me','walk us','could you','can you','would you','do you','did you','have you','has your',
+ 'are you','were you','is there','is it','are there','give me','give us',"let's",'suppose',
+ 'imagine','talk me through','talk about','explain','share',"i'd love to hear","i'm curious",
+ 'how about','what about','any thoughts','thoughts on','does that','make sense','sound good'];
+// 반론·우려·결정 신호 — 이게 나오면 물음표가 없어도 답해야 한다
+const TURN_SIGNALS = [
+ // 가격·예산
+ 'expensive','too high','higher than','over budget','budget','cost','price','pricing','discount','quote',
+ // 우려·거부
+ 'concern','concerned','worried','worry','risk','issue','problem','blocker','hesitant',
+ 'not sure','not convinced','unfortunately','the thing is','my only','pushback',
+ // 비교·경쟁
+ 'competitor','another vendor','other vendor','compared to','versus','alternative',
+ // 요구·조건
+ 'we need','we require','we would need','must have','only if','provided that','on condition',
+ // 결정·일정
+ 'timeline','deadline','by when','next step','decide','decision','approval','sign off',
+ // 반전 접속사로 시작하는 반박
+ 'but ','however','that said','on the other hand'];
+const FILLER = /^(so|okay|ok|well|alright|right|now|and|then|um+|uh+|hmm+|great|nice|good|thanks|thank you|i see|got it|yeah|yes)[,.!]?\s+/;
+function wantsReply(t){
+  const s0 = t.trim().toLowerCase();
+  if(!s0) return false;
+  if(s0.includes('?')) return true;
+  for(let s of s0.split(/[.!;]/)){
+    s = s.trim(); let prev = null;
+    while(prev !== s){ prev = s; s = s.replace(FILLER,''); }
+    if(s.split(' ').length >= 3 && Q_STARTS.some(q => s.startsWith(q))) return true;
+  }
+  // 반론 신호: 짧은 맞장구("sure","got it")에 오탐하지 않도록 최소 길이를 둔다
+  if(s0.split(/\s+/).length >= 5 && TURN_SIGNALS.some(k => s0.includes(k))) return true;
+  return false;
+}
+
+// ── NDJSON 스트림 ──
+async function streamChat(url, payload, onToken, signal, onMeta){
+  let res;
+  try{
+    res = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload),signal});
+  }catch(e){
+    if(e.name === 'AbortError') throw e;
+    throw new Error('서버에 연결할 수 없어요 — start.sh가 실행 중인지 확인하세요');
+  }
+  if(!res.ok){ const d = await res.json().catch(()=>({})); throw new Error(d.error || `HTTP ${res.status}`); }
+  const rd = res.body.getReader(), dec = new TextDecoder();
+  let buf = '';
+  for(;;){
+    const {done,value} = await rd.read();
+    if(done) break;
+    buf += dec.decode(value,{stream:true});
+    const lines = buf.split('\n'); buf = lines.pop();
+    for(const ln of lines){
+      if(!ln.trim()) continue;
+      try{
+        const o = JSON.parse(ln);
+        if(o.error) throw new Error(o.error);
+        if(o.meta){ onMeta?.(o.meta); continue; }
+        if(o.message?.content) onToken(o.message.content);
+      }catch(e){ if(e.message && !(e instanceof SyntaxError)) throw e; }
+    }
+  }
+}
+const now = () => new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false});
+
+// ── 자막 ──
+function addUtterance(text, who){
+  $('#feed-empty')?.remove();
+  const me = who === '나', q = !me && wantsReply(text);
+  log.push({who,text});
+  const row = document.createElement('div');
+  row.className = 'row' + (me?' me':'') + (q?' q':'');
+  row.innerHTML = `<div class="meta">${me?'나':'상대'} · ${now()}</div>
+    <div class="bubble"><div class="en"></div><div class="kr"></div></div>`;
+  row.querySelector('.en').textContent = text;
+  feed.appendChild(row); feed.scrollTop = feed.scrollHeight;
+  if(!me && text.split(' ').length >= 3){          // 번역은 상대 발언만 (내 영어를 되돌릴 이유 없음)
+    trQueue.push({el:row.querySelector('.kr'), text}); pumpTranslate();
+  }
+  if(q) suggest(text,'reply',true);
+  if(++uttCount % 3 === 0) lineSummary();
+  return row;
+}
+
+const TR_LANES = 2;
+async function pumpTranslate(){
+  while(translating < TR_LANES && trQueue.length){
+    translating++;
+    const it = trQueue.shift();
+    (async()=>{
+      try{
+        let got = false;
+        await streamChat('/api/translate',{text:it.text},
+          tk=>{ if(!got){ it.el.textContent=''; got=true; } it.el.textContent += tk; });
+      }catch(e){ it.el.innerHTML = `<span style="color:var(--danger)">번역 실패: ${e.message}</span>`; }
+      finally{ translating--; pumpTranslate(); }
+    })();
+  }
+}
+
+async function lineSummary(){
+  if(sumBusy || !log.length) return;
+  sumBusy = true; let out = '';
+  try{
+    await streamChat('/api/summary',
+      {transcript: log.slice(-14).map(l=>`${l.who}: ${l.text}`).join('\n'), mode:'line'},
+      tk=>{ out += tk; });
+    if(out.trim()) $('#status-txt').textContent = out.trim();
+  }catch{} finally{ sumBusy = false; }
+}
+
+// ── 제안 카드 ──
+let pinned = false, specKey = '', specDone = '';
+const normQ = t => t.toLowerCase().replace(/[^a-z0-9가-힣 ]/g,'').replace(/\s+/g,' ').trim();
+function covers(spec, fin){
+  const S = new Set(normQ(spec).split(' ')), F = normQ(fin).split(' ').filter(Boolean);
+  if(!S.size || !F.length) return 0;
+  return F.filter(w=>S.has(w)).length / F.length;
+}
+function answerRow(en,kr){
+  const r = document.createElement('div');
+  r.className = 'lrow';
+  r.innerHTML = `<span class="lab an">제안</span>
+    <div class="body"><div class="en"></div><div class="kr"></div></div><button class="say">🔊</button>`;
+  r.querySelector('.en').textContent = en;
+  r.querySelector('.kr').textContent = kr || '';
+  r.querySelector('.say').onclick = ()=>speak(en);
+  return r;
+}
+function renderCard(raw){
+  const box = $('#c-answers'); box.innerHTML = '';
+  for(const b of raw.split('===')){
+    if(/META|요지\s*=/.test(b)){
+      const g = (b.match(/요지\s*=\s*([^|]+)/)||[])[1]?.trim();
+      const s = (b.match(/전략\s*=\s*(.+)/)||[])[1]?.trim();
+      if(g) $('#c-gist').textContent = g;
+      $('#c-strat-row').style.display = s ? 'flex' : 'none';
+      if(s) $('#c-strat').textContent = s;
+      continue;
+    }
+    const en = ((b.match(/EN\s*[:：]\s*([\s\S]*?)(?=\nKR\s*[:：]|$)/)||[])[1]||'').trim();
+    const kr = ((b.match(/KR\s*[:：]\s*([\s\S]*)/)||[])[1]||'').trim();
+    if(en) box.appendChild(answerRow(en,kr));
+  }
+}
+function renderSources(meta){
+  const el = $('#c-src');
+  if(!meta || (!meta.sources?.length && !meta.has_placeholder)){ el.style.display='none'; return; }
+  const p = [];
+  if(meta.sources?.length) p.push(`📎 근거: <b>${meta.sources.join(' · ')}</b>`);
+  else p.push(`<span class="warn">📎 내 자료에서 찾은 근거가 없어요 — '자료' 탭에서 노트를 넣어주세요</span>`);
+  if(meta.has_placeholder) p.push(`<span class="warn">⚠️ 자료에 미입력 값이 있어 수치는 생략됩니다</span>`);
+  el.innerHTML = p.join(' &nbsp;·&nbsp; ');
+  el.style.display = 'block';
+}
+
+async function suggest(said, intent, auto, speculative){
+  if(auto && pinned) return;
+  if(!auto && pinned){ pinned = false; $('#c-pin').classList.remove('on'); }
+  if(!speculative){ specTries = 0; specGaps = []; specLastAt = 0; }
+  if(!speculative && specKey && covers(specKey, said) >= 0.92 && (specDone || suggestAbort)){
+    $('#card').classList.remove('spec'); specKey = ''; specDone = ''; return;
+  }
+  if(speculative){ specKey = said; specDone = ''; }
+  if(suggestAbort) suggestAbort.abort();
+  const card = $('#card');
+  card.style.display = 'block';
+  card.classList.toggle('spec', !!speculative);
+  suggestAbort = new AbortController();
+  const sig = suggestAbort.signal;
+  $('#c-gist').textContent = said.length > 46 ? said.slice(0,46)+'…' : said;
+  $('#c-strat-row').style.display = 'none';
+  $('#c-src').style.display = 'none';
+  $('#c-answers').innerHTML = '<div class="lrow"><span class="lab an">제안</span><div class="body"><div class="en">⏳ 생성 중…</div></div></div>';
+  const context = log.slice(-7).map(l=>`${l.who==='나'?'Me':'Them'}: ${l.text}`).join('\n');
+  let raw = '';
+  try{
+    await streamChat('/api/suggest',{said,context,intent,cefr:$('#cefr').value},
+      tk=>{ raw += tk; renderCard(raw); }, sig, renderSources);
+    if(speculative) specDone = said; else card.classList.remove('spec');
+  }catch(e){ if(e.name!=='AbortError') $('#c-gist').textContent = '⚠️ ' + e.message; }
+  finally{ if(suggestAbort?.signal === sig) suggestAbort = null; }
+}
+$('#c-close').onclick = ()=>{ $('#card').style.display='none'; pinned=false; $('#c-pin').classList.remove('on'); };
+$('#c-pin').onclick = ()=>{ pinned = !pinned; $('#c-pin').classList.toggle('on', pinned); };
+document.querySelectorAll('.actions [data-intent]').forEach(b=>{
+  b.onclick = ()=>{ const last = [...log].reverse().find(l=>l.who==='상대');
+    if(last) suggest(last.text, b.dataset.intent); };
+});
+
+// 글자 크기
+const SIZES = [1,1.18,1.4];
+let sizeIdx = +(localStorage.getItem('mc_sz')||0);
+function applySize(){
+  sizeIdx = ((sizeIdx % SIZES.length)+SIZES.length)%SIZES.length;
+  document.documentElement.style.setProperty('--ansz', SIZES[sizeIdx]);
+  localStorage.setItem('mc_sz', sizeIdx);
+}
+applySize();
+$('#c-size').onclick = ()=>{ sizeIdx++; applySize(); };
+document.addEventListener('keydown', e=>{
+  const t = e.target;
+  if(t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return;
+  if(e.metaKey||e.ctrlKey||e.altKey) return;
+  if(e.code==='Space'){ e.preventDefault(); $('#c-pin').click(); }
+  else if(e.key==='Escape'){ e.preventDefault(); $('#c-close').click(); }
+  else if(e.key==='+'||e.key==='='){ e.preventDefault(); sizeIdx++; applySize(); }
+  else if(e.key==='-'||e.key==='_'){ e.preventDefault(); sizeIdx--; applySize(); }
+});
+function speak(t){
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(t); u.lang='en-US'; u.rate=.95;
+  const v = speechSynthesis.getVoices().find(v=>v.lang.startsWith('en'));
+  if(v) u.voice = v;
+  speechSynthesis.speak(u);
+}
+
+// ── 투기적 선생성 (말이 끝나기 전에 미리) ──
+let specTimer=null, specLastText='', specTries=0, specGaps=[], specLastAt=0;
+const SPEC_MAX = 2;
+function specThreshold(){
+  if(specGaps.length < 3) return 600;
+  const s=[...specGaps].sort((a,b)=>a-b), m=s[Math.floor(s.length/2)];
+  return Math.min(1500, Math.max(500, Math.round(m*1.7)));
+}
+function maybeSpeculate(interim){
+  if(pinned || specTries >= SPEC_MAX) return;
+  const t = interim.trim();
+  if(t === specLastText) return;
+  const n = Date.now();
+  if(specLastAt){ specGaps.push(n-specLastAt); if(specGaps.length>8) specGaps.shift(); }
+  specLastAt = n; specLastText = t;
+  clearTimeout(specTimer);
+  if(t.split(/\s+/).length < 6 || !wantsReply(t)) return;
+  if(specKey && covers(specKey,t) >= 0.92) return;
+  specTimer = setTimeout(()=>{
+    if(pinned || specTries >= SPEC_MAX) return;
+    if(specKey && covers(specKey, specLastText) >= 0.92) return;
+    if(wantsReply(specLastText)){ specTries++; suggest(specLastText,'reply',true,true); }
+  }, specThreshold());
+}
+
+// ── STT (P0: Web Speech) ──
+let rec = null, watchdog = null;
+function startSTT(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){
+    $('#status-txt').innerHTML = '⚠️ 이 브라우저는 실시간 인식을 지원하지 않아요 — <b>데스크톱 Chrome</b>에서 열어주세요';
+    return false;
+  }
+  rec = new SR(); rec.lang='en-US'; rec.continuous=true; rec.interimResults=true;
+  let interimRow=null, lastAt=Date.now(), heard=false;
+  rec.onresult = e=>{
+    lastAt = Date.now(); heard = true;
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t = e.results[i][0].transcript.trim();
+      if(e.results[i].isFinal){ if(t) addUtterance(t,'상대'); }
+      else interim += t+' ';
+    }
+    if(interim){
+      if(!interimRow){
+        $('#feed-empty')?.remove();
+        interimRow = document.createElement('div');
+        interimRow.className='row dim';
+        interimRow.innerHTML='<div class="bubble"><div class="en"></div></div>';
+        feed.appendChild(interimRow);
+      }
+      interimRow.querySelector('.en').textContent = interim;
+      feed.scrollTop = feed.scrollHeight;
+      maybeSpeculate(interim);
+    } else if(interimRow){ interimRow.remove(); interimRow=null; }
+  };
+  rec.onerror = ev=>{ if(ev.error==='not-allowed'){ $('#status-txt').textContent='⚠️ 마이크 권한을 허용해 주세요'; stopSTT(); } };
+  rec.onend = ()=>{ if(rec){ try{ rec.start(); }catch{} } };
+  try{ rec.start(); }catch(e){ $('#status-txt').textContent='인식 시작 실패: '+e.message; return false; }
+  watchdog = setInterval(()=>{
+    if(rec && !heard && Date.now()-lastAt > 6000)
+      $('#status-txt').innerHTML = '⚠️ 소리가 안 들려요 — 미팅 소리가 <b>이 기기 마이크</b>로 들어오는지 확인하세요';
+  },2000);
+  return true;
+}
+function stopSTT(){
+  if(watchdog){ clearInterval(watchdog); watchdog=null; }
+  if(rec){ rec.onend=null; try{ rec.stop(); }catch{} rec=null; }
+}
+const listening = ()=>!!rec;
+
+function preflight(){
+  if(!llmAlive){
+    return confirm(`⚠️ 번역·제안 LLM에 연결할 수 없습니다\n(${llmWhy})\n\n`+
+      `자막은 나오지만 한국어 번역과 제안이 뜨지 않습니다.\n\n`+
+      `해결: cloud.cerebras.ai 또는 aistudio.google.com/apikey 에서 무료 키를 받아\n`+
+      `export CEREBRAS_API_KEY=... 후 재시작\n\n그래도 시작할까요?`);
+  }
+  return true;
+}
+$('#btn-listen').onclick = ()=>{
+  if(listening()){ stopSTT(); $('#btn-listen').textContent='▶'; $('#btn-listen').classList.remove('live');
+    $('#status').classList.remove('on'); return; }
+  if(!preflight()) return;
+  if(!startSTT()) return;
+  $('#btn-listen').textContent='⏸'; $('#btn-listen').classList.add('live');
+  $('#status').classList.add('on');
+  $('#status-txt').textContent = '듣는 중 — 상대 발언이 자막으로 표시됩니다';
+};
+
+// ── ⏹ 세션 종료: 요약 + 자료로 적재 ──
+$('#btn-stop').onclick = async ()=>{
+  if(!log.length){ $('#status-txt').textContent='아직 기록된 대화가 없습니다'; return; }
+  stopSTT(); $('#btn-listen').textContent='▶'; $('#btn-listen').classList.remove('live');
+  $('#status').classList.remove('on');
+  const name = prompt('이 미팅의 이름을 적어주세요 (자료로 저장됩니다)',
+    new Date().toISOString().slice(0,10) + ' 미팅');
+  if(name === null) return;
+  $('#status-txt').textContent = '요약 생성 중…';
+  let out = '';
+  try{
+    await streamChat('/api/summary',{transcript: log.map(l=>`${l.who}: ${l.text}`).join('\n'), mode:'full'},
+      tk=>{ out += tk; });
+  }catch(e){ out = '요약 실패: '+e.message; }
+  try{
+    const r = await (await fetch('/api/session/archive',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({meeting:name, lines:log})})).json();
+    out += `\n\n📚 내 자료에 ${r.added}개 청크로 적재됨 (다음 미팅부터 검색에 쓰입니다)`;
+    refreshStats();
+  }catch{}
+  $('#feed-empty')?.remove();
+  const box = document.createElement('div');
+  box.className='row';
+  box.innerHTML = `<div class="meta">세션 요약 · ${now()}</div><div class="bubble"><div class="en" style="white-space:pre-wrap"></div></div>`;
+  box.querySelector('.en').textContent = out.trim();
+  feed.appendChild(box); feed.scrollTop = feed.scrollHeight;
+  log.length = 0; uttCount = 0;
+  specKey=''; specDone=''; specLastText=''; specTries=0; clearTimeout(specTimer);
+  $('#status-txt').textContent = '세션이 정리되어 자료에 적재됐습니다';
+};
+
+// ── 한국어 → 영어 즉시 변환 ──
+async function quickSay(){
+  const v = $('#say-in').value.trim();
+  if(!v) return;
+  $('#say-in').value = '';
+  suggest(v, 'reply');
+}
+$('#say-go').onclick = quickSay;
+$('#say-in').addEventListener('keydown', e=>{ if(e.key==='Enter') quickSay(); });
+
+// ── 탭 ──
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick = ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    $('#view-live').classList.toggle('hidden', t.dataset.v !== 'live');
+    $('#view-lib').classList.toggle('hidden', t.dataset.v !== 'lib');
+    if(t.dataset.v === 'lib') refreshStats();
+  };
+});
+
+// ── 자료 패널 ──
+async function refreshStats(){
+  try{
+    const s = await (await fetch('/api/rag/stats')).json();
+    ragStat = s;
+    $('#lib-stat').innerHTML =
+      `<span class="pill">전체 ${s.total}</span>`+
+      `<span class="pill">노트 ${s.by_source.note||0}</span>`+
+      `<span class="pill">미팅 ${s.by_source.transcript||0}</span>`+
+      `<span class="pill">용어 ${s.by_source.glossary||0}</span>`+
+      `<span class="pill">${s.mode}</span>`;
+    $('#status-rag').textContent = `📚 ${s.total}`;
+    $('#embed-note').innerHTML = s.embed_ready
+      ? `✅ 의미 검색 활성 (<code>${s.embed_model}</code>) — 한국어 노트가 영어 발언으로 검색됩니다`
+      : `⚠️ 지금은 <b>키워드 전용</b>입니다. <code>ollama pull ${s.embed_model}</code> 하면 한국어 노트를 영어로 검색할 수 있어요 (무료·로컬)`;
+  }catch{}
+}
+$('#note-go').onclick = async ()=>{
+  const text = $('#note-in').value.trim();
+  if(!text){ $('#note-st').textContent='내용을 붙여넣어 주세요'; return; }
+  $('#note-st').textContent='적재 중…';
+  try{
+    const r = await (await fetch('/api/ingest/note',{method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({text})})).json();
+    $('#note-st').textContent = `✅ ${r.added}개 청크 적재 (임베딩 ${r.embedded})`;
+    $('#note-in').value=''; refreshStats();
+  }catch(e){ $('#note-st').textContent='실패: '+e.message; }
+};
+$('#gl-go').onclick = async ()=>{
+  let entries;
+  try{ entries = JSON.parse($('#gl-in').value); }
+  catch{ $('#gl-st').textContent='JSON 형식이 아닙니다'; return; }
+  try{
+    const r = await (await fetch('/api/ingest/glossary',{method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({entries})})).json();
+    $('#gl-st').textContent = `✅ ${r.added}개 적재`;
+    $('#gl-in').value=''; refreshStats();
+  }catch(e){ $('#gl-st').textContent='실패: '+e.message; }
+};
+$('#reembed').onclick = async ()=>{
+  $('#re-st').textContent='임베딩 중…';
+  try{
+    const r = await (await fetch('/api/rag/reembed',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:'{}'})).json();
+    $('#re-st').textContent = `✅ ${r.embedded}개 임베딩 · 현재 ${r.mode}`;
+    refreshStats();
+  }catch(e){ $('#re-st').textContent='실패: '+e.message; }
+};
+$('#q-go').onclick = async ()=>{
+  const q = $('#q-in').value.trim();
+  if(!q) return;
+  $('#q-out').textContent='검색 중…';
+  try{
+    const r = await (await fetch('/api/rag/search?q='+encodeURIComponent(q))).json();
+    $('#q-out').innerHTML = r.hits.length
+      ? r.hits.map(h=>`<div style="margin:5px 0"><b>${h.source_label}</b> · ${h.title}
+         <span style="color:var(--faint)">(${h.via})</span></div>`).join('')
+      : '검색 결과가 없습니다 — 자료를 더 넣어주세요';
+  }catch(e){ $('#q-out').textContent='실패: '+e.message; }
+};
+
+// ── 초기화 ──
+(async ()=>{
+  try{
+    const h = await (await fetch('/health')).json();
+    const ls = Array.isArray(h.llm) ? h.llm : [];
+    llmAlive = !(ls.length && !ls.some(p=>p.state==='ok'));
+    if(!llmAlive){
+      llmWhy = ls.map(p=>`${p.name}: ${p.detail||p.state}`).join(' · ');
+      $('#status-txt').innerHTML = `⚠️ 번역·제안 LLM 연결 불가 (${llmWhy}) — <b>cloud.cerebras.ai</b>에서 무료 키를 받아 넣어주세요`;
+    }
+    if(h.rag){ ragStat = h.rag; $('#status-rag').textContent = `📚 ${h.rag.total}`; }
+  }catch{}
+})();
+// 하단 컨트롤 높이를 재서 카드 위치를 맞춘다 (버튼 줄바꿈에 따라 달라짐)
+function fitCard(){
+  const h = ($('.actions')?.offsetHeight || 0) + ($('.quickbar')?.offsetHeight || 0) + 8;
+  document.documentElement.style.setProperty('--ctrl-h', h + 'px');
+}
+fitCard();
+addEventListener('resize', fitCard);
+
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
+speechSynthesis.getVoices();
+</script>
+</body>
+</html>
