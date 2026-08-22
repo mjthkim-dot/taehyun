@@ -4,7 +4,9 @@
    기능 테스트(E2E)는 한도를 높여 돌리고, rpm-sim은 기본값(무료 티어 실값)으로 강제한다
  · 지연 프로필: lite TTFT 0.4s·140tok/s, flash TTFT 0.8s·80tok/s
  · POST /__rpd_on|/__rpd_off : RPD 소진 상태 토글 (PerDay 429 재현)
- · GET  /__stats : 모델별 호출 수
+ · POST /__err {"mode":"429"|"503","p":0.3,"retry_after":2} : 무작위 오류 주입
+   ({"mode":"off"}로 해제) — 게이트웨이 서킷브레이커·항목 스킵 검증용
+ · GET  /__stats : 모델별 호출 수 + 주입 오류 수
 
  사용: python3 tests/mock_gemini.py  →  GEMINI_API_KEY=test
        GEMINI_URL=http://127.0.0.1:3898 python3 server.py
@@ -17,6 +19,7 @@ _lock = threading.Lock()
 _wins = {}                      # model -> deque[ts]
 _counts = Counter()
 _rpd_mode = {"on": False}
+_err_mode = {"mode": "off", "p": 0.0, "retry_after": None}   # 무작위 오류 주입
 RPM = {"lite": int(os.environ.get("MOCK_RPM_LITE", "15")),
        "flash": int(os.environ.get("MOCK_RPM_FLASH", "10"))}
 
@@ -74,9 +77,30 @@ class H(http.server.BaseHTTPRequestHandler):
         body = self.rfile.read(n)
         if self.path == "/__rpd_on":  _rpd_mode["on"]=True;  self._json(200,{"ok":1}); return
         if self.path == "/__rpd_off": _rpd_mode["on"]=False; self._json(200,{"ok":1}); return
+        if self.path == "/__err":
+            cfg = json.loads(body or b"{}")
+            _err_mode.update(mode=cfg.get("mode","off"), p=float(cfg.get("p",0)),
+                             retry_after=cfg.get("retry_after"))
+            self._json(200, dict(_err_mode)); return
         m = re.search(r"/models/([^:]+):(\w+)", self.path)
         if not m: self.send_error(404); return
         model, verb = m.group(1), m.group(2)
+        # 무작위 오류 주입 — 429는 Retry-After 헤더 포함(게이트웨이가 준수하는지 검증)
+        import random as _r
+        if _err_mode["mode"] != "off" and _r.random() < _err_mode["p"]:
+            _counts[f"inject_{_err_mode['mode']}"] += 1
+            if _err_mode["mode"] == "429":
+                b = json.dumps({"error":{"code":429,"status":"RESOURCE_EXHAUSTED",
+                    "message":"Quota exceeded ... GenerateRequestsPerMinutePerProjectPerModel"}}).encode()
+                self.send_response(429)
+                self.send_header("Content-Type","application/json")
+                if _err_mode["retry_after"] is not None:
+                    self.send_header("Retry-After", str(_err_mode["retry_after"]))
+                self.send_header("Content-Length", str(len(b))); self.end_headers()
+                self.wfile.write(b); return
+            self._json(503, {"error":{"code":503,"status":"UNAVAILABLE",
+                             "message":"The service is currently unavailable."}})
+            return
         if _rpd_mode["on"]:
             self._json(429, {"error":{"code":429,"status":"RESOURCE_EXHAUSTED",
                 "message":"Quota exceeded for quota metric ... GenerateRequestsPerDayPerProjectPerModel"}})
