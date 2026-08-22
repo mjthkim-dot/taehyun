@@ -317,7 +317,6 @@ _active: str | None = None
 # ── 사용량 추적 (RPM 슬라이딩 윈도 + RPD 영속) ─────────────────
 # 무료 티어에서는 호출 수가 곧 가용성이다. 분당은 메모리, 일일은 파일로 영속
 # (재시작해도 잊지 않게). RPD는 태평양 시간 자정에 리셋되므로 날짜 키도 PT 기준.
-import random as _random
 import threading
 from collections import deque as _deque
 
@@ -391,6 +390,7 @@ def usage() -> dict:
         out["main"].update(rpm_limit=GEMINI_MAIN_RPM, rpd_limit=GEMINI_MAIN_RPD)
     if _rpd_notice_until > now:
         out["rpd_exhausted_until"] = _rpd_notice_until
+    out["gateway"] = gateway.state()   # 브레이커·큐·발사율 — UI 배너와 REPORT 통계용
     return out
 
 
@@ -409,9 +409,63 @@ def _handle_429(name: str, body: str, fast: bool) -> str:
     return "분당 요청 한도(429)"
 
 
-def _backoff_429(attempt: int) -> None:
-    # 지수 백오프 + 지터 — 무료 티어에서 창 경계에 걸친 429는 1~2초 뒤 대부분 풀린다
-    time.sleep(min(1.0 * (2 ** attempt), 4.0) + _random.random() * 0.5)
+import gateway
+
+
+def _retry_after_of(e) -> str | None:
+    try:
+        return e.headers.get("Retry-After") if e.headers else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _gw_attempts(ticket, name: str, fast: bool, fn):
+    """게이트웨이 재시도 규율로 fn()을 실행한다. fn은 1회 시도(예외 전파).
+
+    · 429: Retry-After 무조건 준수(없으면 백오프+지터), **최대 2회 재시도**,
+      그 이상은 이 항목만 포기 (전체 중단 금지). RPD 소진은 재시도 없이 포기.
+    · 500/502/503: 짧은 백오프 1회 재시도, 실패 시 항목 스킵 — 한도 초과로
+      오인하지 않도록 공급자 제외도 5초만 (일시 오류는 금방 지나간다)
+    · 재시도도 gateway.retry_wait()로 토큰을 소비한다 (재시도 폭풍 차단)
+    반환: (결과, None) 또는 (None, 사유문자열)."""
+    n429 = n5xx = 0
+    while True:
+        t0 = time.time()
+        try:
+            out = fn()
+            gateway.record(ticket, 200, attempt=n429 + n5xx, t0=t0)
+            return out, None
+        except urllib.error.HTTPError as e:
+            body = ""
+            try:
+                body = e.read().decode("utf-8", "ignore")[:500]
+            except Exception:  # noqa: BLE001
+                pass
+            ra = _retry_after_of(e)
+            gateway.record(ticket, e.code, body, ra, n429 + n5xx, t0)
+            if e.code == 429:
+                reason = _handle_429(name, body, fast)
+                if "무료 한도 소진" in reason or n429 >= 2:
+                    return None, f"{name}: {reason}"
+                gateway.retry_wait(ra, n429)
+                n429 += 1
+                continue
+            if e.code in (500, 502, 503):
+                if n5xx >= 1:
+                    _mark_bad(name, f"HTTP {e.code}(일시 오류)", seconds=5)
+                    return None, f"{name}: HTTP {e.code} 일시 오류 — 이 항목만 건너뜀"
+                gateway.retry_wait(None, 0, base=0.4)
+                n5xx += 1
+                continue
+            if e.code in (401, 403, 404):
+                _mark_bad(name, f"HTTP {e.code}")
+                return None, f"{name}: HTTP {e.code}"
+            raise
+        except urllib.error.URLError as e:
+            gateway.record(ticket, 0, str(getattr(e, "reason", e))[:200],
+                           attempt=n429 + n5xx, t0=t0)
+            _mark_bad(name, f"연결 실패({getattr(e, 'reason', e)})")
+            return None, f"{name}: 연결 실패"
 
 
 
@@ -478,96 +532,68 @@ def _pick_model(name: str, model: str | None, fast: bool) -> str | None:
     return FAST_MODELS.get(name) if fast else None
 
 
+def _model_label(name: str, mdl: str | None) -> str:
+    # 트레이스용 실제 모델명 — mdl=None(공급자 기본)일 때도 이름을 남긴다
+    return mdl or {"gemini": GEMINI_MODEL, "anthropic": ANTHROPIC_MODEL,
+                   "groq": GROQ_MODEL, "cerebras": CEREBRAS_MODEL,
+                   "ollama": OLLAMA_MODEL}.get(name, name)
+
+
 def chat_once(messages: list[dict], json_mode: bool = False, temperature: float = 0.3,
-              max_tokens: int = 800, model: str | None = None, fast: bool = False) -> str:
-    """단발 호출 → 응답 텍스트. 공급자 자동 전환."""
+              max_tokens: int = 800, model: str | None = None, fast: bool = False,
+              kind: str = "assets", bg: bool = False) -> str:
+    """단발 호출 → 응답 텍스트. 전 호출이 게이트웨이(큐·토큰버킷·재시도 규율)를 지난다."""
     global _active
     errs: list[str] = []
-    order = _try_order()
-    for name in order:
-        # 429는 대안 공급자가 없을 때만 같은 곳에 백오프 재시도한다
-        # (대안이 있으면 전환이 더 빠르다)
-        retries = 2 if len(order) == 1 else 0
-        for attempt in range(retries + 1):
-            try:
-                out = _CHAT[name](messages, json_mode, temperature, max_tokens,
-                                  _pick_model(name, model, fast))
-                _active = name
-                _usage_record(fast)
-                return out
-            except urllib.error.HTTPError as e:
-                if e.code == 429:
-                    body = ""
-                    try:
-                        body = e.read().decode("utf-8", "ignore")[:500]
-                    except Exception:  # noqa: BLE001
-                        pass
-                    reason = _handle_429(name, body, fast)
-                    if "무료 한도 소진" not in reason and attempt < retries:
-                        _backoff_429(attempt)
-                        continue
-                    errs.append(f"{name}: {reason}")
-                    break
-                if e.code in (401, 403, 404):
-                    _mark_bad(name, f"HTTP {e.code}")
-                    errs.append(f"{name}: HTTP {e.code}")
-                    break
-                raise
-            except urllib.error.URLError as e:
-                _mark_bad(name, f"연결 실패({getattr(e, 'reason', e)})")
-                errs.append(f"{name}: 연결 실패")
-                break
+    for name in _try_order():
+        mdl = _pick_model(name, model, fast)
+        ticket = gateway.acquire(kind, fast, bg, provider=name, model=_model_label(name, mdl))
+        try:
+            out, err = _gw_attempts(
+                ticket, name, fast,
+                lambda: _CHAT[name](messages, json_mode, temperature, max_tokens, mdl))
+        finally:
+            gateway.release(ticket)
+        if err is None:
+            _active = name
+            _usage_record(fast)
+            return out
+        errs.append(err)
     raise _no_provider_error(errs)
 
 
 def stream_ndjson(messages: list[dict], temperature: float = 0.4,
                   max_tokens: int = 400, model: str | None = None,
-                  fast: bool = False) -> Iterator[bytes]:
-    """토큰 스트림 (Ollama NDJSON 통일 형식). 첫 청크 전 실패 시 다음 공급자로 전환."""
+                  fast: bool = False, kind: str = "suggest",
+                  bg: bool = False) -> Iterator[bytes]:
+    """토큰 스트림 (Ollama NDJSON 통일 형식). 첫 청크 전 실패 시 다음 공급자로 전환.
+    스트림이 흐르는 동안 게이트웨이 in-flight 슬롯을 계속 점유한다 — 동시 상한(2)이
+    '연결 수'가 아니라 '실제 진행 중인 생성 수'를 제한해야 버스트가 없다."""
     global _active
     errs: list[str] = []
-    order = _try_order()
-    for name in order:
-        retries = 2 if len(order) == 1 else 0
-        it = None
-        for attempt in range(retries + 1):
-            try:
-                it = _STREAM[name](messages, temperature, max_tokens,
-                                   _pick_model(name, model, fast))
-                first = next(it, None)
-                break
-            except urllib.error.HTTPError as e:
-                it = None
-                if e.code == 429:
-                    body = ""
-                    try:
-                        body = e.read().decode("utf-8", "ignore")[:500]
-                    except Exception:  # noqa: BLE001
-                        pass
-                    reason = _handle_429(name, body, fast)
-                    if "무료 한도 소진" not in reason and attempt < retries:
-                        _backoff_429(attempt)
-                        continue
-                    errs.append(f"{name}: {reason}")
-                    break
-                if e.code in (401, 403, 404):
-                    _mark_bad(name, f"HTTP {e.code}")
-                    errs.append(f"{name}: HTTP {e.code}")
-                    break
-                raise
-            except urllib.error.URLError as e:
-                it = None
-                _mark_bad(name, f"연결 실패({getattr(e, 'reason', e)})")
-                errs.append(f"{name}: 연결 실패")
-                break
-        if it is None:
-            continue
-        _active = name
-        _usage_record(fast)
-        if first is not None:
-            yield first
-        yield from it
-        return
+    for name in _try_order():
+        mdl = _pick_model(name, model, fast)
+        ticket = gateway.acquire(kind, fast, bg, provider=name, model=_model_label(name, mdl))
+
+        def attempt():
+            it = _STREAM[name](messages, temperature, max_tokens, mdl)
+            return next(it, None), it
+
+        try:
+            res, err = _gw_attempts(ticket, name, fast, attempt)
+            if err is not None:
+                errs.append(err)
+                continue
+            first, it = res
+            _active = name
+            _usage_record(fast)
+            if first is not None:
+                yield first
+            yield from it
+            return
+        finally:
+            gateway.release(ticket)
+        # (성공 스트림은 위 return으로 종료 — 여기 도달하면 실패라 다음 공급자로)
     raise _no_provider_error(errs)
 
 

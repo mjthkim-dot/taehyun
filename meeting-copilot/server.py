@@ -34,6 +34,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "backend"))
 import auth  # noqa: E402
 import ingest  # noqa: E402
+import gateway
 import llm  # noqa: E402
 import notion  # noqa: E402
 import prompts  # noqa: E402
@@ -105,7 +106,8 @@ def _metrics_snapshot() -> list[dict]:
     return out
 
 
-def _stream(handler, messages, temperature, max_tokens, meta=None, fast=False):
+def _stream(handler, messages, temperature, max_tokens, meta=None, fast=False,
+            kind="suggest", bg=False):
     """LLM 토큰 스트림을 NDJSON으로 프록시.
 
     · 첫 청크를 당겨 연결 실패가 200 뒤로 새지 않게 한다
@@ -113,7 +115,8 @@ def _stream(handler, messages, temperature, max_tokens, meta=None, fast=False):
       프레이밍해야 다음 요청이 같은 연결을 계속 쓸 수 있다
     · 중간 실패는 프레이밍을 복구할 수 없으므로 연결을 끊는 것이 정답이다
     """
-    it = llm.stream_ndjson(messages, temperature, max_tokens, None, fast=fast)
+    it = llm.stream_ndjson(messages, temperature, max_tokens, None, fast=fast,
+                           kind=kind, bg=bg)
     first = next(it, None)
     handler.send_response(200)
     handler.send_header("Content-Type", "application/x-ndjson")
@@ -348,6 +351,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         try:
             self._do_post(path)
+        except gateway.Dropped:
+            if self._streaming:
+                self.close_connection = True
+                return
+            self._json(200, {"dropped": True})   # 밀린 한줄 요약 등 — 항목만 버림
         except urllib.error.HTTPError as e:
             if self._streaming:
                 self.close_connection = True
@@ -485,7 +493,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return
                 _stream(self, [{"role": "system", "content": prompts.TRANSLATE_SYSTEM},
                                {"role": "user", "content": prompts.build_translate_batch(texts)}],
-                        0.3, 200 * len(texts), fast=True)
+                        0.3, 200 * len(texts), fast=True, kind="translate")
                 return
             text = (req.get("text") or "").strip()[:2000]
             if not text:
@@ -495,7 +503,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
             _stream(self, [{"role": "system", "content": prompts.TRANSLATE_SYSTEM},
                            {"role": "user", "content": text}],
-                    0.3, 300, fast=True)
+                    0.3, 300, fast=True, kind="translate")
             return
 
         if path == "/api/suggest":
@@ -511,6 +519,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 req.get("intent", "reply"), req.get("cefr", "B1"), store=store,
                 preset=preset)
             _stream(self, [{"role": "user", "content": built["prompt"]}], 0.4, 700,
+                    kind="suggest", bg=bool(req.get("bg")),
                     meta={"sources": built["sources"],
                           "phrases": built["phrases"],
                           "rag_used": built["rag_used"],
@@ -523,7 +532,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             mode = req.get("mode", "line")
             _stream(self, [{"role": "user", "content":
                             prompts.build_summary(req.get("transcript", ""), mode)}],
-                    0.3, 60 if mode == "line" else 500, fast=(mode == "line"))
+                    0.3, 60 if mode == "line" else 500, fast=(mode == "line"),
+                    kind=("summary" if mode == "line" else "summary_final"))
             return
 
         # ── 인제스트 ──

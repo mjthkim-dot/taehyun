@@ -469,6 +469,7 @@ async function streamChat(url, payload, onToken, signal, onMeta){
       if(!ln.trim()) continue;
       try{
         const o = JSON.parse(ln);
+        if(o.dropped) return;              // 게이트웨이가 밀린 항목을 버림 — 조용히 스킵
         if(o.error) throw new Error(o.error);
         if(o.meta){ onMeta?.(o.meta); continue; }
         if(o.message?.content) onToken(o.message.content);
@@ -523,6 +524,12 @@ const gov = {
     return this.limits[lane].rpm_limit - this.used(lane);
   },
   rpdBlocked(){ return this.rpdUntil * 1000 > Date.now(); },
+  // 분당 예산 여유율 — 투기 생성 보수화 기준 ("잔여 50%+"일 때만 투기)
+  rpmHeadroom(lane){
+    if(!this.limits?.[lane]?.rpm_limit) return 1;
+    return 1 - this.used(lane) / this.limits[lane].rpm_limit;
+  },
+  breakerUntil: 0,            // 게이트웨이 서킷 브레이커 (epoch 초)
   // 일일 예산 여유율 — 자동 제안 감쇠용. 시뮬 실측: 질문마다 자동 제안이 뜨면
   // 5.3회/분 = 무료 RPD 250이 47분에 소진된다. 70%를 넘으면 자동은 끄고
   // 사용자가 직접 누른 것만 보낸다.
@@ -539,11 +546,21 @@ const gov = {
       this.base = {fast: u.fast.rpm_used, main: u.main.rpm_used};
       this.local = {fast: [], main: []};                      // 서버 값으로 동기화
       this.rpdUntil = u.rpd_exhausted_until || 0;
+      this.breakerUntil = u.gateway?.breaker_until || 0;
       paintQuota(u);
     }catch{}
   },
 };
 setInterval(()=>gov.poll(), 15000);   // LLM을 부르지 않는 로컬 폴링 — 항상 갱신(부팅 실패 자가 회복)
+
+// 서킷 브레이커 배너 — 연속 429로 게이트웨이가 발사를 멈춘 동안 카운트다운.
+// 큐는 유지되므로 "중단"이 아니라 "대기"라고 말한다.
+let breakerShown = false;
+setInterval(()=>{
+  const left = Math.ceil(gov.breakerUntil - Date.now()/1000);
+  if(left > 0){ breakerShown = true; setBanner(`⏸ 호출 급증으로 잠시 대기 중 (${left}초)`); }
+  else if(breakerShown){ breakerShown = false; setBanner('재개 — 밀린 호출을 순서대로 처리 중'); }
+}, 1000);
 
 function paintQuota(u){
   const el = $('#quota-chip');
@@ -790,8 +807,13 @@ async function suggest(said, intent, auto, speculative){
   let raw = '';
   try{
     gov.note('main');
-    await streamChat('/api/suggest',{said,context,intent,cefr:$('#cefr').value,preset:appPreset()},
+    await streamChat('/api/suggest',{said,context,intent,cefr:$('#cefr').value,preset:appPreset(),
+      bg: !!(auto || speculative)},   // 자동·투기는 게이트웨이에서 클릭보다 후순위
       tk=>{ raw += tk; renderCard(raw); }, sig, renderSources);
+    if(!raw.trim() && (auto || speculative)){                 // 게이트웨이 드롭 — 카드 정리
+      card.style.display = 'none';
+      return;
+    }
     if(speculative) specDone = said; else card.classList.remove('spec');
   }catch(e){
     if(e.name!=='AbortError'){
@@ -857,7 +879,10 @@ function specThreshold(){
 }
 function maybeSpeculate(interim){
   if(pinned || specTries >= SPEC_MAX) return;
-  if(gov.remaining('main') <= 4 || gov.rpdBlocked()) return;  // 예산 빠듯 → 클릭 대응분을 지킨다
+  // 투기 보수화: 분당 예산 잔여 50% 미만이면 쏘지 않는다 — 투기 한 발이
+  // 실제 클릭·번역과 같은 게이트웨이 토큰을 먹기 때문에, 여유가 확실할 때만.
+  if(gov.rpmHeadroom('main') < 0.5 || gov.rpdBlocked()) return;
+  if(gov.breakerUntil * 1000 > Date.now()) return;            // 브레이커 열림 — 투기 금지
   const t = interim.trim();
   if(t === specLastText) return;
   const n = Date.now();
