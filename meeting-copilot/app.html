@@ -161,6 +161,21 @@
   .pill{background:var(--panel);border:1px solid var(--line);border-radius:999px;
     padding:4px 9px;font-size:11px;color:var(--sub)}
   .quickbar{display:flex;gap:6px;padding:6px 10px 10px;border-top:1px solid var(--line);background:var(--panel)}
+  /* 좁은 세로 프리셋(화상통화 옆 400px): 헤더를 2줄 이내로 — 브랜드 텍스트를
+     줄이고 셀렉트 여백을 좁힌다 */
+  @media (max-width: 430px){
+    header{gap:4px;padding:6px 8px}
+    header .brand{font-size:0;width:18px}
+    header .brand::before{content:"🗣";font-size:14px}
+    header select{padding:4px 2px;font-size:10.5px;max-width:96px}
+  }
+
+  /* 인터뷰 프리셋: 한→영 퀵 번역이 최우선 도구 — 버튼 위로 올리고 강조한다 */
+  body.preset-interview .actions{order:2;border-top:none;padding-top:0}
+  body.preset-interview .quickbar{order:1;border-top:1px solid var(--line)}
+  body.preset-interview .quickbar input{border-color:var(--accent-deep);box-shadow:0 0 0 1px var(--accent-deep) inset}
+  /* 컨트롤 묶음을 order로 재배치할 수 있게 컨테이너화 */
+  #ctrls{display:flex;flex-direction:column}
   .quickbar input{flex:1;padding:8px 10px;border-radius:9px}
   .quickbar button{background:var(--accent);color:#0B1410;border:none;border-radius:9px;
     padding:0 13px;font-size:14px;cursor:pointer}
@@ -187,6 +202,10 @@
     <option value="tab">🖥 탭 오디오(설정 불필요)</option>
   </select>
   <select id="cefr" title="내 영어 레벨"><option>A2</option><option selected>B1</option><option>B2</option><option>C1</option></select>
+  <select id="preset" title="상황 프리셋 — 버튼·말투가 바뀝니다">
+    <option value="meeting" selected>💼 미팅</option>
+    <option value="interview">🎤 인터뷰</option>
+  </select>
   <select id="mode" title="연습(무료 키 OK) / 실미팅(기밀 대화 — 유료 키 권장)">
     <option value="practice" selected>🎓 연습</option>
     <option value="real">🔒 실미팅</option>
@@ -222,6 +241,7 @@
         말할 차례엔 <b>내 자료에 근거한 문장</b>이 뜹니다
       </div>
     </div>
+    <div id="ctrls">
     <div class="actions">
       <button class="main" data-intent="agree">👍 동의</button>
       <button class="main" data-intent="pushback">👎 반박</button>
@@ -233,6 +253,7 @@
     <div class="quickbar">
       <input type="text" id="say-in" placeholder="한국어로 쓰면 → 내 자료 표현으로 영어 문장">
       <button id="say-go">↑</button>
+    </div>
     </div>
     <div id="card">
       <div class="head">
@@ -763,7 +784,7 @@ async function suggest(said, intent, auto, speculative){
   let raw = '';
   try{
     gov.note('main');
-    await streamChat('/api/suggest',{said,context,intent,cefr:$('#cefr').value},
+    await streamChat('/api/suggest',{said,context,intent,cefr:$('#cefr').value,preset:appPreset()},
       tk=>{ raw += tk; renderCard(raw); }, sig, renderSources);
     if(speculative) specDone = said; else card.classList.remove('spec');
   }catch(e){
@@ -1034,6 +1055,36 @@ function stopListening(){
   $('#btn-listen').textContent='▶'; $('#btn-listen').classList.remove('live');
   $('#status').classList.remove('on'); $('#engine').disabled = false;
 }
+
+// ── 상황 프리셋 (미팅/인터뷰) — 버튼 구성과 생성 말투가 함께 바뀐다 ──
+// 인터뷰에서 '반박'은 부적절하다 → [동의/부연 설명/되묻기/역질문].
+// 시간 벌기는 인터뷰에서 더 중요해져 보조줄에 유지된다.
+const PRESET_BTNS = {
+  meeting: {
+    main: [['agree','👍 동의'],['pushback','👎 반박'],['ask','❓ 질문'],['propose','💡 제안']],
+    more: [['reply','💬 그냥 답하기'],['buytime','⏳ 시간 벌기']],
+    ph: '한국어로 쓰면 → 내 자료 표현으로 영어 문장',
+  },
+  interview: {
+    main: [['agree','👍 동의'],['elaborate','➕ 부연 설명'],['clarify','🔁 되묻기'],['counterq','💬 역질문']],
+    more: [['buytime','⏳ 시간 벌기'],['reply','💬 그냥 답하기']],
+    ph: '⌨ / 키 — 하고 싶은 말을 한국어로 (인터뷰 필수 기능)',
+  },
+};
+function appPreset(){ return $('#preset').value; }
+function applyPreset(){
+  const cfg = PRESET_BTNS[appPreset()] || PRESET_BTNS.meeting;
+  const mains = document.querySelectorAll('.actions button.main');
+  const mores = document.querySelectorAll('.actions button.more');
+  cfg.main.forEach(([it, label], i)=>{ if(mains[i]){ mains[i].dataset.intent = it; mains[i].textContent = label; } });
+  cfg.more.forEach(([it, label], i)=>{ if(mores[i]){ mores[i].dataset.intent = it; mores[i].textContent = label; } });
+  $('#say-in').placeholder = cfg.ph;
+  document.body.classList.toggle('preset-interview', appPreset() === 'interview');
+  localStorage.setItem('mc_preset', appPreset());
+  fitCard();                                   // 컨트롤 높이가 바뀔 수 있다
+}
+$('#preset').value = localStorage.getItem('mc_preset') || 'meeting';
+$('#preset').onchange = applyPreset;
 
 // ── 연습/실미팅 모드 — 프라이버시 가드 ──
 // 무료 티어(Gemini free)는 입력이 모델 개선에 사용될 수 있다(구글 약관).
@@ -1391,8 +1442,17 @@ async function bootData(){
     try{ paintRevBadge(await (await fetch('/api/review/cards')).json()); }catch{}
   }
 }
+applyPreset();
 (async ()=>{ await checkAuth(); await bootData(); gov.poll(); })();
 // 하단 컨트롤 높이를 재서 카드 위치를 맞춘다 (버튼 줄바꿈에 따라 달라짐)
+// 퀵 번역 즉시 접근 — 인터뷰에서 가장 쓰는 기능
+addEventListener('keydown', e=>{
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '');
+  if((e.key === '/' && !typing) || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k')){
+    e.preventDefault(); $('#say-in').focus();
+  }
+});
+
 function fitCard(){
   const h = ($('.actions')?.offsetHeight || 0) + ($('.quickbar')?.offsetHeight || 0) + 8;
   document.documentElement.style.setProperty('--ctrl-h', h + 'px');

@@ -505,9 +505,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
             if over_quota():
                 return
+            preset = req.get("preset") if req.get("preset") in ("meeting", "interview") else "meeting"
             built = prompts.build_suggest(
                 said, str(req.get("context") or "")[-3000:],
-                req.get("intent", "reply"), req.get("cefr", "B1"), store=store)
+                req.get("intent", "reply"), req.get("cefr", "B1"), store=store,
+                preset=preset)
             _stream(self, [{"role": "user", "content": built["prompt"]}], 0.4, 700,
                     meta={"sources": built["sources"],
                           "phrases": built["phrases"],

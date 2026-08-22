@@ -13,7 +13,7 @@ import re
 
 import rag
 
-# 퀵 액션 의도
+# 퀵 액션 의도 — 미팅 공통 + 인터뷰 전용(8/27 HR 스크리닝 대비)
 INTENTS = {
     "agree":    "AGREE with what was just said and add one concrete supporting point.",
     "pushback": "Politely PUSH BACK with one respectful, concrete reason.",
@@ -22,6 +22,10 @@ INTENTS = {
     "reply":    "Respond directly to what was just said.",
     "buytime":  "Buy a few seconds gracefully while staying in control.",
     "translate": "Say the candidate's Korean intent below in natural business English.",
+    # 인터뷰 프리셋 — '반박'은 면접에 부적절하다. 대신:
+    "elaborate": "ELABORATE on the previous answer with one concrete example from their experience.",
+    "clarify":  "Politely ask the interviewer to REPHRASE or clarify the question — without sounding lost.",
+    "counterq": "Ask the interviewer ONE thoughtful question back (team structure, onboarding, or success criteria).",
 }
 
 # 검색 결과가 이보다 빈약하면 RAG를 건너뛴다 — 지연을 줄이는 게 낫다
@@ -73,7 +77,8 @@ def _learned_phrases(hits: list[dict], limit: int = 10) -> list[str]:
 
 def build_suggest(said: str, context: str = "", intent: str = "reply",
                   cefr: str = "B1", k: int = 3,
-                  store: rag.Store | None = None) -> dict:
+                  store: rag.Store | None = None,
+                  preset: str = "meeting") -> dict:
     """4버튼/퀵번역 공통 파이프라인.
 
       1) [직전 상대 발화 + 맥락 5문장]으로 벡터 스토어 검색 (top 3)
@@ -114,10 +119,24 @@ verbatim or nearly so. If the glossary has the precise term, use it.
     ctx = (f"\nRecent meeting context:\n\"\"\"{chr(10).join(ctx_lines)}\"\"\"\n"
            if ctx_lines else "")
 
-    prompt = f"""You are a real-time meeting copilot for a Korean cloud-sales professional
-in a LIVE English business meeting. They are about to speak — speed matters.
+    if preset == "interview":
+        # 톤이 다르다: 미팅은 회사 대 회사(we), 인터뷰는 후보자 1인칭(I) —
+        # 자신 있고 따뜻하게, 그러나 과장 없이. 반박·협상 어휘는 쓰지 않는다.
+        head = ("You are a real-time interview copilot for a Korean candidate in a LIVE "
+                "English job interview (HR screening, B2B enterprise sales role). "
+                "They are the CANDIDATE and about to speak — speed matters.")
+        who = "The interviewer just said:"
+        tone_rule = ("- Interview tone: confident, warm, first person (\"I\"). "
+                     "Sell yourself with evidence, never arrogance. No negotiating language.")
+    else:
+        head = ("You are a real-time meeting copilot for a Korean cloud-sales professional "
+                "in a LIVE English business meeting. They are about to speak — speed matters.")
+        who = "The other side just said:"
+        tone_rule = "- Business tone: professional, spoken, contractions fine. No slang, no filler."
+
+    prompt = f"""{head}
 {ctx}
-The other side just said:
+{who}
 
 "{said}"
 
@@ -138,7 +157,7 @@ META: 요지=<상대 발언 핵심 한국어 한 줄> | 전략=<말하기 전략
 
 Hard rules for EN:
 - **15 words or fewer each.** Count them. Long sentences are unusable live.
-- Business tone: professional, spoken, contractions fine. No slang, no filler.
+{tone_rule}
 - The two options must take different angles.
 - Prefer wording from THEIR OWN MATERIAL over inventing new phrasing."""
     return {"prompt": prompt, "sources": labels, "hits": hits,
