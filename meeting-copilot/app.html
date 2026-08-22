@@ -137,6 +137,9 @@
   .lab.st{background:var(--panel);color:var(--sub);border:1px solid var(--line)}
   .lrow .body{flex:1;min-width:0}
   .lrow .en{font-size:calc(14px * var(--ansz));font-weight:700;line-height:1.55}
+  /* 1안(Safe)은 긴장 상태에서 그대로 읽는 문장 — 위에, 더 크게 */
+  .lrow.primary .en{font-size:calc(16.5px * var(--ansz))}
+  .lrow:not(.primary) .en{font-weight:600;opacity:.92}
   .lrow .kr{font-size:calc(11.5px * var(--ansz));color:var(--sub);line-height:1.5;margin-top:5px}
   .lrow .strat{font-size:11.5px;color:var(--sub);line-height:1.5}
   .say{background:none;border:none;cursor:pointer;font-size:13px;color:var(--sub);flex:none}
@@ -714,10 +717,12 @@ function usedLearned(en){
   }
   return '';
 }
-function answerRow(en,kr){
+function answerRow(en,kr,idx){
   const r = document.createElement('div');
-  r.className = 'lrow';
-  r.innerHTML = `<span class="lab an">제안</span>
+  // 1안(Safe)은 짧고 확실한 문장 — 긴장한 상태에서 그냥 읽으면 되도록 위에 크게.
+  // 2안(Rich)은 여유가 있을 때 고르는 한 스푼 추가 버전.
+  r.className = 'lrow' + (idx === 0 ? ' primary' : '');
+  r.innerHTML = `<span class="lab an">${idx === 0 ? 'Safe' : 'Rich'}</span>
     <div class="body"><div class="en"></div><div class="kr"></div></div><button class="say">🔊</button>`;
   r.querySelector('.en').textContent = en;
   r.querySelector('.kr').textContent = kr || '';
@@ -734,6 +739,7 @@ function answerRow(en,kr){
 }
 function renderCard(raw){
   const box = $('#c-answers'); box.innerHTML = '';
+  let ansIdx = 0;
   for(const b of raw.split('===')){
     if(/META|요지\s*=/.test(b)){
       const g = (b.match(/요지\s*=\s*([^|]+)/)||[])[1]?.trim();
@@ -745,7 +751,7 @@ function renderCard(raw){
     }
     const en = ((b.match(/EN\s*[:：]\s*([\s\S]*?)(?=\nKR\s*[:：]|$)/)||[])[1]||'').trim();
     const kr = ((b.match(/KR\s*[:：]\s*([\s\S]*)/)||[])[1]||'').trim();
-    if(en) box.appendChild(answerRow(en,kr));
+    if(en) box.appendChild(answerRow(en,kr,ansIdx++));
   }
 }
 function renderSources(meta){

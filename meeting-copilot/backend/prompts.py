@@ -23,7 +23,9 @@ INTENTS = {
     "buytime":  "Buy a few seconds gracefully while staying in control.",
     "translate": "Say the candidate's Korean intent below in natural business English.",
     # 인터뷰 프리셋 — '반박'은 면접에 부적절하다. 대신:
-    "elaborate": "ELABORATE on the previous answer with one concrete example from their experience.",
+    # 버튼 키는 'elaborate'지만 프롬프트 문구는 쉬운 동사로 — 지시어가 생성문에
+    # 메아리치면 speakability 금지어(elaborate)에 걸린다
+    "elaborate": "SAY MORE about the previous answer with one concrete example from their experience.",
     "clarify":  "Politely ask the interviewer to REPHRASE or clarify the question — without sounding lost.",
     "counterq": "Ask the interviewer ONE thoughtful question back (team structure, onboarding, or success criteria).",
 }
@@ -113,7 +115,7 @@ def build_suggest(said: str, context: str = "", intent: str = "reply",
 
       1) [직전 상대 발화 + 맥락 5문장]으로 벡터 스토어 검색 (top 3)
       2) 검색된 [내가 배운 표현 / 도메인 어휘]를 프롬프트에 주입
-      3) 15단어 이내 · 비즈니스 톤 · 검색된 표현 우선 활용으로 2문장 생성
+      3) 구어체(1안 Safe ≤9단어 · 2안 Rich ≤12단어) · 검색된 표현 우선 활용으로 2안 생성
       4) 검색이 빈약하면 RAG 없이 폴백 (프롬프트가 짧아져 지연이 준다)
     """
     ctx_lines = [l for l in (context or "").splitlines() if l.strip()][-5:]
@@ -183,16 +185,27 @@ NEVER dodge: no "I'm not sure", no "I don't know how to answer" — always give
 a speakable, confident answer grounded in the profile.
 
 Respond in EXACTLY this format (plain text, no markdown), nothing else:
-EN: <option 1 — MAXIMUM 15 words>
+EN: <option 1 "SAFE" — short and certain, MAXIMUM 9 words>
 KR: <한국어 뜻>
 ===
-EN: <option 2, a different angle — MAXIMUM 15 words>
+EN: <option 2 "RICH" — one extra detail (a number, an example), MAXIMUM 12 words>
 KR: <한국어 뜻>
 ===
 META: 요지=<상대 발언 핵심 한국어 한 줄> | 전략=<말하기 전략 한국어 한 줄>
 
-Hard rules for EN:
-- **15 words or fewer each.** Count them. Long sentences are unusable live.
+SPOKEN ENGLISH rules for EN — a nervous non-native speaker must say this out loud
+INSTANTLY (CEFR B1-B2 spoken register, not written English):
+- Word caps are hard limits: option 1 ≤ 9 words, option 2 ≤ 12 words PER SENTENCE.
+  If an idea needs more, split it into two short sentences.
+- ALWAYS contract: I'm / I've / that's / don't / it's. Never "I am", "do not".
+- Easy verbs only: use (not utilize), say more (not elaborate), show (not
+  demonstrate), help (not facilitate), get/win (not acquire), start (not commence).
+- Spoken connectors only: So / Actually / Basically / That's why.
+  Never: Furthermore / Moreover / In addition.
+- One idea per sentence. No stacked relative clauses ("which... that...").
+- Avoid hard-to-pronounce 4+ syllable words (entrepreneurship, differentiation)
+  when a simpler word works. EXCEPTION — keep domain terms the candidate already
+  knows: iPaaS, workflow, integration, pipeline, automation, enterprise, FinOps.
 {tone_rule}
 - The two options must take different angles.
 - Prefer wording from THEIR OWN MATERIAL over inventing new phrasing."""
