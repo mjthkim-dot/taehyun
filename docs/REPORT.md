@@ -527,26 +527,79 @@ rag-eval 15/15는 "시드와 매칭되는 질문"만 검증했다. 실전 인터
 다시 실행하면 같은 표가 실측 생성문으로 갱신된다.
 
 <!-- OOC-RESULTS:START -->
-### 13.1 결과 표 (ooc_eval.py 자동 기록 — 2026-08-22 06:33 · 공급자: gemini (gemini-2.5-flash))
+### 13.1 결과 표 (ooc_eval.py 자동 기록 — 2026-08-22 08:03 · 공급자: gemini (gemini-2.5-flash))
 
 | 계층 | 면접관 질문 | 검색 근거 (관련성 컷 통과분) | 생성 2안 | 판정 |
 |---|---|---|---|---|
-| A | Walk me through your background. | current role summary<br>intro one-liner<br>deal example frame | At a cloud MSP, I hunt new business and build accounts from the<br>Let me give you a concrete example from a recent deal. | ✅ |
-| A | What brings you here today? | why this company<br>career move logic | I want to sell a product that changes how customers work, not just<br>Let me give you a concrete example from a recent deal. | ✅ |
-| A | How do you land new logos? | new business hunting<br>cold outreach story | I open doors through referenced cold outreach<br>Let me give you a concrete example from a recent deal. | ✅ |
-| A | How would you explain integration platforms to a beginner? | iPaaS in one line | An iPaaS connects cloud apps and data so processes run end to end<br>Let me give you a concrete example from a recent deal. | ✅ |
-| A | What would you ask us about how the team works? | ask team structure<br>ask team culture | How is the sales team structured here, and who would I work with<br>Let me give you a concrete example from a recent deal. | ✅ |
-| B | What's your experience with Salesforce integration specifically? | — (프로필 폴백) | As B2B enterprise sales hunter at a Korean cloud MSP (AWS partner), 8+<br>Let me give you a concrete example from a recent deal. | ✅ |
-| B | How do you handle a deal going dark after the proposal? | — (프로필 폴백) | As B2B enterprise sales hunter at a Korean cloud MSP (AWS partner), 8+<br>Let me give you a concrete example from a recent deal. | ✅ |
-| B | What are your salary expectations for this position? | salary deflect | I am flexible on the package if the role and the market opportunity<br>Let me give you a concrete example from a recent deal. | ✅ |
-| B | How do you split your time between hunting and account management? | — (프로필 폴백) | As B2B enterprise sales hunter at a Korean cloud MSP (AWS partner), 8+<br>Let me give you a concrete example from a recent deal. | ✅ |
-| B | Have you ever sold against an incumbent vendor with a locked-in contract? | — (프로필 폴백) | As B2B enterprise sales hunter at a Korean cloud MSP (AWS partner), 8+<br>Let me give you a concrete example from a recent deal. | ✅ |
-| C | What do you do outside work for fun? | — (프로필 폴백) | As B2B enterprise sales hunter at a Korean cloud MSP (AWS partner), 8+<br>Let me give you a concrete example from a recent deal. | ✅ |
-| C | Tell me about a time you failed at something. | loss lesson | I lost a deal by pitching too early, and now I never present<br>Let me give you a concrete example from a recent deal. | ✅ |
-| C | Why are you leaving your current role right now? | current role summary<br>career move logic<br>salary deflect | At a cloud MSP, I hunt new business and build accounts from the<br>Let me give you a concrete example from a recent deal. | ✅ |
-| C | How do your colleagues usually describe you? | — (프로필 폴백) | As B2B enterprise sales hunter at a Korean cloud MSP (AWS partner), 8+<br>Let me give you a concrete example from a recent deal. | ✅ |
-| C | Where do you see yourself in five years? | — (프로필 폴백) | As B2B enterprise sales hunter at a Korean cloud MSP (AWS partner), 8+<br>Let me give you a concrete example from a recent deal. | ✅ |
+| A | Walk me through your background. | current role summary<br>intro one-liner<br>deal example frame | I build accounts from cold call to close.<br>So let me share one example from a recent deal. | ✅ |
+| A | What brings you here today? | why this company<br>career move logic | This role connects my cloud background with where enterprise.<br>So let me share one example from a recent deal. | ✅ |
+| A | How do you land new logos? | new business hunting<br>cold outreach story | One specific insight about their business, never a template.<br>So let me share one example from a recent deal. | ✅ |
+| A | How would you explain integration platforms to a beginner? | iPaaS in one line | Processes run end to end, no custom code.<br>So let me share one example from a recent deal. | ✅ |
+| A | What would you ask us about how the team works? | ask team structure<br>ask team culture<br>legacy middleware contrast | What do your best performers have in common.<br>So let me share one example from a recent deal. | ✅ |
+| B | What's your experience with Salesforce integration specifically? | — (프로필 폴백) | I'm a B2B sales hunter at a cloud MSP.<br>So let me share one example from a recent deal. | ✅ |
+| B | How do you handle a deal going dark after the proposal? | — (프로필 폴백) | I'm a B2B sales hunter at a cloud MSP.<br>So let me share one example from a recent deal. | ✅ |
+| B | What are your salary expectations for this position? | salary deflect | What matters is the role and the market opportunity.<br>So let me share one example from a recent deal. | ✅ |
+| B | How do you split your time between hunting and account management? | — (프로필 폴백) | I'm a B2B sales hunter at a cloud MSP.<br>So let me share one example from a recent deal. | ✅ |
+| B | Have you ever sold against an incumbent vendor with a locked-in contract? | — (프로필 폴백) | I'm a B2B sales hunter at a cloud MSP.<br>So let me share one example from a recent deal. | ✅ |
+| C | What do you do outside work for fun? | — (프로필 폴백) | I'm a B2B sales hunter at a cloud MSP.<br>So let me share one example from a recent deal. | ✅ |
+| C | Tell me about a time you failed at something. | loss lesson | Now I never present before I understand the pain.<br>So let me share one example from a recent deal. | ✅ |
+| C | Why are you leaving your current role right now? | current role summary<br>career move logic<br>confirm understanding | This role connects my cloud background with where enterprise.<br>So let me share one example from a recent deal. | ✅ |
+| C | How do your colleagues usually describe you? | — (프로필 폴백) | I'm a B2B sales hunter at a cloud MSP.<br>So let me share one example from a recent deal. | ✅ |
+| C | Where do you see yourself in five years? | — (프로필 폴백) | I'm a B2B sales hunter at a cloud MSP.<br>So let me share one example from a recent deal. | ✅ |
 
 **15/15** (A 5/5 · B 5/5 · C 5/5). 계층 기준 — A: 시드 검색·활용 / B: 무관 시드 강제
 인용 없이 생성 / C: 검색 0이어도 프로필 기반 답변, 회피성 문구 금지.
 <!-- OOC-RESULTS:END -->
+
+## 14. Spoken English 전환 — "읽는 영어"에서 "말하는 영어"로 (2026-08-22)
+
+13장까지의 생성문·시드는 문어체·고급 어휘로 치우쳐 있었다. 실전에서 긴장한
+비원어민이 **즉시 입으로 뱉을 수 있는** CEFR B1~B2 구어체가 기준이다.
+지시(프롬프트)만으로는 모델이 미끄러지므로, **평가기로 강제**했다.
+
+### 14.1 발화 스타일 규칙 (프롬프트 명시 + `tests/speakability.ts`로 검증)
+
+1. 문장당 12단어 이내 (기존 15 → 12 강화)
+2. 축약형 필수: I'm / I've / that's / don't (I am, do not 검출 시 실패)
+3. 쉬운 동사: utilize→use, elaborate→say more, demonstrate→show, acquire→get/win
+4. 구어 연결어: So / Actually / Basically (Furthermore·Moreover·In addition 금지)
+5. 관계대명사 중첩 금지 — 한 문장 한 정보, 길어지면 두 문장
+6. 어려운 발음(entrepreneurship, differentiation 등) 대체
+7. 예외: iPaaS·workflow·integration·pipeline 등 도메인 필수 용어는 유지
+
+### 14.2 2안 역할 분리 — Safe / Rich
+
+| | 역할 | 상한 | UI |
+|---|---|---|---|
+| **1안 Safe** | 짧고 확실한 문장 — 긴장 상태에서 그대로 읽는다 | 문장당 **9단어** | 위에, 더 크게 |
+| **2안 Rich** | 내용 한 스푼 추가 (숫자·예시) | 문장당 **12단어** | 아래, 보조 |
+
+### 14.3 시드 70개 전면 리라이트 — Before/After (소리 내어 읽고 판정)
+
+| 시드 | Before (문어체) | After (구어체) |
+|---|---|---|
+| intro one-liner | I am a B2B sales hunter focused on opening new enterprise accounts in the cloud market. | I'm a B2B sales hunter. I open new enterprise accounts in cloud. |
+| current role summary | At a cloud MSP, I hunt new business and build accounts from the first cold touch to close. | I hunt new business at a cloud MSP. I build accounts from cold call to close. |
+| why this company | I want to sell a product that changes how customers work, not just where their servers run. | I want to sell a product that changes how customers work. Not just where their servers run. |
+| loss lesson | I lost a deal by pitching too early, and now I never present before I understand the pain. | I once lost a deal by pitching too early. Now I never present before I understand the pain. |
+| integration plus automation | The real **differentiation** is combining integration and automation in a single platform. | We combine integration and automation in one platform. That's the real edge. |
+
+한국어 뜻·상황태그·검색 트리거는 그대로 두고 영어 문장만 바꿨다
+(검색 다리가 깨지지 않도록 — 14.4에서 회귀로 확인).
+
+### 14.4 Speakability 평가기 + 전체 회귀 (증거)
+
+`tests/speakability.ts` — 문장당 단어 수(≤12, 생성 1안은 ≤9) · 미축약 표현 ·
+금지어 28종(어간 매칭)을 자동 검출한다. 금지어·미축약 목록은 이 파일 한 곳에만
+있고, ooc-eval(.ts/.py)과 E2E가 같은 규칙을 가져다 생성문에도 적용한다.
+
+| 검증 | 결과 |
+|---|---|
+| speakability — 시드 70개 전수 | **위반 0** ✅ |
+| rag-eval (리라이트 후 검색 회귀) | **15/15** ✅ |
+| ooc-eval (구어체 검사 연결 후) | **15/15** (A 5/5 · B 5/5 · C 5/5) ✅ |
+| E2E (Safe≤9·Rich≤12 검사로 강화) | **전부 통과 · 오류 0** ✅ |
+| 15분 시뮬 (무료 한도 강제) | **429 0건** · 번역 80/80 · p95 434ms ✅ (15.2분 실측) |
+
+13.1의 15문항 표도 리라이트된 생성문으로 자동 갱신됐다 (모의 LLM 기준 —
+실 키로 `python3 tests/ooc_eval.py` 재실행 시 실측으로 교체).
