@@ -164,6 +164,17 @@ Rules:
 Reply with ONLY the translation — no quotes, no labels, no explanation."""
 
 
+def build_translate_batch(texts: list[str]) -> str:
+    """번역 배칭 — 문장 2~3개를 1회 호출로 (무료 티어 RPM 절약).
+
+    번호를 붙여 보내고 같은 번호로 받는다. 줄 단위 스트리밍이라 첫 문장의
+    번역은 배치 전체가 끝나기 전에 화면에 붙는다."""
+    lines = "\n".join(f"{i + 1}) {t}" for i, t in enumerate(texts))
+    return (f"아래 번호가 매겨진 발화 {len(texts)}개를 각각 번역하세요.\n"
+            f"출력은 정확히 {len(texts)}줄, 각 줄은 'N) 번역' 형식으로만. "
+            f"줄을 합치거나 나누지 마세요.\n\n{lines}")
+
+
 def build_summary(transcript: str, mode: str = "line") -> str:
     if mode == "line":
         # 상단 배너용 — '지금 무슨 얘기 중인가'를 놓친 사람이 한눈에 따라잡는 용도.

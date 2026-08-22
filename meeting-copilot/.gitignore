@@ -6,6 +6,7 @@ backend/data/store.db-*
 backend/data/store.*.bak
 backend/data/imported/
 backend/data/field-latency.json
+backend/data/usage-llm.json
 backend/data/_*.wav
 # 인증 DB·세션 서명 비밀·사용자별 데이터·백업 — 전부 개인 정보다
 backend/data/auth.db*

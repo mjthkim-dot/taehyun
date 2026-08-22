@@ -278,6 +278,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         gate = auth.enabled()
         user = self._user() if gate else None
 
+        if path == "/api/usage":
+            # 무료 티어 예산 표시·클라이언트 스로틀용 — LLM을 부르지 않는다
+            self._json(200, llm.usage())
+            return
+
         if path == "/api/me":
             self._json(200, {"auth_enabled": gate,
                              "user": user,
@@ -467,9 +472,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
 
         if path == "/api/translate":
-            # 자막 번역은 지연이 곧 품질 → 빠른 모델 경로.
+            # 자막 번역은 지연이 곧 품질 → 빠른 모델(Flash-Lite) 경로.
             # 빈 입력은 LLM까지 보내지 않는다(요금·지연 낭비, QA에서 확인).
-            # 발화 하나가 2,000자를 넘을 일은 없다 — 넘으면 자막 목적에 맞게 자른다.
+            # texts 배열이 오면 배칭 — 문장 2~3개 = 호출 1회 (무료 티어 RPM 절약).
+            texts = req.get("texts")
+            if isinstance(texts, list):
+                texts = [str(t).strip()[:2000] for t in texts if str(t).strip()][:3]
+                if not texts:
+                    self._json(400, {"error": "번역할 텍스트가 없습니다."})
+                    return
+                if over_quota():
+                    return
+                _stream(self, [{"role": "system", "content": prompts.TRANSLATE_SYSTEM},
+                               {"role": "user", "content": prompts.build_translate_batch(texts)}],
+                        0.3, 200 * len(texts), fast=True)
+                return
             text = (req.get("text") or "").strip()[:2000]
             if not text:
                 self._json(400, {"error": "번역할 텍스트가 없습니다."})

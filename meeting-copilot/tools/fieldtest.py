@@ -178,12 +178,12 @@ def _check_mic() -> bool:
 
 def _check_llm() -> bool:
     keys = {k: bool(os.environ.get(k)) for k in
-            ("ANTHROPIC_API_KEY", "CEREBRAS_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY")}
+            ("GEMINI_API_KEY", "ANTHROPIC_API_KEY", "CEREBRAS_API_KEY", "GROQ_API_KEY")}
     have = [k for k, v in keys.items() if v]
     if not have:
         bad("LLM 키가 하나도 없습니다 — 번역·제안이 동작하지 않습니다",
-            'export ANTHROPIC_API_KEY=sk-ant-...   # console.anthropic.com\n'
-            '무료 대안: export CEREBRAS_API_KEY=... (cloud.cerebras.ai)')
+            'export GEMINI_API_KEY=...   # aistudio.google.com/apikey (무료, 기본 공급자)\n'
+            '대안: export ANTHROPIC_API_KEY=sk-ant-... (console.anthropic.com, 유료)')
         return False
     ok(f"키 감지: {', '.join(k.split('_')[0] for k in have)}")
     print("     실 호출 1회 테스트 중… (수 원 미만의 비용이 듭니다)")
@@ -195,6 +195,15 @@ def _check_llm() -> bool:
                             temperature=0, max_tokens=8)
         ms = (time.time() - t0) * 1000
         ok(f"실 호출 성공 — {llm.provider()} ({llm.model_name()}) · {ms:.0f}ms · 응답 \"{out.strip()[:20]}\"")
+        if llm.provider() == "gemini":
+            # 티어는 API로 조회할 수 없다 — GEMINI_TIER 선언 기반으로 판정한다
+            if llm.GEMINI_TIER == "paid":
+                ok("Gemini 유료 티어 선언됨 (GEMINI_TIER=paid) — 학습 미사용, 한도 넉넉")
+            else:
+                warn("Gemini 무료 티어 (기본 가정) — 연습용으로는 충분합니다",
+                     "무료 티어는 대화가 모델 학습에 사용될 수 있습니다. 실미팅은 유료 결제 후 "
+                     "GEMINI_TIER=paid 로 실행하세요. 무료 한도: 번역 15회/분·1,000회/일, 제안 10회/분·250회/일")
+            info(f"모델 티어링: 번역·요약 {llm.GEMINI_FAST_MODEL} · 제안·자산화 {llm.GEMINI_MODEL}")
         return True
     except Exception as e:  # noqa: BLE001
         msg = str(e)

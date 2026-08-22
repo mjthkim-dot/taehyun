@@ -2,10 +2,10 @@
 # ─────────────────────────────────────────────────────────────
 # 🗣 실시간 영어 미팅 어시스턴트
 #
-# LLM 키는 하나만 있으면 됨 (Claude → Cerebras → Groq → Gemini → Ollama 자동 전환):
-#   export ANTHROPIC_API_KEY=sk-ant-...  # 기본 공급자
+# LLM 키는 하나만 있으면 됨 (Gemini → Claude → Cerebras → Groq → Ollama 자동 전환):
+#   export GEMINI_API_KEY=...            # 기본 공급자 — aistudio.google.com/apikey (무료)
+#   export ANTHROPIC_API_KEY=sk-ant-...  # 대안 (유료·학습 미사용 — 실미팅 권장)
 #   export CEREBRAS_API_KEY=csk-...      # cloud.cerebras.ai (무료·가장 빠름)
-#   export GEMINI_API_KEY=...            # aistudio.google.com/apikey (회사망 통과율↑)
 # 의미 검색(선택): ollama pull bge-m3     ← 한국어 노트를 영어로 검색
 # Notion 수업 노트 동기화(선택): export NOTION_TOKEN=ntn_...
 #   (페이지를 통합에 '연결'해 두어야 읽을 수 있습니다)
@@ -17,13 +17,13 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 echo ""
 echo "  🗣  실시간 영어 미팅 어시스턴트"
 echo "  ═══════════════════════════════════════"
-[ -n "${ANTHROPIC_API_KEY:-}" ] && echo "  · Claude 키 설정됨 (기본 공급자)"
+[ -n "${GEMINI_API_KEY:-}" ]   && echo "  · Gemini 키 설정됨 (기본 공급자 — 무료 티어면 연습용, 실미팅은 GEMINI_TIER=paid)"
+[ -n "${ANTHROPIC_API_KEY:-}" ] && echo "  · Claude 키 설정됨 (폴백 — 학습 미사용, 실미팅 적합)"
 [ -n "${CEREBRAS_API_KEY:-}" ] && echo "  · Cerebras 키 설정됨 (오픈소스 70B — 가장 빠름)"
 [ -n "${GROQ_API_KEY:-}" ]     && echo "  · Groq 키 설정됨"
-[ -n "${GEMINI_API_KEY:-}" ]   && echo "  · Gemini 키 설정됨"
 if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${CEREBRAS_API_KEY:-}" ] && [ -z "${GROQ_API_KEY:-}" ] && [ -z "${GEMINI_API_KEY:-}" ]; then
   echo "  ⚠️ 클라우드 LLM 키가 없습니다 — 무료 키를 하나 넣으세요:"
-  echo "       https://cloud.cerebras.ai  →  export CEREBRAS_API_KEY=..."
+  echo "       https://aistudio.google.com/apikey  →  export GEMINI_API_KEY=..."
 fi
 if curl -s --max-time 2 "http://localhost:11434/api/tags" 2>/dev/null | grep -q bge-m3; then
   echo "  · bge-m3 감지 — 의미 검색 활성 (한국어 노트 ↔ 영어 발언)"

@@ -187,6 +187,10 @@
     <option value="tab">🖥 탭 오디오(설정 불필요)</option>
   </select>
   <select id="cefr" title="내 영어 레벨"><option>A2</option><option selected>B1</option><option>B2</option><option>C1</option></select>
+  <select id="mode" title="연습(무료 키 OK) / 실미팅(기밀 대화 — 유료 키 권장)">
+    <option value="practice" selected>🎓 연습</option>
+    <option value="real">🔒 실미팅</option>
+  </select>
   <button id="who" title="로그아웃"></button>
 </header>
 
@@ -204,6 +208,7 @@
 <div class="status" id="status">
   <span class="dot"></span>
   <span class="txt" id="status-txt">▶ 를 누르면 상대 발언이 자막·번역되고 제안이 뜹니다</span>
+  <span class="rag" id="quota-chip" style="display:none"></span>
   <span class="rag" id="status-rag"></span>
 </div>
 
@@ -318,8 +323,7 @@ const $ = s => document.querySelector(s);
 const IS_NARROW = matchMedia('(max-width: 520px)').matches;
 const feed = $('#feed');
 const log = [];            // {who,text}
-let suggestAbort = null, translating = 0, uttCount = 0, sumBusy = false;
-const trQueue = [];
+let suggestAbort = null, uttCount = 0, sumBusy = false;
 let llmAlive = true, llmWhy = '', ragStat = null;
 
 // ── 발언 차례 감지 — 미팅은 면접과 다르다.
@@ -464,7 +468,8 @@ function addUtterance(text, who){
   if(!me && text.split(' ').length >= 3){          // 번역은 상대 발언만 (내 영어를 되돌릴 이유 없음)
     enqueueTranslate(row.querySelector('.kr'), text);
   }
-  if(q) suggest(text,'reply',true);
+  if(q && gov.remaining('main') > 2 && !gov.rpdBlocked()
+       && gov.rpdHeadroom('main') > 0.3) suggest(text,'reply',true);   // 일일 70% 소진 → 자동 제안 중단(클릭은 계속)
   noteUtterance();          // 롤링 요약 조건 판정 (3문장 또는 30초)
   return row;
 }
@@ -473,22 +478,131 @@ function addUtterance(text, who){
 //   중복 제거는 **API 호출**에만 적용한다. 같은 문장이 실제로 두 번 나오는 일은
 //   미팅에서 흔한데(되묻기·재확인), 표시까지 건너뛰면 두 번째 말풍선이 빈 채로 남는다.
 //   → 완료된 번역은 캐시해 즉시 재사용하고, 진행 중이면 그 결과를 함께 받는다.
-const TR_LANES = 2;
+// ── LLM 예산 관리자 (무료 티어 RPM 절약의 심장) ──
+// 서버가 /api/usage로 알려주는 실사용량 + 이 탭의 낙관적 카운트를 합쳐
+// 남은 분당 예산을 추정한다. 우선순위: 퀵 리액션(사용자 클릭·main 레인) 최우선 →
+// 번역(fast 레인, 여유 있으면 즉시·없으면 배칭) → 요약(최후순위, 부족하면 건너뜀).
+const gov = {
+  limits: null,               // {fast:{rpm_limit,...}, main:{...}} — Gemini일 때만
+  tier: null,
+  base: {fast: 0, main: 0},   // 마지막 폴링 시점의 서버 rpm_used
+  local: {fast: [], main: []},// 폴링 이후 이 탭이 보낸 호출 시각
+  rpdUntil: 0,                // RPD 소진 → 리셋 epoch (초)
+  note(lane){ this.local[lane].push(Date.now()); },
+  used(lane){
+    const now = Date.now();
+    this.local[lane] = this.local[lane].filter(t => now - t < 60000);
+    return this.base[lane] + this.local[lane].length;
+  },
+  remaining(lane){
+    if(!this.limits?.[lane]?.rpm_limit) return 99;            // 한도 미상(비Gemini) → 제한 없음
+    return this.limits[lane].rpm_limit - this.used(lane);
+  },
+  rpdBlocked(){ return this.rpdUntil * 1000 > Date.now(); },
+  // 일일 예산 여유율 — 자동 제안 감쇠용. 시뮬 실측: 질문마다 자동 제안이 뜨면
+  // 5.3회/분 = 무료 RPD 250이 47분에 소진된다. 70%를 넘으면 자동은 끄고
+  // 사용자가 직접 누른 것만 보낸다.
+  rpdHeadroom(lane){
+    const l = this.limits?.[lane];
+    if(!l?.rpd_limit) return 1;
+    return 1 - (l.rpd_used || 0) / l.rpd_limit;
+  },
+  async poll(){
+    try{
+      const u = await (await fetch('/api/usage')).json();
+      this.limits = {fast: u.fast, main: u.main};
+      this.tier = u.tier;
+      this.base = {fast: u.fast.rpm_used, main: u.main.rpm_used};
+      this.local = {fast: [], main: []};                      // 서버 값으로 동기화
+      this.rpdUntil = u.rpd_exhausted_until || 0;
+      paintQuota(u);
+    }catch{}
+  },
+};
+setInterval(()=>gov.poll(), 15000);   // LLM을 부르지 않는 로컬 폴링 — 항상 갱신(부팅 실패 자가 회복)
+
+function paintQuota(u){
+  const el = $('#quota-chip');
+  if(!u.fast?.rpm_limit){ el.style.display='none'; return; }
+  el.style.display='inline';
+  el.textContent = `⚡${gov.used('fast')}/${u.fast.rpm_limit} · 오늘 ${u.fast.rpd_used}/${u.fast.rpd_limit}`;
+  el.title = `Gemini 무료 한도 사용량\n번역·요약(Flash-Lite): 분당 ${gov.used('fast')}/${u.fast.rpm_limit} · 오늘 ${u.fast.rpd_used}/${u.fast.rpd_limit}\n제안(Flash): 분당 ${gov.used('main')}/${u.main.rpm_limit} · 오늘 ${u.main.rpd_used}/${u.main.rpd_limit}`;
+  if(gov.rpdBlocked()){
+    const h = Math.max(1, Math.round((gov.rpdUntil*1000 - Date.now())/3600000));
+    setBanner(`⛔ 오늘 무료 한도 소진 — 약 ${h}시간 후(태평양 자정) 리셋됩니다`);
+  }
+}
+
+// ── 번역: 배칭 큐 (문장 2~3개 또는 4초 → 호출 1회) ──
+// 예산에 여유(잔여 3+)가 있으면 즉시 보내 지연을 유지하고,
+// 빠듯할 때만 묶는다 — "배칭하되 UX 저하 최소화".
 const trCache = new Map();     // 문장 → 완성된 번역
 const trPending = new Map();   // 문장 → 결과를 기다리는 엘리먼트들
 const trKey = t => t.trim().toLowerCase();
+let trBatch = [];              // [{key, text}]
+let trBatchTimer = null;
+let trInFlight = false;
 
 function enqueueTranslate(el, text){
   const key = trKey(text);
   if(!key) return;
   const hit = trCache.get(key);
   if(hit !== undefined){ el.textContent = hit; return; }      // 호출 없이 즉시
-  el.innerHTML = '<span class="tr-wait">···</span>';          // 대기 표시 — 빈칸이면 번역이 없는 건지 오는 중인지 모른다
+  el.innerHTML = '<span class="tr-wait">···</span>';          // 대기 표시
   const waiting = trPending.get(key);
-  if(waiting){ waiting.push(el); return; }                    // 진행 중 → 합류
+  if(waiting){ waiting.push(el); return; }                    // 진행 중/배치 대기 → 합류
   trPending.set(key, [el]);
-  trQueue.push({key, text});
-  pumpTranslate();
+  trBatch.push({key, text});
+  scheduleTrFlush();
+}
+function scheduleTrFlush(){
+  if(gov.rpdBlocked()){                                       // 일일 한도 소진 — 보내봐야 429
+    trBatch.splice(0).forEach(it => trSettle(it.key, '오늘 무료 한도 소진', true));
+    return;
+  }
+  if(trBatch.length >= 3){ flushTr(); return; }
+  if(!trInFlight && gov.remaining('fast') > 3){ flushTr(); return; }   // 여유 → 즉시
+  if(!trBatchTimer) trBatchTimer = setTimeout(flushTr, 4000);          // 빠듯 → 4초 묶음
+}
+async function flushTr(){
+  clearTimeout(trBatchTimer); trBatchTimer = null;
+  if(trInFlight || !trBatch.length) return;
+  const batch = trBatch.splice(0, 3);
+  trInFlight = true;
+  gov.note('fast');
+  let buf = '', settled = new Set();
+  const settleLine = line => {
+    const m = line.match(/^(\d+)\)\s*(.*)$/);
+    if(!m) return;
+    const it = batch[+m[1] - 1];
+    if(it && m[2].trim() && !settled.has(it.key)){ settled.add(it.key); trSettle(it.key, m[2].trim(), false); }
+  };
+  try{
+    await streamChat('/api/translate',
+      batch.length === 1 ? {text: batch[0].text} : {texts: batch.map(b=>b.text)},
+      tk=>{
+        buf += tk;
+        if(batch.length === 1){                                // 단건은 그대로 스트리밍 표시
+          const first = trPending.get(batch[0].key)?.[0];
+          if(first) first.textContent = buf;
+          return;
+        }
+        let nl;                                                // 배치는 줄 단위로 각 버블에
+        while((nl = buf.indexOf('\n')) >= 0){ settleLine(buf.slice(0, nl)); buf = buf.slice(nl+1); }
+      });
+    if(batch.length === 1) trSettle(batch[0].key, buf.trim(), false);
+    else{
+      settleLine(buf);                                         // 마지막 줄
+      batch.filter(it=>!settled.has(it.key))
+           .forEach(it => trSettle(it.key, '번역 누락 — 같은 문장이 다시 나오면 재시도됩니다', true));
+    }
+  }catch(e){
+    batch.forEach(it => trSettle(it.key, e.message, true));
+    if(/무료 한도 소진/.test(e.message)) gov.poll();
+  }finally{
+    trInFlight = false;
+    if(trBatch.length) scheduleTrFlush();
+  }
 }
 function trSettle(key, value, isError){
   const els = trPending.get(key) || [];
@@ -501,30 +615,15 @@ function trSettle(key, value, isError){
   if(trCache.size > 300) trCache.delete(trCache.keys().next().value);
   els.forEach(e => { e.textContent = value; });
 }
-async function pumpTranslate(){
-  while(translating < TR_LANES && trQueue.length){
-    translating++;
-    const it = trQueue.shift();
-    (async()=>{
-      let acc = '';
-      try{
-        const first = trPending.get(it.key)?.[0];
-        await streamChat('/api/translate',{text:it.text},
-          tk=>{ acc += tk; if(first) first.textContent = acc; });  // 첫 버블은 스트리밍으로 즉시
-        trSettle(it.key, acc.trim(), false);
-      }catch(e){ trSettle(it.key, e.message, true); }
-      finally{ translating--; pumpTranslate(); }
-    })();
-  }
-}
+// (구 2레인 pumpTranslate는 배칭 큐로 대체 — 위 flushTr)
 
 // ── 롤링 요약 배너 ──
 //   갱신 조건: 새 발화 3개 누적  또는  마지막 갱신에서 30초 경과.
 //   호출은 항상 1개만 떠 있게 하고(single-flight), 진행 중에 조건이 또 걸리면
 //   쌓지 않고 '한 번 더 필요함' 표시만 남겼다가 끝난 뒤 1회만 재실행한다.
 const SUM_BUFFER = 10;        // 롤링 버퍼: 최근 10발화
-const SUM_EVERY_N = 3;        // 3문장 누적마다
-const SUM_EVERY_MS = 30000;   // 또는 30초마다
+const SUM_EVERY_N = 5;        // 5발화 누적마다 (무료 티어 RPM 절약 — 3→5 완화)
+const SUM_EVERY_MS = 60000;   // 또는 60초마다 (30초→60초 완화)
 let sumSince = 0, sumLastAt = 0, sumDirty = false, sumTimer = null, sumLastKey = '';
 
 function summaryKey(){
@@ -545,7 +644,11 @@ function requestSummary(){
 async function runSummary(){
   const key = summaryKey();
   if(key === sumLastKey){ sumSince = 0; sumLastAt = Date.now(); return; }  // 내용이 그대로면 호출 낭비
+  // 요약은 최후순위 — fast 레인 잔여가 4 이하면 이번 주기는 건너뛴다
+  // (번역이 먼저 써야 한다. 다음 주기 조건에서 자연히 재시도된다)
+  if(gov.rpdBlocked() || gov.remaining('fast') <= 4){ sumSince = 0; sumLastAt = Date.now(); return; }
   sumBusy = true; sumSince = 0; sumLastAt = Date.now(); sumLastKey = key;
+  gov.note('fast');
   let out = '';
   try{
     await streamChat('/api/summary',
@@ -659,6 +762,7 @@ async function suggest(said, intent, auto, speculative){
   const context = log.slice(-7).map(l=>`${l.who==='나'?'Me':'Them'}: ${l.text}`).join('\n');
   let raw = '';
   try{
+    gov.note('main');
     await streamChat('/api/suggest',{said,context,intent,cefr:$('#cefr').value},
       tk=>{ raw += tk; renderCard(raw); }, sig, renderSources);
     if(speculative) specDone = said; else card.classList.remove('spec');
@@ -726,6 +830,7 @@ function specThreshold(){
 }
 function maybeSpeculate(interim){
   if(pinned || specTries >= SPEC_MAX) return;
+  if(gov.remaining('main') <= 4 || gov.rpdBlocked()) return;  // 예산 빠듯 → 클릭 대응분을 지킨다
   const t = interim.trim();
   if(t === specLastText) return;
   const n = Date.now();
@@ -930,7 +1035,27 @@ function stopListening(){
   $('#status').classList.remove('on'); $('#engine').disabled = false;
 }
 
+// ── 연습/실미팅 모드 — 프라이버시 가드 ──
+// 무료 티어(Gemini free)는 입력이 모델 개선에 사용될 수 있다(구글 약관).
+// 연습(유튜브 영상 등)은 무방하지만, 실제 고객 미팅이면 시작 전에 알려준다.
+const FREE_TIER_WARN =
+  '⚠️ 지금 무료 티어 키(Gemini free)를 쓰고 있습니다.\n\n' +
+  '무료 티어는 대화 내용이 모델 학습에 사용될 수 있습니다.\n' +
+  '실제 고객 미팅이라면:\n' +
+  ' · 유료 결제 계정이면 GEMINI_TIER=paid 로 실행하거나\n' +
+  ' · ANTHROPIC_API_KEY(학습에 미사용)를 쓰세요.\n\n그래도 시작할까요?';
+function meetingMode(){ return $('#mode').value; }
+$('#mode').value = localStorage.getItem('mc_mode') || 'practice';
+$('#mode').onchange = ()=>{
+  if(meetingMode() === 'real' && gov.tier === 'free'){
+    if(!confirm(FREE_TIER_WARN)){ $('#mode').value = 'practice'; }
+  }
+  localStorage.setItem('mc_mode', $('#mode').value);
+};
+
 function preflight(){
+  // 실미팅 + 무료 티어 → 시작 전 경고 (연습 모드는 묻지 않는다)
+  if(meetingMode() === 'real' && gov.tier === 'free' && !confirm(FREE_TIER_WARN)) return false;
   if(!llmAlive){
     return confirm(`⚠️ 번역·제안 LLM에 연결할 수 없습니다\n(${llmWhy})\n\n`+
       `자막은 나오지만 한국어 번역과 제안이 뜨지 않습니다.\n\n`+
@@ -1266,7 +1391,7 @@ async function bootData(){
     try{ paintRevBadge(await (await fetch('/api/review/cards')).json()); }catch{}
   }
 }
-(async ()=>{ await checkAuth(); await bootData(); })();
+(async ()=>{ await checkAuth(); await bootData(); gov.poll(); })();
 // 하단 컨트롤 높이를 재서 카드 위치를 맞춘다 (버튼 줄바꿈에 따라 달라짐)
 function fitCard(){
   const h = ($('.actions')?.offsetHeight || 0) + ($('.quickbar')?.offsetHeight || 0) + 8;

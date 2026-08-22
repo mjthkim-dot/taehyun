@@ -36,9 +36,24 @@ GROQ_STT_MODEL = os.environ.get("GROQ_STT_MODEL", "whisper-large-v3-turbo")
 CEREBRAS_API_KEY = os.environ.get("CEREBRAS_API_KEY")  # 무료 발급: https://cloud.cerebras.ai
 CEREBRAS_URL = os.environ.get("CEREBRAS_URL", "https://api.cerebras.ai/v1")  # OpenAI 호환
 CEREBRAS_MODEL = os.environ.get("CEREBRAS_MODEL", "llama-3.3-70b")
+# Gemini — 기본 공급자. 무료 티어(키만 발급하면 됨)로 전 기능이 돌고,
+# 회사망 통과율이 높다. OpenAI 호환 엔드포인트도 있지만 네이티브 API가
+# 이미 이 추상화(chat/stream/json_mode/system)에 맞으므로 네이티브를 유지한다.
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")   # 무료 발급: https://aistudio.google.com/apikey
 GEMINI_URL = os.environ.get("GEMINI_URL", "https://generativelanguage.googleapis.com/v1beta")
+# 모델 티어링 (무료 티어 = Flash 계열 전제, 하드코딩 금지 — env로 교체 가능):
+#  · 번역·한줄요약(고빈도) → Flash-Lite: 무료 RPM이 가장 높다 (15 RPM/1,000 RPD)
+#  · 퀵 리액션·전체 요약·자산화 → Flash (10 RPM/250 RPD)
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_FAST_MODEL = os.environ.get("GEMINI_FAST_MODEL", "gemini-2.5-flash-lite")
+# 무료 티어 한도(구글 공시값에서 여유 1~2를 뺀 내부 예산 — 초과 429를 예방)
+GEMINI_FAST_RPM = int(os.environ.get("GEMINI_FAST_RPM", "13"))
+GEMINI_MAIN_RPM = int(os.environ.get("GEMINI_MAIN_RPM", "9"))
+GEMINI_FAST_RPD = int(os.environ.get("GEMINI_FAST_RPD", "1000"))
+GEMINI_MAIN_RPD = int(os.environ.get("GEMINI_MAIN_RPD", "250"))
+# 무료 티어는 입력이 모델 개선에 사용될 수 있다(구글 약관) — 유료 결제 계정이면
+# GEMINI_TIER=paid 로 선언 (API로는 티어를 조회할 수 없어 선언 기반이다)
+GEMINI_TIER = os.environ.get("GEMINI_TIER", "free")
 # 폴백용 로컬 모델 — 한국어 자연스러움이 소형 오픈소스 중 최상위 + 16GB에서 여유(Q4 ≈ 5GB)
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:8b")
 # 검색용 임베딩 — 한·영 교차 검색에 강한 오픈소스 (설치: ollama pull bge-m3, ~1GB)
@@ -51,12 +66,13 @@ ANTHROPIC_URL = os.environ.get("ANTHROPIC_URL", "https://api.anthropic.com/v1")
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
 # 실시간 경로(자막 번역·한 줄 요약)는 지연이 품질이다 → 빠른 모델을 따로 둔다
 ANTHROPIC_FAST_MODEL = os.environ.get("ANTHROPIC_FAST_MODEL", "claude-haiku-4-5-20251001")
+# 기본 체인: Gemini 우선 (무료 티어로 전 기능 동작). 다른 키가 있으면 자동 폴백.
 LLM_ORDER = [p.strip() for p in
-             os.environ.get("LLM_ORDER", "anthropic,cerebras,groq,gemini,ollama").split(",")
+             os.environ.get("LLM_ORDER", "gemini,anthropic,cerebras,groq,ollama").split(",")
              if p.strip()]
 
 # 공급자별 '빠른 모델' — fast=True로 호출하면 이걸 쓴다 (없으면 기본 모델)
-FAST_MODELS = {"anthropic": ANTHROPIC_FAST_MODEL}
+FAST_MODELS = {"anthropic": ANTHROPIC_FAST_MODEL, "gemini": GEMINI_FAST_MODEL}
 
 # 🆓 로컬 STT — faster-whisper가 설치돼 있으면 맥에서 직접 인식 (무료·무제한·비공개)
 # STT_LOCAL=0 으로 끌 수 있고, 미설치 시 자동으로 Groq Whisper로 폴백된다.
@@ -298,6 +314,107 @@ _bad_until: dict[str, float] = {}
 _last_error: dict[str, str] = {}
 _active: str | None = None
 
+# ── 사용량 추적 (RPM 슬라이딩 윈도 + RPD 영속) ─────────────────
+# 무료 티어에서는 호출 수가 곧 가용성이다. 분당은 메모리, 일일은 파일로 영속
+# (재시작해도 잊지 않게). RPD는 태평양 시간 자정에 리셋되므로 날짜 키도 PT 기준.
+import random as _random
+import threading
+from collections import deque as _deque
+
+_DATA_DIR = Path(os.environ.get("MC_DATA_DIR") or (Path(__file__).parent / "data"))
+_USAGE_PATH = _DATA_DIR / "usage-llm.json"
+_usage_lock = threading.Lock()
+_rpm_win: dict[str, _deque] = {"fast": _deque(), "main": _deque()}
+_rpd_cache: dict | None = None          # {"day": "YYYY-MM-DD", "fast": n, "main": n}
+_rpd_notice_until: float = 0.0          # RPD 소진 감지 → 리셋 시각(epoch)
+
+
+def _pt_now():
+    import datetime as dt
+    try:
+        from zoneinfo import ZoneInfo
+        return dt.datetime.now(ZoneInfo("America/Los_Angeles"))
+    except Exception:  # noqa: BLE001 — tzdata 없는 환경은 PST 고정으로 근사
+        return dt.datetime.now(dt.timezone(dt.timedelta(hours=-8)))
+
+
+def _pt_reset_epoch() -> float:
+    import datetime as dt
+    now = _pt_now()
+    nxt = (now + dt.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return nxt.timestamp()
+
+
+def _rpd_load() -> dict:
+    global _rpd_cache
+    day = _pt_now().strftime("%Y-%m-%d")
+    if _rpd_cache is None:
+        try:
+            _rpd_cache = json.loads(_USAGE_PATH.read_text())
+        except Exception:  # noqa: BLE001
+            _rpd_cache = {"day": day, "fast": 0, "main": 0}
+    if _rpd_cache.get("day") != day:            # PT 자정 리셋
+        _rpd_cache = {"day": day, "fast": 0, "main": 0}
+    return _rpd_cache
+
+
+def _usage_record(fast: bool) -> None:
+    lane = "fast" if fast else "main"
+    now = time.time()
+    with _usage_lock:
+        win = _rpm_win[lane]
+        win.append(now)
+        while win and now - win[0] > 60:
+            win.popleft()
+        d = _rpd_load()
+        d[lane] = d.get(lane, 0) + 1
+        try:
+            _DATA_DIR.mkdir(parents=True, exist_ok=True)
+            _USAGE_PATH.write_text(json.dumps(d))
+        except OSError:
+            pass
+
+
+def usage() -> dict:
+    # UI 표시·클라이언트 스로틀용. 한도(limit)는 Gemini가 쓰일 때만 의미가 있다.
+    now = time.time()
+    with _usage_lock:
+        d = dict(_rpd_load())
+        rpm = {lane: sum(1 for t in _rpm_win[lane] if now - t <= 60)
+               for lane in ("fast", "main")}
+    gem_first = _configured("gemini") and _usable("gemini")
+    out = {"provider": provider(), "tier": GEMINI_TIER if _configured("gemini") else None,
+           "fast": {"rpm_used": rpm["fast"], "rpd_used": d.get("fast", 0)},
+           "main": {"rpm_used": rpm["main"], "rpd_used": d.get("main", 0)}}
+    if gem_first or provider() == "gemini":
+        out["fast"].update(rpm_limit=GEMINI_FAST_RPM, rpd_limit=GEMINI_FAST_RPD)
+        out["main"].update(rpm_limit=GEMINI_MAIN_RPM, rpd_limit=GEMINI_MAIN_RPD)
+    if _rpd_notice_until > now:
+        out["rpd_exhausted_until"] = _rpd_notice_until
+    return out
+
+
+def _handle_429(name: str, body: str, fast: bool) -> str:
+    # 429 분류: RPD(일일) 소진이면 PT 자정까지 안내, 아니면 짧은 제외.
+    # 반환값은 사용자에게 보여줄 사유 문자열.
+    global _rpd_notice_until
+    if name == "gemini" and ("PerDay" in body or "per day" in body.lower()):
+        reset = _pt_reset_epoch()
+        _rpd_notice_until = reset
+        hours = max(1, round((reset - time.time()) / 3600))
+        # 재확인은 1시간 주기 — 하루 종일 죽었다고 단정하지 않는다
+        _mark_bad(name, "일일 한도(RPD) 소진", seconds=min(int(reset - time.time()), 3600))
+        return f"오늘 무료 한도 소진 — 약 {hours}시간 후(태평양 자정) 리셋됩니다."
+    _mark_bad(name, "HTTP 429")
+    return "분당 요청 한도(429)"
+
+
+def _backoff_429(attempt: int) -> None:
+    # 지수 백오프 + 지터 — 무료 티어에서 창 경계에 걸친 429는 1~2초 뒤 대부분 풀린다
+    time.sleep(min(1.0 * (2 ** attempt), 4.0) + _random.random() * 0.5)
+
+
+
 
 def _configured(name: str) -> bool:
     if name == "anthropic":
@@ -366,22 +483,40 @@ def chat_once(messages: list[dict], json_mode: bool = False, temperature: float 
     """단발 호출 → 응답 텍스트. 공급자 자동 전환."""
     global _active
     errs: list[str] = []
-    for name in _try_order():
-        try:
-            out = _CHAT[name](messages, json_mode, temperature, max_tokens,
-                              _pick_model(name, model, fast))
-            _active = name
-            return out
-        except urllib.error.HTTPError as e:
-            if e.code in (401, 403, 404, 429):
-                _mark_bad(name, f"HTTP {e.code}")
-                errs.append(f"{name}: HTTP {e.code}")
-                continue
-            raise
-        except urllib.error.URLError as e:
-            _mark_bad(name, f"연결 실패({getattr(e, 'reason', e)})")
-            errs.append(f"{name}: 연결 실패")
-            continue
+    order = _try_order()
+    for name in order:
+        # 429는 대안 공급자가 없을 때만 같은 곳에 백오프 재시도한다
+        # (대안이 있으면 전환이 더 빠르다)
+        retries = 2 if len(order) == 1 else 0
+        for attempt in range(retries + 1):
+            try:
+                out = _CHAT[name](messages, json_mode, temperature, max_tokens,
+                                  _pick_model(name, model, fast))
+                _active = name
+                _usage_record(fast)
+                return out
+            except urllib.error.HTTPError as e:
+                if e.code == 429:
+                    body = ""
+                    try:
+                        body = e.read().decode("utf-8", "ignore")[:500]
+                    except Exception:  # noqa: BLE001
+                        pass
+                    reason = _handle_429(name, body, fast)
+                    if "무료 한도 소진" not in reason and attempt < retries:
+                        _backoff_429(attempt)
+                        continue
+                    errs.append(f"{name}: {reason}")
+                    break
+                if e.code in (401, 403, 404):
+                    _mark_bad(name, f"HTTP {e.code}")
+                    errs.append(f"{name}: HTTP {e.code}")
+                    break
+                raise
+            except urllib.error.URLError as e:
+                _mark_bad(name, f"연결 실패({getattr(e, 'reason', e)})")
+                errs.append(f"{name}: 연결 실패")
+                break
     raise _no_provider_error(errs)
 
 
@@ -391,22 +526,44 @@ def stream_ndjson(messages: list[dict], temperature: float = 0.4,
     """토큰 스트림 (Ollama NDJSON 통일 형식). 첫 청크 전 실패 시 다음 공급자로 전환."""
     global _active
     errs: list[str] = []
-    for name in _try_order():
-        try:
-            it = _STREAM[name](messages, temperature, max_tokens,
-                               _pick_model(name, model, fast))
-            first = next(it, None)
-        except urllib.error.HTTPError as e:
-            if e.code in (401, 403, 404, 429):
-                _mark_bad(name, f"HTTP {e.code}")
-                errs.append(f"{name}: HTTP {e.code}")
-                continue
-            raise
-        except urllib.error.URLError as e:
-            _mark_bad(name, f"연결 실패({getattr(e, 'reason', e)})")
-            errs.append(f"{name}: 연결 실패")
+    order = _try_order()
+    for name in order:
+        retries = 2 if len(order) == 1 else 0
+        it = None
+        for attempt in range(retries + 1):
+            try:
+                it = _STREAM[name](messages, temperature, max_tokens,
+                                   _pick_model(name, model, fast))
+                first = next(it, None)
+                break
+            except urllib.error.HTTPError as e:
+                it = None
+                if e.code == 429:
+                    body = ""
+                    try:
+                        body = e.read().decode("utf-8", "ignore")[:500]
+                    except Exception:  # noqa: BLE001
+                        pass
+                    reason = _handle_429(name, body, fast)
+                    if "무료 한도 소진" not in reason and attempt < retries:
+                        _backoff_429(attempt)
+                        continue
+                    errs.append(f"{name}: {reason}")
+                    break
+                if e.code in (401, 403, 404):
+                    _mark_bad(name, f"HTTP {e.code}")
+                    errs.append(f"{name}: HTTP {e.code}")
+                    break
+                raise
+            except urllib.error.URLError as e:
+                it = None
+                _mark_bad(name, f"연결 실패({getattr(e, 'reason', e)})")
+                errs.append(f"{name}: 연결 실패")
+                break
+        if it is None:
             continue
         _active = name
+        _usage_record(fast)
         if first is not None:
             yield first
         yield from it
