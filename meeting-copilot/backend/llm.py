@@ -322,6 +322,16 @@ def _usable(name: str) -> bool:
     return _configured(name) and time.time() >= _bad_until.get(name, 0)
 
 
+def _try_order() -> list[str]:
+    # 이번 호출에서 시도할 공급자 순서.
+    # 전부 일시 제외 상태면(키가 하나뿐인데 순단이 났던 경우) 제외를 무시하고
+    # 다시 찔러본다(half-open). 60초 페널티는 다중 공급자 전환용인데, 공급자가
+    # 하나면 살아난 뒤에도 최대 60초간 계속 실패하는 문제가 QA에서 실측됐다.
+    # 여전히 죽어 있으면 연결 실패가 빨리 나 추가 비용은 거의 없다.
+    usable = [n for n in LLM_ORDER if _usable(n)]
+    return usable or [n for n in LLM_ORDER if _configured(n)]
+
+
 def _no_provider_error(errs: list[str]) -> RuntimeError:
     return RuntimeError(
         "사용 가능한 LLM이 없습니다 [" + "; ".join(errs or ["설정된 공급자 없음"]) + "] — "
@@ -356,11 +366,7 @@ def chat_once(messages: list[dict], json_mode: bool = False, temperature: float 
     """단발 호출 → 응답 텍스트. 공급자 자동 전환."""
     global _active
     errs: list[str] = []
-    for name in LLM_ORDER:
-        if not _usable(name):
-            if _configured(name):
-                errs.append(f"{name}: {_last_error.get(name, '일시 제외')}")
-            continue
+    for name in _try_order():
         try:
             out = _CHAT[name](messages, json_mode, temperature, max_tokens,
                               _pick_model(name, model, fast))
@@ -385,11 +391,7 @@ def stream_ndjson(messages: list[dict], temperature: float = 0.4,
     """토큰 스트림 (Ollama NDJSON 통일 형식). 첫 청크 전 실패 시 다음 공급자로 전환."""
     global _active
     errs: list[str] = []
-    for name in LLM_ORDER:
-        if not _usable(name):
-            if _configured(name):
-                errs.append(f"{name}: {_last_error.get(name, '일시 제외')}")
-            continue
+    for name in _try_order():
         try:
             it = _STREAM[name](messages, temperature, max_tokens,
                                _pick_model(name, model, fast))
@@ -485,7 +487,9 @@ def transcribe(audio: bytes, filename: str = "audio.webm",
     """오디오 바이트 → 텍스트 (Groq Whisper). STT는 Groq 전용 — 키 없으면 에러.
     language=None이면 Whisper가 언어를 자동 감지한다 (한국어/영어 혼용 면접 대응)."""
     if not GROQ_API_KEY:
-        raise RuntimeError("음성 인식에는 GROQ_API_KEY가 필요합니다 (Groq Whisper STT).")
+        raise RuntimeError(
+            "음성 인식 수단이 없습니다 — 무료·무제한 로컬 STT는 pip3 install faster-whisper, "
+            "또는 GROQ_API_KEY를 넣으면 Groq Whisper를 씁니다.")
 
     boundary = uuid.uuid4().hex
     parts: list[bytes] = []

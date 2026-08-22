@@ -325,6 +325,9 @@ function wantsReply(t){
 }
 
 // ── NDJSON 스트림 ──
+// 외부 유래 텍스트(서버 오류·LLM 산출·검색 제목)를 innerHTML에 넣을 땐 반드시 이걸 통과
+function esc(t){ return (t||'').replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
 // 서버 오류를 삼키지 않는다 — 실패 원인이 화면에 보여야 고칠 수 있다
 async function postJSON(url, payload){
   const res = await fetch(url, {method:'POST',
@@ -407,7 +410,7 @@ function trSettle(key, value, isError){
   const els = trPending.get(key) || [];
   trPending.delete(key);
   if(isError){
-    els.forEach(e => { e.innerHTML = `<span style="color:var(--danger)">번역 실패: ${value}</span>`; });
+    els.forEach(e => { e.innerHTML = `<span style="color:var(--danger)">번역 실패: ${esc(value)}</span>`; });
     return;                                                   // 실패는 캐시하지 않는다(재시도 가능)
   }
   trCache.set(key, value);
@@ -542,7 +545,7 @@ function renderSources(meta){
   const el = $('#c-src');
   if(!meta || (!meta.sources?.length && !meta.has_placeholder)){ el.style.display='none'; return; }
   const p = [];
-  if(meta.sources?.length) p.push(`📎 근거: <b>${meta.sources.join(' · ')}</b>`);
+  if(meta.sources?.length) p.push(`📎 근거: <b>${esc(meta.sources.join(' · '))}</b>`);
   else p.push(`<span class="warn">📎 내 자료에서 찾은 근거가 없어요 — '자료' 탭에서 노트를 넣어주세요</span>`);
   if(meta.has_placeholder) p.push(`<span class="warn">⚠️ 자료에 미입력 값이 있어 수치는 생략됩니다</span>`);
   if(meta.rag_used === false && meta.sources?.length) p.push(`<span class="warn">근거가 빈약해 일반 문장으로 생성했습니다</span>`);
@@ -575,14 +578,31 @@ async function suggest(said, intent, auto, speculative){
     await streamChat('/api/suggest',{said,context,intent,cefr:$('#cefr').value},
       tk=>{ raw += tk; renderCard(raw); }, sig, renderSources);
     if(speculative) specDone = said; else card.classList.remove('spec');
-  }catch(e){ if(e.name!=='AbortError') $('#c-gist').textContent = '⚠️ ' + e.message; }
+  }catch(e){
+    if(e.name!=='AbortError'){
+      $('#c-gist').textContent = '⚠️ ' + e.message;
+      // 오류인데 "생성 중…"이 남아 있으면 기다리게 된다 — 안내로 교체
+      if(!$('#c-answers .kr')?.textContent?.trim())
+        $('#c-answers').innerHTML = '<div class="lrow"><div class="body"><div class="kr">잠시 후 버튼을 다시 눌러주세요 — 다른 공급자로 자동 전환을 시도합니다</div></div></div>';
+    }
+  }
   finally{ if(suggestAbort?.signal === sig) suggestAbort = null; }
 }
 $('#c-close').onclick = ()=>{ $('#card').style.display='none'; pinned=false; $('#c-pin').classList.remove('on'); };
 $('#c-pin').onclick = ()=>{ pinned = !pinned; $('#c-pin').classList.toggle('on', pinned); };
+// 첫 클릭은 즉시 나간다(실시간이 핵심). 300ms 안에 또 누르면 이전 요청을 이어
+// 보내지 않고 마지막 의도 하나만 나간다 — 연타 1회당 LLM 호출 1건이 되지 않게.
+let intentLastAt = 0, intentTimer = null;
 document.querySelectorAll('.actions [data-intent]').forEach(b=>{
-  b.onclick = ()=>{ const last = [...log].reverse().find(l=>l.who==='상대');
-    if(last) suggest(last.text, b.dataset.intent); };
+  b.onclick = ()=>{
+    const last = [...log].reverse().find(l=>l.who==='상대');
+    if(!last) return;
+    const fire = ()=>{ intentLastAt = Date.now(); suggest(last.text, b.dataset.intent); };
+    clearTimeout(intentTimer);
+    const dt = Date.now() - intentLastAt;
+    if(dt >= 300) fire();
+    else intentTimer = setTimeout(fire, 300 - dt);
+  };
 });
 
 // 글자 크기
@@ -1004,8 +1024,8 @@ $('#cand-go').onclick = async ()=>{
     }
     box.innerHTML = d.candidates.map((c,i)=>
       `<label style="display:flex;gap:7px;align-items:center;margin:5px 0">
-         <input type="checkbox" data-t="${c.term.replace(/"/g,'&quot;')}" ${i<5?'checked':''}>
-         <b style="color:var(--text)">${c.term}</b>
+         <input type="checkbox" data-t="${esc(c.term).replace(/"/g,'&quot;')}" ${i<5?'checked':''}>
+         <b style="color:var(--text)">${esc(c.term)}</b>
          <span style="color:var(--faint)">${c.count}회</span></label>`).join('') +
       `<button class="go" id="cand-add" style="margin-top:8px">선택 항목을 용어집에 추가</button>`;
     $('#cand-add').onclick = async ()=>{
@@ -1036,15 +1056,14 @@ $('#q-go').onclick = async ()=>{
   try{
     const r = await (await fetch('/api/rag/search?q='+encodeURIComponent(q))).json();
     $('#q-out').innerHTML = r.hits.length
-      ? r.hits.map(h=>`<div style="margin:5px 0"><b>${h.source_label}</b> · ${h.title}
-         <span style="color:var(--faint)">(${h.via})</span></div>`).join('')
+      ? r.hits.map(h=>`<div style="margin:5px 0"><b>${esc(h.source_label)}</b> · ${esc(h.title)}
+         <span style="color:var(--faint)">(${esc(h.via)})</span></div>`).join('')
       : '검색 결과가 없습니다 — 자료를 더 넣어주세요';
   }catch(e){ $('#q-out').textContent='실패: '+e.message; }
 };
 
 // ── 🧠 복습 (SRS 1일/3일/7일) ──
 let lastReview = null;
-function esc(t){ return (t||'').replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 function paintRevBadge(c){
   const b = $('#rev-badge');
   b.textContent = c.due ? ` ${c.due}` : '';
@@ -1149,7 +1168,7 @@ $('#rev-save').onclick = async ()=>{
     llmAlive = !(ls.length && !ls.some(p=>p.state==='ok'));
     if(!llmAlive){
       llmWhy = ls.map(p=>`${p.name}: ${p.detail||p.state}`).join(' · ');
-      $('#status-txt').innerHTML = `⚠️ 번역·제안 LLM 연결 불가 (${llmWhy}) — <b>cloud.cerebras.ai</b>에서 무료 키를 받아 넣어주세요`;
+      $('#status-txt').innerHTML = `⚠️ 번역·제안 LLM 연결 불가 (${esc(llmWhy)}) — <b>cloud.cerebras.ai</b>에서 무료 키를 받아 넣어주세요`;
     }
     if(h.rag){ ragStat = h.rag; $('#status-rag').textContent = `📚 ${h.rag.total}`; }
   }catch{}

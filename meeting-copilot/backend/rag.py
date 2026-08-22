@@ -34,6 +34,11 @@ SOURCES = {
 }
 
 _lock = threading.Lock()
+# 검색은 한 번에 하나만 돌린다. 검색의 본체는 CPU 바운드 파이썬 루프라
+# 병렬로 돌리면 GIL 콘보이가 생겨 오히려 전부 느려진다 — QA 실측:
+# 1,700청크에서 단독 14ms인 검색이 동시 4건이면 1,268ms, 8건이면 3,327ms.
+# 직렬화하면 같은 부하에서 p50 12.6ms (개별 작업이 짧아 대기가 거의 없다).
+_search_lock = threading.Lock()
 _vec_cache: dict | None = None       # {"ids": [...], "vecs": [[float]], "stamp": float}
 
 # ── 토크나이저 ────────────────────────────────────────────────
@@ -175,24 +180,21 @@ def _bm25(query: str, k: int, k1: float = 1.2, b: float = 0.75) -> list[tuple[in
             "SELECT COUNT(*), COALESCE(AVG(n_tokens),1) FROM chunks").fetchone()
         if not N:
             return []
-        lens = {}
         scores: dict[int, float] = {}
-        seen = set()
-        for term in qt:
-            if term in seen:
-                continue
-            seen.add(term)
+        for term in dict.fromkeys(qt):
+            # 문서 길이(n_tokens)를 JOIN으로 함께 가져온다. 청크마다 점 조회를
+            # 하면(N+1) 흔한 단어에서 검색 1회에 소형 쿼리 수천 번이 나가는데,
+            # QA에서 이게 동시 접속 시 지연 폭증의 한 축으로 실측됐다.
             rows = con.execute(
-                "SELECT chunk_id, tf FROM postings WHERE term=?", (term,)).fetchall()
+                "SELECT p.chunk_id, p.tf, c.n_tokens FROM postings p "
+                "JOIN chunks c ON c.id = p.chunk_id WHERE p.term=?",
+                (term,)).fetchall()
             df = len(rows)
             if not df or df > N * 0.9:          # 너무 흔한 말은 변별력이 없다
                 continue
             idf = math.log(1 + (N - df + 0.5) / (df + 0.5))
-            for cid, tf in rows:
-                if cid not in lens:
-                    r = con.execute("SELECT n_tokens FROM chunks WHERE id=?", (cid,)).fetchone()
-                    lens[cid] = (r[0] or 1) if r else 1
-                dl = lens[cid]
+            for cid, tf, dl in rows:
+                dl = dl or 1
                 scores[cid] = scores.get(cid, 0.0) + idf * (tf * (k1 + 1)) / (
                     tf + k1 * (1 - b + b * dl / avgdl))
     return sorted(scores.items(), key=lambda t: -t[1])[:k]
@@ -208,14 +210,12 @@ def _load_vecs() -> dict:
     return _vec_cache
 
 
-def _vector(query: str, k: int) -> list[tuple[int, float]]:
+def _vector(q: list[float], k: int) -> list[tuple[int, float]]:
+    # q: 미리 계산한 질의 임베딩. 임베딩(네트워크 호출)은 락 밖에서 하고
+    # 여기서는 CPU 바운드 코사인 계산만 한다.
     cache = _load_vecs()
     if not cache["ids"]:
         return []
-    qv = llm.embed([query])
-    if not qv:
-        return []
-    q = qv[0]
     qn = math.sqrt(sum(x * x for x in q)) or 1.0
     out = []
     for cid, v in zip(cache["ids"], cache["vecs"]):
@@ -239,8 +239,11 @@ def search(query: str, k: int = 6, per_source: int = 3,
     if not query.strip():
         return []
     pool = max(k * 4, 20)
-    kw = _bm25(query, pool)
-    vec = _vector(query, pool) if llm.embed_available() else []
+    # 질의 임베딩은 네트워크 호출이라 락 밖에서 — 락은 CPU 구간만 지킨다
+    qv = (llm.embed([query]) or [None])[0] if llm.embed_available() else None
+    with _search_lock:
+        kw = _bm25(query, pool)
+        vec = _vector(qv, pool) if qv else []
 
     RRF_K = 60
     fused: dict[int, float] = {}

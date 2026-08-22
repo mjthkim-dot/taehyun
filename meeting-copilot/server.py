@@ -97,10 +97,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         p = urllib.parse.urlparse(self.path)
         path, q = p.path, urllib.parse.parse_qs(p.query)
-        if path.startswith("/api/") and self._cross_origin():
+        # /health도 API와 같이 취급한다 — 데이터가 있는 GET은 전부 같은 규칙로
+        if (path.startswith("/api/") or path == "/health") and self._cross_origin():
             self._json(403, {"error": "cross-origin 요청은 허용되지 않습니다."})
             return
+        try:
+            self._get(path, q)
+        except ValueError as e:
+            # 잘못된 파라미터(k=abc 등)는 서버 잘못이 아니다 → 400
+            self._json(400, {"error": f"잘못된 파라미터입니다 — {e}"})
+        except BrokenPipeError:
+            pass                                   # 클라이언트가 먼저 끊음
+        except Exception as e:  # noqa: BLE001
+            self._json(500, {"error": str(e)})
 
+    def _get(self, path, q):
         if path in ("/", "/index.html"):
             self._static("/app.html", "text/html; charset=utf-8")
         elif path in STATIC:
@@ -129,13 +140,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         elif path == "/api/review/cards":
             self._json(200, {"cards": review.due_cards(
-                limit=int((q.get("limit") or ["20"])[0]),
+                limit=max(1, min(int((q.get("limit") or ["20"])[0]), 200)),
                 include_future="all" in q), **review.counts()})
         elif path == "/api/rag/stats":
             self._json(200, rag.stats())
         elif path == "/api/rag/search":            # 검색 단독 확인용 (디버깅·설명)
-            self._json(200, {"hits": rag.search((q.get("q") or [""])[0],
-                                                k=int((q.get("k") or ["6"])[0]))})
+            k = max(1, min(int((q.get("k") or ["6"])[0]), 20))
+            self._json(200, {"hits": rag.search((q.get("q") or [""])[0], k=k)})
         else:
             self.send_error(404)
 
@@ -148,7 +159,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         try:
             # /api/stt만 바이너리(오디오)라 JSON 파싱 대상이 아니다
-            req = {} if path == "/api/stt" else json.loads(body or b"{}")
+            try:
+                req = {} if path == "/api/stt" else json.loads(body or b"{}")
+            except json.JSONDecodeError as e:
+                self._json(400, {"error": f"JSON 형식이 아닙니다 — {e}"})
+                return
+            if not isinstance(req, dict):
+                self._json(400, {"error": "JSON 객체({...})가 필요합니다."})
+                return
 
             # 🎙 오디오 세그먼트 → 텍스트 (탭 오디오 캡처 경로)
             #   Web Speech는 MediaStream을 입력으로 받지 못한다. 그래서 탭 오디오는
@@ -171,15 +189,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
 
             if path == "/api/translate":
-                # 자막 번역은 지연이 곧 품질 → 빠른 모델 경로
+                # 자막 번역은 지연이 곧 품질 → 빠른 모델 경로.
+                # 빈 입력은 LLM까지 보내지 않는다(요금·지연 낭비, QA에서 확인).
+                # 발화 하나가 2,000자를 넘을 일은 없다 — 넘으면 자막 목적에 맞게 자른다.
+                text = (req.get("text") or "").strip()[:2000]
+                if not text:
+                    self._json(400, {"error": "번역할 텍스트가 없습니다."})
+                    return
                 _stream(self, [{"role": "system", "content": prompts.TRANSLATE_SYSTEM},
-                               {"role": "user", "content": req.get("text", "")}],
+                               {"role": "user", "content": text}],
                         0.3, 300, fast=True)
                 return
 
             if path == "/api/suggest":
+                said = str(req.get("said") or "").strip()[:1500]
+                if not said:
+                    self._json(400, {"error": "직전 발화(said)가 없습니다."})
+                    return
                 built = prompts.build_suggest(
-                    req.get("said", ""), req.get("context", ""),
+                    said, str(req.get("context") or "")[-3000:],
                     req.get("intent", "reply"), req.get("cefr", "B1"))
                 _stream(self, [{"role": "user", "content": built["prompt"]}], 0.4, 700,
                         meta={"sources": built["sources"],
@@ -218,7 +246,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
 
             if path == "/api/ingest/glossary":
-                items = ingest.chunks_from_glossary(req.get("entries") or [])
+                entries = req.get("entries") or []
+                if not isinstance(entries, list) or any(not isinstance(e, dict) for e in entries):
+                    self._json(400, {"error": "entries는 {term, ko, ...} 객체의 배열이어야 합니다."})
+                    return
+                items = ingest.chunks_from_glossary(entries)
                 self._json(200, {**rag.add_chunks(items), "chunks": len(items)})
                 return
 
@@ -274,7 +306,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
 
             if path == "/api/review/grade":
-                self._json(200, review.grade(int(req.get("id", 0)), bool(req.get("ok"))))
+                try:
+                    cid = int(req.get("id", 0))
+                except (TypeError, ValueError):
+                    self._json(400, {"error": "카드 id가 숫자가 아닙니다."})
+                    return
+                self._json(200, review.grade(cid, bool(req.get("ok"))))
                 return
 
             # Notion 쓰기는 명시적 확인이 있어야만 — 기본 OFF
