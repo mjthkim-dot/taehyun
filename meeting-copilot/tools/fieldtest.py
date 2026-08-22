@@ -523,7 +523,44 @@ def cmd_smoke(args) -> int:
     LAT_JSON.write_text(json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"\n  실측값 저장: {LAT_JSON.relative_to(ROOT)}")
     cmd_report(args)
+    _print_diag_block(results)
     return 1 if fails else 0
+
+
+def _print_diag_block(results: dict) -> None:
+    """기준 미달 시 그대로 복사해 Claude Code에 붙여넣을 진단 블록.
+    환경 정보를 자동 포함해 '어떤 환경이었나'를 되묻는 왕복을 없앤다."""
+    _backend()
+    import llm
+    try:
+        commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
+                                capture_output=True, text=True, timeout=5).stdout.strip()
+    except Exception:  # noqa: BLE001
+        commit = "?"
+    mac = ""
+    if IS_MAC:
+        try:
+            mac = subprocess.run(["sw_vers", "-productVersion"], capture_output=True,
+                                 text=True, timeout=5).stdout.strip()
+        except Exception:  # noqa: BLE001
+            pass
+    env = {
+        "os": f"{platform.system()} {mac or platform.release()} ({platform.machine()})",
+        "python": platform.python_version(),
+        "provider": llm.provider(),
+        "models": {"fast": llm.GEMINI_FAST_MODEL if llm.provider() == "gemini" else llm.model_name(),
+                   "main": llm.GEMINI_MODEL if llm.provider() == "gemini" else llm.model_name()},
+        "tier": llm.GEMINI_TIER if os.environ.get("GEMINI_API_KEY") else None,
+        "stt_local": llm.stt_local_available(),
+        "commit": commit,
+    }
+    print("\n" + "─" * 56)
+    print(f"{YLW}📋 결과가 기준에 못 미치면, 아래 블록을 그대로 복사해")
+    print(f"   Claude Code에 붙여넣으세요 — 진단에 필요한 정보가 다 들어 있습니다{RST}")
+    print("─" * 56)
+    print("```smoke-result")
+    print(json.dumps({"env": env, **results}, ensure_ascii=False, indent=1))
+    print("```")
 
 
 # ══════════════════════════════════════════════════════════════
