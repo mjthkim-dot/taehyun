@@ -51,6 +51,9 @@ _STOP = {
     "the", "a", "an", "and", "or", "but", "is", "are", "was", "were", "be", "been",
     "to", "of", "in", "on", "for", "with", "that", "this", "it", "as", "at", "by",
     "we", "you", "i", "they", "he", "she", "our", "your", "so", "do", "does", "did",
+    "me", "my", "us", "them", "him", "her", "his", "its", "mine", "yours",
+    # 의문사 — 의도를 나르지 않으면서 문서 절반과 겹쳐 매칭 폭 판정을 오염시킨다
+    "what", "when", "where", "which", "who", "whom", "whose", "how", "why",
     "have", "has", "had", "will", "would", "can", "could", "should", "about",
     "그리고", "그런데", "하지만", "이다", "있다", "없다", "합니다", "입니다", "해서", "하는",
 }
@@ -200,17 +203,27 @@ class Store:
         self._vec_cache = None
 
     # ── 검색 ──────────────────────────────────────────────────
-    def _bm25(self, query: str, k: int, k1: float = 1.2, b: float = 0.75) -> list[tuple[int, float]]:
-        """역색인 덕에 질의어를 포함한 청크만 점수 계산한다 (전체 스캔 없음)."""
+    def _bm25(self, query: str, k: int,
+              k1: float = 1.2, b: float = 0.75) -> list[tuple[int, float, int]]:
+        """역색인 덕에 질의어를 포함한 청크만 점수 계산한다 (전체 스캔 없음).
+
+        반환: (chunk_id, 점수, 매칭된 서로 다른 '어절' 질의어 수).
+        세 번째 값은 관련성 컷용이다 — 시드 밖 질문이 흔한 단어 하나로
+        무관 시드를 끌어오는 것을 생성 단계에서 걸러낸다 (한국어 2-gram은
+        보조 신호라 세지 않는다)."""
         qt = tokenize(query)
         if not qt:
             return []
+        # 어절 단위 질의어만 (2-gram 제외) — 매칭 폭 판정용
+        qwords = {t for t in dict.fromkeys(qt)
+                  if not ("가" <= t[0] <= "힣" and len(t) == 2)}
         with self.connect() as con:
             N, avgdl = con.execute(
                 "SELECT COUNT(*), COALESCE(AVG(n_tokens),1) FROM chunks").fetchone()
             if not N:
                 return []
             scores: dict[int, float] = {}
+            nmatch: dict[int, int] = {}
             for term in dict.fromkeys(qt):
                 # 문서 길이(n_tokens)를 JOIN으로 함께 가져온다. 청크마다 점 조회를
                 # 하면(N+1) 흔한 단어에서 검색 1회에 소형 쿼리 수천 번이 나가는데,
@@ -227,7 +240,10 @@ class Store:
                     dl = dl or 1
                     scores[cid] = scores.get(cid, 0.0) + idf * (tf * (k1 + 1)) / (
                         tf + k1 * (1 - b + b * dl / avgdl))
-        return sorted(scores.items(), key=lambda t: -t[1])[:k]
+                    if term in qwords:
+                        nmatch[cid] = nmatch.get(cid, 0) + 1
+        ranked = sorted(scores.items(), key=lambda t: -t[1])[:k]
+        return [(cid, sc, nmatch.get(cid, 0)) for cid, sc in ranked]
 
     def _load_vecs(self) -> dict:
         if self._vec_cache is not None:
@@ -274,7 +290,8 @@ class Store:
 
         RRF_K = 60
         fused: dict[int, float] = {}
-        for rank, (cid, _) in enumerate(kw):
+        match_terms = {cid: n for cid, _, n in kw}
+        for rank, (cid, _, _n) in enumerate(kw):
             fused[cid] = fused.get(cid, 0.0) + 1.0 / (RRF_K + rank + 1)
         for rank, (cid, _) in enumerate(vec):
             fused[cid] = fused.get(cid, 0.0) + 1.0 / (RRF_K + rank + 1)
@@ -288,7 +305,7 @@ class Store:
             rows = {r[0]: r for r in con.execute(
                 f"SELECT id,source,title,text,meta FROM chunks WHERE id IN ({ph})", ids)}
 
-        kwr = {c: i for i, (c, _) in enumerate(kw)}
+        kwr = {c: i for i, (c, _, _n) in enumerate(kw)}
         vcr = {c: i for i, (c, _) in enumerate(vec)}
         picked: list[dict] = []
         per: dict[str, int] = {}
@@ -307,6 +324,9 @@ class Store:
                 "title": r[2] or "", "text": r[3],
                 "meta": json.loads(r[4] or "{}"),
                 "score": round(score, 5),
+                # 관련성 신호: 매칭된 어절 질의어 수. 의미(벡터) 히트는 키워드가
+                # 없어도 정당하므로 컷 판정에서 via를 함께 본다
+                "match_terms": match_terms.get(cid, 0),
                 "via": ("키워드+의미" if cid in kwr and cid in vcr
                         else "의미" if cid in vcr else "키워드"),
             })

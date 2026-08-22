@@ -158,7 +158,7 @@
   "ko": "단계별 도입 계획",
   "note": "전사 확대 일정",
   "say": "Here's a phased rollout plan so nothing breaks on day one.",
-  "triggers": "how do we deploy timeline phases go live schedule expand"
+  "triggers": "how do we deploy timeline phases go live schedule expand roll out migration rollout how would this roll"
  },
  {
   "term": "cutover",

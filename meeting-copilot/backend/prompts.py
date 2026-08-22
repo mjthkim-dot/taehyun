@@ -28,8 +28,38 @@ INTENTS = {
     "counterq": "Ask the interviewer ONE thoughtful question back (team structure, onboarding, or success criteria).",
 }
 
-# 검색 결과가 이보다 빈약하면 RAG를 건너뛴다 — 지연을 줄이는 게 낫다
-RAG_MIN_HITS = 2
+# 관련성 컷 — 시드 밖 질문(out-of-corpus) 대응의 핵심.
+# BM25는 흔한 단어 하나만 겹쳐도 top-3을 채우므로, "매칭된 어절 질의어 수(match_terms)
+# ≥ 2" 또는 의미(벡터) 히트만 '자료'로 인정한다. 컷을 통과한 게 하나도 없으면
+# 자료 없이 프로필 기반으로 생성한다 — 무관 시드를 억지로 인용하는 것보다 낫다.
+RAG_MIN_MATCH_TERMS = 2
+
+
+def _strong_hits(hits: list[dict]) -> list[dict]:
+    return [h for h in hits
+            if h.get("match_terms", 0) >= RAG_MIN_MATCH_TERMS or "의미" in h.get("via", "")]
+
+
+# 시드가 전혀 없는 질문(취미·실패담·이직 사유 등)에도 "말할 수 있는 답"이 나오게
+# 하는 고정 프로필. '자료' 탭에 "# 내 프로필" 제목으로 노트를 넣으면 그것이 우선한다.
+DEFAULT_PROFILE = """- B2B enterprise sales hunter at a Korean cloud MSP (AWS partner), 8+ years in tech sales
+- Focus: new business — cold outreach, discovery, building champions, first deals from zero
+- Sells cloud migration / FinOps / managed services to enterprise accounts
+- Strengths: pipeline creation, multi-stakeholder deals, Korean enterprise buying culture
+- English: improving fast; takes weekly 1:1 lessons; prepares and confirms key points in writing"""
+
+
+def _profile(store) -> str:
+    try:
+        with store.connect() as con:
+            row = con.execute(
+                "SELECT text FROM chunks WHERE source='note' AND title LIKE '%내 프로필%' "
+                "ORDER BY id DESC LIMIT 1").fetchone()
+        if row and len(row[0].strip()) > 30:
+            return row[0].split("[검색어]")[0].strip()
+    except Exception:  # noqa: BLE001
+        pass
+    return DEFAULT_PROFILE
 
 _PLACEHOLDER = re.compile(r"\[[^\]\n]{1,30}\]")
 
@@ -92,28 +122,29 @@ def build_suggest(said: str, context: str = "", intent: str = "reply",
     # 맥락은 프롬프트에는 그대로 남겨 어조를 잡는 데만 쓴다.
     query = said if intent == "translate" else (
         "\n".join(ctx_lines) + "\n" + said)
-    hits = (store or rag.default_store()).search(query.strip()[-800:], k=k)
-    if len(hits) < RAG_MIN_HITS:
-        hits = []                                   # 폴백: 근거 없이 빠르게
+    st = store or rag.default_store()
+    hits = _strong_hits(st.search(query.strip()[-800:], k=k))   # 관련성 컷
 
     phrases = _learned_phrases(hits)
     labels = [f"{h['source_label']}: {h['title']}" for h in hits]
     has_ph = any(_PLACEHOLDER.search(h["text"])
                  for h in hits if h["source"] in ("note", "glossary"))
 
+    profile = _profile(st)
     if hits:
         material = "\n\n".join(
             f"[{h['source_label']} · {h['title']}]\n{h['text'][:500]}" for h in hits)
         material_block = f"""
-THEIR OWN MATERIAL (retrieved from their English class notes, past meetings and
-domain glossary — this is the point: make them sound like themselves):
+THEIR OWN MATERIAL (retrieved from their notes and glossary):
 \"\"\"{material}\"\"\"
 
-Use it: if a class note gives a phrase for this exact situation, USE that phrase
-verbatim or nearly so. If the glossary has the precise term, use it.
+Use it ONLY where it genuinely fits the question: if a line matches this exact
+situation, use its phrasing verbatim or nearly so. If a line is only loosely
+related, IGNORE it — never force an irrelevant quote into the answer.
 """
     else:
-        material_block = "\n(No personal material matched — keep it safe and generic.)\n"
+        material_block = ("\n(No personal material matched this question — "
+                          "answer naturally from the CANDIDATE PROFILE above.)\n")
 
     goal = INTENTS.get(intent, INTENTS["reply"])
     ctx = (f"\nRecent meeting context:\n\"\"\"{chr(10).join(ctx_lines)}\"\"\"\n"
@@ -142,9 +173,14 @@ verbatim or nearly so. If the glossary has the precise term, use it.
 
 Their goal right now: {goal}
 Their spoken English level: CEFR {cefr}.
+
+CANDIDATE PROFILE (ground truth about them — always available):
+\"\"\"{profile}\"\"\"
 {material_block}
-TRUTHFULNESS: use only numbers, names and commitments that appear in the material.
-Never invent a figure or a promise.
+TRUTHFULNESS: use only facts from the profile and material. Never invent a
+specific figure, client name, or commitment that is not there.
+NEVER dodge: no "I'm not sure", no "I don't know how to answer" — always give
+a speakable, confident answer grounded in the profile.
 
 Respond in EXACTLY this format (plain text, no markdown), nothing else:
 EN: <option 1 — MAXIMUM 15 words>
