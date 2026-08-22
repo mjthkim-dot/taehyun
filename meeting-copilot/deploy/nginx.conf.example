@@ -1,0 +1,17 @@
+# nginx를 쓰는 경우의 핵심 설정 (server 블록 안에 넣을 것)
+# TLS 인증서는 certbot 등으로 별도 구성. Caddy가 더 간단하다 — deploy/Caddyfile 참조.
+
+location / {
+    proxy_pass http://127.0.0.1:3799;
+    proxy_http_version 1.1;                  # keep-alive 유지 — 호출당 핸드셰이크 제거
+
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $remote_addr;   # 앱: TRUST_PROXY=1 필요
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # ★ 토큰 스트리밍(NDJSON)의 생명 — 기본값(on)이면 스트림이 통째 배달로 변한다
+    proxy_buffering off;
+    proxy_read_timeout 120s;
+
+    client_max_body_size 8m;                 # 앱의 MAX_BODY와 맞춘다
+}

@@ -17,6 +17,19 @@ bash meeting-copilot/start.sh
 # → http://localhost:3799/app.html
 ```
 
+### 세 가지 배포 모드 (같은 코드, 다른 설정)
+
+| 모드 | 인증 | 언제 |
+|---|---|---|
+| 로컬 개인 | 없음 | 내 노트북에서 (기본) |
+| 개인용 웹 | 로그인 | 폰·회사 PC 어디서든 — TLS 프록시 뒤에서 |
+| 다중 사용자 | 사용자별 계정 + **물리적으로 분리된 데이터** + LLM 쿼터 | 지인·팀 |
+
+인증은 사용자를 만드는 순간 켜진다(`python3 manage.py adduser 이름 --admin`).
+사용자가 없는 상태로 외부 인터페이스에 바인딩하면 **서버가 기동을 거부한다** —
+무인증 공개 실수를 막기 위해서다. 웹 배포 절차·운영·백업은
+[../docs/DEPLOY.md](../docs/DEPLOY.md).
+
 키가 막히거나 없으면 `Cerebras → Groq → Gemini → Ollama` 순으로 자동 전환된다
 (`export CEREBRAS_API_KEY=csk-...` 등을 함께 넣어두면 보험이 된다).
 

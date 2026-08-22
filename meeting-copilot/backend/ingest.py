@@ -164,24 +164,25 @@ def load_seed_glossary() -> list[dict]:
     return chunks_from_glossary(json.loads(path.read_text(encoding="utf-8")))
 
 
-def ensure_seeded() -> dict:
+def ensure_seeded(store: rag.Store | None = None) -> dict:
     """시드 용어집 중 아직 색인에 없는 것만 넣는다.
 
     "비어 있을 때만"으로 하면 시드가 20개→70개로 늘어도 기존 사용자는 영영
     20개에 머문다. uid(`gl:{term}`)가 유일키라 이미 있는 항목을 다시 넣어도
     중복되지 않지만, 매 기동마다 70개를 재임베딩하는 건 낭비라 차집합만 넣는다."""
+    store = store or rag.default_store()
     items = load_seed_glossary()
     if not items:
-        return {"seeded": 0, **rag.stats()}
-    with rag.connect() as con:
+        return {"seeded": 0, **store.stats()}
+    with store.connect() as con:
         have = {r[0] for r in con.execute(
             "SELECT uid FROM chunks WHERE source='glossary'")}
     todo = [c for c in items if c["uid"] not in have]
     # embed=False: 기동 시에는 네트워크를 타지 않는다. 임베딩 채우기는 사용자가
     # '동기화'를 눌렀을 때만 — "자동 백그라운드 색인 금지" 원칙(docs/PLAN.md A16).
     # 임베딩이 없어도 키워드 경로로 검색은 동작한다(설계 원칙).
-    r = rag.add_chunks(todo, embed=False) if todo else {"added": 0}
-    return {"seeded": r.get("added", 0), **rag.stats()}
+    r = store.add_chunks(todo, embed=False) if todo else {"added": 0}
+    return {"seeded": r.get("added", 0), **store.stats()}
 
 
 # ── 4. 용어집 자동 성장 (P1) ─────────────────────────────────
@@ -232,12 +233,14 @@ def _ngrams(tokens: list[str], n: int):
         yield " ".join(tokens[i:i + n])
 
 
-def glossary_candidates(min_count: int = 3, limit: int = 40) -> list[dict]:
+def glossary_candidates(store: rag.Store | None = None,
+                        min_count: int = 3, limit: int = 40) -> list[dict]:
     """트랜스크립트에서 반복 등장하는 2~3어절 도메인 표현을 뽑는다.
     자동 승격하지 않는다 — 틀린 용어가 들어가면 제안 문장이 통째로 틀어지므로
     사용자가 승인한 것만 용어집이 된다.
     limit은 넉넉히 둔다 — 여기서 자르면 LLM 판별 단계가 볼 기회조차 없어진다."""
-    with rag.connect() as con:
+    store = store or rag.default_store()
+    with store.connect() as con:
         texts = [r[0] for r in con.execute(
             "SELECT text FROM chunks WHERE source='transcript'")]
         known = {r[0].lower() for r in con.execute(

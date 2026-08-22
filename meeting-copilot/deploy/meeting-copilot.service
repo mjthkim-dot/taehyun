@@ -1,0 +1,42 @@
+# systemd 유닛 — /etc/systemd/system/meeting-copilot.service 로 복사
+#
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now meeting-copilot
+#
+# 사용자 추가(최초 1회, 인증이 켜지는 순간):
+#   cd /opt/meeting-copilot && MC_DATA_DIR=/var/lib/meeting-copilot python3 manage.py adduser 태현 --admin
+
+[Unit]
+Description=실시간 영어 미팅 어시스턴트
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 코드는 /opt, 개인 데이터는 /var/lib — 코드 업데이트가 데이터를 건드리지 않게
+WorkingDirectory=/opt/meeting-copilot
+Environment=MC_DATA_DIR=/var/lib/meeting-copilot
+Environment=HOST=127.0.0.1
+Environment=PORT=3799
+Environment=TRUST_PROXY=1
+Environment=NO_BROWSER=1
+# LLM 키는 유닛 파일에 두지 않는다 — 별도 파일(0600)로
+EnvironmentFile=/etc/meeting-copilot.env
+ExecStart=/usr/bin/python3 /opt/meeting-copilot/server.py
+Restart=on-failure
+RestartSec=3
+# SIGTERM → 서버가 진행 중인 응답을 마치고 내려간다 (server.py의 시그널 핸들러)
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+# 강화 — 서버가 뚫려도 시스템으로 번지지 않게
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/meeting-copilot
+PrivateTmp=true
+DynamicUser=true
+StateDirectory=meeting-copilot
+
+[Install]
+WantedBy=multi-user.target

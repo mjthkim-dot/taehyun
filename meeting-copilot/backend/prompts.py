@@ -72,7 +72,8 @@ def _learned_phrases(hits: list[dict], limit: int = 10) -> list[str]:
 
 
 def build_suggest(said: str, context: str = "", intent: str = "reply",
-                  cefr: str = "B1", k: int = 3) -> dict:
+                  cefr: str = "B1", k: int = 3,
+                  store: rag.Store | None = None) -> dict:
     """4버튼/퀵번역 공통 파이프라인.
 
       1) [직전 상대 발화 + 맥락 5문장]으로 벡터 스토어 검색 (top 3)
@@ -86,7 +87,7 @@ def build_suggest(said: str, context: str = "", intent: str = "reply",
     # 맥락은 프롬프트에는 그대로 남겨 어조를 잡는 데만 쓴다.
     query = said if intent == "translate" else (
         "\n".join(ctx_lines) + "\n" + said)
-    hits = rag.search(query.strip()[-800:], k=k)
+    hits = (store or rag.default_store()).search(query.strip()[-800:], k=k)
     if len(hits) < RAG_MIN_HITS:
         hits = []                                   # 폴백: 근거 없이 빠르게
 

@@ -91,6 +91,21 @@
     font-family:inherit;background:var(--panel);color:var(--sub);border:1px solid var(--line)}
   .card-rev .grade button.ok{color:var(--accent);border-color:var(--accent-deep)}
 
+  /* 로그인 오버레이 — 인증이 켜진 서버(웹 배포)에서만 보인다 */
+  #login{position:fixed;inset:0;background:rgba(10,13,18,.92);backdrop-filter:blur(4px);
+    display:none;align-items:center;justify-content:center;z-index:50}
+  #login.on{display:flex}
+  #login .box{width:min(320px,88vw);background:var(--panel2);border:1px solid var(--line);
+    border-radius:16px;padding:22px}
+  #login h2{font-size:15px;margin-bottom:4px}
+  #login p{font-size:11.5px;color:var(--sub);margin-bottom:14px;line-height:1.5}
+  #login input{width:100%;margin-bottom:8px;padding:10px 12px;border-radius:10px;font-size:13px}
+  #login button{width:100%;margin-top:4px;padding:10px;border:none;border-radius:10px;
+    background:var(--accent);color:#0B1410;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
+  #login .err{color:var(--danger);font-size:11.5px;margin-top:8px;min-height:15px}
+  #who{display:none;background:none;border:none;color:var(--sub);font-size:11px;
+    cursor:pointer;font-family:inherit;padding:2px 6px}
+
   /* ── 제안 카드 (하단 시트) ── */
   /* 제안 카드는 하단 컨트롤(퀵 액션·입력)을 덮지 않는다 —
      제안이 뜬 직후에 '반박으로 다시'를 누르는 흐름이 가장 잦기 때문이다. */
@@ -163,7 +178,19 @@
     <option value="tab">🖥 탭 오디오(설정 불필요)</option>
   </select>
   <select id="cefr" title="내 영어 레벨"><option>A2</option><option selected>B1</option><option>B2</option><option>C1</option></select>
+  <button id="who" title="로그아웃"></button>
 </header>
+
+<div id="login">
+  <div class="box">
+    <h2>🗣 미팅 어시스턴트</h2>
+    <p>개인 자료(수업 노트·미팅 기록)가 있는 서버입니다.<br>이름과 접속 코드로 로그인하세요.</p>
+    <input type="text" id="lg-name" placeholder="이름" autocomplete="username">
+    <input type="password" id="lg-code" placeholder="접속 코드" autocomplete="current-password">
+    <button id="lg-go">로그인</button>
+    <div class="err" id="lg-err"></div>
+  </div>
+</div>
 
 <div class="status" id="status">
   <span class="dot"></span>
@@ -328,12 +355,55 @@ function wantsReply(t){
 // 외부 유래 텍스트(서버 오류·LLM 산출·검색 제목)를 innerHTML에 넣을 땐 반드시 이걸 통과
 function esc(t){ return (t||'').replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 
+// ── 인증 (웹 배포에서 서버가 요구할 때만 나타난다) ──
+let authOn = false, meUser = null;
+function showLogin(){ $('#login').classList.add('on'); $('#lg-name').focus(); }
+function hideLogin(){ $('#login').classList.remove('on'); }
+function paintWho(){
+  const w = $('#who');
+  if(meUser){ w.style.display='inline-block'; w.textContent = `👤 ${meUser.name}`; }
+  else w.style.display='none';
+}
+async function checkAuth(){
+  try{
+    const d = await (await fetch('/api/me')).json();
+    authOn = !!d.auth_enabled; meUser = d.user || null;
+    paintWho();
+    if(authOn && !meUser){ showLogin(); return false; }
+    return true;
+  }catch{ return true; }   // 서버가 안 뜬 경우 — 기존 오류 표면화에 맡긴다
+}
+$('#lg-go').onclick = async ()=>{
+  $('#lg-err').textContent = '';
+  try{
+    const r = await postJSON('/api/login', {name:$('#lg-name').value.trim(), code:$('#lg-code').value});
+    meUser = r.user; hideLogin(); paintWho();
+    $('#lg-code').value = '';
+    bootData();                       // 로그인 후 내 자료·복습 상태를 다시 읽는다
+  }catch(e){ $('#lg-err').textContent = e.message; }
+};
+$('#lg-code').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#lg-go').click(); });
+$('#who').onclick = async ()=>{
+  if(!confirm(`${meUser?.name} 로그아웃할까요?`)) return;
+  try{ await postJSON('/api/logout', {}); }catch{}
+  meUser = null; paintWho(); showLogin();
+};
+// 세션 만료·미로그인 401은 어디서 나오든 로그인 화면으로
+function authIntercept(status){
+  if(status === 401){ meUser = null; paintWho(); showLogin(); return true; }
+  return false;
+}
+
 // 서버 오류를 삼키지 않는다 — 실패 원인이 화면에 보여야 고칠 수 있다
 async function postJSON(url, payload){
   const res = await fetch(url, {method:'POST',
     headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
   const data = await res.json().catch(()=>({}));
-  if(!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  if(!res.ok){
+    // 로그인 요청 자체의 401은 '오답'이지 '세션 만료'가 아니다 — 사유를 그대로 보여준다
+    if(url !== '/api/login' && authIntercept(res.status)) throw new Error('로그인이 필요합니다');
+    throw new Error(data.error || `HTTP ${res.status}`);
+  }
   return data;
 }
 
@@ -346,7 +416,11 @@ async function streamChat(url, payload, onToken, signal, onMeta){
     if(e.name === 'AbortError') throw e;
     throw new Error('서버에 연결할 수 없어요 — start.sh가 실행 중인지 확인하세요');
   }
-  if(!res.ok){ const d = await res.json().catch(()=>({})); throw new Error(d.error || `HTTP ${res.status}`); }
+  if(!res.ok){
+    const d = await res.json().catch(()=>({}));
+    if(authIntercept(res.status)) throw new Error('로그인이 필요합니다');
+    throw new Error(d.error || `HTTP ${res.status}`);
+  }
   const rd = res.body.getReader(), dec = new TextDecoder();
   let buf = '';
   for(;;){
@@ -1161,7 +1235,9 @@ $('#rev-save').onclick = async ()=>{
 };
 
 // ── 초기화 ──
-(async ()=>{
+// 로그인 전에는 개인 데이터(rag·복습)를 읽을 수 없으므로,
+// 인증 확인 → 로그인 완료 시점에 bootData()를 다시 부른다.
+async function bootData(){
   try{
     const h = await (await fetch('/health')).json();
     const ls = Array.isArray(h.llm) ? h.llm : [];
@@ -1172,8 +1248,11 @@ $('#rev-save').onclick = async ()=>{
     }
     if(h.rag){ ragStat = h.rag; $('#status-rag').textContent = `📚 ${h.rag.total}`; }
   }catch{}
-  try{ paintRevBadge(await (await fetch('/api/review/cards')).json()); }catch{}
-})();
+  if(!authOn || meUser){
+    try{ paintRevBadge(await (await fetch('/api/review/cards')).json()); }catch{}
+  }
+}
+(async ()=>{ await checkAuth(); await bootData(); })();
 // 하단 컨트롤 높이를 재서 카드 위치를 맞춘다 (버튼 줄바꿈에 따라 달라짐)
 function fitCard(){
   const h = ($('.actions')?.offsetHeight || 0) + ($('.quickbar')?.offsetHeight || 0) + 8;

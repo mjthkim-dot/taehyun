@@ -26,18 +26,8 @@ import rag
 INTERVALS_DAYS = [1, 3, 7]
 DAY = 86400
 
-
-def _connect():
-    con = rag.connect()
-    con.executescript("""
-      CREATE TABLE IF NOT EXISTS cards(
-        id INTEGER PRIMARY KEY, en TEXT NOT NULL, ko TEXT, note TEXT,
-        meeting TEXT, created_at INTEGER, stage INTEGER DEFAULT 0,
-        due_at INTEGER, reviews INTEGER DEFAULT 0, lapses INTEGER DEFAULT 0,
-        uid TEXT UNIQUE);
-      CREATE INDEX IF NOT EXISTS ix_cards_due ON cards(due_at);
-    """)
-    return con
+# 카드는 사용자의 store.db에 함께 산다 (스키마는 rag.Store.connect가 만든다).
+# 모든 함수가 store를 첫 인자로 받는다 — 웹 다중 사용자에서 카드가 섞이지 않게.
 
 
 # ── 1. 추출 ───────────────────────────────────────────────────
@@ -102,12 +92,12 @@ def _parse(raw: str) -> dict:
 
 
 # ── 2. SRS ────────────────────────────────────────────────────
-def add_cards(expressions: list[dict], meeting: str = "미팅") -> dict:
+def add_cards(store: rag.Store, expressions: list[dict], meeting: str = "미팅") -> dict:
     """복습 카드를 저장한다. 첫 복습은 내일(1일 뒤).
     같은 표현을 다시 넣어도 uid로 합쳐지고, 진행 중인 일정은 건드리지 않는다."""
     now = int(time.time())
     added = 0
-    with _connect() as con:
+    with store.connect() as con:
         for e in expressions:
             en = (e.get("en") or "").strip()
             if len(en) < 3:
@@ -121,25 +111,25 @@ def add_cards(expressions: list[dict], meeting: str = "미팅") -> dict:
                  meeting, now, now + INTERVALS_DAYS[0] * DAY, uid))
             cur.fetchone()
             added += 1
-    return {"added": added, **counts()}
+    return {"added": added, **counts(store)}
 
 
-def due_cards(limit: int = 20, include_future: bool = False) -> list[dict]:
+def due_cards(store: rag.Store, limit: int = 20, include_future: bool = False) -> list[dict]:
     now = int(time.time())
     sql = ("SELECT id,en,ko,note,meeting,stage,due_at,reviews FROM cards "
            + ("" if include_future else "WHERE due_at<=? AND stage<? ")
            + "ORDER BY due_at ASC LIMIT ?")
     args = (limit,) if include_future else (now, len(INTERVALS_DAYS), limit)
-    with _connect() as con:
+    with store.connect() as con:
         rows = con.execute(sql, args).fetchall()
     return [{"id": r[0], "en": r[1], "ko": r[2], "note": r[3], "meeting": r[4],
              "stage": r[5], "due_at": r[6], "reviews": r[7]} for r in rows]
 
 
-def grade(card_id: int, ok: bool) -> dict:
+def grade(store: rag.Store, card_id: int, ok: bool) -> dict:
     """맞히면 다음 간격으로, 틀리면 1일 뒤로 되돌린다."""
     now = int(time.time())
-    with _connect() as con:
+    with store.connect() as con:
         row = con.execute("SELECT stage FROM cards WHERE id=?", (card_id,)).fetchone()
         if not row:
             return {"error": "카드를 찾을 수 없습니다."}
@@ -149,12 +139,12 @@ def grade(card_id: int, ok: bool) -> dict:
             "UPDATE cards SET stage=?, due_at=?, reviews=reviews+1, lapses=lapses+? "
             "WHERE id=?",
             (stage, now + INTERVALS_DAYS[idx] * DAY, 0 if ok else 1, card_id))
-    return {"id": card_id, "stage": stage, **counts()}
+    return {"id": card_id, "stage": stage, **counts(store)}
 
 
-def counts() -> dict:
+def counts(store: rag.Store) -> dict:
     now = int(time.time())
-    with _connect() as con:
+    with store.connect() as con:
         total = con.execute("SELECT COUNT(*) FROM cards").fetchone()[0]
         due = con.execute("SELECT COUNT(*) FROM cards WHERE due_at<=? AND stage<?",
                           (now, len(INTERVALS_DAYS))).fetchone()[0]
