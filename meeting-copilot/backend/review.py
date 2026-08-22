@@ -50,7 +50,8 @@ Produce review material for them. Reply with ONLY a JSON object:
       "ko": "<한국어 뜻>",
       "why": "<왜 어려웠는지 한국어 한 줄 — 빠른 축약/관용구/숫자/전문용어 등>"}}
   ],
-  "questions": ["<다음 미팅에서 물어볼 질문 (English), max 15 words>"]
+  "questions": ["<다음 미팅에서 물어볼 질문 (English), max 15 words>"],
+  "lesson_questions": ["<영어 선생님(진옥 선생님)과의 다음 수업에서 물어볼 것 — 한국어 문장에 해당 영어 표현을 그대로 인용>"]
 }}
 
 Rules:
@@ -59,6 +60,11 @@ Rules:
   phrases the user struggled to produce.
 - missed: 2~5 items. Quote the transcript verbatim. If nothing was hard, return [].
 - questions: 3~5 items, concrete and answerable, tied to open points in this meeting.
+- lesson_questions: 2~4 items IN KOREAN, for their English tutor. Ground each one in
+  this transcript: an idiom they likely missed ("'circle back'을 실제 회의 속도로
+  들으면 놓치는데, 비슷한 표현이 또 뭐가 있나요?"), or a sentence they struggled
+  to produce ("반론을 부드럽게 시작하는 문장을 연습하고 싶어요 — 이번에 'Honestly...'
+  뒤에서 막혔어요"). Quote the exact English from the transcript inside the Korean.
 - Never invent content that is not grounded in the transcript."""
 
 
@@ -75,7 +81,11 @@ def build(lines: list[str], meeting: str = "미팅") -> dict:
     return {"meeting": meeting,
             "expressions": exps,
             "missed": [m for m in data.get("missed", []) if (m.get("quote") or "").strip()][:5],
-            "questions": [q for q in data.get("questions", []) if str(q).strip()][:5]}
+            "questions": [q for q in data.get("questions", []) if str(q).strip()][:5],
+            # 수업에 가져갈 질문 — 이 앱의 학습 루프를 닫는 조각: 미팅에서 막힌 것이
+            # 다음 수업의 커리큘럼이 된다
+            "lesson_questions": [q for q in data.get("lesson_questions", [])
+                                 if str(q).strip()][:4]}
 
 
 def _parse(raw: str) -> dict:
@@ -167,6 +177,9 @@ def to_markdown(rev: dict) -> str:
             out.append(f"- \"{m.get('quote','')}\" — {m.get('ko','')}"
                        + (f"  _{m.get('why','')}_" if m.get("why") else ""))
     if rev.get("questions"):
-        out += ["", "## ❓ 다음에 물어볼 질문"]
+        out += ["", "## ❓ 다음 미팅에서 물어볼 질문"]
         out += [f"- {q}" for q in rev["questions"]]
+    if rev.get("lesson_questions"):
+        out += ["", "## 🎓 진옥 선생님께 물어볼 것"]
+        out += [f"- {q}" for q in rev["lesson_questions"]]
     return "\n".join(out)

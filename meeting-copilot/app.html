@@ -288,8 +288,8 @@
 
   <div class="view hidden pad" id="view-rev">
     <h3>🧠 복습 (1일 · 3일 · 7일)</h3>
-    <p>미팅을 ⏹ 로 끝내면 <b>표현 10개 · 놓쳤을 구간 · 다음에 물어볼 질문</b>을 뽑아 카드로 만듭니다.
-       카드는 1일 → 3일 → 7일 간격으로 다시 나타나고, 세 번 맞히면 졸업합니다.</p>
+    <p>미팅을 ⏹ 로 끝내면 <b>표현 10개 · 놓쳤을 구간 · 미팅 후속 질문 · 수업에 가져갈 질문</b>을
+       뽑아 정리합니다. 표현은 1일 → 3일 → 7일 간격의 복습 카드가 되고, 세 번 맞히면 졸업합니다.</p>
     <div class="stat" id="rev-stat"></div>
     <button class="go ghost" id="rev-refresh">오늘 볼 카드 불러오기</button>
     <div id="rev-list" style="margin-top:10px"></div>
@@ -1207,8 +1207,12 @@ function paintReview(rev){
     p.push(rev.missed.map(m=>`· "${esc(m.quote)}" — ${esc(m.ko)}`).join('<br>'));
   }
   if(rev.questions?.length){
-    p.push('<b style="display:block;margin-top:8px">❓ 다음에 물어볼 질문</b>');
+    p.push('<b style="display:block;margin-top:8px">❓ 다음 미팅에서 물어볼 질문</b>');
     p.push(rev.questions.map(q=>`· ${esc(q)}`).join('<br>'));
+  }
+  if(rev.lesson_questions?.length){
+    p.push('<b style="display:block;margin-top:8px">🎓 진옥 선생님께 물어볼 것</b>');
+    p.push(rev.lesson_questions.map(q=>`· ${esc(q)}`).join('<br>'));
   }
   $('#rev-doc').innerHTML = p.length ? p.join('<br>')
     : '아직 만들어진 복습 자료가 없습니다.';
