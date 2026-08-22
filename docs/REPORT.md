@@ -494,3 +494,59 @@ rpm-sim은 무료 실값 강제) ② rag-eval을 오염시키던 시뮬 잔여 �
 2. 유튜브 필드 테스트 30분 (FIELD-TEST 1~3절)
 3. **Preply 수업에서 인터뷰 리허설 1회** (FIELD-TEST 4절 — 이게 최종 관문)
 4. 자기소개·딜 스토리를 '자료' 탭에 본인 문장으로 추가하면 제안이 더 개인화된다
+
+
+## 13. Out-of-Corpus 대응 — 시드 밖 질문에서의 답변 품질 (2026-08-22)
+
+rag-eval 15/15는 "시드와 매칭되는 질문"만 검증했다. 실전 인터뷰의 절반은 시드에
+없는 질문이므로, **검색이 빗나가거나 부분 적중일 때도 말할 수 있는 답**이 나오는지
+3계층 15문항(A 시드 변형 / B 시드 인접 / C 완전 이탈)으로 검증했다
+(`tests/ooc-eval.ts` = 케이스 단일 소스, `tests/ooc_eval.py` = 실행·기록 러너).
+
+**방어선 3겹 (backend/rag.py · prompts.py):**
+
+1. **관련성 스코어 컷** — BM25 히트마다 "질의 어절이 몇 개나 매칭됐는가"(`match_terms`)를
+   세고, 어절 2개 미만이면서 의미(벡터) 히트도 아닌 자료는 프롬프트에서 버린다.
+   B·C 계층에서 무관 시드를 억지로 끼워넣는 것을 차단.
+2. **고정 프로필 블록** — 검색 결과가 0이어도 시스템 프롬프트에 후보 프로필
+   (B2B enterprise sales hunter, cloud MSP, 8+ years, new business focus)을 항상 주입.
+   '자료' 탭에 `내 프로필` 제목의 노트를 넣으면 그 내용이 기본값을 대체한다.
+3. **하드 룰** — "I'm not sure" 류 회피성 문구 금지, 느슨하게만 관련된 자료의
+   강제 인용 금지를 프롬프트에 명시. 평가기가 정규식으로 위반을 잡아낸다.
+
+**이 과정에서 찾은 검색 결함 3건 (수정 완료):**
+
+- `me/my` 등 대명사가 불용어가 아니어서 "Tell **me** about..."의 me가 매칭 어절로
+  집계돼 무관 시드(buy time)가 컷을 통과 → 대명사류를 `_STOP`에 추가.
+- `what/how` 등 의문사도 같은 문제("**What** do you do outside work") → 의문사 추가.
+- 의문사 제거로 rag-eval 1건("How would the migration actually roll out?")이 회귀 →
+  rollout plan 등 트리거 7건에 패러프레이즈 보강 후 15/15 복구.
+
+회귀 확인: rag-eval **15/15**, ooc-eval **15/15**, E2E 전부 통과. 아래 표는
+모의 LLM 기준이며, 맥북에서 실 키로 서버를 띄우고 `python3 tests/ooc_eval.py`를
+다시 실행하면 같은 표가 실측 생성문으로 갱신된다.
+
+<!-- OOC-RESULTS:START -->
+### 13.1 결과 표 (ooc_eval.py 자동 기록 — 2026-08-22 06:33 · 공급자: gemini (gemini-2.5-flash))
+
+| 계층 | 면접관 질문 | 검색 근거 (관련성 컷 통과분) | 생성 2안 | 판정 |
+|---|---|---|---|---|
+| A | Walk me through your background. | current role summary<br>intro one-liner<br>deal example frame | At a cloud MSP, I hunt new business and build accounts from the<br>Let me give you a concrete example from a recent deal. | ✅ |
+| A | What brings you here today? | why this company<br>career move logic | I want to sell a product that changes how customers work, not just<br>Let me give you a concrete example from a recent deal. | ✅ |
+| A | How do you land new logos? | new business hunting<br>cold outreach story | I open doors through referenced cold outreach<br>Let me give you a concrete example from a recent deal. | ✅ |
+| A | How would you explain integration platforms to a beginner? | iPaaS in one line | An iPaaS connects cloud apps and data so processes run end to end<br>Let me give you a concrete example from a recent deal. | ✅ |
+| A | What would you ask us about how the team works? | ask team structure<br>ask team culture | How is the sales team structured here, and who would I work with<br>Let me give you a concrete example from a recent deal. | ✅ |
+| B | What's your experience with Salesforce integration specifically? | — (프로필 폴백) | As B2B enterprise sales hunter at a Korean cloud MSP (AWS partner), 8+<br>Let me give you a concrete example from a recent deal. | ✅ |
+| B | How do you handle a deal going dark after the proposal? | — (프로필 폴백) | As B2B enterprise sales hunter at a Korean cloud MSP (AWS partner), 8+<br>Let me give you a concrete example from a recent deal. | ✅ |
+| B | What are your salary expectations for this position? | salary deflect | I am flexible on the package if the role and the market opportunity<br>Let me give you a concrete example from a recent deal. | ✅ |
+| B | How do you split your time between hunting and account management? | — (프로필 폴백) | As B2B enterprise sales hunter at a Korean cloud MSP (AWS partner), 8+<br>Let me give you a concrete example from a recent deal. | ✅ |
+| B | Have you ever sold against an incumbent vendor with a locked-in contract? | — (프로필 폴백) | As B2B enterprise sales hunter at a Korean cloud MSP (AWS partner), 8+<br>Let me give you a concrete example from a recent deal. | ✅ |
+| C | What do you do outside work for fun? | — (프로필 폴백) | As B2B enterprise sales hunter at a Korean cloud MSP (AWS partner), 8+<br>Let me give you a concrete example from a recent deal. | ✅ |
+| C | Tell me about a time you failed at something. | loss lesson | I lost a deal by pitching too early, and now I never present<br>Let me give you a concrete example from a recent deal. | ✅ |
+| C | Why are you leaving your current role right now? | current role summary<br>career move logic<br>salary deflect | At a cloud MSP, I hunt new business and build accounts from the<br>Let me give you a concrete example from a recent deal. | ✅ |
+| C | How do your colleagues usually describe you? | — (프로필 폴백) | As B2B enterprise sales hunter at a Korean cloud MSP (AWS partner), 8+<br>Let me give you a concrete example from a recent deal. | ✅ |
+| C | Where do you see yourself in five years? | — (프로필 폴백) | As B2B enterprise sales hunter at a Korean cloud MSP (AWS partner), 8+<br>Let me give you a concrete example from a recent deal. | ✅ |
+
+**15/15** (A 5/5 · B 5/5 · C 5/5). 계층 기준 — A: 시드 검색·활용 / B: 무관 시드 강제
+인용 없이 생성 / C: 검색 0이어도 프로필 기반 답변, 회피성 문구 금지.
+<!-- OOC-RESULTS:END -->
