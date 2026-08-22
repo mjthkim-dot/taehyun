@@ -40,15 +40,26 @@ def make_text(payload, model):
                            "lesson_questions":["'circle back' 관용구를 연습하고 싶어요"]}, ensure_ascii=False)
     if "무슨 주제를 논의 중인지" in user:
         return "가격과 총소유비용 논의"
+    # 생성 재현 규칙: ① 자료가 있으면 자료 문장을 그대로 활용(뱃지 검증용)
+    # ② 자료가 없으면 프로필 블록에서 답을 구성(폴백 검증용) — 회피성 문구는 절대 없음
     m = re.search(r'THEIR OWN MATERIAL.*?"""(.*?)"""', user, re.S)
     picked = ""
     if m:
-        c = [x.strip() for x in re.findall(r"([A-Z][A-Za-z',\- ]{12,80})", m.group(1)) if len(x.split())>=4]
-        if c: picked = " ".join(max(c,key=len).split()[:13])
+        c = [x.strip() for x in re.findall(r"([A-Z][A-Za-z',\- ]{12,80})", m.group(1)) if len(x.split()) >= 4]
+        if c:
+            picked = " ".join(max(c, key=len).split()[:13])
+    if not picked:
+        pm = re.search(r'CANDIDATE PROFILE.*?"""(.*?)"""', user, re.S)
+        if pm:
+            lines = [l.strip("- ").strip() for l in pm.group(1).splitlines() if l.strip().startswith("-")]
+            if lines:
+                base = lines[0]
+                picked = "As " + " ".join(base.split()[:12]).rstrip(",.")
     a = picked or "Let me check that internally and come back to you."
-    return (f"EN: {a}\nKR: 내부 확인 후 다시 알려드릴게요.\n===\n"
-            f"EN: Could you share the numbers behind that?\nKR: 근거 수치를 공유해 주실래요?\n===\n"
-            f"META: 요지=비용 우려 | 전략=근거 되묻기")
+    return (f"EN: {a}\nKR: (모의 번역) 한국어 뜻입니다.\n===\n"
+            f"EN: Let me give you a concrete example from a recent deal.\n"
+            f"KR: 최근 딜에서 구체적인 예를 들어볼게요.\n===\n"
+            f"META: 요지=면접 질문 | 전략=프로필 근거 답변")
 
 class H(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
