@@ -42,7 +42,7 @@ def main() -> int:
             for i, h in enumerate(hits, 1):
                 print(f"   {i}. [{h['source_label']}] {h['title']}")
     print(f"\n결과: {ok_n}/{len(cs)} ({round(ok_n / len(cs) * 100)}%)")
-    return 0 if ok_n >= 8 else 1
+    return 0 if ok_n >= len(cs) - 2 else 1
 
 
 if __name__ == "__main__":

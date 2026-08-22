@@ -19,10 +19,12 @@ from pathlib import Path
 import llm
 import rag
 
-# 도메인 용어집 시드 — 클라우드/AWS 세일즈 표현 70개(domain-corpus.json).
-# glossary_seed.json은 초기 20개 버전으로, 파일이 없는 환경을 위한 폴백으로만 둔다.
+# 시드 용어집 — 여러 파일을 합쳐 넣는다:
+#  · domain-corpus.json    클라우드/AWS 세일즈 표현 70개
+#  · interview-corpus.json iPaaS/Workato 도메인 30개 + 인터뷰 표현 40개 (8/27 대비)
+# glossary_seed.json은 초기 20개 버전으로, 다른 파일이 없는 환경 폴백으로만 둔다.
 _DATA = Path(__file__).parent / "data"
-SEED = _DATA / "domain-corpus.json"
+SEEDS = [_DATA / "domain-corpus.json", _DATA / "interview-corpus.json"]
 SEED_FALLBACK = _DATA / "glossary_seed.json"
 
 
@@ -158,10 +160,13 @@ def chunks_from_glossary(entries: list[dict]) -> list[dict]:
 
 
 def load_seed_glossary() -> list[dict]:
-    path = SEED if SEED.exists() else SEED_FALLBACK
-    if not path.exists():
-        return []
-    return chunks_from_glossary(json.loads(path.read_text(encoding="utf-8")))
+    entries: list[dict] = []
+    for path in SEEDS:
+        if path.exists():
+            entries += json.loads(path.read_text(encoding="utf-8"))
+    if not entries and SEED_FALLBACK.exists():
+        entries = json.loads(SEED_FALLBACK.read_text(encoding="utf-8"))
+    return chunks_from_glossary(entries)
 
 
 def ensure_seeded(store: rag.Store | None = None) -> dict:

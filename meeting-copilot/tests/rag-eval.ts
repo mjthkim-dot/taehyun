@@ -52,6 +52,22 @@ const CASES: Case[] = [
   { q: "커피 주문하는 표현",
     expect: ["can i get one cappuccino", "medium, please"],
     why: "한국어 질의 → 카페 주문 노트" },
+  // ── 인터뷰 시나리오 (8/27 HR 스크리닝 대비 — interview-corpus.json) ──
+  { q: "Tell me about yourself and your current role.",
+    expect: ["b2b sales hunter", "cloud msp"],
+    why: "자기소개 질문 → 인터뷰 자기소개 시드" },
+  { q: "Why do you want to join an automation company like this?",
+    expect: ["why this company", "changes how customers work", "workflow automation"],
+    why: "지원 동기 질문 → 동기·도메인 시드" },
+  { q: "What do you know about iPaaS and our platform?",
+    expect: ["ipaas", "connects cloud apps"],
+    why: "도메인 지식 질문 → iPaaS 정의 시드" },
+  { q: "면접관 말이 너무 빨라서 다시 말해달라고 하고 싶어",
+    expect: ["could you rephrase", "slow down"],
+    why: "한국어 퀵번역 → 되묻기 시드" },
+  { q: "인터뷰 마무리에 관심 있다고 말하고 싶어요",
+    expect: ["excited about the role", "move forward", "thank you for your time"],
+    why: "한국어 퀵번역 → 클로징 시드" },
 ];
 
 type Hit = { title: string; text: string; source_label: string };
@@ -84,8 +100,8 @@ async function main() {
   }
   const rate = Math.round((pass / CASES.length) * 100);
   console.log(`\n결과: ${pass}/${CASES.length} (${rate}%)`);
-  // 임베딩 없이 키워드 전용으로 돌 때도 80% 밑으로 떨어지면 회귀로 본다
-  if (pass < 8) {
+  // 임베딩 없이 키워드 전용으로 돌 때도 ~85% 밑으로 떨어지면 회귀로 본다
+  if (pass < CASES.length - 2) {
     console.error("⚠️ 검색 품질이 기준(8/10) 아래입니다 — 검색 다리(_BRIDGE)를 점검하세요.");
     process.exit(1);
   }
