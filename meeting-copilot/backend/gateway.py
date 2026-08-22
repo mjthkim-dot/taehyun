@@ -33,7 +33,11 @@ from collections import deque
 from pathlib import Path
 
 _TIER = os.environ.get("GEMINI_TIER", "free")
+# 레인별 분당 발사 상한 — 실제 한도가 모델별(lite/flash)이라 버킷도 레인별이다.
+# 단일 전역 버킷은 15분 시뮬에서 값싼 번역(fast)이 제안(main)과 토큰을 경쟁해
+# p95가 8초로 밀리는 것이 실측됐다. main이 버스트의 원흉이므로 무료 8/유료 60.
 GW_RPM = int(os.environ.get("GW_RPM", "60" if _TIER == "paid" else "8"))
+GW_RPM_FAST = int(os.environ.get("GW_RPM_FAST", "120" if _TIER == "paid" else "13"))
 GW_CONC = int(os.environ.get("GW_CONC", "2"))
 GW_BURST = float(os.environ.get("GW_BURST", "2"))
 GW_DROP_S = float(os.environ.get("GW_DROP_S", "5"))
@@ -61,9 +65,9 @@ class Dropped(Exception):
 
 _cv = threading.Condition()
 _seq = itertools.count()
-_waiting: list[tuple[int, int]] = []       # (priority, seq) 힙
+_waiting: list[tuple[int, int, str]] = []  # (priority, seq, lane)
 _inflight = 0
-_tokens = GW_BURST
+_tokens = {"fast": GW_BURST, "main": GW_BURST}
 _last_refill = time.time()
 _breaker_until = 0.0
 _consec_429 = 0
@@ -84,17 +88,28 @@ class Ticket:
 
 
 def _refill(now: float) -> None:
-    global _tokens, _last_refill
-    _tokens = min(GW_BURST, _tokens + (now - _last_refill) * GW_RPM / 60.0)
+    global _last_refill
+    dt = now - _last_refill
+    _tokens["fast"] = min(GW_BURST, _tokens["fast"] + dt * GW_RPM_FAST / 60.0)
+    _tokens["main"] = min(GW_BURST, _tokens["main"] + dt * GW_RPM / 60.0)
     _last_refill = now
 
 
-def _fire(now: float) -> None:
-    global _tokens
-    _tokens -= 1
+def _fire(now: float, lane: str) -> None:
+    _tokens[lane] -= 1
     _sent.append(now)
     while _sent and now - _sent[0] > 60:
         _sent.popleft()
+
+
+def _my_turn(ent) -> bool:
+    # 내 레인에 토큰이 있고, 나보다 앞선(우선순위·순번) 대기자 중 토큰이 있는
+    # 레인이 없을 때 발사. 레인이 달라 토큰이 없는 앞사람은 건너뛴다 —
+    # fast/main이 서로를 머리에서 막지 않게(head-of-line 차단 방지).
+    if _tokens[ent[2]] < 1:
+        return False
+    eligible = [e for e in _waiting if _tokens[e[2]] >= 1]
+    return bool(eligible) and min(eligible) == ent
 
 
 def rpm60(now: float | None = None) -> int:
@@ -110,18 +125,19 @@ def acquire(kind: str, fast: bool = False, bg: bool = False,
     if GW_OFF:
         return Ticket(kind, fast, provider, model, t_q, t_q)
     k = "suggest_bg" if (kind == "suggest" and bg) else kind
-    ent = (_PRIO.get(k, 2), next(_seq))
+    lane = "fast" if fast else "main"
+    ent = (_PRIO.get(k, 2), next(_seq), lane)
     deadline = t_q + _DROP_AFTER[k] if k in _DROP_AFTER else None
     with _cv:
         heapq.heappush(_waiting, ent)
         while True:
             now = time.time()
             _refill(now)
-            if (_waiting and _waiting[0] == ent and _inflight < GW_CONC
-                    and _tokens >= 1 and now >= _breaker_until):
-                heapq.heappop(_waiting)
+            if (_inflight < GW_CONC and now >= _breaker_until and _my_turn(ent)):
+                _waiting.remove(ent)
+                heapq.heapify(_waiting)
                 _inflight += 1
-                _fire(now)
+                _fire(now, lane)
                 _stats["dispatched"] += 1
                 _stats["by_kind"][k] = _stats["by_kind"].get(k, 0) + 1
                 _cv.notify_all()
@@ -135,7 +151,8 @@ def acquire(kind: str, fast: bool = False, bg: bool = False,
             _cv.wait(timeout=0.1)
 
 
-def retry_wait(retry_after: str | float | None, attempt: int, base: float = 1.0) -> None:
+def retry_wait(retry_after: str | float | None, attempt: int, base: float = 1.0,
+               lane: str = "main") -> None:
     """재시도 전 대기 — Retry-After가 있으면 무조건 그 값, 없으면 지수 백오프+지터.
     대기 후 **토큰을 새로 소비**해야 발사할 수 있다 (재시도 폭풍의 구조적 차단)."""
     try:
@@ -152,8 +169,8 @@ def retry_wait(retry_after: str | float | None, attempt: int, base: float = 1.0)
         while True:
             now = time.time()
             _refill(now)
-            if _tokens >= 1 and now >= _breaker_until:
-                _fire(now)
+            if _tokens[lane] >= 1 and now >= _breaker_until:
+                _fire(now, lane)
                 _cv.notify_all()
                 return
             _cv.wait(timeout=0.1)
@@ -209,7 +226,8 @@ def record(ticket: Ticket, status: int, err: str = "",
 def state() -> dict:
     now = time.time()
     with _cv:
-        return {"rpm_budget": GW_RPM, "rpm60": rpm60(now),
+        return {"rpm_budget": GW_RPM, "rpm_budget_fast": GW_RPM_FAST,
+                "rpm60": rpm60(now),
                 "inflight": _inflight, "queue": len(_waiting),
                 "breaker_until": _breaker_until if _breaker_until > now else 0,
                 **{k: _stats[k] for k in

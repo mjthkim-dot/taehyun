@@ -70,7 +70,8 @@ for (let w = 0; w < 30 && !tripped; w++) {
 }
 await err('off');
 if (tripped) {
-  for (let w = 0; w < 8 && !bannerTxt.includes('대기'); w++) {
+  // 클라이언트는 /api/usage를 15초 주기로 폴링한다 — 배너 표시까지 최대 한 주기
+  for (let w = 0; w < 20 && !bannerTxt.includes('대기'); w++) {
     bannerTxt = await p.evaluate(() => document.querySelector('#status-txt').textContent);
     await sleep(1000);
   }

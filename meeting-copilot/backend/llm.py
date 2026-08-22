@@ -447,14 +447,14 @@ def _gw_attempts(ticket, name: str, fast: bool, fn):
                 reason = _handle_429(name, body, fast)
                 if "무료 한도 소진" in reason or n429 >= 2:
                     return None, f"{name}: {reason}"
-                gateway.retry_wait(ra, n429)
+                gateway.retry_wait(ra, n429, lane="fast" if fast else "main")
                 n429 += 1
                 continue
             if e.code in (500, 502, 503):
                 if n5xx >= 1:
                     _mark_bad(name, f"HTTP {e.code}(일시 오류)", seconds=5)
                     return None, f"{name}: HTTP {e.code} 일시 오류 — 이 항목만 건너뜀"
-                gateway.retry_wait(None, 0, base=0.4)
+                gateway.retry_wait(None, 0, base=0.4, lane="fast" if fast else "main")
                 n5xx += 1
                 continue
             if e.code in (401, 403, 404):
