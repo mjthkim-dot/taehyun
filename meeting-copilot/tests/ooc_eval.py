@@ -22,10 +22,40 @@ from pathlib import Path
 
 BASE = "http://localhost:3799"
 TS = Path(__file__).with_name("ooc-eval.ts")
+SPEAK_TS = Path(__file__).with_name("speakability.ts")
 REPORT = Path(__file__).resolve().parent.parent.parent / "docs" / "REPORT.md"
 MARK_S = "<!-- OOC-RESULTS:START -->"
 MARK_E = "<!-- OOC-RESULTS:END -->"
 EVASIVE = re.compile(r"i'?m not sure|i don'?t know|hard to say|cannot answer|no idea", re.I)
+
+
+def _speak_lists() -> tuple[list[str], list[str]]:
+    # 금지어·미축약 목록은 speakability.ts 한 곳에만 둔다 (케이스와 같은 원칙)
+    src = SPEAK_TS.read_text(encoding="utf-8")
+    def arr(name: str) -> list[str]:
+        body = src.split(f"const {name} = [", 1)[1].split("];", 1)[0]
+        return [m for m in re.findall(r'"([^"]+)"', body)]
+    return arr("BANNED"), arr("UNCONTRACTED")
+
+
+_BANNED, _UNCONTR = _speak_lists()
+
+
+def speak_problems(text: str, cap: int = 12) -> list[str]:
+    """speakability.ts speakProblems()의 파이썬 미러 — 규칙 동일해야 한다."""
+    out = []
+    for sent in re.split(r"(?<=[.!?])\s+", text):
+        n = len([t for t in sent.split() if re.search(r"[A-Za-z0-9]", t)])
+        if n > cap:
+            out.append(f'{n}단어>{cap}: "{sent.strip()}"')
+    low = " " + re.sub(r"\s+", " ", re.sub(r"[^a-z' ]+", " ", text.lower())) + " "
+    for u in _UNCONTR:
+        if f" {u.strip()} " in low:
+            out.append(f'미축약: "{u.strip()}"')
+    for b in _BANNED:
+        if (f" {b} " if " " in b else f" {b}") in low:
+            out.append(f'금지어: "{b}"')
+    return out
 
 
 def cases() -> list[dict]:
@@ -71,8 +101,8 @@ def judge(c: dict, meta: dict | None, en: list[str]) -> list[str]:
         problems.append("2안 미생성")
     if any(EVASIVE.search(e) for e in en):
         problems.append("회피성 답변")
-    if any(len(e.split()) > 15 for e in en):
-        problems.append("15단어 초과")
+    for i, e in enumerate(en[:2]):   # 구어체 계약: 1안 Safe ≤9단어, 2안 Rich ≤12단어
+        problems += [f"{i + 1}안 {p}" for p in speak_problems(e, 9 if i == 0 else 12)]
     srcs = (meta or {}).get("sources", [])
     joined = " ".join(srcs).lower()
     if c["tier"] == "A" and not any(e.lower() in joined for e in c["expect"]):

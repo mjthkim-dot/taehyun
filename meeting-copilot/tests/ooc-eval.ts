@@ -62,6 +62,9 @@ const CASES: Case[] = [
 
 const EVASIVE = /i'?m not sure|i don'?t know|hard to say|cannot answer|no idea/i;
 
+// 구어체 검사(문장당 단어 수·미축약·금지어)는 speakability.ts의 규칙을 그대로 쓴다
+import { speakProblems } from "./speakability.ts";
+
 type Hit = { title: string; source_label: string; match_terms?: number; via?: string };
 
 async function suggest(q: string, intent = "reply") {
@@ -87,7 +90,9 @@ function judge(c: Case, meta: any, en: string[]) {
   const problems: string[] = [];
   if (en.length < 2) problems.push("2안 미생성");
   if (en.some(e => EVASIVE.test(e))) problems.push("회피성 답변");
-  if (en.some(e => e.split(/\s+/).length > 15)) problems.push("15단어 초과");
+  // 구어체 계약: 1안(Safe) 문장당 ≤9단어, 2안(Rich) ≤12단어 + 축약형·금지어
+  en.slice(0, 2).forEach((e, i) =>
+    speakProblems(e, i === 0 ? 9 : 12).forEach(p => problems.push(`${i + 1}안 ${p}`)));
   const srcs: string[] = meta?.sources ?? [];
   if (c.tier === "A") {
     const hitOk = c.expectSeed!.some(e => srcs.join(" ").toLowerCase().includes(e.toLowerCase()));

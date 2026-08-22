@@ -83,9 +83,12 @@ for (const intent of ['agree', 'pushback', 'ask', 'propose']) {
     badges: document.querySelectorAll('#c-answers .learned').length,
   }));
   const secs = ((Date.now() - t) / 1000).toFixed(2);
-  const long = card.en.filter(e => e.split(/\s+/).length > 15);
+  // 구어체 계약: 1안(Safe) 문장당 ≤9단어, 2안(Rich) ≤12단어
+  const caps = [9, 12];
+  const long = card.en.flatMap((e, i) =>
+    e.split(/(?<=[.!?])\s+/).filter(s => s.split(/\s+/).filter(Boolean).length > (caps[i] ?? 12)));
   check(`[${intent}] 제안 2안 · ${secs}s`, card.en.length >= 2, card.en[0]?.slice(0, 46));
-  check(`[${intent}] 15단어 이내`, long.length === 0, long[0] ? `초과: ${long[0]}` : '');
+  check(`[${intent}] Safe≤9·Rich≤12단어`, long.length === 0, long[0] ? `초과: ${long[0]}` : '');
   check(`[${intent}] 근거를 내 자료로 표시`, card.shown && /용어집|미팅|노트/.test(card.src),
     card.src.replace(/\s+/g, ' ').slice(0, 54));
   check(`[${intent}] 📚 배운 표현 뱃지`, card.badges >= 1, `${card.badges}개`);
