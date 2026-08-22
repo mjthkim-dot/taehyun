@@ -41,6 +41,14 @@
   .status .rag{color:var(--faint);flex:none}
 
   main{flex:1;display:flex;flex-direction:column;min-height:0;position:relative}
+  /* 넓은 화면: 미팅 옆 사이드 패널이 이 앱의 사용 형태다 — 전체화면으로 열어도
+     읽는 폭은 패널과 같게 묶는다 (자막이 1,200px로 뻗으면 흘끗 읽기가 죽는다) */
+  @media (min-width: 760px){
+    /* column flex에서 margin:auto는 stretch를 끄므로 width:100%를 함께 준다 */
+    #feed, .actions, .quickbar, #card{width:100%;max-width:660px;margin-left:auto;margin-right:auto}
+    #card{left:0;right:0;width:100%}
+    header, .status{padding-left:calc((100vw - 660px)/2);padding-right:calc((100vw - 660px)/2)}
+  }
   .view{flex:1;display:flex;flex-direction:column;min-height:0}
   .view.hidden{display:none}
 
@@ -54,6 +62,7 @@
   /* interim(인식 중) — 확정 자막과 혼동되면 잘못된 문장을 읽게 된다 */
   .row.interim .bubble{opacity:.62;border-style:dashed;background:transparent}
   .row.interim .en::after{content:"▌";color:var(--accent);animation:blink 1s step-end infinite;margin-left:2px}
+  .tr-wait{color:var(--faint);animation:blink 1.2s step-end infinite;letter-spacing:2px}
   @keyframes blink{50%{opacity:0}}
   .row.interim .tag{display:inline-block;font-size:9.5px;font-weight:800;color:var(--faint);
     border:1px solid var(--line);border-radius:4px;padding:1px 4px;margin-bottom:4px}
@@ -474,6 +483,7 @@ function enqueueTranslate(el, text){
   if(!key) return;
   const hit = trCache.get(key);
   if(hit !== undefined){ el.textContent = hit; return; }      // 호출 없이 즉시
+  el.innerHTML = '<span class="tr-wait">···</span>';          // 대기 표시 — 빈칸이면 번역이 없는 건지 오는 중인지 모른다
   const waiting = trPending.get(key);
   if(waiting){ waiting.push(el); return; }                    // 진행 중 → 합류
   trPending.set(key, [el]);
