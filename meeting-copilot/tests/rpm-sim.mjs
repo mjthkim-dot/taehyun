@@ -7,7 +7,8 @@
  * 합격: ① 429 응답 0건  ② 상대 발화 전부 번역 표시  ③ 배칭으로
  *       번역 호출 수 < 문장 수  ④ JS 오류 0
  *
- * 실행: GEMINI 모의(tests 참조) + 서버 기동 후
+ * 실행: python3 tests/mock_gemini.py (한도 강제 모의) +
+ *       GEMINI_API_KEY=test GEMINI_URL=http://127.0.0.1:3898 서버 기동 후
  *       node tests/rpm-sim.mjs            (15분)
  *       SIM_MIN=3 node tests/rpm-sim.mjs  (짧은 검증)
  */

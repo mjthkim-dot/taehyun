@@ -396,3 +396,101 @@ E2E 직후 smoke의 제안이 429로 실패한 사례는 **mock의 한도 강제
 실 Gemini API 미호출(이 환경 키 없음 — 지연·한도 수치는 공시값 기반 모의).
 맥북에서 `doctor.sh`(실 호출 1회) → `smoke.sh` → FIELD-TEST 절차가 그대로
 실측을 채워준다.
+
+
+<!-- FIELD-RESULTS:START -->
+### 10.1 내 맥북 실측 (smoke.sh 자동 기록 — 2026-08-22 05:55, vm)
+
+아래는 §10의 "지연 프로필 재현"을 대체하는 **실측값**이다.
+
+| 구간 | 실측 | 수용 기준 | 판정 |
+|---|---|---|---|
+| 마이크 → STT 인식 | --skip-mic | — | ⏭ 미측정 |
+| 번역 (final → 한국어 완료) | 453ms | 2000ms 이내 | ✅ |
+| RAG 검색 (질의 2건) | - | — | ✅ |
+| 퀵 리액션 (클릭 → 2안 완성) | 1420ms | 3000ms 이내 | ✅ |
+
+미달(🔴) 구간은 [FIELD-TEST.md](./FIELD-TEST.md)의 증상별 대응표를 참조.
+<!-- FIELD-RESULTS:END -->
+
+---
+
+## 12. 최종 스프린트 — 8/27 인터뷰 실전 투입 준비 (2026-08-22)
+
+목적: 8/27 영어 인터뷰(HR 스크리닝, 1:1 화상)에서 보조 도구로 실사용 가능한 상태.
+
+### 12.1 RAG 인터뷰 시드 (작업 1)
+
+`interview-corpus.json` **70개** 추가 — 전 항목 [영어 문장 / 한국어 뜻 / 상황태그]
+구조에 검색 다리(triggers) 포함, 단어 나열 없이 전부 말할 수 있는 문장:
+
+- **iPaaS/Workato 도메인 30**: workflow automation 가치, iPaaS 한 줄 정의, 커넥터,
+  로우코드, 레시피, land-and-expand, build-vs-buy 반론 대응, ROI 프레임,
+  IT·현업 동시 설득, cloud MSP 배경 연결 등
+- **인터뷰 표현 40**: 자기소개("I am a B2B sales hunter focused on opening new
+  enterprise accounts…"), 되묻기/시간 벌기("Could you rephrase that?",
+  "That's a great question — let me think…"), 역질문(팀 구조·온보딩·성공 기준),
+  클로징(관심 표현·다음 단계·감사)
+
+색인 용어집 70 → **140**. rag-eval에 인터뷰 시나리오 5쿼리(영어 질문 3 +
+한국어 퀵번역 2) 추가 → **15/15 (100%)**, 임베딩 없이 키워드만으로.
+
+### 12.2 인터뷰 톤 프리셋 (작업 2)
+
+- **🎤 인터뷰 프리셋** (연습/실미팅 모드와 별개): 4버튼이
+  [👍 동의 / ➕ 부연 설명 / 🔁 되묻기 / 💬 역질문]으로 — 면접에 부적절한
+  '반박' 제거, 시간 벌기는 보조줄 유지. 새로고침에도 유지.
+- **생성 톤 전환**: 미팅(회사 대 회사) ↔ 인터뷰(후보자 1인칭, 자신 있고
+  따뜻하게, 협상 어휘 금지) — 프롬프트 헤더·규칙이 프리셋에 따라 바뀐다.
+- **퀵 번역 우선 노출**: 인터뷰 프리셋에서 입력창이 버튼 위 + 강조 테두리,
+  `/` 또는 Cmd/Ctrl+K로 어디서든 포커스. 인터뷰에서 가장 쓸 기능이라는 판단.
+- **400px 세로 검증**(화상통화 옆): 오버플로 0, 헤더 106→70px 압축, 스크린샷 확인.
+
+### 12.3 퀵 리액션 샘플 5문항 (눈 판정용)
+
+HR 스크리닝 전형 질문 5개를 인터뷰 프리셋으로 실행한 결과.
+**📎 검색 근거는 실제 파이프라인 출력**이고, 생성문 중 1안은 검색 자료를
+그대로 활용한 것(모의 공급자가 자료 문장을 선택) — **실 Gemini의 문장 품질은
+맥북 필드 테스트에서 확인**해야 한다(이 환경엔 실 키 없음).
+
+| 면접관 질문 | 검색된 내 자료 (top 3) | 생성 1안 (자료 활용) |
+|---|---|---|
+| Tell me about yourself. | **intro one-liner** · buy time classic · deal example frame | "…B2B sales hunter focused on opening new enterprise accounts in the cloud market" |
+| Why are you interested in joining Workato? | **why this company** · why automation now · recipe concept | "I want to sell a product that changes how customers work, not just…" |
+| Walk me through how you open a brand-new enterprise account. [부연] | **enterprise sales cycle** · deal example frame · circle back | "I am comfortable running six-to-twelve-month cycles with multiple stakeholders" |
+| What do you know about our platform and the iPaaS space? | **iPaaS in one line** · observability · integration plus automation | "The real differentiation is combining integration and automation in a single…" |
+| Do you have any questions for us? [역질문] | **follow-up offer** · next steps · landing the plane | "Happy to share more detail on any of my deals in a follow-up" |
+
+→ 5문항 전부 **그 질문에 맞는 준비 자료가 top-3에 소환**됐다. 검색이 맞으면
+생성은 자료를 따라간다 — 이 표가 8/27에 앱이 건네줄 커닝페이퍼의 실체다.
+
+### 12.4 실측 피드백 루프 (작업 3)
+
+- FIELD-TEST 4절 "인터뷰 리허설": Preply/화상 수업에서 확인할 5항목
+  (힐끗 볼 여유·퀵 리액션 실사용·시야 방해·폰트 크기·종료 자산화 품질) —
+  기준은 "기능이 도는가"가 아니라 "실전에서 의지되는가". 미달 시 현실적
+  대안(퀵 번역 단독 전략)까지 명시.
+- smoke.sh 하단에 **복붙용 진단 블록**: OS·Python·공급자·모델 티어링·티어·
+  로컬 STT·커밋 해시 + 단계별 결과 JSON. "이 블록을 Claude Code에 그대로
+  붙여넣으세요" — 환경 되묻기 왕복 제거.
+
+### 12.5 전체 회귀 (증거)
+
+| 검증 | 결과 |
+|---|---|
+| rag-eval (인터뷰 5쿼리 포함) | **15/15 (100%)** |
+| E2E 전체 여정 (인터뷰 프리셋 검사 포함 별도 6체크) | 전부 통과 · 콘솔 오류 0 |
+| web_qa (인증·격리·전송) | 16/16 |
+| smoke 4단계 | 번역 454ms · 제안 1,420ms — 기준 내 |
+| 15분 시뮬 (무료 한도 강제) | **429 0건 · 번역 80/80 · p95 437ms · JS 오류 0 — 완주** (프리셋 코드 반영 후 재실행) |
+
+과정에서 잡은 것 2건: ① 한도 강제 mock이 기능 E2E까지 429로 흔들던 것 →
+mock을 `tests/mock_gemini.py`로 승격하고 한도를 env로 분리(기능 테스트는 완화,
+rpm-sim은 무료 실값 강제) ② rag-eval을 오염시키던 시뮬 잔여 트랜스크립트 정리.
+
+### 12.6 8/27 전까지 남은 것 (사용자 액션)
+
+1. 맥북에서 `doctor.sh` → `smoke.sh` (실 Gemini 키 — 실측이 10.1절에 자동 기록)
+2. 유튜브 필드 테스트 30분 (FIELD-TEST 1~3절)
+3. **Preply 수업에서 인터뷰 리허설 1회** (FIELD-TEST 4절 — 이게 최종 관문)
+4. 자기소개·딜 스토리를 '자료' 탭에 본인 문장으로 추가하면 제안이 더 개인화된다
