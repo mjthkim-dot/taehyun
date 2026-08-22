@@ -120,6 +120,26 @@ await p.waitForFunction(() => (document.querySelector('#sync-st')?.textContent |
 check('수동 동기화 성공', (await p.evaluate(() => document.querySelector('#sync-st').textContent)).includes('✅'),
   (await p.evaluate(() => document.querySelector('#sync-st').textContent)).slice(0, 48));
 
+console.log('\n■ ⏹ 미팅 종료 — 요약 + 적재 + 복습 자산화');
+await p.click('.tab[data-v="live"]');
+p.on('dialog', d => d.accept('E2E 종료검증 미팅'));   // 미팅 이름 프롬프트
+await p.click('#btn-stop');
+await p.waitForFunction(() => [...document.querySelectorAll('#feed .row')]
+  .some(r => r.textContent.includes('세션 요약')), { timeout: 30000 }).catch(() => {});
+const endTxt = await p.evaluate(() => [...document.querySelectorAll('#feed .row')]
+  .map(r => r.textContent).join('\n'));
+check('종료 요약 버블 표시', endTxt.includes('세션 요약'));
+check('트랜스크립트 적재 안내', /적재/.test(endTxt));
+check('복습 카드 생성 안내', /복습 카드/.test(endTxt));
+await p.waitForTimeout(400);
+const revDoc = await p.evaluate(() => {
+  document.querySelector('.tab[data-v="rev"]').click();
+  return document.querySelector('#rev-doc').textContent;
+});
+check('복습 자료: 이번 미팅 표현', revDoc.includes('이번 미팅 표현'));
+check('복습 자료: 진옥 선생님께 물어볼 것', revDoc.includes('진옥 선생님께 물어볼 것'), revDoc.slice(0, 0));
+await p.click('.tab[data-v="live"]').catch(()=>{});
+
 console.log('\n■ 복습 탭 (SRS)');
 await p.click('.tab[data-v="rev"]');
 await p.waitForTimeout(800);
