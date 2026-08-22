@@ -339,3 +339,7 @@ Sonnet 상당 TTFT 0.95s·70tok/s (실 API 아님 — 이 환경엔 키가 없�
 오디오 장치 없음), 실 Claude API(키 없음), 실 Whisper STT(모델 저장소가 네트워크
 정책상 차단 — faster-whisper 설치와 합성 음성 준비까지는 완료). 이 세 가지가
 배포 첫날 실측 목록이다.
+
+→ 이 실측은 준비돼 있다: 맥북에서 `bash meeting-copilot/doctor.sh`(사전 점검) →
+`bash meeting-copilot/smoke.sh`(구간별 측정)를 실행하면 결과가 이 문서 10.1절에
+자동 기록된다. 절차는 [FIELD-TEST.md](./FIELD-TEST.md).
