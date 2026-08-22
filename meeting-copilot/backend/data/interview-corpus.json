@@ -3,133 +3,133 @@
   "term": "workflow automation value",
   "ko": "워크플로 자동화의 가치",
   "note": "상황태그: 도메인·가치제안",
-  "say": "Workflow automation frees teams from repetitive work so they can focus on judgment calls.",
+  "say": "Workflow automation takes the repetitive work away. Teams get time for real judgment calls.",
   "triggers": "자동화 반복 업무 manual repetitive tasks value proposition"
  },
  {
   "term": "iPaaS in one line",
   "ko": "iPaaS 한 줄 정의",
   "note": "상황태그: 도메인·개념 설명",
-  "say": "An iPaaS connects cloud apps and data so processes run end to end without custom code.",
+  "say": "An iPaaS connects cloud apps and data. Processes run end to end, no custom code.",
   "triggers": "iPaaS 정의 설명 what is integration platform"
  },
  {
   "term": "enterprise integration pain",
   "ko": "엔터프라이즈 통합의 고통",
   "note": "상황태그: 도메인·문제 정의",
-  "say": "Enterprises run hundreds of SaaS apps, and point-to-point integrations quickly become unmanageable.",
+  "say": "Enterprises run hundreds of SaaS apps. Point-to-point integrations get out of control fast.",
   "triggers": "통합 문제 사일로 point to point spaghetti SaaS sprawl"
  },
  {
   "term": "API connector",
   "ko": "API 커넥터",
   "note": "상황태그: 도메인·제품 기능",
-  "say": "Prebuilt API connectors cut integration time from weeks to days.",
+  "say": "Prebuilt connectors cut integration time from weeks to days.",
   "triggers": "커넥터 API 연동 기간 단축 prebuilt"
  },
  {
   "term": "low-code appeal",
   "ko": "로우코드의 장점",
   "note": "상황태그: 도메인·제품 기능",
-  "say": "Low-code lets business teams build their own workflows without waiting on engineering.",
+  "say": "With low-code, business teams build their own workflows. No waiting on engineering.",
   "triggers": "로우코드 현업 비개발자 citizen developer no-code"
  },
  {
   "term": "recipe concept",
   "ko": "레시피(자동화 시나리오) 개념",
   "note": "상황태그: 도메인·Workato 용어",
-  "say": "Each automation recipe listens for a trigger and then runs a series of actions.",
+  "say": "Each recipe waits for a trigger. Then it runs a set of actions.",
   "triggers": "레시피 트리거 액션 recipe automation scenario"
  },
  {
   "term": "integration plus automation",
   "ko": "통합+자동화 결합",
   "note": "상황태그: 도메인·차별점",
-  "say": "The real differentiation is combining integration and automation in a single platform.",
+  "say": "We combine integration and automation in one platform. That's the real edge.",
   "triggers": "차별점 통합 자동화 결합 differentiation single platform"
  },
  {
   "term": "citizen developer governance",
   "ko": "현업 개발과 거버넌스",
   "note": "상황태그: 도메인·IT 우려 대응",
-  "say": "Citizen development only scales when IT keeps governance and guardrails in place.",
+  "say": "Citizen development only scales when IT keeps the guardrails.",
   "triggers": "거버넌스 가드레일 IT 통제 shadow IT"
  },
  {
   "term": "order-to-cash example",
   "ko": "주문-수금 자동화 예시",
   "note": "상황태그: 도메인·사례",
-  "say": "A classic use case is automating order-to-cash across the CRM, the ERP, and billing.",
+  "say": "A classic case is order-to-cash. It connects the CRM, the ERP, and billing.",
   "triggers": "사례 유스케이스 order to cash CRM ERP billing 예시"
  },
  {
   "term": "employee onboarding example",
   "ko": "직원 온보딩 자동화 예시",
   "note": "상황태그: 도메인·사례",
-  "say": "HR onboarding is a great first automation because it touches so many systems.",
+  "say": "HR onboarding is a great first automation. It touches so many systems.",
   "triggers": "온보딩 HR 자동화 사례 first use case"
  },
  {
   "term": "time to value",
   "ko": "가치 실현 시간",
   "note": "상황태그: 도메인·세일즈 지표",
-  "say": "Customers care less about features and more about time to value.",
+  "say": "Customers don't buy features. They buy time to value.",
   "triggers": "가치 실현 빠른 성과 time to value TTV"
  },
  {
   "term": "land and expand",
   "ko": "작게 시작해 확장",
   "note": "상황태그: 도메인·세일즈 전략",
-  "say": "I would land with one high-pain workflow and expand department by department.",
+  "say": "I'd land with one high-pain workflow. Then I'd expand team by team.",
   "triggers": "확장 전략 land expand 작게 시작"
  },
  {
   "term": "integration backlog",
   "ko": "통합 백로그 공략",
   "note": "상황태그: 도메인·디스커버리",
-  "say": "Most IT teams carry a backlog of integration requests they never get to.",
+  "say": "Most IT teams carry a big integration backlog. They never get through it.",
   "triggers": "백로그 IT 요청 적체 backlog discovery"
  },
  {
   "term": "legacy middleware contrast",
   "ko": "레거시 미들웨어와 대비",
   "note": "상황태그: 도메인·경쟁 구도",
-  "say": "Legacy middleware needs specialists, while a modern iPaaS empowers the whole team.",
+  "say": "Legacy middleware needs specialists. A modern iPaaS works for the whole team.",
   "triggers": "레거시 미들웨어 ESB 경쟁 비교 specialists"
  },
  {
   "term": "AI agent automation",
   "ko": "AI 에이전트와 자동화",
   "note": "상황태그: 도메인·트렌드",
-  "say": "The next wave is AI agents acting inside automated workflows, not beside them.",
+  "say": "The next wave is AI agents inside the workflows. Not beside them.",
   "triggers": "AI 에이전트 트렌드 genAI orchestration"
  },
  {
   "term": "security posture answer",
   "ko": "보안 우려 응대",
   "note": "상황태그: 도메인·보안",
-  "say": "Enterprise buyers always start with security, so I lead with certifications and data controls.",
+  "say": "Enterprise buyers start with security. So I lead with certifications and data controls.",
   "triggers": "보안 인증 SOC2 컴플라이언스 data controls"
  },
  {
   "term": "ROI framing",
   "ko": "자동화 ROI 프레임",
   "note": "상황태그: 도메인·가치 정량화",
-  "say": "I frame ROI as hours saved times frequency, plus errors avoided.",
+  "say": "I keep ROI simple. Hours saved times frequency, plus errors avoided.",
   "triggers": "ROI 정량화 절감 시간 hours saved errors"
  },
  {
   "term": "champion building",
   "ko": "챔피언 만들기",
   "note": "상황태그: 도메인·세일즈 전략",
-  "say": "In automation deals, the operations lead who owns the process becomes your champion.",
+  "say": "In automation deals, the process owner becomes your champion. I build that person up.",
   "triggers": "챔피언 내부 지지자 champion operations"
  },
  {
   "term": "IT and business dual sell",
   "ko": "IT·현업 동시 설득",
   "note": "상황태그: 도메인·세일즈 전략",
-  "say": "You have to sell business outcomes to the line owner and control to IT, in the same deal.",
+  "say": "I sell outcomes to the business owner. And control to IT, in the same deal.",
   "triggers": "IT 현업 동시 설득 dual audience"
  },
  {
@@ -143,350 +143,350 @@
   "term": "ecosystem play",
   "ko": "생태계 전략",
   "note": "상황태그: 도메인·파트너",
-  "say": "Partners matter because automation touches every system a customer owns.",
+  "say": "Partners matter here. Automation touches every system a customer owns.",
   "triggers": "파트너 생태계 SI ecosystem"
  },
  {
   "term": "cloud MSP synergy",
   "ko": "클라우드 MSP와의 시너지",
   "note": "상황태그: 도메인·내 배경 연결",
-  "say": "Coming from a cloud MSP, I have seen how much manual glue work sits between SaaS tools.",
+  "say": "I come from a cloud MSP. I've seen the manual glue work between SaaS tools.",
   "triggers": "MSP 시너지 배경 연결 manual glue"
  },
  {
   "term": "discovery question automation",
   "ko": "자동화 디스커버리 질문",
   "note": "상황태그: 도메인·디스커버리",
-  "say": "I usually ask which process still depends on spreadsheets and email handoffs.",
+  "say": "I usually ask one thing. Which process still runs on spreadsheets and email?",
   "triggers": "디스커버리 질문 스프레드시트 수작업 handoffs"
  },
  {
   "term": "proof of concept scope",
   "ko": "PoC 범위 잡기",
   "note": "상황태그: 도메인·실행",
-  "say": "A good proof of concept automates one real process within two weeks.",
+  "say": "A good proof of concept is small. One real process, two weeks.",
   "triggers": "PoC 파일럿 범위 two weeks pilot"
  },
  {
   "term": "objection build vs buy",
   "ko": "자체 구축 반론 대응",
   "note": "상황태그: 도메인·반론 대응",
-  "say": "Teams can build one integration in-house, but maintaining fifty is a different story.",
+  "say": "Sure, you can build one integration in-house. Maintaining fifty is a different story.",
   "triggers": "자체 구축 내재화 build vs buy 반론 maintain"
  },
  {
   "term": "objection existing tool",
   "ko": "기존 도구 반론 대응",
   "note": "상황태그: 도메인·반론 대응",
-  "say": "Existing tools often cover data sync, but not the approvals and exceptions around it.",
+  "say": "Existing tools cover data sync. They miss the approvals and exceptions around it.",
   "triggers": "기존 도구 이미 있다 반론 Zapier 비교 approvals"
  },
  {
   "term": "north star metric",
   "ko": "자동화 성과 지표",
   "note": "상황태그: 도메인·지표",
-  "say": "The metric I would track is hours of manual work removed per month.",
+  "say": "I'd track one number. Hours of manual work removed per month.",
   "triggers": "지표 성과 측정 metric hours removed"
  },
  {
   "term": "process owner language",
   "ko": "프로세스 오너의 언어",
   "note": "상황태그: 도메인·소통",
-  "say": "With process owners I talk exceptions and approvals, not APIs and payloads.",
+  "say": "With process owners, I talk approvals and exceptions. Not APIs and payloads.",
   "triggers": "현업 언어 눈높이 process owner 소통"
  },
  {
   "term": "expansion signal",
   "ko": "확장 신호 포착",
   "note": "상황태그: 도메인·그로스",
-  "say": "When one team's recipe count keeps growing, that is my expansion signal.",
+  "say": "When one team's recipe count keeps growing, that's my expansion signal.",
   "triggers": "확장 신호 usage growth 업셀"
  },
  {
   "term": "why automation now",
   "ko": "왜 지금 자동화인가",
   "note": "상황태그: 도메인·시장 논리",
-  "say": "Headcount is flat everywhere, so automation is how teams absorb growing workload.",
+  "say": "Headcount is flat everywhere. So automation is how teams absorb more work.",
   "triggers": "왜 지금 시장 타이밍 headcount workload"
  },
  {
   "term": "intro one-liner",
   "ko": "자기소개 첫 문장",
   "note": "상황태그: 인터뷰·자기소개",
-  "say": "I am a B2B sales hunter focused on opening new enterprise accounts in the cloud market.",
+  "say": "I'm a B2B sales hunter. I open new enterprise accounts in cloud.",
   "triggers": "자기소개 tell me about yourself 헌터 신규 개척 walk me through your background"
  },
  {
   "term": "current role summary",
   "ko": "현재 역할 요약",
   "note": "상황태그: 인터뷰·경력 설명",
-  "say": "At a cloud MSP, I hunt new business and build accounts from the first cold touch to close.",
+  "say": "I hunt new business at a cloud MSP. I build accounts from cold call to close.",
   "triggers": "현재 회사 역할 MSP what do you do 콜드 walk through background experience"
  },
  {
   "term": "new business hunting",
   "ko": "신규 개척 강점",
   "note": "상황태그: 인터뷰·강점",
-  "say": "My strength is new business hunting — finding the pain, building the champion, creating the deal.",
+  "say": "New business hunting is my strength. I find pain, build champions, and create deals.",
   "triggers": "강점 스트렝스 신규 개척 hunting strength land new logos win logos net new customers"
  },
  {
   "term": "enterprise sales cycle",
   "ko": "엔터프라이즈 세일즈 사이클",
   "note": "상황태그: 인터뷰·경력 설명",
-  "say": "I am comfortable running six-to-twelve-month cycles with multiple stakeholders.",
+  "say": "I run six-to-twelve-month enterprise cycles with many stakeholders. That's my comfort zone.",
   "triggers": "세일즈 사이클 이해관계자 long cycle stakeholders"
  },
  {
   "term": "why this company",
   "ko": "왜 이 회사인가",
   "note": "상황태그: 인터뷰·지원 동기",
-  "say": "I want to sell a product that changes how customers work, not just where their servers run.",
+  "say": "I want to sell a product that changes how customers work. Not just where their servers run.",
   "triggers": "지원 동기 why us why this company 왜 what brings you here today attracted this role"
  },
  {
   "term": "career move logic",
   "ko": "이직 논리",
   "note": "상황태그: 인터뷰·지원 동기",
-  "say": "This role connects my cloud background with where enterprise software is clearly heading.",
+  "say": "This role connects my cloud background with where enterprise software is going.",
   "triggers": "이직 이유 커리어 why leaving 논리 what brings you here today"
  },
  {
   "term": "cold outreach story",
   "ko": "콜드 아웃리치 경험",
   "note": "상황태그: 인터뷰·사례",
-  "say": "I open doors through referenced cold outreach — a specific insight about their business, not a template.",
+  "say": "I open doors with cold outreach. One specific insight about their business, never a template.",
   "triggers": "콜드 아웃바운드 사례 outreach 인사이트 land new logos net new"
  },
  {
   "term": "quota conversation",
   "ko": "실적 이야기",
   "note": "상황태그: 인터뷰·성과",
-  "say": "I am used to carrying a number and building enough pipeline to beat it.",
+  "say": "I've always carried a number. I build enough pipeline to beat it.",
   "triggers": "쿼터 실적 파이프라인 quota number attainment"
  },
  {
   "term": "deal example frame",
   "ko": "딜 사례 프레임",
   "note": "상황태그: 인터뷰·사례",
-  "say": "Let me walk you through one deal — the situation, what I did, and the outcome.",
+  "say": "Let me walk you through one deal. The situation, what I did, the outcome.",
   "triggers": "사례 설명 STAR 딜 walk me through example"
  },
  {
   "term": "loss lesson",
   "ko": "실패에서 배운 것",
   "note": "상황태그: 인터뷰·약점·실패",
-  "say": "I lost a deal by pitching too early, and now I never present before I understand the pain.",
+  "say": "I once lost a deal by pitching too early. Now I never present before I understand the pain.",
   "triggers": "실패 배운 점 lost deal weakness lesson failed failure mistake a time you failed setback"
  },
  {
   "term": "weakness honest",
   "ko": "약점 정직하게",
   "note": "상황태그: 인터뷰·약점",
-  "say": "My spoken English is still growing, so I over-prepare and confirm key points in writing.",
+  "say": "My spoken English is still growing. So I over-prepare and confirm key points in writing.",
   "triggers": "약점 weakness 영어 보완"
  },
  {
   "term": "team player proof",
   "ko": "협업 근거",
   "note": "상황태그: 인터뷰·협업",
-  "say": "I win with presales and delivery as one team — I bring the deal, they bring the proof.",
+  "say": "I win as one team with presales and delivery. I bring the deal, they bring the proof.",
   "triggers": "협업 팀워크 프리세일즈 teamwork"
  },
  {
   "term": "coachability",
   "ko": "코칭 수용성",
   "note": "상황태그: 인터뷰·태도",
-  "say": "I take coaching well — give me one concrete correction and it sticks.",
+  "say": "I take coaching well. Give me one concrete fix and it sticks.",
   "triggers": "코칭 피드백 수용 coachable feedback"
  },
  {
   "term": "remote discipline",
   "ko": "원격 근무 규율",
   "note": "상황태그: 인터뷰·워크스타일",
-  "say": "Working with remote teams, I over-communicate in writing so nothing depends on memory.",
+  "say": "With remote teams, I over-communicate in writing. Nothing depends on memory.",
   "triggers": "원격 근무 리모트 커뮤니케이션 written"
  },
  {
   "term": "first 90 days",
   "ko": "첫 90일 계획",
   "note": "상황태그: 인터뷰·플랜",
-  "say": "In my first ninety days I would master the product story and book real discovery meetings.",
+  "say": "First ninety days? I'd master the product story and book real discovery meetings.",
   "triggers": "첫 90일 온보딩 계획 90 days plan"
  },
  {
   "term": "korea market angle",
   "ko": "한국 시장 강점",
   "note": "상황태그: 인터뷰·차별화",
-  "say": "I know how Korean enterprises buy — the committees, the SIs, and the relationships that move deals.",
+  "say": "I know how Korean enterprises buy. The committees, the SIs, and the relationships.",
   "triggers": "한국 시장 로컬 강점 Korea enterprises"
  },
  {
   "term": "handling rejection",
   "ko": "거절 대처",
   "note": "상황태그: 인터뷰·태도",
-  "say": "Rejection is data — every no tells me how to sharpen the next approach.",
+  "say": "Rejection is data. Every no shows me how to sharpen the next approach.",
   "triggers": "거절 멘탈 rejection resilience"
  },
  {
   "term": "salary deflect",
   "ko": "연봉 질문 대응",
   "note": "상황태그: 인터뷰·조건",
-  "say": "I am flexible on the package if the role and the market opportunity are right.",
+  "say": "I'm flexible on the package. What matters is the role and the market opportunity.",
   "triggers": "연봉 보상 salary expectations compensation"
  },
  {
   "term": "notice period",
   "ko": "입사 가능 시기",
   "note": "상황태그: 인터뷰·조건",
-  "say": "I could start within the standard notice period after we agree on terms.",
+  "say": "I can start after the standard notice period. Once we agree on terms, I'll move fast.",
   "triggers": "입사 시기 notice period when can you start"
  },
  {
   "term": "visa or language check",
   "ko": "언어 사용 환경 확인",
   "note": "상황태그: 인터뷰·조건",
-  "say": "May I ask how much of the day-to-day communication happens in English?",
+  "say": "May I ask one thing? How much day-to-day work happens in English?",
   "triggers": "언어 환경 영어 사용 비중 communication language"
  },
  {
   "term": "rephrase request",
   "ko": "다시 말해달라고 요청",
   "note": "상황태그: 인터뷰·되묻기",
-  "say": "Sorry, could you rephrase that? I want to make sure I answer the right question.",
+  "say": "Sorry, could you rephrase that? I want to answer the right question.",
   "triggers": "되묻기 다시 못 알아들었 rephrase repeat pardon"
  },
  {
   "term": "confirm understanding",
   "ko": "이해 확인 되묻기",
   "note": "상황태그: 인터뷰·되묻기",
-  "say": "Just to confirm — are you asking about my current role, or the new one?",
+  "say": "Just to confirm — my current role, or the new one?",
   "triggers": "확인 되묻기 clarify confirm 질문 의도"
  },
  {
   "term": "slow down request",
   "ko": "속도 조절 요청",
   "note": "상황태그: 인터뷰·되묻기",
-  "say": "Could you slow down just a little? I want to catch every detail.",
+  "say": "Could you slow down just a little? I don't want to miss anything.",
   "triggers": "천천히 속도 slow down 빠르"
  },
  {
   "term": "buy time classic",
   "ko": "시간 벌기 기본",
   "note": "상황태그: 인터뷰·시간 벌기",
-  "say": "That's a great question — let me think about it for a second.",
+  "say": "That's a great question — let me think for a second.",
   "triggers": "시간 벌기 생각할 시간 great question let me think"
  },
  {
   "term": "buy time structure",
   "ko": "구조로 시간 벌기",
   "note": "상황태그: 인터뷰·시간 벌기",
-  "say": "There are two parts to that — let me take them one at a time.",
+  "say": "That has two parts. Let me take them one at a time.",
   "triggers": "시간 벌기 구조화 two parts one at a time"
  },
  {
   "term": "come back later",
   "ko": "나중에 보충하기",
   "note": "상황태그: 인터뷰·시간 벌기",
-  "say": "Can I come back to that with a better example in a moment?",
+  "say": "Can I come back to that with a better example?",
   "triggers": "나중에 보충 come back 다시 답변"
  },
  {
   "term": "ask team structure",
   "ko": "역질문: 팀 구조",
   "note": "상황태그: 인터뷰·역질문",
-  "say": "How is the sales team structured here, and who would I work with most closely?",
+  "say": "How's the sales team structured here? Who would I work with most?",
   "triggers": "역질문 팀 구조 team structure 조직"
  },
  {
   "term": "ask onboarding",
   "ko": "역질문: 온보딩",
   "note": "상황태그: 인터뷰·역질문",
-  "say": "What does onboarding look like for someone in this role in the first three months?",
+  "say": "What does onboarding look like for the first three months?",
   "triggers": "역질문 온보딩 교육 ramp onboarding"
  },
  {
   "term": "ask success criteria",
   "ko": "역질문: 성공 기준",
   "note": "상황태그: 인터뷰·역질문",
-  "say": "How do you measure success for this role in the first year?",
+  "say": "How do you measure success for this role in year one?",
   "triggers": "역질문 성공 기준 success criteria 평가"
  },
  {
   "term": "ask team culture",
   "ko": "역질문: 팀 문화",
   "note": "상황태그: 인터뷰·역질문",
-  "say": "What do the best performers on this team have in common?",
+  "say": "What do your best performers have in common?",
   "triggers": "역질문 문화 탑 퍼포머 best performers"
  },
  {
   "term": "ask next steps",
   "ko": "역질문: 다음 단계",
   "note": "상황태그: 인터뷰·클로징",
-  "say": "What would the next steps in the process look like?",
+  "say": "What would the next steps look like?",
   "triggers": "다음 단계 프로세스 next steps 절차"
  },
  {
   "term": "closing interest",
   "ko": "클로징: 관심 표현",
   "note": "상황태그: 인터뷰·클로징",
-  "say": "This conversation made me even more excited about the role — I would love to move forward.",
+  "say": "I'm even more excited about the role now. I'd love to move forward.",
   "triggers": "클로징 관심 표현 excited move forward 마무리"
  },
  {
   "term": "closing fit summary",
   "ko": "클로징: 적합성 요약",
   "note": "상황태그: 인터뷰·클로징",
-  "say": "To sum up, my hunting background and cloud experience map directly to what this role needs.",
+  "say": "Basically, my hunting background and cloud experience map to this role.",
   "triggers": "클로징 요약 적합 sum up fit"
  },
  {
   "term": "closing thanks",
   "ko": "클로징: 감사 인사",
   "note": "상황태그: 인터뷰·클로징",
-  "say": "Thank you for your time today — I really enjoyed the conversation.",
+  "say": "Thank you for your time today. I really enjoyed this conversation.",
   "triggers": "감사 인사 마무리 thank you time"
  },
  {
   "term": "follow-up offer",
   "ko": "클로징: 자료 제안",
   "note": "상황태그: 인터뷰·클로징",
-  "say": "Happy to share more detail on any of my deals in a follow-up if useful.",
+  "say": "Happy to share more detail on any deal in a follow-up.",
   "triggers": "후속 자료 follow up 추가 정보"
  },
  {
   "term": "handle silence",
   "ko": "침묵 깨기",
   "note": "상황태그: 인터뷰·대화 운영",
-  "say": "Does that answer your question, or should I go deeper on any part?",
+  "say": "Does that answer your question? Should I go deeper on any part?",
   "triggers": "침묵 확인 답변 충분 go deeper"
  },
  {
   "term": "enthusiasm marker",
   "ko": "열의 표현",
   "note": "상황태그: 인터뷰·태도",
-  "say": "That's exactly the kind of challenge I have been looking for.",
+  "say": "That's exactly the kind of challenge I've been looking for.",
   "triggers": "열의 관심 exactly looking for 도전"
  },
  {
   "term": "agree and add",
   "ko": "동의하고 덧붙이기",
   "note": "상황태그: 인터뷰·리액션",
-  "say": "I completely agree — and in my experience, that shows up most in the discovery stage.",
+  "say": "I completely agree. In my experience, that shows up most in discovery.",
   "triggers": "동의 덧붙 agree and add 리액션"
  },
  {
   "term": "elaborate opener",
   "ko": "부연 설명 시작",
   "note": "상황태그: 인터뷰·부연",
-  "say": "Let me give you a concrete example of what I mean.",
+  "say": "Let me give you a concrete example.",
   "triggers": "부연 예시 concrete example elaborate 구체적"
  },
  {
   "term": "bridge to strength",
   "ko": "강점으로 연결",
   "note": "상황태그: 인터뷰·대화 운영",
-  "say": "That connects to something I care a lot about — building pipeline from zero.",
+  "say": "That connects to something I care about — building pipeline from zero.",
   "triggers": "연결 강점 브릿지 connects pipeline zero"
  }
 ]
