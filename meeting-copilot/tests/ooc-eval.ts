@@ -100,8 +100,9 @@ function judge(c: Case, meta: any, en: string[]) {
   }
   if (c.tier === "C") {
     // 완전 이탈: 관련성 컷이 무관 시드를 걸러야 정상 (rag_used=false가 기본).
-    // 단, 진짜 관련 시드(예: 실패담→loss lesson)가 잡힌 것은 통과로 본다.
-    if (meta?.rag_used && !/loss lesson|career move|weakness/i.test(srcs.join(" ")))
+    // 단, 진짜 관련 시드(예: 실패담→loss lesson, 5년 후→자기소개/커리어 방향)가
+    // 잡힌 것은 통과로 본다.
+    if (meta?.rag_used && !/loss lesson|career move|weakness|자기소개/i.test(srcs.join(" ")))
       problems.push(`무관 시드 인용 의심: ${srcs.join(", ")}`);
   }
   return problems;

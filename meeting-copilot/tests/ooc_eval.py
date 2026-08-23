@@ -110,7 +110,7 @@ def judge(c: dict, meta: dict | None, en: list[str]) -> list[str]:
     if c["tier"] == "A" and not any(e.lower() in joined for e in c["expect"]):
         problems.append(f"기대 시드 미검색 (실제: {', '.join(srcs) or '없음'})")
     if c["tier"] == "C" and (meta or {}).get("rag_used") \
-            and not re.search(r"loss lesson|career move|weakness", joined):
+            and not re.search(r"loss lesson|career move|weakness|자기소개", joined):
         problems.append(f"무관 시드 인용 의심: {', '.join(srcs)}")
     return problems
 

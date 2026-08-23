@@ -527,25 +527,25 @@ rag-eval 15/15는 "시드와 매칭되는 질문"만 검증했다. 실전 인터
 다시 실행하면 같은 표가 실측 생성문으로 갱신된다.
 
 <!-- OOC-RESULTS:START -->
-### 13.1 결과 표 (ooc_eval.py 자동 기록 — 2026-08-23 03:02 · 공급자: gemini (gemini-2.5-flash))
+### 13.1 결과 표 (ooc_eval.py 자동 기록 — 2026-08-23 15:45 · 공급자: gemini (gemini-flash-latest))
 
 | 계층 | 면접관 질문 | 검색 근거 (관련성 컷 통과분) | 생성 2안 | 판정 |
 |---|---|---|---|---|
-| A | Walk me through your background. | current role summary<br>intro one-liner<br>deal example frame | I build accounts from cold call to close.<br>So let me share one example from a recent deal. | ✅ |
-| A | What brings you here today? | why this company<br>career move logic | This role connects my cloud background with where enterprise.<br>So let me share one example from a recent deal. | ✅ |
-| A | How do you land new logos? | new business hunting<br>cold outreach story | One specific insight about their business, never a template.<br>So let me share one example from a recent deal. | ✅ |
-| A | How would you explain integration platforms to a beginner? | iPaaS in one line | Processes run end to end, no custom code.<br>So let me share one example from a recent deal. | ✅ |
-| A | What would you ask us about how the team works? | ask team structure<br>ask team culture<br>legacy middleware contrast | What do your best performers have in common.<br>So let me share one example from a recent deal. | ✅ |
-| B | What's your experience with Salesforce integration specifically? | — (프로필 폴백) | I'm a B2B sales hunter at a cloud MSP.<br>So let me share one example from a recent deal. | ✅ |
-| B | How do you handle a deal going dark after the proposal? | — (프로필 폴백) | I'm a B2B sales hunter at a cloud MSP.<br>So let me share one example from a recent deal. | ✅ |
-| B | What are your salary expectations for this position? | salary deflect | What matters is the role and the market opportunity.<br>So let me share one example from a recent deal. | ✅ |
-| B | How do you split your time between hunting and account management? | — (프로필 폴백) | I'm a B2B sales hunter at a cloud MSP.<br>So let me share one example from a recent deal. | ✅ |
-| B | Have you ever sold against an incumbent vendor with a locked-in contract? | — (프로필 폴백) | I'm a B2B sales hunter at a cloud MSP.<br>So let me share one example from a recent deal. | ✅ |
-| C | What do you do outside work for fun? | — (프로필 폴백) | I'm a B2B sales hunter at a cloud MSP.<br>So let me share one example from a recent deal. | ✅ |
-| C | Tell me about a time you failed at something. | loss lesson | Now I never present before I understand the pain.<br>So let me share one example from a recent deal. | ✅ |
-| C | Why are you leaving your current role right now? | current role summary<br>career move logic<br>confirm understanding | This role connects my cloud background with where enterprise.<br>So let me share one example from a recent deal. | ✅ |
-| C | How do your colleagues usually describe you? | — (프로필 폴백) | I'm a B2B sales hunter at a cloud MSP.<br>So let me share one example from a recent deal. | ✅ |
-| C | Where do you see yourself in five years? | — (프로필 폴백) | I'm a B2B sales hunter at a cloud MSP.<br>So let me share one example from a recent deal. | ✅ |
+| A | Walk me through your background. | current role summary<br>intro one-liner<br>deal example frame | I build accounts from cold call to close. So let me share one example from a recent deal. | ✅ |
+| A | What brings you here today? | why this company<br>career move logic | This role connects my cloud background with where. So let me share one example from a rece | ✅ |
+| A | How do you land new logos? | new business hunting<br>cold outreach story | One specific insight about their business, never a. So let me share one example from a rec | ✅ |
+| A | How would you explain integration platforms to a beginner? | iPaaS in one line | Processes run end to end, no custom code. So let me share one example from a recent deal. | ✅ |
+| A | What would you ask us about how the team works? | ask team structure<br>ask team culture<br>legacy middleware contrast | What do your best performers have in common. So let me share one example from a recent dea | ✅ |
+| B | What's your experience with Salesforce integration specifically? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
+| B | How do you handle a deal going dark after the proposal? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
+| B | What are your salary expectations for this position? | salary deflect<br>연봉 질문 — 밴드 역질문 (1차 표준 대응)<br>연봉 — 되물음 대응 + 밴드 반응 3종 (2차) | new-market hunter role, I'd also like to understand. So let me share one example from a re | ✅ |
+| B | How do you split your time between hunting and account management? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
+| B | Have you ever sold against an incumbent vendor with a locked-in contract? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
+| C | What do you do outside work for fun? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
+| C | Tell me about a time you failed at something. | loss lesson | Now I never present before I understand the. So let me share one example from a recent dea | ✅ |
+| C | Why are you leaving your current role right now? | current role summary<br>연봉 — 되물음 대응 + 밴드 반응 3종 (2차)<br>career move logic | Rather than anchoring on a figure, what matters. So let me share one example from a recent | ✅ |
+| C | How do your colleagues usually describe you? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
+| C | Where do you see yourself in five years? | 자기소개 — 표준 골격 (08 캐노니컬, 담백한 톤) | years, most of last year's growth from GenAI-driven. So let me share one example from a re | ✅ |
 
 **15/15** (A 5/5 · B 5/5 · C 5/5). 계층 기준 — A: 시드 검색·활용 / B: 무관 시드 강제
 인용 없이 생성 / C: 검색 0이어도 프로필 기반 답변, 회피성 문구 금지.
@@ -835,3 +835,35 @@ rag-eval 15/15는 "시드와 매칭되는 질문"만 검증했다. 실전 인터
 - 원인: 오버레이는 🪟 버튼을 눌러야 나타나는 기능이라 변화가 안 보였음.
 - 조치: 🪟 버튼 강조 테두리(액센트), 첫 화면 안내 문구에 오버레이 사용법,
   서비스워커 캐시 v2 범프(구 캐시 강제 교체).
+
+## 21. UI 미반영 진단 + 45분 지속 품질 검증 (2026-08-23)
+
+### 21.1 "UI가 안 바뀌었다" 진단
+- **주원인**: 터미널 기록 분석 — 오버레이 커밋(1afddba)을 pull한 것이 해당
+  세션의 마지막 동작. pull 이후 start.sh 재기동·브라우저 재접속이 없어
+  화면에는 pull 이전 버전이 떠 있었다.
+- **부차**: 오버레이는 🪟 버튼을 눌러야 나타나는 기능 — 누르기 전엔 변화 없음.
+- **재발 방지**: 헤더 버전 칩(v2.1) + start.sh 기동 요약에 UI 버전 줄 —
+  터미널과 브라우저 칩이 다르면 ⌘⇧R. 렌더 검증 800px/400px 완료.
+- **부수 발견**: "키에 한글·공백" 경고 오탐 — 맥 기본 bash 3.2 + UTF-8
+  로케일에서 범위 글롭([!-~])이 콜레이션을 타는 문제. LC_ALL=C tr로 교체.
+
+### 21.2 45분 소크 (무료 한도 강제 — 최악 조건)
+발화 360개 · 7.5초 간격 · 45.2분 실측: **429 0건 · 번역 240/240 표시(누락 0)
+· 표시 지연 p50 429ms / p95 438ms / max 473ms · JS 오류 0** → 45분 품질 유지.
+번역 RPD 소모 546/1000 — 무료 한도로도 인터뷰 1회 + 리허설 일부 가능.
+
+### 21.3 paid 티어 레인 예산 (유료 결제 계정 반영)
+- 문제: 레인 한도가 티어 무관 무료값 고정 → paid인데도 "제안 250/일"로
+  계산돼 45분 후반(70% 소진) 자동 제안 자동 차단 위험.
+- 수정: paid 기본값 fast 120 RPM/10000 RPD · main 60 RPM/5000 RPD
+  (게이트웨이 60/120과 정합, env 재정의 유지).
+- 검증: paid 5분 시뮬 — 칩 "⚡6/120 · 오늘 584/10000", 429 0건, 번역 27/27,
+  자동 제안 게이팅 없이 동작(5분간 제안 31회).
+
+### 21.4 QA 배터리 (최종 코드 기준)
+E2E 전 항목 ✅ / rag-eval 15/15 ✅ / ooc-eval 15/15 ✅ / speakability 70개
+위반 0 ✅ / 45분 소크 ✅ / paid 5분 ✅. 과정 중 ooc-eval 500은 테스트 구성
+실수(mock 한도 미완화)로 판명 — 제품 결함 아님. 판정기 1건 갱신: "5년 후"
+질문이 자기소개(커리어 방향) 자료를 인용하는 것은 무관 인용이 아니므로
+C-티어 허용 목록에 추가.
