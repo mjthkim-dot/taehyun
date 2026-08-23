@@ -777,8 +777,23 @@ def _load_local_model():
     return _local_model
 
 
+_local_kicked = False
+
+
 def stt_local_available() -> bool:
-    return _get_local_model() is not None
+    """비차단 — /health가 이걸 부르는데, 모델 로드는 수 초~수십 초(첫 실행은
+    다운로드)다. 기다리지 않고 백그라운드 로드를 1회만 시작하고 현재 상태를
+    답한다 (콜드 스타트 14.7초 → 2초대, 실측). 실제 STT 사용(transcribe_local)은
+    여전히 로드를 기다린다."""
+    global _local_kicked
+    if _local_model is not None:
+        return True
+    if _local_failed or not STT_LOCAL:
+        return False
+    if not _local_kicked:
+        _local_kicked = True
+        threading.Thread(target=_get_local_model, daemon=True).start()
+    return False
 
 
 def transcribe_local(audio: bytes, filename: str = "audio.webm",
