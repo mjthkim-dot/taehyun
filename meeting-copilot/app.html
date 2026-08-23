@@ -479,6 +479,45 @@ async function streamChat(url, payload, onToken, signal, onMeta){
 }
 const now = () => new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false});
 
+// ── 미팅 기록 백업 — 새로고침·탭 크래시로 진행 중 미팅을 잃지 않는다 ──
+// 발화·번역이 갱신될 때마다 1초 디바운스로 localStorage에 저장하고,
+// 미팅을 정상 종료(⏹)하면 지운다. 복원은 LLM을 다시 부르지 않는다(비용 0).
+let bkTimer = null;
+function backupLog(){
+  clearTimeout(bkTimer);
+  bkTimer = setTimeout(()=>{
+    try{
+      if(!log.length) return;
+      localStorage.setItem('mc_log_backup', JSON.stringify({ts: Date.now(),
+        entries: log.map(l=>({who:l.who, text:l.text, kr: trCache.get(trKey(l.text)) || ''}))}));
+    }catch{}
+  }, 1000);
+}
+function clearBackup(){ clearTimeout(bkTimer); try{ localStorage.removeItem('mc_log_backup'); }catch{} }
+function restoreBackup(){
+  let b = null;
+  try{ b = JSON.parse(localStorage.getItem('mc_log_backup') || 'null'); }catch{}
+  if(!b?.entries?.length) return;
+  if(Date.now() - b.ts > 12*3600*1000){ clearBackup(); return; }   // 반나절 지난 건 폐기
+  if(!confirm(`끝내지 않은 미팅 기록 ${b.entries.length}개 발화가 남아 있어요.\n이어서 복원할까요? (취소하면 삭제됩니다)`)){
+    clearBackup(); return;
+  }
+  $('#feed-empty')?.remove();
+  for(const e of b.entries){
+    log.push({who: e.who, text: e.text});
+    const me = e.who === '나';
+    const row = document.createElement('div');
+    row.className = 'row' + (me?' me':'');
+    row.innerHTML = `<div class="meta">${me?'나':'상대'} · 복원</div>
+      <div class="bubble"><div class="en"></div><div class="kr"></div></div>`;
+    row.querySelector('.en').textContent = e.text;
+    if(e.kr){ row.querySelector('.kr').textContent = e.kr; trCache.set(trKey(e.text), e.kr); }
+    feed.appendChild(row);
+  }
+  feed.scrollTop = feed.scrollHeight;
+  $('#status-txt').textContent = `이전 미팅 ${b.entries.length}개 발화 복원됨 — ▶로 이어가세요`;
+}
+
 // ── 자막 ──
 function addUtterance(text, who){
   $('#feed-empty')?.remove();
@@ -496,6 +535,7 @@ function addUtterance(text, who){
   if(q && gov.remaining('main') > 2 && !gov.rpdBlocked()
        && gov.rpdHeadroom('main') > 0.3) suggest(text,'reply',true);   // 일일 70% 소진 → 자동 제안 중단(클릭은 계속)
   noteUtterance();          // 롤링 요약 조건 판정 (3문장 또는 30초)
+  backupLog();
   return row;
 }
 
@@ -655,6 +695,7 @@ function trSettle(key, value, isError){
   trCache.set(key, value);
   if(trCache.size > 300) trCache.delete(trCache.keys().next().value);
   els.forEach(e => { e.textContent = value; });
+  backupLog();               // 번역까지 포함해 백업 갱신
 }
 // (구 2레인 pumpTranslate는 배칭 큐로 대체 — 위 flushTr)
 
@@ -1191,7 +1232,7 @@ $('#btn-stop').onclick = async ()=>{
   box.innerHTML = `<div class="meta">세션 요약 · ${now()}</div><div class="bubble"><div class="en" style="white-space:pre-wrap"></div></div>`;
   box.querySelector('.en').textContent = out.trim();
   feed.appendChild(box); feed.scrollTop = feed.scrollHeight;
-  log.length = 0; uttCount = 0;
+  log.length = 0; uttCount = 0; clearBackup();
   stopSummaryTimer(); sumSince=0; sumDirty=false; sumLastKey=''; trCache.clear(); trPending.clear();
   specKey=''; specDone=''; specLastText=''; specTries=0; clearTimeout(specTimer);
   $('#status-txt').textContent = '세션이 정리되어 자료에 적재됐습니다';
@@ -1474,7 +1515,7 @@ async function bootData(){
   }
 }
 applyPreset();
-(async ()=>{ await checkAuth(); await bootData(); gov.poll(); })();
+(async ()=>{ await checkAuth(); await bootData(); gov.poll(); restoreBackup(); })();
 // 하단 컨트롤 높이를 재서 카드 위치를 맞춘다 (버튼 줄바꿈에 따라 달라짐)
 // 퀵 번역 즉시 접근 — 인터뷰에서 가장 쓰는 기능
 addEventListener('keydown', e=>{
