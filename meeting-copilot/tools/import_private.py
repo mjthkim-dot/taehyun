@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """개인 면접·미팅 코퍼스 임포트 — backend/data/imported/*.json → 로컬 RAG.
 
-  python3 tools/import_private.py          # imported/ 폴더의 모든 .json 적재
-  python3 tools/import_private.py --list   # 적재된 개인 노트 확인
+  python3 tools/import_private.py            # imported/ 폴더의 모든 .json 적재
+  python3 tools/import_private.py --replace  # 기존 개인 노트 전부 지우고 새로 적재
+  python3 tools/import_private.py --list     # 적재된 개인 노트 확인
+
+--replace 는 제목이 바뀌거나 삭제된 옛 청크가 남지 않도록, 개인 노트(private:*)만
+전부 지운 뒤 다시 적재한다. 코퍼스를 수정 학습할 때는 --replace 를 쓴다.
 
 파일 형식: [{"title": "...", "text": "..."}] 배열. text 끝에 "[검색어] ..." 줄을
 붙이면 검색 트리거로만 쓰이고 답변 인용에서는 제외된다.
@@ -40,6 +44,13 @@ def main() -> int:
     if not files:
         print(f"적재할 파일이 없습니다 — {IMP}/ 에 .json을 넣고 다시 실행하세요")
         return 1
+    if "--replace" in sys.argv:
+        with st.connect() as con:
+            n = con.execute(
+                "SELECT COUNT(*) FROM chunks WHERE uid LIKE 'private:%'").fetchone()[0]
+            con.execute("DELETE FROM chunks WHERE uid LIKE 'private:%'")
+            con.commit()
+        print(f"🧹 기존 개인 노트 {n}개 삭제 (재적재 준비)")
     total = 0
     for f in files:
         try:
