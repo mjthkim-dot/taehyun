@@ -412,6 +412,29 @@ def _handle_429(name: str, body: str, fast: bool) -> str:
 import gateway
 
 
+class _EmptyResp(Exception):
+    """HTTP 200인데 텍스트 0자 — 실 Gemini의 안전 필터·빈 candidate에서 실제로
+    난다. 모의 서버는 절대 재현하지 않아 테스트가 못 잡는 유형이라, 성공으로
+    흘려보내지 않고 실패로 분류해 재시도 1회 → 항목 스킵으로 처리한다."""
+
+
+def _require_text(out: str) -> str:
+    if not (out or "").strip():
+        raise _EmptyResp()
+    return out
+
+
+def _first_is_empty(first) -> bool:
+    # 스트림이 토큰 없이 종료 마커만 내보낸 경우 (빈 응답의 스트림 버전)
+    if first is None:
+        return True
+    try:
+        o = json.loads(first)
+        return bool(o.get("done")) and not (o.get("message") or {}).get("content")
+    except (json.JSONDecodeError, AttributeError):
+        return False
+
+
 def _retry_after_of(e) -> str | None:
     try:
         return e.headers.get("Retry-After") if e.headers else None
@@ -429,12 +452,23 @@ def _gw_attempts(ticket, name: str, fast: bool, fn):
     · 재시도도 gateway.retry_wait()로 토큰을 소비한다 (재시도 폭풍 차단)
     반환: (결과, None) 또는 (None, 사유문자열)."""
     n429 = n5xx = 0
+    lane = "fast" if fast else "main"
     while True:
         t0 = time.time()
         try:
             out = fn()
             gateway.record(ticket, 200, attempt=n429 + n5xx, t0=t0)
             return out, None
+        except _EmptyResp:
+            # 5xx와 같은 규율: 짧은 백오프 1회 재시도(토큰 소비), 그래도 비면 스킵
+            gateway.record(ticket, 204, "빈 응답 — 안전 필터/빈 candidate 의심",
+                           attempt=n429 + n5xx, t0=t0)
+            if n5xx >= 1:
+                _mark_bad(name, "빈 응답", seconds=5)
+                return None, f"{name}: 빈 응답 반복 — 이 항목만 건너뜀"
+            gateway.retry_wait(None, 0, base=0.3, lane=lane)
+            n5xx += 1
+            continue
         except urllib.error.HTTPError as e:
             body = ""
             try:
@@ -551,7 +585,8 @@ def chat_once(messages: list[dict], json_mode: bool = False, temperature: float 
         try:
             out, err = _gw_attempts(
                 ticket, name, fast,
-                lambda: _CHAT[name](messages, json_mode, temperature, max_tokens, mdl))
+                lambda: _require_text(
+                    _CHAT[name](messages, json_mode, temperature, max_tokens, mdl)))
         finally:
             gateway.release(ticket)
         if err is None:
@@ -577,7 +612,10 @@ def stream_ndjson(messages: list[dict], temperature: float = 0.4,
 
         def attempt():
             it = _STREAM[name](messages, temperature, max_tokens, mdl)
-            return next(it, None), it
+            first = next(it, None)
+            if _first_is_empty(first):
+                raise _EmptyResp()
+            return first, it
 
         try:
             res, err = _gw_attempts(ticket, name, fast, attempt)

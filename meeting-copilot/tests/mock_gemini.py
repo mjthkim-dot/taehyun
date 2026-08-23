@@ -89,6 +89,16 @@ class H(http.server.BaseHTTPRequestHandler):
         import random as _r
         if _err_mode["mode"] != "off" and _r.random() < _err_mode["p"]:
             _counts[f"inject_{_err_mode['mode']}"] += 1
+            if _err_mode["mode"] == "empty":
+                # 실 Gemini의 "200인데 텍스트 0자" (안전 필터/빈 candidate) 재현
+                if verb == "generateContent":
+                    self._json(200, {"candidates":[{"content":{"parts":[{"text":""}]}}]})
+                else:
+                    self.send_response(200)
+                    self.send_header("Content-Type","text/event-stream")
+                    self.send_header("Transfer-Encoding","chunked"); self.end_headers()
+                    self.wfile.write(b"0\r\n\r\n"); self.wfile.flush()
+                return
             if _err_mode["mode"] == "429":
                 b = json.dumps({"error":{"code":429,"status":"RESOURCE_EXHAUSTED",
                     "message":"Quota exceeded ... GenerateRequestsPerMinutePerProjectPerModel"}}).encode()
