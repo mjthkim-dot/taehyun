@@ -50,7 +50,6 @@
   @media (min-width: 760px){
     /* column flex에서 margin:auto는 stretch를 끄므로 width:100%를 함께 준다 */
     #feed, .actions, .quickbar, #card{width:100%;max-width:660px;margin-left:auto;margin-right:auto}
-    #card{left:0;right:0;width:100%}
     header, .status{padding-left:calc((100vw - 660px)/2);padding-right:calc((100vw - 660px)/2)}
   }
   .view{flex:1;display:flex;flex-direction:column;min-height:0}
@@ -119,13 +118,16 @@
   #who{display:none;background:none;border:none;color:var(--sub);font-size:11px;
     cursor:pointer;font-family:inherit;padding:2px 6px}
 
-  /* ── 제안 카드 (하단 시트) ── */
-  /* 제안 카드는 하단 컨트롤(퀵 액션·입력)을 덮지 않는다 —
-     제안이 뜬 직후에 '반박으로 다시'를 누르는 흐름이 가장 잦기 때문이다. */
-  #card{position:absolute;left:8px;right:8px;bottom:var(--ctrl-h,96px);background:var(--panel2);
+  /* ── 제안 카드 (하단 패널 — 자막을 덮지 않는다) ── */
+  /* 실전 피드백: 카드가 자막 위에 뜨면 상대가 지금 무슨 말을 하는지 못 본 채
+     답하게 된다. 카드는 팝업이 아니라 자막 아래에 끼어드는 별도 패널로 —
+     화면을 자막(위)과 답변(아래)이 나눠 쓰고, 최신 자막은 항상 보인다. */
+  #feed{order:0}
+  #card{order:1;flex:none;margin:0 8px 6px;background:var(--panel2);
     border:1px solid var(--line);border-radius:14px;padding:11px;display:none;
-    box-shadow:0 12px 40px rgba(0,0,0,.55);max-height:58%;overflow-y:auto;overscroll-behavior:contain}
-  #card.spec{box-shadow:0 0 0 1px var(--accent) inset,0 12px 40px rgba(0,0,0,.55)}
+    box-shadow:0 -6px 24px rgba(0,0,0,.35);max-height:48%;overflow-y:auto;overscroll-behavior:contain}
+  #ctrls{order:2}
+  #card.spec{box-shadow:0 0 0 1px var(--accent) inset,0 -6px 24px rgba(0,0,0,.35)}
   #card .head{position:sticky;top:-11px;z-index:2;background:var(--panel2);margin:-11px -11px 8px;
     padding:11px;border-radius:14px 14px 0 0;display:flex;align-items:center;gap:6px}
   #card .head .gist{font-size:12.5px;font-weight:800;flex:1;line-height:1.4}
@@ -211,7 +213,7 @@
   body.overlay .actions button.more{padding:4px 3px;font-size:10px}
   body.overlay .quickbar{padding:5px 8px 8px}
   body.overlay .quickbar input{padding:7px 9px;font-size:14px}
-  body.overlay #card{left:6px;right:6px;max-height:64%}
+  body.overlay #card{margin:0 6px 6px;max-height:52%}
   body.overlay .empty{margin-top:24px}
 </style>
 </head>
@@ -221,7 +223,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v2.1</span>
+  <span class="ver" id="app-ver">v2.2</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -870,6 +872,7 @@ function renderCard(raw){
     const kr = ((b.match(/KR\s*[:：]\s*([\s\S]*)/)||[])[1]||'').trim();
     if(en) box.appendChild(answerRow(en,kr,ansIdx++));
   }
+  fitCard();          // 카드가 자라며 피드가 줄어도 최신 자막을 계속 보이게
 }
 function renderSources(meta){
   lastPhrases = meta?.phrases || [];
@@ -1194,6 +1197,11 @@ function startSTT(){
   rec.onend = ()=>{ if(rec){ try{ rec.start(); }catch{} } };
   try{ rec.start(); }catch(e){ $('#status-txt').textContent='인식 시작 실패: '+e.message; return false; }
   paintMicSource();               // 어느 장치를 듣는지 표시 (화자 분리 확인)
+  // 첫 실행 힌트: 오버레이는 눌러야 보이는 기능이라 존재를 모르면 못 쓴다
+  if(!pipWin && !localStorage.getItem('mc_pip_hint')){
+    setBanner('💡 🪟 버튼: Zoom·Teams·Meet 위에 항상 떠 있는 작은 창으로 전환됩니다');
+    try{ localStorage.setItem('mc_pip_hint','1'); }catch{}
+  }
   watchdog = setInterval(()=>{
     if(rec && !heard && Date.now()-lastAt > 6000)
       $('#status-txt').innerHTML = '⚠️ 소리가 안 들려요 — 미팅 소리가 <b>이 기기 마이크</b>로 들어오는지 확인하세요';
@@ -1674,8 +1682,9 @@ addEventListener('keydown', e=>{
 });
 
 function fitCard(){
-  const h = ($('.actions')?.offsetHeight || 0) + ($('.quickbar')?.offsetHeight || 0) + 8;
-  docs().forEach(d=>d.documentElement.style.setProperty('--ctrl-h', h + 'px'));
+  // 카드는 자막 아래 별도 패널(겹침 없음) — 카드가 열리고 자라며 피드가
+  // 줄어들 때도 최신 자막이 계속 보이도록 피드를 바닥에 고정한다
+  if(feed) feed.scrollTop = feed.scrollHeight;
 }
 fitCard();
 addEventListener('resize', fitCard);
