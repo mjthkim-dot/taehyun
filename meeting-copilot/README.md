@@ -1,5 +1,12 @@
 # 🗣 실시간 영어 미팅 어시스턴트
 
+> **🔒 안정판: `v1.0.0-interview`** (릴리스 동결 — 8/27 인터뷰 실전용)
+> 실측 후 수정을 하다 뭔가 이상해지면 **언제든 이 명령으로 검증된 상태로 복귀**:
+> ```bash
+> git checkout v1.0.0-interview
+> ```
+> (수정 규칙은 [docs/HOTFIX-RULES.md](../docs/HOTFIX-RULES.md) — 증거 없는 수정 금지)
+
 한국인 IT 영업 실무자를 위한 **실시간 영어 미팅 보조 + 개인화 RAG**.
 
 차별점은 하나다 — **내 자료를 검색해서, 내가 실제로 말할 법한 문장을 만든다.**
@@ -12,9 +19,10 @@
 ## 실행
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...   # 번역·제안 기본 공급자 (Claude)
-bash meeting-copilot/start.sh
+export GEMINI_API_KEY=...             # 기본 공급자 — aistudio.google.com/apikey (무료)
+bash meeting-copilot/start.sh         # 기동 요약 4줄(로드·콜드스타트·공급자·잔여 한도) 출력
 # → http://localhost:3799/app.html
+# 실전 당일 아침: bash meeting-copilot/preflight.sh  (30초 판정)
 ```
 
 ### 세 가지 배포 모드 (같은 코드, 다른 설정)
