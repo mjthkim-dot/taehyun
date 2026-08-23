@@ -44,10 +44,11 @@ GEMINI_URL = os.environ.get("GEMINI_URL", "https://generativelanguage.googleapis
 # 모델 티어링 (무료 티어 = Flash 계열 전제, 하드코딩 금지 — env로 교체 가능):
 #  · 번역·한줄요약(고빈도) → Flash-Lite (가장 빠르고 무료 한도가 가장 큼)
 #  · 퀵 리액션·전체 요약·자산화 → Flash
-# 2.5 세대는 2026-10-16 종료 예정이며 그 전에 이미 오류가 나기 시작했다
-# (맥북 실측: gemini 실패 → ollama 27B 폴백 126초) → 3.5 세대로 교체
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
-GEMINI_FAST_MODEL = os.environ.get("GEMINI_FAST_MODEL", "gemini-3.5-flash-lite")
+# 버전 고정은 은퇴 사고를 부른다 — 맥북 실측: 2.5는 "신규 사용자 제공 종료"
+# 404, 고정 3.5도 언젠가 같은 길을 간다. 구글이 관리하는 "latest" 별칭을 쓰면
+# 항상 현행 무료 권장 모델을 가리킨다 (특정 버전이 필요하면 env로 고정).
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
+GEMINI_FAST_MODEL = os.environ.get("GEMINI_FAST_MODEL", "gemini-flash-lite-latest")
 # 무료 티어 한도(구글 공시값에서 여유 1~2를 뺀 내부 예산 — 초과 429를 예방)
 GEMINI_FAST_RPM = int(os.environ.get("GEMINI_FAST_RPM", "13"))
 GEMINI_MAIN_RPM = int(os.environ.get("GEMINI_MAIN_RPM", "9"))
