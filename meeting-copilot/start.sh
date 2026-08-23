@@ -18,14 +18,17 @@ echo ""
 echo "  🗣  실시간 영어 미팅 어시스턴트"
 echo "  ═══════════════════════════════════════"
 if [ -n "${GEMINI_API_KEY:-}" ]; then
-  # 구글 키는 형식이 여러 가지(AIza…, AQ.…) — 접두사 대신 한글·공백 혼입만 검사
-  # 대괄호 안 백슬래시는 리터럴이라 [!\!-\~]는 오탐을 냈다(맥북 실측: 정상 키에 경고)
-  # → 부정은 첫 !, 범위는 !-~ 그대로: [!!-~] = "출력 가능한 ASCII가 아닌 문자"
-  case "$GEMINI_API_KEY" in
-    *[!!-~]*) echo "  ⚠️ GEMINI_API_KEY에 한글·공백이 섞여 있습니다 (붙여넣기에서 딸려 온 글자)"
-              echo "     → aistudio.google.com/apikey 의 '키 복사' 버튼으로 키만 다시 넣으세요" ;;
-    *)        echo "  · Gemini 키 설정됨 (기본 공급자 — 무료 티어면 연습용, 실미팅은 GEMINI_TIER=paid)" ;;
-  esac
+  # 구글 키는 형식이 여러 가지(AIza…, AQ.…) — 접두사 대신 한글·공백 혼입만 검사.
+  # 글롭 범위([!-~])는 맥 기본 bash 3.2 + UTF-8 로케일에서 콜레이션 순서를 타
+  # 정상 키에도 오탐한다(맥북 실측: 리눅스 정상·맥 경고) → 로케일 무관한
+  # LC_ALL=C tr 로 "출력 가능한 ASCII 밖 문자"만 남겨 검사한다.
+  BAD_CHARS=$(printf %s "$GEMINI_API_KEY" | LC_ALL=C tr -d '\41-\176')
+  if [ -n "$BAD_CHARS" ]; then
+    echo "  ⚠️ GEMINI_API_KEY에 한글·공백이 섞여 있습니다 (붙여넣기에서 딸려 온 글자)"
+    echo "     → aistudio.google.com/apikey 의 '키 복사' 버튼으로 키만 다시 넣으세요"
+  else
+    echo "  · Gemini 키 설정됨 (기본 공급자)"
+  fi
 fi
 [ -n "${ANTHROPIC_API_KEY:-}" ] && echo "  · Claude 키 설정됨 (폴백 — 학습 미사용, 실미팅 적합)"
 [ -n "${CEREBRAS_API_KEY:-}" ] && echo "  · Cerebras 키 설정됨 (오픈소스 70B — 가장 빠름)"
@@ -85,7 +88,14 @@ print(f"  · 로드: 색인 {s.get('total')}청크({s.get('mode')}) · LLM [{llm
 print(f"  · 콜드 스타트: {time.time() - t0:.1f}초")
 print(f"  · 공급자: {h.get('provider')} ({h.get('model')}) · 티어 {u.get('tier') or '-'}")
 print(f"  · 잔여 한도: {lim}")
+if u.get("tier") == "paid":
+    # 무료 쿼터 계정에서 paid 설정은 게이트웨이가 60/분으로 발사해 실제 한도에
+    # 걸린다 → 인터뷰 중 429·30초 대기 위험. 결제 활성 계정일 때만 paid.
+    print( "  ⚠️ GEMINI_TIER=paid — 유료 결제가 실제로 활성일 때만 쓰세요."
+           " 크레딧이 없다면 이 설정을 지워야 무료 한도에 맞춰 안전하게 동작합니다")
 PYEOF
+UI_VER=$(grep -o 'id="app-ver">[^<]*' "$DIR/app.html" | cut -d'>' -f2)
+echo "  · UI 버전: ${UI_VER:-?} — 브라우저 헤더의 버전 칩과 같아야 최신입니다 (다르면 ⌘⇧R)"
 
 # 📱 폰에서 쓰려면 HTTPS 필요 (브라우저가 http에서 마이크를 막는다)
 if command -v cloudflared &>/dev/null; then

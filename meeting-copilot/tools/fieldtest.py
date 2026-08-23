@@ -690,12 +690,18 @@ def cmd_preflight(args) -> int:
         else:
             f_, m_ = u.get("fast", {}), u.get("main", {})
             if f_.get("rpd_limit"):
+                left_f = f_["rpd_limit"] - f_.get("rpd_used", 0)
                 left_m = m_["rpd_limit"] - m_.get("rpd_used", 0)
-                ok(f"오늘 잔여 — 번역 {f_['rpd_limit'] - f_.get('rpd_used', 0)}/{f_['rpd_limit']}"
+                ok(f"오늘 잔여 — 번역 {left_f}/{f_['rpd_limit']}"
                    f" · 제안 {left_m}/{m_['rpd_limit']}")
-                if left_m < 60:
-                    fails.append(("일일 한도", f"제안 잔여 {left_m}회 — 1시간 미팅이 빠듯합니다. "
-                                              "GEMINI_TIER=paid 또는 대안 키 준비"))
+                # 45분 인터뷰 예산: 질문마다 자동 제안 + 투기 상한 2 + 수동 클릭
+                # 여유분까지 제안 ~120콜, 번역은 배칭 후 ~150콜 수준으로 잡는다
+                if left_m < 120:
+                    fails.append(("일일 한도", f"제안 잔여 {left_m}회 — 45분 인터뷰가 빠듯합니다. "
+                                              "같은 날 리허설을 삼가거나 대안 키(Cerebras/Claude) 준비"))
+                if left_f < 300:
+                    fails.append(("일일 한도", f"번역 잔여 {left_f}회 — 45분 인터뷰가 빠듯합니다. "
+                                              "태평양 자정 리셋 후 사용 또는 대안 키 준비"))
             else:
                 ok("한도 없는 공급자 사용 중")
     except Exception as e:  # noqa: BLE001
