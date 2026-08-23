@@ -49,14 +49,19 @@ GEMINI_URL = os.environ.get("GEMINI_URL", "https://generativelanguage.googleapis
 # 항상 현행 무료 권장 모델을 가리킨다 (특정 버전이 필요하면 env로 고정).
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
 GEMINI_FAST_MODEL = os.environ.get("GEMINI_FAST_MODEL", "gemini-flash-lite-latest")
-# 무료 티어 한도(구글 공시값에서 여유 1~2를 뺀 내부 예산 — 초과 429를 예방)
-GEMINI_FAST_RPM = int(os.environ.get("GEMINI_FAST_RPM", "13"))
-GEMINI_MAIN_RPM = int(os.environ.get("GEMINI_MAIN_RPM", "9"))
-GEMINI_FAST_RPD = int(os.environ.get("GEMINI_FAST_RPD", "1000"))
-GEMINI_MAIN_RPD = int(os.environ.get("GEMINI_MAIN_RPD", "250"))
 # 무료 티어는 입력이 모델 개선에 사용될 수 있다(구글 약관) — 유료 결제 계정이면
 # GEMINI_TIER=paid 로 선언 (API로는 티어를 조회할 수 없어 선언 기반이다)
 GEMINI_TIER = os.environ.get("GEMINI_TIER", "free")
+# 레인별 내부 예산 — 티어에 따라 기본값이 바뀐다 (env로 개별 재정의 가능).
+#  · free: 구글 공시값에서 여유 1~2를 뺀 값 (초과 429 예방)
+#  · paid: 실한도(수천 RPM)보다 훨씬 보수적인 내부 상한 — 게이트웨이(60/분)와
+#    정합. 무료값을 그대로 두면 클라이언트가 "제안 250/일"로 계산해 45분
+#    인터뷰 후반(70% 소진)에 자동 제안을 스스로 꺼버린다 (실코드 확인).
+_PAID = GEMINI_TIER == "paid"
+GEMINI_FAST_RPM = int(os.environ.get("GEMINI_FAST_RPM", "120" if _PAID else "13"))
+GEMINI_MAIN_RPM = int(os.environ.get("GEMINI_MAIN_RPM", "60" if _PAID else "9"))
+GEMINI_FAST_RPD = int(os.environ.get("GEMINI_FAST_RPD", "10000" if _PAID else "1000"))
+GEMINI_MAIN_RPD = int(os.environ.get("GEMINI_MAIN_RPD", "5000" if _PAID else "250"))
 # 폴백용 로컬 모델 — 한국어 자연스러움이 소형 오픈소스 중 최상위 + 16GB에서 여유(Q4 ≈ 5GB)
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:8b")
 # 검색용 임베딩 — 한·영 교차 검색에 강한 오픈소스 (설치: ollama pull bge-m3, ~1GB)

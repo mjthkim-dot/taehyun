@@ -89,10 +89,11 @@ print(f"  · 콜드 스타트: {time.time() - t0:.1f}초")
 print(f"  · 공급자: {h.get('provider')} ({h.get('model')}) · 티어 {u.get('tier') or '-'}")
 print(f"  · 잔여 한도: {lim}")
 if u.get("tier") == "paid":
-    # 무료 쿼터 계정에서 paid 설정은 게이트웨이가 60/분으로 발사해 실제 한도에
-    # 걸린다 → 인터뷰 중 429·30초 대기 위험. 결제 활성 계정일 때만 paid.
-    print( "  ⚠️ GEMINI_TIER=paid — 유료 결제가 실제로 활성일 때만 쓰세요."
-           " 크레딧이 없다면 이 설정을 지워야 무료 한도에 맞춰 안전하게 동작합니다")
+    # paid는 게이트웨이 60/분으로 동작한다. 결제가 실제로 활성일 때 정상이며,
+    # 크레딧이 소진되면 429("prepayment credits depleted")가 뜬다 — 그때는
+    # ai.studio/projects 에서 충전하거나 이 설정을 지워 무료 한도로 낮춘다.
+    print( "  · 티어 paid — 결제 활성 기준 60회/분. 크레딧 소진 시 429가 뜨면"
+           " ai.studio/projects 에서 충전")
 PYEOF
 UI_VER=$(grep -o 'id="app-ver">[^<]*' "$DIR/app.html" | cut -d'>' -f2)
 echo "  · UI 버전: ${UI_VER:-?} — 브라우저 헤더의 버전 칩과 같아야 최신입니다 (다르면 ⌘⇧R)"
