@@ -262,6 +262,7 @@
   <span class="dot"></span>
   <span class="txt" id="status-txt">▶ 를 누르면 상대 발언이 자막·번역되고 제안이 뜹니다</span>
   <span class="rag" id="quota-chip" style="display:none"></span>
+  <span class="rag" id="status-mic"></span>
   <span class="rag" id="status-rag"></span>
 </div>
 
@@ -420,10 +421,21 @@ const TURN_SIGNALS = [
  // 반전 접속사로 시작하는 반박
  'but ','however','that said','on the other hand'];
 const FILLER = /^(so|okay|ok|well|alright|right|now|and|then|um+|uh+|hmm+|great|nice|good|thanks|thank you|i see|got it|yeah|yes)[,.!]?\s+/;
+// 아이스브레이킹 — 물음표가 없어도 사회적 응답을 기대하는 인사·스몰토크.
+// 면접 첫 1~2분이 전부 이 유형이라, 놓치면 도구가 가장 필요한 순간에 침묵한다.
+const ICEBREAK = ['nice to meet','pleasure to meet','great to meet','good to see',
+ 'thanks for joining','thank you for joining','thanks for taking the time',
+ 'thank you for taking the time','thanks for your time','thanks for making time',
+ 'thank you for making time','good morning','good afternoon','good evening',
+ 'hope you','how are you',"how's it going",'how is it going',"how's your day",
+ "how's everything",'how have you been','can you hear me','can you see my',
+ 'is my audio','audio okay','before we start','before we dive','before we begin',
+ 'welcome to','long time no see','did you have a good'];
 function wantsReply(t){
   const s0 = t.trim().toLowerCase();
   if(!s0) return false;
   if(s0.includes('?')) return true;
+  if(ICEBREAK.some(k => s0.includes(k))) return true;
   for(let s of s0.split(/[.!;]/)){
     s = s.trim(); let prev = null;
     while(prev !== s){ prev = s; s = s.replace(FILLER,''); }
@@ -1127,6 +1139,28 @@ function stopTabCapture(){
 
 // ── STT (P0: Web Speech) ──
 let rec = null, watchdog = null;
+// 화자 분리 상태 표시 — Chrome이 지금 어떤 입력 장치를 듣는지 즉시 보여준다.
+// 웹 엔진은 인식된 모든 발화를 '상대'로 처리하므로, 입력이 BlackHole(상대
+// 소리의 복사본)이면 내 목소리는 아예 안 잡힌다 = 화자 분리 완성.
+// 일반 마이크면 내 말도 자막·제안을 유발하므로 경고를 띄운다.
+async function paintMicSource(){
+  const el = $('#status-mic');
+  if(!el || !navigator.mediaDevices?.getUserMedia) return;
+  try{
+    const st = await navigator.mediaDevices.getUserMedia({audio:true});
+    const label = st.getAudioTracks()[0]?.label || '';
+    st.getTracks().forEach(t=>t.stop());
+    if(/blackhole/i.test(label)){
+      el.textContent = '🎧 상대 전용(BlackHole) — 화자 분리 ON';
+      el.style.color = 'var(--accent)';
+    }else{
+      el.textContent = `⚠️ ${label || '기본 마이크'} — 내 목소리도 잡힘`;
+      el.style.color = 'var(--warn)';
+      el.title = '화자 분리: 주소창에 chrome://settings/content/microphone → '
+        + '기본 마이크를 BlackHole 2ch로. 자세한 절차는 docs/FIELD-TEST.md §화자 분리';
+    }
+  }catch{ /* 권한 거부 등 — 상태 표시는 보조 정보라 조용히 넘어간다 */ }
+}
 function startSTT(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SR){
@@ -1159,6 +1193,7 @@ function startSTT(){
   rec.onerror = ev=>{ if(ev.error==='not-allowed'){ $('#status-txt').textContent='⚠️ 마이크 권한을 허용해 주세요'; stopSTT(); } };
   rec.onend = ()=>{ if(rec){ try{ rec.start(); }catch{} } };
   try{ rec.start(); }catch(e){ $('#status-txt').textContent='인식 시작 실패: '+e.message; return false; }
+  paintMicSource();               // 어느 장치를 듣는지 표시 (화자 분리 확인)
   watchdog = setInterval(()=>{
     if(rec && !heard && Date.now()-lastAt > 6000)
       $('#status-txt').innerHTML = '⚠️ 소리가 안 들려요 — 미팅 소리가 <b>이 기기 마이크</b>로 들어오는지 확인하세요';
