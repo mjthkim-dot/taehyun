@@ -1,10 +1,14 @@
 # 🗣 실시간 영어 미팅 어시스턴트
 
-> **🔒 안정판: `v1.0.0-interview`** (릴리스 동결 — 8/27 인터뷰 실전용)
+> **🔒 안정판: `v1.0.0-interview`** (릴리스 동결 — 8/27 인터뷰 실전용, 커밋 `a30694d`)
 > 실측 후 수정을 하다 뭔가 이상해지면 **언제든 이 명령으로 검증된 상태로 복귀**:
 > ```bash
-> git checkout v1.0.0-interview
+> git checkout v1.0.0-interview            # 태그가 로컬에 없다면 ↓ 둘 중 아무거나
+> git checkout release/v1.0.0-interview    # 동결 시점을 가리키는 원격 브랜치 (푸시됨)
+> git checkout a30694d                     # 동결 커밋 직접 지정
 > ```
+> 처음 한 번, 맥북에서 태그를 원격에 올려두면 첫 줄만 쓰면 된다:
+> `git tag v1.0.0-interview a30694d && git push origin v1.0.0-interview`
 > (수정 규칙은 [docs/HOTFIX-RULES.md](../docs/HOTFIX-RULES.md) — 증거 없는 수정 금지)
 
 한국인 IT 영업 실무자를 위한 **실시간 영어 미팅 보조 + 개인화 RAG**.
