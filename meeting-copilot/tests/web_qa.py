@@ -56,7 +56,10 @@ class MockLLM(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/event-stream")
         self.end_headers()
         def ev(t, d):
-            self.wfile.write(f"event: {t}\ndata: {json.dumps(d)}\n\n".encode())
+            # 실제 Anthropic SSE는 event 헤더뿐 아니라 data JSON 안에도 type을 넣는다.
+            # type이 빠지면 파서가 토큰을 한 개도 못 뽑아 '빈 스트림'이 되는데,
+            # 예전에는 그게 조용히 200으로 통과했다 (빈 응답 가드가 잡아냄)
+            self.wfile.write(f"event: {t}\ndata: {json.dumps({'type': t, **d})}\n\n".encode())
         ev("message_start", {})
         for i in range(0, len(text), 16):
             ev("content_block_delta",
