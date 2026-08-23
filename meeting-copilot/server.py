@@ -663,8 +663,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_error(404)
 
     def log_message(self, fmt, *args):
-        # 접근 로그는 do_GET/do_POST의 _record + 아래 오류 라인으로 충분하다
-        if args and str(args[1]) not in ("200", "204", "304"):
+        # 접근 로그는 do_GET/do_POST의 _record + 아래 오류 라인으로 충분하다.
+        # 인자 1개짜리 오류 로그(유휴 keep-alive 소켓 타임아웃 등)는 args[1]이
+        # 없어 IndexError로 터미널을 도배했다(맥북 실측) — 조용히 무시한다.
+        if len(args) > 1 and str(args[1]) not in ("200", "204", "304"):
             print(f"  [{args[1]}] {self._client_ip()} {args[0]}", flush=True)
 
 
