@@ -19,10 +19,12 @@ echo "  🗣  실시간 영어 미팅 어시스턴트"
 echo "  ═══════════════════════════════════════"
 if [ -n "${GEMINI_API_KEY:-}" ]; then
   # 구글 키는 형식이 여러 가지(AIza…, AQ.…) — 접두사 대신 한글·공백 혼입만 검사
+  # 대괄호 안 백슬래시는 리터럴이라 [!\!-\~]는 오탐을 냈다(맥북 실측: 정상 키에 경고)
+  # → 부정은 첫 !, 범위는 !-~ 그대로: [!!-~] = "출력 가능한 ASCII가 아닌 문자"
   case "$GEMINI_API_KEY" in
-    *[!\!-\~]*) echo "  ⚠️ GEMINI_API_KEY에 한글·공백이 섞여 있습니다 (붙여넣기에서 딸려 온 글자)"
-                echo "     → aistudio.google.com/apikey 의 '키 복사' 버튼으로 키만 다시 넣으세요" ;;
-    *)          echo "  · Gemini 키 설정됨 (기본 공급자 — 무료 티어면 연습용, 실미팅은 GEMINI_TIER=paid)" ;;
+    *[!!-~]*) echo "  ⚠️ GEMINI_API_KEY에 한글·공백이 섞여 있습니다 (붙여넣기에서 딸려 온 글자)"
+              echo "     → aistudio.google.com/apikey 의 '키 복사' 버튼으로 키만 다시 넣으세요" ;;
+    *)        echo "  · Gemini 키 설정됨 (기본 공급자 — 무료 티어면 연습용, 실미팅은 GEMINI_TIER=paid)" ;;
   esac
 fi
 [ -n "${ANTHROPIC_API_KEY:-}" ] && echo "  · Claude 키 설정됨 (폴백 — 학습 미사용, 실미팅 적합)"
