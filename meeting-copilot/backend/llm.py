@@ -42,10 +42,12 @@ CEREBRAS_MODEL = os.environ.get("CEREBRAS_MODEL", "llama-3.3-70b")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")   # 무료 발급: https://aistudio.google.com/apikey
 GEMINI_URL = os.environ.get("GEMINI_URL", "https://generativelanguage.googleapis.com/v1beta")
 # 모델 티어링 (무료 티어 = Flash 계열 전제, 하드코딩 금지 — env로 교체 가능):
-#  · 번역·한줄요약(고빈도) → Flash-Lite: 무료 RPM이 가장 높다 (15 RPM/1,000 RPD)
-#  · 퀵 리액션·전체 요약·자산화 → Flash (10 RPM/250 RPD)
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
-GEMINI_FAST_MODEL = os.environ.get("GEMINI_FAST_MODEL", "gemini-2.5-flash-lite")
+#  · 번역·한줄요약(고빈도) → Flash-Lite (가장 빠르고 무료 한도가 가장 큼)
+#  · 퀵 리액션·전체 요약·자산화 → Flash
+# 2.5 세대는 2026-10-16 종료 예정이며 그 전에 이미 오류가 나기 시작했다
+# (맥북 실측: gemini 실패 → ollama 27B 폴백 126초) → 3.5 세대로 교체
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
+GEMINI_FAST_MODEL = os.environ.get("GEMINI_FAST_MODEL", "gemini-3.5-flash-lite")
 # 무료 티어 한도(구글 공시값에서 여유 1~2를 뺀 내부 예산 — 초과 429를 예방)
 GEMINI_FAST_RPM = int(os.environ.get("GEMINI_FAST_RPM", "13"))
 GEMINI_MAIN_RPM = int(os.environ.get("GEMINI_MAIN_RPM", "9"))
