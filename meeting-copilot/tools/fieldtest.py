@@ -176,6 +176,20 @@ def _check_mic() -> bool:
     return True
 
 
+def _gemini_key_ok() -> bool:
+    """형식 사전검증 — 잘못된 값(다른 토큰 복사, 한글·공백 섞임)은 실 호출에서
+    'ascii codec' 같은 알아볼 수 없는 오류가 된다(맥북 실측). 먼저 걸러 안내한다."""
+    gkey = os.environ.get("GEMINI_API_KEY", "")
+    if not gkey or re.fullmatch(r"AIza[0-9A-Za-z_\-]{20,}", gkey):
+        return True
+    why = ("한글이나 공백이 섞여 있습니다" if any(ord(c) > 127 or c.isspace() for c in gkey)
+           else "AIza로 시작하지 않습니다 — 다른 값을 복사하신 것 같습니다")
+    bad(f"GEMINI_API_KEY가 Gemini 키 형식이 아닙니다: {why}",
+        "https://aistudio.google.com/apikey → 'API 키 만들기' → AIza로 시작하는 값만 복사해\n"
+        "     export GEMINI_API_KEY=AIza...   (따옴표·한글·공백 없이 키만)")
+    return False
+
+
 def _check_llm() -> bool:
     keys = {k: bool(os.environ.get(k)) for k in
             ("GEMINI_API_KEY", "ANTHROPIC_API_KEY", "CEREBRAS_API_KEY", "GROQ_API_KEY")}
@@ -186,6 +200,8 @@ def _check_llm() -> bool:
             '대안: export ANTHROPIC_API_KEY=sk-ant-... (console.anthropic.com, 유료)')
         return False
     ok(f"키 감지: {', '.join(k.split('_')[0] for k in have)}")
+    if not _gemini_key_ok():
+        return False
     print("     실 호출 1회 테스트 중… (수 원 미만의 비용이 듭니다)")
     _backend()
     import llm
@@ -644,6 +660,9 @@ def cmd_preflight(args) -> int:
                ("GEMINI_API_KEY", "ANTHROPIC_API_KEY", "CEREBRAS_API_KEY", "GROQ_API_KEY")):
         bad("LLM 키 없음")
         fails.append(("LLM 키", "export GEMINI_API_KEY=… 후 재실행"))
+    elif not _gemini_key_ok():
+        fails.append(("LLM 키 형식", "AIza로 시작하는 Gemini 키를 다시 발급해 넣으세요 "
+                                    "(aistudio.google.com/apikey)"))
     else:
         t0 = time.time()
         try:

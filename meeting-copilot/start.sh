@@ -17,7 +17,13 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 echo ""
 echo "  🗣  실시간 영어 미팅 어시스턴트"
 echo "  ═══════════════════════════════════════"
-[ -n "${GEMINI_API_KEY:-}" ]   && echo "  · Gemini 키 설정됨 (기본 공급자 — 무료 티어면 연습용, 실미팅은 GEMINI_TIER=paid)"
+if [ -n "${GEMINI_API_KEY:-}" ]; then
+  case "$GEMINI_API_KEY" in
+    AIza*) echo "  · Gemini 키 설정됨 (기본 공급자 — 무료 티어면 연습용, 실미팅은 GEMINI_TIER=paid)" ;;
+    *)     echo "  ⚠️ GEMINI_API_KEY가 Gemini 키 형식이 아닙니다 (AIza로 시작해야 함)"
+           echo "     → aistudio.google.com/apikey 에서 'API 키 만들기' 후 AIza… 값만 다시 넣으세요" ;;
+  esac
+fi
 [ -n "${ANTHROPIC_API_KEY:-}" ] && echo "  · Claude 키 설정됨 (폴백 — 학습 미사용, 실미팅 적합)"
 [ -n "${CEREBRAS_API_KEY:-}" ] && echo "  · Cerebras 키 설정됨 (오픈소스 70B — 가장 빠름)"
 [ -n "${GROQ_API_KEY:-}" ]     && echo "  · Groq 키 설정됨"
