@@ -45,9 +45,38 @@ cleanup(){ [ -n "$TUNNEL_PID" ] && kill "$TUNNEL_PID" 2>/dev/null
            rm -f "$TUNNEL_LOG"; echo ""; echo "  👋 종료되었습니다."; exit 0; }
 trap cleanup INT TERM
 
+T0=$(python3 -c 'import time; print(time.time())')
 python3 "$DIR/server.py" &
 SERVER_PID=$!
-sleep 1.5
+for i in $(seq 1 120); do
+  curl -s --max-time 1 "http://localhost:${PORT}/health" >/dev/null 2>&1 && break
+  sleep 0.5
+done
+
+# ── 기동 요약 4줄: 로드 컴포넌트 / 콜드 스타트 / 공급자 / 잔여 한도 ──
+python3 - "$T0" "$PORT" <<'PYEOF'
+import json, sys, time, urllib.request
+t0, port = float(sys.argv[1]), sys.argv[2]
+def get(p):
+    with urllib.request.urlopen(f"http://localhost:{port}{p}", timeout=5) as r:
+        return json.loads(r.read())
+try:
+    h, s, u = get("/health"), get("/api/rag/stats"), get("/api/usage")
+except Exception as e:  # 요약은 참고 정보 — 실패해도 기동을 막지 않는다
+    print(f"  (기동 요약 생략: {e})"); raise SystemExit
+llms = ", ".join(f"{x['name']} {x['state']}" for x in h.get("llm", []) if x["state"] == "ok") or "없음"
+gw = u.get("gateway", {})
+f_, m_ = u.get("fast", {}), u.get("main", {})
+lim = (f"분당 번역 {f_.get('rpm_limit')} · 제안 {m_.get('rpm_limit')} / "
+       f"오늘 번역 {f_.get('rpd_limit', 0) - f_.get('rpd_used', 0)} · "
+       f"제안 {m_.get('rpd_limit', 0) - m_.get('rpd_used', 0)} 남음"
+       if f_.get("rpm_limit") else "한도 없는 공급자")
+print( "  ── 기동 요약 ──────────────────────────────")
+print(f"  · 로드: 색인 {s.get('total')}청크({s.get('mode')}) · LLM [{llms}] · 게이트웨이 {gw.get('rpm_budget')}/분")
+print(f"  · 콜드 스타트: {time.time() - t0:.1f}초")
+print(f"  · 공급자: {h.get('provider')} ({h.get('model')}) · 티어 {u.get('tier') or '-'}")
+print(f"  · 잔여 한도: {lim}")
+PYEOF
 
 # 📱 폰에서 쓰려면 HTTPS 필요 (브라우저가 http에서 마이크를 막는다)
 if command -v cloudflared &>/dev/null; then

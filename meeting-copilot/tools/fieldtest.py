@@ -618,12 +618,105 @@ def cmd_report(args) -> int:
     return 0
 
 
+# ══════════════════════════════════════════════════════════════
+# preflight — 당일 아침용 30초 축약 점검 (doctor 핵심 + perf 스냅샷)
+# ══════════════════════════════════════════════════════════════
+def cmd_preflight(args) -> int:
+    """실전 투입 직전 판정. 마지막 줄이 결론:
+    "✅ 실전 투입 가능" 또는 "❌ [항목] — [조치]" 한 줄."""
+    t_start = time.time()
+    print("\n⚡ 프리플라이트 — 실전 투입 직전 30초 점검")
+    print("─" * 56)
+    fails: list[tuple[str, str]] = []
+
+    print("[1/4] 마이크")
+    if args.skip_mic:
+        info("건너뜀 (--skip-mic — 탭 오디오 모드 전용이면 무관)")
+    elif not _check_mic():
+        fails.append(("마이크", "시스템 설정 → 개인정보 보호 → 마이크 허용 후 재실행 "
+                                "(탭 오디오만 쓸 거면 --skip-mic)"))
+
+    print("[2/4] LLM 키 + 실 호출")
+    _backend()
+    import llm
+    llm_ms = None
+    if not any(os.environ.get(k) for k in
+               ("GEMINI_API_KEY", "ANTHROPIC_API_KEY", "CEREBRAS_API_KEY", "GROQ_API_KEY")):
+        bad("LLM 키 없음")
+        fails.append(("LLM 키", "export GEMINI_API_KEY=… 후 재실행"))
+    else:
+        t0 = time.time()
+        try:
+            llm.chat_once([{"role": "user", "content": "Reply with exactly: pong"}],
+                          temperature=0, max_tokens=8)
+            llm_ms = (time.time() - t0) * 1000
+            ok(f"실 호출 성공 — {llm.provider()} ({llm.model_name()}) · {llm_ms:.0f}ms")
+            if llm_ms > 5000:
+                fails.append(("LLM 지연", f"왕복 {llm_ms:.0f}ms — 네트워크/공급자 상태 확인 "
+                                          "(localhost:3799/health 에서 대안 공급자 점검)"))
+        except Exception as e:  # noqa: BLE001
+            bad(str(e)[:120])
+            fails.append(("LLM 호출", str(e)[:80]))
+
+    print("[3/4] 잔여 한도")
+    try:
+        import llm
+        u = llm.usage()
+        if u.get("rpd_exhausted_until"):
+            bad("오늘 무료 한도(RPD) 소진 상태")
+            fails.append(("일일 한도", "태평양 자정 리셋 대기, 또는 GEMINI_TIER=paid/대안 키"))
+        else:
+            f_, m_ = u.get("fast", {}), u.get("main", {})
+            if f_.get("rpd_limit"):
+                left_m = m_["rpd_limit"] - m_.get("rpd_used", 0)
+                ok(f"오늘 잔여 — 번역 {f_['rpd_limit'] - f_.get('rpd_used', 0)}/{f_['rpd_limit']}"
+                   f" · 제안 {left_m}/{m_['rpd_limit']}")
+                if left_m < 60:
+                    fails.append(("일일 한도", f"제안 잔여 {left_m}회 — 1시간 미팅이 빠듯합니다. "
+                                              "GEMINI_TIER=paid 또는 대안 키 준비"))
+            else:
+                ok("한도 없는 공급자 사용 중")
+    except Exception as e:  # noqa: BLE001
+        info(f"한도 확인 생략: {e}")
+
+    print("[4/4] 성능 스냅샷")
+    try:
+        import rag
+        st = rag.default_store()
+        n = st.stats().get("total", 0)
+        lat = []
+        for _ in range(5):
+            t0 = time.time()
+            st.search("your quote came in higher than the other vendor", k=3)
+            lat.append((time.time() - t0) * 1000)
+        p50 = sorted(lat)[2]
+        ok(f"색인 {n}청크 · 검색 p50 {p50:.0f}ms"
+           + (f" · LLM 왕복 {llm_ms:.0f}ms" if llm_ms else ""))
+        if n == 0:
+            fails.append(("자료 없음", "앱 '자료' 탭에서 지금 동기화 (시드가 적재됩니다)"))
+        if p50 > 200:
+            fails.append(("검색 지연", f"p50 {p50:.0f}ms — 색인이 비정상적으로 큽니다. 재기동 후 재확인"))
+    except Exception as e:  # noqa: BLE001
+        fails.append(("검색", str(e)[:80]))
+
+    print("─" * 56)
+    if fails:
+        k, fix = fails[0]
+        print(f"{RED}❌ {k} — {fix}{RST}\n")
+        return 1
+    print(f"{GRN}✅ 실전 투입 가능{RST}  ({time.time() - t_start:.0f}초)\n")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("doctor")
     p.add_argument("--yes", action="store_true", help="Whisper 모델 자동 다운로드 승인")
     p.set_defaults(f=cmd_doctor)
+    p = sub.add_parser("preflight")
+    p.add_argument("--skip-mic", action="store_true", dest="skip_mic")
+    p.set_defaults(f=cmd_preflight)
     p = sub.add_parser("smoke")
     p.add_argument("--skip-mic", action="store_true")
     p.add_argument("--wav", help="녹음 대신 쓸 오디오 파일 (자동 검증용)")
