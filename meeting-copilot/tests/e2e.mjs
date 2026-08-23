@@ -74,7 +74,7 @@ for (const intent of ['agree', 'pushback', 'ask', 'propose']) {
   await p.click(`.actions [data-intent="${intent}"]`);
   await p.waitForFunction(() => {
     const rows = [...document.querySelectorAll('#c-answers .lrow')];
-    return rows.length >= 2 && rows.every(r => r.querySelector('.kr')?.textContent.trim());
+    return rows.length >= 1 && rows.every(r => r.querySelector('.kr')?.textContent.trim());
   }, { timeout: 20000 }).catch(() => {});
   const card = await p.evaluate(() => ({
     en: [...document.querySelectorAll('#c-answers .en')].map(e => e.textContent.trim()),
@@ -83,12 +83,12 @@ for (const intent of ['agree', 'pushback', 'ask', 'propose']) {
     badges: document.querySelectorAll('#c-answers .learned').length,
   }));
   const secs = ((Date.now() - t) / 1000).toFixed(2);
-  // 구어체 계약: 1안(Safe) 문장당 ≤9단어, 2안(Rich) ≤12단어
-  const caps = [9, 12];
-  const long = card.en.flatMap((e, i) =>
-    e.split(/(?<=[.!?])\s+/).filter(s => s.split(/\s+/).filter(Boolean).length > (caps[i] ?? 12)));
-  check(`[${intent}] 제안 2안 · ${secs}s`, card.en.length >= 2, card.en[0]?.slice(0, 46));
-  check(`[${intent}] Safe≤9·Rich≤12단어`, long.length === 0, long[0] ? `초과: ${long[0]}` : '');
+  // 구어체 계약: 단일 답변 — 첫 문장 ≤8단어(즉답 오프너), 이후 문장 ≤12단어
+  const long = card.en.flatMap(e =>
+    e.split(/(?<=[.!?])\s+/).filter((s, i) =>
+      s.split(/\s+/).filter(Boolean).length > (i === 0 ? 8 : 12)));
+  check(`[${intent}] 단일 답변 · ${secs}s`, card.en.length >= 1, card.en[0]?.slice(0, 46));
+  check(`[${intent}] 오프너≤8·이후≤12단어`, long.length === 0, long[0] ? `초과: ${long[0]}` : '');
   check(`[${intent}] 근거를 내 자료로 표시`, card.shown && /용어집|미팅|노트/.test(card.src),
     card.src.replace(/\s+/g, ' ').slice(0, 54));
   check(`[${intent}] 📚 배운 표현 뱃지`, card.badges >= 1, `${card.badges}개`);
@@ -97,13 +97,15 @@ for (const intent of ['agree', 'pushback', 'ask', 'propose']) {
 console.log('\n■ 하단 한→영 퀵 번역 (같은 RAG 파이프라인)');
 await p.fill('#say-in', '다음 미팅이 기대된다고 말하고 싶어요');
 await p.click('#say-go');
-await p.waitForFunction(() => document.querySelectorAll('#c-answers .lrow').length >= 2,
-  { timeout: 20000 }).catch(() => {});
+await p.waitForFunction(() => {
+  const rows = [...document.querySelectorAll('#c-answers .lrow')];
+  return rows.length >= 1 && rows.every(r => r.querySelector('.kr')?.textContent.trim());
+}, { timeout: 20000 }).catch(() => {});
 const quick = await p.evaluate(() => ({
   en: [...document.querySelectorAll('#c-answers .en')].map(e => e.textContent.trim()),
   src: document.querySelector('#c-src').textContent,
 }));
-check('한국어 입력 → 영어 제안', quick.en.length >= 2, quick.en[0]?.slice(0, 46));
+check('한국어 입력 → 영어 제안', quick.en.length >= 1, quick.en[0]?.slice(0, 46));
 check('퀵 번역도 내 자료를 검색함', /용어집|미팅|노트/.test(quick.src), quick.src.replace(/\s+/g, ' ').slice(0, 54));
 
 console.log('\n■ 카드가 하단 컨트롤을 가리지 않는지');

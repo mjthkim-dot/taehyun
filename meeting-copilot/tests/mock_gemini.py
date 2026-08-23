@@ -45,7 +45,7 @@ def make_text(payload, model):
         return "가격과 총소유비용 논의"
     # 생성 재현 규칙: ① 자료가 있으면 자료 문장을 그대로 활용(뱃지 검증용)
     # ② 자료가 없으면 프로필 블록에서 답을 구성(폴백 검증용) — 회피성 문구는 절대 없음
-    # 출력은 speakability 규칙을 지킨다: 1안(Safe) ≤9단어, 2안(Rich) ≤12단어, 축약형.
+    # 출력은 speakability 규칙을 지킨다: 첫 문장 ≤8단어(즉답 오프너), 이후 ≤12단어.
     m = re.search(r'THEIR OWN MATERIAL.*?"""(.*?)"""', user, re.S)
     picked = ""
     if m:
@@ -53,13 +53,12 @@ def make_text(payload, model):
         mat = re.sub(r"\[검색어\][^\n]*", "", m.group(1))
         c = [x.strip() for x in re.findall(r"([A-Za-z][A-Za-z',\- ]{12,80})", mat) if len(x.split()) >= 4]
         if c:
-            # 자료 문장을 '연속 어절 그대로' 9단어까지 — 📚 뱃지(연속 3어절 일치) 검증 유지
-            picked = " ".join(max(c, key=len).split()[:9]).rstrip(",.")
+            # 자료 문장을 '연속 어절 그대로' 8단어까지 — 📚 뱃지(연속 3어절 일치) 검증 유지
+            picked = " ".join(max(c, key=len).split()[:8]).rstrip(",.")
     if not picked:
-        picked = "I'm a B2B sales hunter at a cloud MSP"
-    return (f"EN: {picked}.\nKR: (모의 번역) 한국어 뜻입니다.\n===\n"
-            f"EN: So let me share one example from a recent deal.\n"
-            f"KR: 최근 딜에서 예를 하나 말씀드릴게요.\n===\n"
+        picked = "I'm a B2B sales hunter in cloud"
+    return (f"EN: {picked}. So let me share one example from a recent deal.\n"
+            f"KR: (모의 번역) 한국어 뜻입니다. 최근 딜에서 예를 하나 말씀드릴게요.\n===\n"
             f"META: 요지=면접 질문 | 전략=프로필 근거 답변")
 
 class H(http.server.BaseHTTPRequestHandler):

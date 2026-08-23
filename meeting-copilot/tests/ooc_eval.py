@@ -97,12 +97,14 @@ def suggest(q: str, intent: str) -> tuple[dict | None, list[str]]:
 
 def judge(c: dict, meta: dict | None, en: list[str]) -> list[str]:
     problems = []
-    if len(en) < 2:
-        problems.append("2안 미생성")
+    if len(en) < 1:
+        problems.append("답변 미생성")
     if any(EVASIVE.search(e) for e in en):
         problems.append("회피성 답변")
-    for i, e in enumerate(en[:2]):   # 구어체 계약: 1안 Safe ≤9단어, 2안 Rich ≤12단어
-        problems += [f"{i + 1}안 {p}" for p in speak_problems(e, 9 if i == 0 else 12)]
+    # 구어체 계약(단일 답변): 문장당 ≤12단어 — 첫 문장(≤8, 즉답 오프너)은
+    # 프롬프트 규칙이고 여기서는 상한 12로 일괄 검사한다 (형식 회귀 감지가 목적)
+    for e in en[:1]:
+        problems += list(speak_problems(e, 12))
     srcs = (meta or {}).get("sources", [])
     joined = " ".join(srcs).lower()
     if c["tier"] == "A" and not any(e.lower() in joined for e in c["expect"]):

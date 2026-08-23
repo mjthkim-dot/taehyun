@@ -115,7 +115,8 @@ def build_suggest(said: str, context: str = "", intent: str = "reply",
 
       1) [직전 상대 발화 + 맥락 5문장]으로 벡터 스토어 검색 (top 3)
       2) 검색된 [내가 배운 표현 / 도메인 어휘]를 프롬프트에 주입
-      3) 구어체(1안 Safe ≤9단어 · 2안 Rich ≤12단어) · 검색된 표현 우선 활용으로 2안 생성
+      3) 구어체 단일 답변 생성 — 첫 문장 ≤8단어(즉답 오프너), 이후 ≤12단어,
+         길이는 질문 유형별 5단계(ANSWER DEPTH: 1문장 ~ 발표형 90~120초)
       4) 검색이 빈약하면 RAG 없이 폴백 (프롬프트가 짧아져 지연이 준다)
     """
     ctx_lines = [l for l in (context or "").splitlines() if l.strip()][-5:]
@@ -185,41 +186,48 @@ NEVER dodge: no "I'm not sure", no "I don't know how to answer" — always give
 a speakable, confident answer grounded in the profile.
 
 Respond in EXACTLY this format (plain text, no markdown), nothing else:
-EN: <option 1 "SAFE" — the instant opener: 1-2 sentences, each ≤9 words>
-KR: <한국어 뜻>
-===
-EN: <option 2 "FULL" — see ANSWER DEPTH below, each sentence ≤12 words>
+EN: <ONE complete spoken answer — length per ANSWER DEPTH below>
 KR: <한국어 뜻>
 ===
 META: 요지=<상대 발언 핵심 한국어 한 줄> | 전략=<말하기 전략 한국어 한 줄>
 
-ANSWER DEPTH — match the answer to the QUESTION TYPE (this matters most):
+ANSWER DEPTH — match the answer to the QUESTION TYPE (this matters most).
+The speaker reads the answer aloud as it streams, so sentence 1 must be a
+direct opener (≤8 words) they can say immediately while the rest arrives.
 - SMALL TALK, greetings, quick reactions ("how are you", agreeing, thanks):
-  keep option 2 to ONE short sentence. Do not pad.
+  ONE short sentence. Do not pad.
 - FACTUAL / logistics checks (notice period, start date, location,
   "do you have experience with X", yes/no confirmations): 2 sentences MAX —
   the direct answer, then ONE best proof point. Never list multiple deals
   or numbers here; save them for when they ask to go deeper.
-- SUBSTANTIVE questions (tell me about yourself, why this company,
-  motivation, opinions, "how would you approach..."):
-  option 2 must be a COMPLETE spoken answer — 3 to 6 short sentences,
-  weaving 2-3 concrete facts from THEIR OWN MATERIAL and the profile.
-  Aim for 15-25 seconds of speaking. A one-line answer to "tell me about
-  yourself" fails the interview.
+- SUBSTANTIVE questions (why this company, motivation, opinions,
+  "how would you approach..."): a COMPLETE spoken answer — 4 to 7 short
+  sentences, weaving 2-3 concrete facts from THEIR OWN MATERIAL and the
+  profile. Aim for 20-30 seconds of speaking.
 - BEHAVIORAL deep-dives ("tell me about a time...", "walk me through that
-  deal", "give me an example of..."): a mini story — 5 to 8 short
-  sentences, 40-60 seconds: 1 sentence situation, 2-4 sentences what they
-  did, and END with the concrete result or number from their material.
+  deal", "give me an example of..."): a real story — 8 to 12 short
+  sentences, 45-75 seconds: 1-2 sentences situation, the middle is what
+  they DID (decisions, obstacles, who they convinced), and END with the
+  concrete result or number from their material.
+- PRESENTATION-SCALE asks ("tell me about yourself" in an interview,
+  "walk me through your territory plan", "pitch me", "why should we hire
+  you"): a structured 90-120 second answer — 16 to 22 short sentences
+  (180-250 words) covering 3 themes, each theme grounded in 2+ concrete
+  facts from THEIR OWN MATERIAL (numbers, client names, deal stories).
+  Use spoken signposts to keep it easy to follow aloud: "First...",
+  "Second...", "What this means is...", "To wrap up...". When they grant
+  time ("take your time", "you have a couple of minutes"), use the top of
+  the range. End with one forward-looking line, not a summary.
 - BREVITY signals override everything: if they say "briefly", "in a word",
   "in 30 seconds", "quick question", or it's a rapid follow-up probe,
   cut to 1-2 sentences whatever the type.
-- Keep each option on a single line (sentences separated by spaces).
+- Keep the whole EN answer on a single line (sentences separated by spaces).
 
 SPOKEN ENGLISH rules for EN — a nervous non-native speaker must say this out loud
 INSTANTLY (CEFR B1-B2 spoken register, not written English):
-- Word caps are PER SENTENCE hard limits: option 1 ≤ 9 words/sentence,
-  option 2 ≤ 12 words/sentence. Long answers = MORE short sentences, never
-  longer sentences.
+- Word caps are PER SENTENCE hard limits: sentence 1 ≤ 8 words (instant
+  opener), every other sentence ≤ 12 words. Long answers = MORE short
+  sentences, never longer sentences.
 - ALWAYS contract: I'm / I've / that's / don't / it's. Never "I am", "do not".
 - Easy verbs only: use (not utilize), say more (not elaborate), show (not
   demonstrate), help (not facilitate), get/win (not acquire), start (not commence).
@@ -230,7 +238,6 @@ INSTANTLY (CEFR B1-B2 spoken register, not written English):
   when a simpler word works. EXCEPTION — keep domain terms the candidate already
   knows: iPaaS, workflow, integration, pipeline, automation, enterprise, FinOps.
 {tone_rule}
-- The two options must take different angles.
 - Prefer wording from THEIR OWN MATERIAL over inventing new phrasing."""
     return {"prompt": prompt, "sources": labels, "hits": hits,
             "phrases": phrases, "rag_used": bool(hits), "has_placeholder": has_ph}

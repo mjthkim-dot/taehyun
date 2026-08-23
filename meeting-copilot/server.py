@@ -518,9 +518,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 said, str(req.get("context") or "")[-3000:],
                 req.get("intent", "reply"), req.get("cefr", "B1"), store=store,
                 preset=preset)
-            # 900: 행동 딥다이브 티어(5~8문장) × EN+KR 병기 2안 + META면 700이
-            # 빠듯하다 — 상한에 걸려 잘린 응답은 형식 파손(KR 누락)으로 이어진다
-            _stream(self, [{"role": "user", "content": built["prompt"]}], 0.4, 900,
+            # 1400: 발표형 티어(12~18문장, 90~120초) EN+KR 병기 + META까지 —
+            # 상한에 걸려 잘린 응답은 형식 파손(KR 누락)으로 이어진다
+            _stream(self, [{"role": "user", "content": built["prompt"]}], 0.4, 1400,
                     kind="suggest", bg=bool(req.get("bg")),
                     meta={"sources": built["sources"],
                           "phrases": built["phrases"],
