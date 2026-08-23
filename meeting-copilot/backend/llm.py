@@ -459,10 +459,12 @@ def _gw_attempts(ticket, name: str, fast: bool, fn):
             out = fn()
             gateway.record(ticket, 200, attempt=n429 + n5xx, t0=t0)
             return out, None
-        except _EmptyResp:
-            # 5xx와 같은 규율: 짧은 백오프 1회 재시도(토큰 소비), 그래도 비면 스킵
-            gateway.record(ticket, 204, "빈 응답 — 안전 필터/빈 candidate 의심",
-                           attempt=n429 + n5xx, t0=t0)
+        except (_EmptyResp, json.JSONDecodeError, KeyError, IndexError) as e:
+            # 빈 응답 + 깨진 200 본문(프록시 오류 페이지 등) 공통 규율:
+            # 짧은 백오프 1회 재시도(토큰 소비), 그래도 안 되면 이 항목만 스킵
+            what = ("빈 응답 — 안전 필터/빈 candidate 의심" if isinstance(e, _EmptyResp)
+                    else f"응답 형식 깨짐({type(e).__name__})")
+            gateway.record(ticket, 204, what, attempt=n429 + n5xx, t0=t0)
             if n5xx >= 1:
                 _mark_bad(name, "빈 응답", seconds=5)
                 return None, f"{name}: 빈 응답 반복 — 이 항목만 건너뜀"
@@ -745,11 +747,26 @@ def transcribe(audio: bytes, filename: str = "audio.webm",
 
 
 # ── 🆓 로컬 Whisper (faster-whisper) — 무료·무제한·비공개 ───────
+_local_lock = threading.Lock()
+
+
 def _get_local_model():
-    """faster-whisper 모델을 lazy-load. 미설치/실패 시 None (→ Groq 폴백)."""
+    """faster-whisper 모델을 lazy-load. 미설치/실패 시 None (→ Groq 폴백).
+
+    잠금 필수: 로드는 수 초~수십 초(첫 실행은 모델 다운로드)라, /health 폴링이
+    겹치면 잠금 없이는 같은 로드가 여러 번 동시에 돈다 — 콜드 스타트 18초의
+    원인으로 실측돼 고쳤다(한 번만 시도, 나머지는 결과를 기다림)."""
     global _local_model, _local_failed
     if _local_model is not None or _local_failed or not STT_LOCAL:
         return _local_model
+    with _local_lock:
+        if _local_model is not None or _local_failed:
+            return _local_model
+        return _load_local_model()
+
+
+def _load_local_model():
+    global _local_model, _local_failed
     try:
         from faster_whisper import WhisperModel
         _local_model = WhisperModel(STT_LOCAL_MODEL, device="cpu", compute_type="int8")
