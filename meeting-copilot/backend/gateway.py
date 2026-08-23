@@ -49,6 +49,20 @@ BREAKER_S = 30.0
 _LOG_DIR = Path(os.environ.get("MC_DATA_DIR") or (Path(__file__).parent.parent)) / "logs"
 TRACE_PATH = _LOG_DIR / "api-trace.jsonl"
 
+
+def _rotate_trace() -> None:
+    # 트레이스는 무한 증가한다 — 기동 시 5MB를 넘으면 최근 2,000건만 남긴다
+    # (incident.sh는 어차피 최근 구간만 본다)
+    try:
+        if TRACE_PATH.exists() and TRACE_PATH.stat().st_size > 5_000_000:
+            keep = TRACE_PATH.read_text(encoding="utf-8").splitlines()[-2000:]
+            TRACE_PATH.write_text("\n".join(keep) + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
+_rotate_trace()
+
 # 우선순위 — 숫자가 작을수록 먼저. 클릭 제안이 최우선(사람이 기다리며 보고 있다).
 _PRIO = {"suggest": 0, "translate": 1, "summary_final": 1, "assets": 2,
          "suggest_bg": 2, "summary": 3}
