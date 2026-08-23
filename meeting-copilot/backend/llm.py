@@ -212,7 +212,15 @@ def _anthropic_stream(messages, temperature, max_tokens, model):
     yield (json.dumps({"done": True}) + "\n").encode("utf-8")
 
 
-def _gemini_payload(messages, json_mode, temperature, max_tokens):
+# thinkingConfig를 거부(400)한 모델을 기억한다 — 실키 실측:
+#  · flash-latest(→3.7): thinking 기본 ON이라 thinkingBudget=0이 "필수"
+#    (없으면 생각이 출력 예산을 먹어 텍스트 0자 = 빈 응답)
+#  · flash-lite-latest(→3.5-lite): thinking 미지원이라 같은 필드가 400
+# 모델별로 첫 400에서 학습해 빼고 재시도한다 (모델당 1회만 왕복 추가).
+_thinkcfg_bad: set[str] = set()
+
+
+def _gemini_payload(messages, json_mode, temperature, max_tokens, mdl=""):
     system_parts, contents = [], []
     for m in messages:
         if m["role"] == "system":
@@ -223,11 +231,25 @@ def _gemini_payload(messages, json_mode, temperature, max_tokens):
     payload: dict = {"contents": contents,
                      "generationConfig": {"temperature": temperature,
                                           "maxOutputTokens": max_tokens}}
+    if os.environ.get("GEMINI_THINKING") != "1" and mdl not in _thinkcfg_bad:
+        payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}
     if system_parts:
         payload["systemInstruction"] = {"parts": system_parts}
     if json_mode:
         payload["generationConfig"]["responseMimeType"] = "application/json"
     return payload
+
+
+def _gemini_open(url, mdl, build):
+    # build(mdl) → payload. thinkingConfig 400이면 그 모델을 기억하고 빼고 1회 재시도
+    try:
+        return _open(url, build(mdl), timeout=120)
+    except urllib.error.HTTPError as e:
+        had_cfg = "thinkingConfig" in json.dumps(build(mdl))
+        if e.code == 400 and had_cfg:
+            _thinkcfg_bad.add(mdl)
+            return _open(url, build(mdl), timeout=120)
+        raise
 
 
 def _gemini_text(obj) -> str:
@@ -238,16 +260,18 @@ def _gemini_text(obj) -> str:
 
 
 def _gemini_chat(messages, json_mode, temperature, max_tokens, model):
-    payload = _gemini_payload(messages, json_mode, temperature, max_tokens)
-    url = f"{GEMINI_URL}/models/{model or GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
-    with _open(url, payload, timeout=120) as r:
+    mdl = model or GEMINI_MODEL
+    url = f"{GEMINI_URL}/models/{mdl}:generateContent?key={GEMINI_API_KEY}"
+    with _gemini_open(url, mdl, lambda m: _gemini_payload(
+            messages, json_mode, temperature, max_tokens, m)) as r:
         return _gemini_text(json.loads(r.read()))
 
 
 def _gemini_stream(messages, temperature, max_tokens, model):
-    payload = _gemini_payload(messages, False, temperature, max_tokens)
-    url = f"{GEMINI_URL}/models/{model or GEMINI_MODEL}:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
-    with _open(url, payload, timeout=120) as resp:
+    mdl = model or GEMINI_MODEL
+    url = f"{GEMINI_URL}/models/{mdl}:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
+    with _gemini_open(url, mdl, lambda m: _gemini_payload(
+            messages, False, temperature, max_tokens, m)) as resp:
         for raw in resp:  # SSE: "data: {...}\n"
             line = raw.decode("utf-8", "ignore").strip()
             if not line.startswith("data:"):

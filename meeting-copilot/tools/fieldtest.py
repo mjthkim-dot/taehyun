@@ -211,7 +211,7 @@ def _check_llm() -> bool:
     t0 = time.time()
     try:
         out = llm.chat_once([{"role": "user", "content": "Reply with exactly: pong"}],
-                            temperature=0, max_tokens=8)
+                            temperature=0, max_tokens=64)
         ms = (time.time() - t0) * 1000
         ok(f"실 호출 성공 — {llm.provider()} ({llm.model_name()}) · {ms:.0f}ms · 응답 \"{out.strip()[:20]}\"")
         if llm.provider() == "gemini":
@@ -670,7 +670,7 @@ def cmd_preflight(args) -> int:
         t0 = time.time()
         try:
             llm.chat_once([{"role": "user", "content": "Reply with exactly: pong"}],
-                          temperature=0, max_tokens=8)
+                          temperature=0, max_tokens=64)
             llm_ms = (time.time() - t0) * 1000
             ok(f"실 호출 성공 — {llm.provider()} ({llm.model_name()}) · {llm_ms:.0f}ms")
             if llm_ms > 5000:
