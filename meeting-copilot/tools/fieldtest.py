@@ -177,16 +177,19 @@ def _check_mic() -> bool:
 
 
 def _gemini_key_ok() -> bool:
-    """형식 사전검증 — 잘못된 값(다른 토큰 복사, 한글·공백 섞임)은 실 호출에서
-    'ascii codec' 같은 알아볼 수 없는 오류가 된다(맥북 실측). 먼저 걸러 안내한다."""
+    """키 혼입 사전검증 — 붙여넣기에서 한글·공백이 딸려 오면 실 호출에서
+    'ascii codec' 같은 알아볼 수 없는 오류가 된다(맥북 실측: 키 끝에 '키' 한 글자).
+    구글 키는 형식이 여러 가지다(AIza…, AQ.…) — 접두사는 검사하지 않고,
+    ASCII 출력 문자만으로 이뤄졌는지만 본다."""
     gkey = os.environ.get("GEMINI_API_KEY", "")
-    if not gkey or re.fullmatch(r"AIza[0-9A-Za-z_\-]{20,}", gkey):
+    if not gkey or re.fullmatch(r"[!-~]{20,}", gkey):
         return True
-    why = ("한글이나 공백이 섞여 있습니다" if any(ord(c) > 127 or c.isspace() for c in gkey)
-           else "AIza로 시작하지 않습니다 — 다른 값을 복사하신 것 같습니다")
-    bad(f"GEMINI_API_KEY가 Gemini 키 형식이 아닙니다: {why}",
-        "https://aistudio.google.com/apikey → 'API 키 만들기' → AIza로 시작하는 값만 복사해\n"
-        "     export GEMINI_API_KEY=AIza...   (따옴표·한글·공백 없이 키만)")
+    tail = "".join(c for c in gkey if ord(c) > 126 or c.isspace() or ord(c) < 33)
+    why = (f"한글·공백이 섞여 있습니다 (섞인 문자: {tail[:8]!r})"
+           if tail else "너무 짧습니다 — 일부만 복사된 것 같습니다")
+    bad(f"GEMINI_API_KEY에 문제가 있습니다: {why}",
+        "https://aistudio.google.com/apikey 에서 '키 복사' 버튼으로 복사해\n"
+        "     export GEMINI_API_KEY=키값   (앞뒤에 다른 글자가 붙지 않게 키만)")
     return False
 
 
@@ -661,8 +664,8 @@ def cmd_preflight(args) -> int:
         bad("LLM 키 없음")
         fails.append(("LLM 키", "export GEMINI_API_KEY=… 후 재실행"))
     elif not _gemini_key_ok():
-        fails.append(("LLM 키 형식", "AIza로 시작하는 Gemini 키를 다시 발급해 넣으세요 "
-                                    "(aistudio.google.com/apikey)"))
+        fails.append(("LLM 키", "키에 한글·공백이 섞였거나 일부만 복사됨 — "
+                               "aistudio.google.com/apikey '키 복사'로 키만 다시 넣으세요"))
     else:
         t0 = time.time()
         try:
