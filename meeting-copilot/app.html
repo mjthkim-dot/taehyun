@@ -52,7 +52,11 @@
   @media (min-width: 760px){
     /* column flex에서 margin:auto는 stretch를 끄므로 width:100%를 함께 준다 */
     #feed, .actions, .quickbar, #card{width:100%;max-width:660px;margin-left:auto;margin-right:auto}
-    header, .status{padding-left:calc((100vw - 660px)/2);padding-right:calc((100vw - 660px)/2)}
+    .status{padding-left:calc((100vw - 660px)/2);padding-right:calc((100vw - 660px)/2)}
+    /* 헤더는 컨트롤이 많아 660px 컬럼에 가두면 중간 폭에서 2줄로 꺾인다 —
+       최대 1100px 존을 중앙 정렬해 한 줄을 유지한다 */
+    header{padding-left:max(16px, calc((100vw - 1100px)/2));
+           padding-right:max(16px, calc((100vw - 1100px)/2))}
   }
   .view{flex:1;display:flex;flex-direction:column;min-height:0}
   .view.hidden{display:none}
@@ -137,11 +141,16 @@
   /* 넓은 화면: 이 margin이 위의 중앙 정렬(margin:auto)을 덮어써 카드만 왼쪽
      구석에 붙는 회귀가 있었다 — 자막·입력과 같은 660px 컬럼에 다시 정렬한다 */
   @media (min-width: 760px){ #card{margin-left:auto;margin-right:auto} }
+  /* 발표형(긴) 답변은 48%에서 절반쯤 잘려 읽는 도중 스크롤하게 된다 —
+     긴 답변일 때만 카드를 키운다. 최신 자막 1~2줄은 여전히 위에 남는다 */
+  #card:has(.lrow.long){max-height:65%}
   #ctrls{order:2}
   #card.spec{box-shadow:0 0 0 1px var(--accent) inset,0 -6px 24px rgba(0,0,0,.35)}
   #card .head{position:sticky;top:-11px;z-index:2;background:var(--panel2);margin:-11px -11px 8px;
     padding:11px;border-radius:14px 14px 0 0;display:flex;align-items:center;gap:6px}
-  #card .head .gist{font-size:12.5px;font-weight:800;flex:1;line-height:1.4}
+  /* 제목은 1줄 고정 — 생성 시작 직후 질문 원문이 길게 들어와도 랩되지 않는다 */
+  #card .head .gist{font-size:12.5px;font-weight:800;flex:1;line-height:1.4;
+    min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #card .head .gist::before{content:"✦ ";color:var(--accent)}
   #card .head button{background:none;border:none;color:var(--sub);font-size:14px;cursor:pointer;padding:2px 3px}
   #card .head button.on{color:var(--accent)}
@@ -347,7 +356,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v2.6</span>
+  <span class="ver" id="app-ver">v2.7</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
