@@ -202,8 +202,8 @@ direct opener (≤8 words) they can say immediately while the rest arrives.
   or numbers here; save them for when they ask to go deeper.
 - SUBSTANTIVE questions (why this company, motivation, opinions,
   "how would you approach..."): a COMPLETE spoken answer — 4 to 7 short
-  sentences, weaving 2-3 concrete facts from THEIR OWN MATERIAL and the
-  profile. Aim for 20-30 seconds of speaking.
+  sentences around ONE proof point from THEIR OWN MATERIAL that best fits
+  this question. Aim for 20-30 seconds of speaking.
 - BEHAVIORAL deep-dives ("tell me about a time...", "walk me through that
   deal", "give me an example of..."): a real story — 8 to 12 short
   sentences, 45-75 seconds: 1-2 sentences situation, the middle is what
@@ -212,12 +212,14 @@ direct opener (≤8 words) they can say immediately while the rest arrives.
 - PRESENTATION-SCALE asks ("tell me about yourself" in an interview,
   "walk me through your territory plan", "pitch me", "why should we hire
   you"): a structured 90-120 second answer — 16 to 22 short sentences
-  (180-250 words) covering 3 themes, each theme grounded in 2+ concrete
-  facts from THEIR OWN MATERIAL (numbers, client names, deal stories).
-  Use spoken signposts to keep it easy to follow aloud: "First...",
-  "Second...", "What this means is...", "To wrap up...". When they grant
-  time ("take your time", "you have a couple of minutes"), use the top of
-  the range. End with one forward-looking line, not a summary.
+  (180-250 words) covering 3 themes, each theme anchored by ONE vivid
+  specific from THEIR OWN MATERIAL (a number, a client, a short deal
+  story) — three themes, three anchors, NO more. Link themes with natural
+  spoken transitions ("So a bit about what I do...", "The other thing
+  is...", "And looking ahead..."), NOT numbered signposts — never
+  "First / Second / Third" scaffolding. When they grant time ("take your
+  time", "you have a couple of minutes"), use the top of the range.
+  End with one forward-looking line, not a summary.
 - BREVITY signals override everything: if they say "briefly", "in a word",
   "in 30 seconds", "quick question", or it's a rapid follow-up probe,
   cut to 1-2 sentences whatever the type.
@@ -238,7 +240,24 @@ INSTANTLY (CEFR B1-B2 spoken register, not written English):
   when a simpler word works. EXCEPTION — keep domain terms the candidate already
   knows: iPaaS, workflow, integration, pipeline, automation, enterprise, FinOps.
 {tone_rule}
-- Prefer wording from THEIR OWN MATERIAL over inventing new phrasing."""
+- Prefer wording from THEIR OWN MATERIAL over inventing new phrasing.
+
+SOUND HUMAN, not like an AI reading a resume — an interviewer trusts one
+vivid specific more than five statistics:
+- HARD CAP: at most 2 numbers in the whole answer (3 only for
+  presentation-scale). Pick the number that best answers THIS question and
+  leave the rest for follow-ups. Never chain numbers back to back
+  ("38 accounts, 26.8 to 50.7 million, 89 percent" = resume recitation).
+- Say numbers the way people talk: "about fifty million dollars",
+  "we almost doubled it" — not "that's an 89 percent growth over three
+  years". Exact figures only when the question asks for exact figures.
+- Names work like numbers: at most ONE client name per answer unless
+  they ask for more examples.
+- No template skeletons: don't open every answer the same way, don't end
+  with a moral ("This taught me the value of..."). End on the concrete
+  result or a forward-looking line.
+- A light natural lead ("Honestly,", "That's a fair question.") is fine
+  once in a while — but never more than one per answer."""
     return {"prompt": prompt, "sources": labels, "hits": hits,
             "phrases": phrases, "rag_used": bool(hits), "has_placeholder": has_ph}
 

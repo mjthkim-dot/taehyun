@@ -134,6 +134,9 @@
   #card{order:1;flex:none;margin:0 8px 6px;background:var(--panel2);
     border:1px solid var(--line);border-radius:14px;padding:11px;display:none;
     box-shadow:0 -6px 24px rgba(0,0,0,.35);max-height:48%;overflow-y:auto;overscroll-behavior:contain}
+  /* 넓은 화면: 이 margin이 위의 중앙 정렬(margin:auto)을 덮어써 카드만 왼쪽
+     구석에 붙는 회귀가 있었다 — 자막·입력과 같은 660px 컬럼에 다시 정렬한다 */
+  @media (min-width: 760px){ #card{margin-left:auto;margin-right:auto} }
   #ctrls{order:2}
   #card.spec{box-shadow:0 0 0 1px var(--accent) inset,0 -6px 24px rgba(0,0,0,.35)}
   #card .head{position:sticky;top:-11px;z-index:2;background:var(--panel2);margin:-11px -11px 8px;
@@ -344,7 +347,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v2.5</span>
+  <span class="ver" id="app-ver">v2.6</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
