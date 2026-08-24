@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v8';   // v2.7: 헤더 1줄·발표형 카드 65%·제목 1줄 클램프 — 구 캐시 교체
+const SHELL = 'mc-shell-v9';   // v2.8: 자막 하단 정렬 + 3단계 온보딩 — 구 캐시 교체
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {
