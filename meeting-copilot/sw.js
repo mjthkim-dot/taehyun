@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v3';   // v2.2: 카드 하단 패널화(자막 비겹침) — 구 캐시 강제 교체
+const SHELL = 'mc-shell-v4';   // v2.3: 오버레이 인터뷰 모드(S/M/L·투명도·복원) — 구 캐시 교체
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {

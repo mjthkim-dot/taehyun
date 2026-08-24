@@ -215,6 +215,51 @@
   body.overlay .quickbar input{padding:7px 9px;font-size:14px}
   body.overlay #card{margin:0 6px 6px;max-height:52%}
   body.overlay .empty{margin-top:24px}
+
+  /* ── 오버레이 컨트롤 바 + 인터뷰 모드 (v2.3) ──
+     시선이 카메라(화면 상단) 근처에 머물러야 하므로, 인터뷰 모드에서는
+     답변 카드가 창의 '맨 위'를 차지하고 자막 1~2줄이 그 아래에 붙는다.
+     본창 레이아웃은 건드리지 않는다 — 전부 body.overlay 스코프. */
+  #ov-bar{display:none}
+  body.overlay #ov-bar{display:flex;align-items:center;gap:4px;padding:4px 6px;
+    border-bottom:1px solid var(--line);flex:none;order:-1}
+  #ov-bar button{background:var(--panel2);border:1px solid var(--line);color:var(--sub);
+    border-radius:6px;font-size:10.5px;font-weight:700;font-family:inherit;
+    padding:3px 8px;cursor:pointer;flex:none}
+  #ov-bar button.on{color:var(--accent);border-color:var(--accent-deep)}
+  #ov-bar .sp{flex:1}
+  #ov-bar #ov-mic{font-size:10px;color:var(--faint);overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;max-width:45%}
+
+  /* 폰트 자동 스케일 — vw 기반이라 창을 드래그로 줄여도 비율 유지.
+     320px 폭(화면 1/4)에서 답변 첫 문장 ≥19px = 3m 판독 기준. */
+  body.overlay{--ovscale:1}
+  body.overlay .lrow.primary .en{font-size:calc(clamp(16px, 6vw, 28px) * var(--ovscale))}
+  body.overlay .lrow.primary.long .en{font-size:calc(clamp(13px, 4.4vw, 21px) * var(--ovscale));line-height:1.6}
+  body.overlay .lrow .kr{font-size:calc(clamp(11px, 3.4vw, 16px) * var(--ovscale))}
+  body.overlay .lrow .strat{font-size:calc(clamp(11px, 3.4vw, 15px) * var(--ovscale))}
+  body.overlay .bubble .en{font-size:calc(clamp(12px, 3.8vw, 17px) * var(--ovscale))}
+  body.overlay .bubble .kr{font-size:calc(clamp(11px, 3.4vw, 15px) * var(--ovscale))}
+
+  /* 배경 반투명 70% — 주의: Document PiP 창은 OS 창이라 창 자체가 투명해져
+     뒤의 Zoom이 비치지는 않는다(Chrome 제약). 70%는 패널의 시각적 무게를
+     줄이는 모드다. 텍스트 대비는 어느 배경 합성에서도 AA(4.5:1) 이상 유지. */
+  body.overlay{--ovA:1}
+  body.overlay.ov-70{--ovA:.7}
+  body.overlay{background:rgba(14,17,22,var(--ovA))}
+  body.overlay .bubble{background:rgba(22,26,33,var(--ovA))}
+  body.overlay .status{background:rgba(22,26,33,var(--ovA))}
+  body.overlay #card{background:rgba(29,34,43,min(1, calc(var(--ovA) + .15)))}
+  body.overlay #card .head{background:transparent}
+
+  /* 인터뷰 모드: [답변 카드(위·전폭) + 최신 자막 1~2줄(아래)]만 */
+  body.overlay.mode-interview .status,
+  body.overlay.mode-interview #ctrls{display:none}
+  body.overlay.mode-interview #card{order:0;flex:1 1 auto;max-height:none;margin:6px 6px 4px}
+  body.overlay.mode-interview #feed{order:1;flex:0 0 auto;max-height:7.5em;
+    padding:2px 8px 6px;border-top:1px solid var(--line)}
+  body.overlay.mode-interview .row{margin-bottom:4px}
+  body.overlay.mode-interview .row .meta{display:none}
 </style>
 </head>
 <body>
@@ -223,7 +268,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v2.2</span>
+  <span class="ver" id="app-ver">v2.3</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -279,6 +324,16 @@
     </div>
   </div>
   <div class="view" id="view-live">
+    <!-- 오버레이 전용 컨트롤 바 — 본창에서는 숨김(body.overlay에서만 표시) -->
+    <div id="ov-bar">
+      <button id="ov-mode" title="인터뷰: 답변+자막만 / 전체: 버튼·입력 포함">전체</button>
+      <button data-ovs="S" title="작게 (320×430)">S</button>
+      <button data-ovs="M" title="중간 (420×560)">M</button>
+      <button data-ovs="L" title="크게 (560×720)">L</button>
+      <button id="ov-alpha" title="배경 반투명 70% / 불투명 100%">70%</button>
+      <span class="sp"></span>
+      <span id="ov-mic" title="화자 분리 상태"></span>
+    </div>
     <div id="feed">
       <div class="empty" id="feed-empty">
         <div class="big">🎧</div>
@@ -964,6 +1019,12 @@ function hotkeys(e){
   else if(e.key==='Escape'){ e.preventDefault(); $('#c-close').click(); }
   else if(e.key==='+'||e.key==='='){ e.preventDefault(); sizeIdx++; applySize(); }
   else if(e.key==='-'||e.key==='_'){ e.preventDefault(); sizeIdx--; applySize(); }
+  else if(e.key==='/' && pipWin){
+    // 오버레이 인터뷰 모드에서 /: 입력창이 숨겨져 있으니 전체 모드로 전환 후 포커스
+    e.preventDefault();
+    if((ovPrefs.mode || 'interview') === 'interview'){ ovPrefs.mode = 'full'; saveOv(); applyOvPrefs(); }
+    $('#say-in')?.focus();
+  }
 }
 document.addEventListener('keydown', hotkeys);
 function speak(t){
@@ -1153,14 +1214,17 @@ async function paintMicSource(){
     const st = await navigator.mediaDevices.getUserMedia({audio:true});
     const label = st.getAudioTracks()[0]?.label || '';
     st.getTracks().forEach(t=>t.stop());
+    const mini = $('#ov-mic');            // 오버레이 인터뷰 모드에서도 분리 상태 유지 표시
     if(/blackhole/i.test(label)){
       el.textContent = '🎧 상대 전용(BlackHole) — 화자 분리 ON';
       el.style.color = 'var(--accent)';
+      if(mini){ mini.textContent = '🎧 분리 ON'; mini.style.color = 'var(--accent)'; }
     }else{
       el.textContent = `⚠️ ${label || '기본 마이크'} — 내 목소리도 잡힘`;
       el.style.color = 'var(--warn)';
       el.title = '화자 분리: 주소창에 chrome://settings/content/microphone → '
         + '기본 마이크를 BlackHole 2ch로. 자세한 절차는 docs/FIELD-TEST.md §화자 분리';
+      if(mini){ mini.textContent = '⚠️ 내 목소리 잡힘'; mini.style.color = 'var(--warn)'; }
     }
   }catch{ /* 권한 거부 등 — 상태 표시는 보조 정보라 조용히 넘어간다 */ }
 }
@@ -1377,9 +1441,10 @@ async function openOverlay(){
   }
   let win;
   try{
+    const [pw, ph] = OV_SIZES[ovPrefs.size] || [420, 560];   // 프리셋 크기 복원
     win = await documentPictureInPicture.requestWindow({
-      width: +(localStorage.getItem('mc_pip_w') || 380),
-      height: +(localStorage.getItem('mc_pip_h') || 560)});
+      width: +(localStorage.getItem('mc_pip_w') || pw),
+      height: +(localStorage.getItem('mc_pip_h') || ph)});
   }catch(e){ setBanner('오버레이를 열 수 없어요 — ' + e.message); return; }
   // 같은 오리진이라 cssRules 접근 가능 — 스타일 전체를 오버레이 문서로 복사
   for(const ss of document.styleSheets){
@@ -1402,7 +1467,7 @@ async function openOverlay(){
   }catch{} });
   win.addEventListener('pagehide', closeOverlay);  // 사용자가 X로 닫으면 자동 복귀
   $('#btn-pip').classList.add('live');
-  paintLive(); applySize(); fitCard();
+  paintLive(); applySize(); applyOvPrefs(); fitCard();
 }
 function closeOverlay(){
   if(!pipWin) return;
@@ -1417,6 +1482,46 @@ function closeOverlay(){
   paintLive(); fitCard();
 }
 $('#btn-pip').onclick = openOverlay;
+
+// ── 오버레이 개인화 (v2.3): 인터뷰 모드 · 크기 S/M/L · 배경 70% ──
+// 설정은 localStorage에 저장하고 다음 실행에서 복원한다. 저장 실패(시크릿 창
+// 등)해도 동작 자체는 유지되도록 모든 접근을 try/catch로 감싼다.
+const OV_SIZES = {S:[320,430], M:[420,560], L:[560,720]};
+const ovPrefs = (()=>{ try{ return JSON.parse(localStorage.getItem('mc_ov')||'{}'); }
+                       catch{ return {}; } })();
+function saveOv(){ try{ localStorage.setItem('mc_ov', JSON.stringify(ovPrefs)); }catch{} }
+function applyOvPrefs(){
+  if(!pipWin) return;
+  const b = pipWin.document.body;
+  const interview = (ovPrefs.mode || 'interview') === 'interview';   // 기본 = 인터뷰 모드
+  b.classList.toggle('mode-interview', interview);
+  b.classList.toggle('ov-70', ovPrefs.alpha === 70);
+  b.style.setProperty('--ovscale', {S:.9, M:1, L:1.15}[ovPrefs.size] || 1);
+  const mb = pipWin.document.querySelector('#ov-mode');
+  if(mb){ mb.textContent = interview ? '전체' : '인터뷰'; mb.classList.toggle('on', interview); }
+  pipWin.document.querySelector('#ov-alpha')?.classList.toggle('on', ovPrefs.alpha === 70);
+  pipWin.document.querySelectorAll('[data-ovs]').forEach(x =>
+    x.classList.toggle('on', x.dataset.ovs === (ovPrefs.size || 'M')));
+  fitCard();
+}
+$('#ov-mode').onclick = ()=>{
+  ovPrefs.mode = (ovPrefs.mode || 'interview') === 'interview' ? 'full' : 'interview';
+  saveOv(); applyOvPrefs();
+};
+$('#ov-alpha').onclick = ()=>{
+  ovPrefs.alpha = ovPrefs.alpha === 70 ? 100 : 70;
+  saveOv(); applyOvPrefs();
+};
+$$('[data-ovs]').forEach(btn => btn.onclick = ()=>{
+  ovPrefs.size = btn.dataset.ovs; saveOv();
+  const [w, h] = OV_SIZES[btn.dataset.ovs];
+  // Document PiP 창의 프로그램적 리사이즈는 Chrome이 막을 수 있다 —
+  // 실패해도 폰트 스케일(--ovscale)은 항상 적용되고, 창 크기는 다음
+  // 오버레이 열기부터 프리셋 크기로 열린다.
+  try{ pipWin?.resizeTo(w, h); }catch{}
+  try{ localStorage.setItem('mc_pip_w', w); localStorage.setItem('mc_pip_h', h); }catch{}
+  applyOvPrefs();
+});
 
 // ── 자료 패널 ──
 async function refreshStats(){

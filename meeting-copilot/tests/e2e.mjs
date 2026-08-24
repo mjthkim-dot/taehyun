@@ -108,6 +108,67 @@ const quick = await p.evaluate(() => ({
 check('한국어 입력 → 영어 제안', quick.en.length >= 1, quick.en[0]?.slice(0, 46));
 check('퀵 번역도 내 자료를 검색함', /용어집|미팅|노트/.test(quick.src), quick.src.replace(/\s+/g, ' ').slice(0, 54));
 
+console.log('\n■ 오버레이 인터뷰 모드 (v2.3 — PiP 안에서 검증)');
+await p.evaluate(() => { try { localStorage.removeItem('mc_ov'); } catch {} });
+await p.click('#btn-pip'); await p.waitForTimeout(400);
+const ov1 = await p.evaluate(() => {
+  const d = pipWin?.document;
+  return {
+    pip: !!pipWin,
+    bar: d && getComputedStyle(d.querySelector('#ov-bar')).display !== 'none',
+    interview: d?.body.classList.contains('mode-interview'),
+    statusHidden: d && getComputedStyle(d.querySelector('#status')).display === 'none',
+    ctrlsHidden: d && getComputedStyle(d.querySelector('#ctrls')).display === 'none',
+  };
+});
+check('PiP 열림 + 컨트롤 바 표시', ov1.pip && ov1.bar);
+check('기본 = 인터뷰 모드 (상태줄·버튼 숨김)', ov1.interview && ov1.statusHidden && ov1.ctrlsHidden);
+const ov2 = await p.evaluate(() => {
+  const d = pipWin.document;
+  d.querySelector('#card').style.display = 'block'; fitCard();
+  const cr = d.querySelector('#card').getBoundingClientRect();
+  const fr = d.querySelector('#feed').getBoundingClientRect();
+  return { top: cr.top < fr.top, wide: cr.width > d.body.clientWidth * 0.9,
+           feedShort: fr.height <= 150 };
+});
+check('답변 카드 최상단·전폭 + 자막 1~2줄', ov2.top && ov2.wide && ov2.feedShort);
+const f1 = await p.evaluate(() =>
+  parseFloat(getComputedStyle(pipWin.document.querySelector('#c-answers .en')).fontSize));
+await p.evaluate(() => pipWin.document.querySelector('[data-ovs="L"]').click());
+await p.waitForTimeout(150);
+const st2 = await p.evaluate(() => ({
+  f: parseFloat(getComputedStyle(pipWin.document.querySelector('#c-answers .en')).fontSize),
+  scale: pipWin.document.body.style.getPropertyValue('--ovscale'), w: pipWin.innerWidth }));
+check('프리셋 L → 폰트 스케일 1.15', st2.scale === '1.15' && st2.f >= f1, `${f1}px→${st2.f}px`);
+console.log(`   ℹ️ resizeTo 시도 후 창 폭 ${st2.w}px (Chrome 허용 여부에 따라 다름)`);
+await p.evaluate(() => pipWin.document.querySelector('#ov-alpha').click());
+check('배경 70% 토글', await p.evaluate(() => pipWin.document.body.classList.contains('ov-70')));
+await p.evaluate(() => pipWin.document.querySelector('#ov-mode').click());
+check('전체 모드 전환 (버튼·입력 복귀)', await p.evaluate(() =>
+  !pipWin.document.body.classList.contains('mode-interview') &&
+  getComputedStyle(pipWin.document.querySelector('#ctrls')).display !== 'none'));
+check('설정이 localStorage에 저장됨', await p.evaluate(() => {
+  try { const s = JSON.parse(localStorage.getItem('mc_ov'));
+        return s.mode === 'full' && s.alpha === 70 && s.size === 'L'; }
+  catch { return false; }
+}));
+await p.click('#btn-pip'); await p.waitForTimeout(300);   // 닫기
+// 헤드리스는 PiP 폭을 페이지 뷰포트로 클램프하므로 절대값 대신
+// "저장된 크기로 다시 열리는가"(복원 로직)를 검증한다
+const savedW = await p.evaluate(() => +localStorage.getItem('mc_pip_w') || 0);
+await p.click('#btn-pip'); await p.waitForTimeout(400);   // 재열기 → 복원 확인
+const ov3 = await p.evaluate(() => ({
+  full: !pipWin.document.body.classList.contains('mode-interview'),
+  a70: pipWin.document.body.classList.contains('ov-70'),
+  scale: pipWin.document.body.style.getPropertyValue('--ovscale'), w: pipWin.innerWidth }));
+check('재열기 후 설정 복원 (전체·70%·L)', ov3.full && ov3.a70 && ov3.scale === '1.15');
+check('저장된 창 크기로 재열림', savedW > 0 && Math.abs(ov3.w - Math.min(savedW, 390)) < 60,
+  `저장 ${savedW}px → 재열림 ${ov3.w}px (헤드리스는 뷰포트 클램프)`);
+await p.evaluate(() => { ovPrefs.mode = 'interview'; ovPrefs.alpha = 100; ovPrefs.size = 'M'; saveOv(); });
+await p.click('#btn-pip'); await p.waitForTimeout(300);   // 닫고 본창 복귀
+check('오버레이 닫힘 — 본창 복귀 (기존 기능 유지)', await p.evaluate(() =>
+  pipWin === null && !!document.querySelector('main #view-live')));
+
 console.log('\n■ 카드가 하단 컨트롤을 가리지 않는지');
 check('제안 카드 ↔ 퀵 액션 비겹침', !await p.evaluate(() => {
   const c = document.querySelector('#card').getBoundingClientRect();
