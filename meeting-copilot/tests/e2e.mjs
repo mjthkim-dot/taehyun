@@ -108,7 +108,7 @@ const quick = await p.evaluate(() => ({
 check('한국어 입력 → 영어 제안', quick.en.length >= 1, quick.en[0]?.slice(0, 46));
 check('퀵 번역도 내 자료를 검색함', /용어집|미팅|노트/.test(quick.src), quick.src.replace(/\s+/g, ' ').slice(0, 54));
 
-console.log('\n■ 오버레이 인터뷰 모드 (v2.3 — PiP 안에서 검증)');
+console.log('\n■ 오버레이 인터뷰 모드 (v2.4 플로팅 패널 — PiP 안에서 검증)');
 await p.evaluate(() => { try { localStorage.removeItem('mc_ov'); } catch {} });
 await p.click('#btn-pip'); await p.waitForTimeout(400);
 const ov1 = await p.evaluate(() => {
@@ -116,13 +116,18 @@ const ov1 = await p.evaluate(() => {
   return {
     pip: !!pipWin,
     bar: d && getComputedStyle(d.querySelector('#ov-bar')).display !== 'none',
+    pause: d && !!d.querySelector('#ov-pause'),
     interview: d?.body.classList.contains('mode-interview'),
-    statusHidden: d && getComputedStyle(d.querySelector('#status')).display === 'none',
-    ctrlsHidden: d && getComputedStyle(d.querySelector('#ctrls')).display === 'none',
+    statusShown: d && getComputedStyle(d.querySelector('#status')).display !== 'none',
+    ctrlsShown: d && getComputedStyle(d.querySelector('#ctrls')).display !== 'none',
+    moreHidden: d && getComputedStyle(d.querySelector('.actions button.more')).display === 'none',
+    a70: d?.body.classList.contains('ov-70'),
   };
 });
-check('PiP 열림 + 컨트롤 바 표시', ov1.pip && ov1.bar);
-check('기본 = 인터뷰 모드 (상태줄·버튼 숨김)', ov1.interview && ov1.statusHidden && ov1.ctrlsHidden);
+check('PiP 열림 + 플로팅 바 (⏸⏹·라이브 필)', ov1.pip && ov1.bar && ov1.pause);
+check('기본 = 인터뷰 모드 (요약 스트립·고스트 액션 표시, .more 숨김)',
+  ov1.interview && ov1.statusShown && ov1.ctrlsShown && ov1.moreHidden);
+check('기본 = 반투명 배경 (ov-70 ON)', ov1.a70);
 const ov2 = await p.evaluate(() => {
   const d = pipWin.document;
   d.querySelector('#card').style.display = 'block'; fitCard();
@@ -142,14 +147,15 @@ const st2 = await p.evaluate(() => ({
 check('프리셋 L → 폰트 스케일 1.15', st2.scale === '1.15' && st2.f >= f1, `${f1}px→${st2.f}px`);
 console.log(`   ℹ️ resizeTo 시도 후 창 폭 ${st2.w}px (Chrome 허용 여부에 따라 다름)`);
 await p.evaluate(() => pipWin.document.querySelector('#ov-alpha').click());
-check('배경 70% 토글', await p.evaluate(() => pipWin.document.body.classList.contains('ov-70')));
+check('투명도 토글 (기본 70% → 100% 불투명)', await p.evaluate(() =>
+  !pipWin.document.body.classList.contains('ov-70')));
 await p.evaluate(() => pipWin.document.querySelector('#ov-mode').click());
-check('전체 모드 전환 (버튼·입력 복귀)', await p.evaluate(() =>
+check('전체 모드 전환 (카드가 하단으로 복귀)', await p.evaluate(() =>
   !pipWin.document.body.classList.contains('mode-interview') &&
-  getComputedStyle(pipWin.document.querySelector('#ctrls')).display !== 'none'));
+  getComputedStyle(pipWin.document.querySelector('#card')).order === '1'));
 check('설정이 localStorage에 저장됨', await p.evaluate(() => {
   try { const s = JSON.parse(localStorage.getItem('mc_ov'));
-        return s.mode === 'full' && s.alpha === 70 && s.size === 'L'; }
+        return s.mode === 'full' && s.alpha === 100 && s.size === 'L'; }
   catch { return false; }
 }));
 await p.click('#btn-pip'); await p.waitForTimeout(300);   // 닫기
@@ -161,10 +167,10 @@ const ov3 = await p.evaluate(() => ({
   full: !pipWin.document.body.classList.contains('mode-interview'),
   a70: pipWin.document.body.classList.contains('ov-70'),
   scale: pipWin.document.body.style.getPropertyValue('--ovscale'), w: pipWin.innerWidth }));
-check('재열기 후 설정 복원 (전체·70%·L)', ov3.full && ov3.a70 && ov3.scale === '1.15');
+check('재열기 후 설정 복원 (전체·100%·L)', ov3.full && !ov3.a70 && ov3.scale === '1.15');
 check('저장된 창 크기로 재열림', savedW > 0 && Math.abs(ov3.w - Math.min(savedW, 390)) < 60,
   `저장 ${savedW}px → 재열림 ${ov3.w}px (헤드리스는 뷰포트 클램프)`);
-await p.evaluate(() => { ovPrefs.mode = 'interview'; ovPrefs.alpha = 100; ovPrefs.size = 'M'; saveOv(); });
+await p.evaluate(() => { ovPrefs.mode = 'interview'; ovPrefs.alpha = 70; ovPrefs.size = 'M'; saveOv(); });
 await p.click('#btn-pip'); await p.waitForTimeout(300);   // 닫고 본창 복귀
 check('오버레이 닫힘 — 본창 복귀 (기존 기능 유지)', await p.evaluate(() =>
   pipWin === null && !!document.querySelector('main #view-live')));
