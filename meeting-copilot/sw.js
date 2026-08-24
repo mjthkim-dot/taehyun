@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v5';   // v2.4: 오버레이 플로팅 패널 디자인 — 구 캐시 교체
+const SHELL = 'mc-shell-v6';   // v2.5: 글랜스 UI(19px 답변·스크롤 앵커·생성 중 유지) — 구 캐시 교체
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {

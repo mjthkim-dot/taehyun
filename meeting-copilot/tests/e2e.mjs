@@ -72,9 +72,13 @@ check('주 버튼 4개 = 동의/반박/질문/제안',
 for (const intent of ['agree', 'pushback', 'ask', 'propose']) {
   const t = Date.now();
   await p.click(`.actions [data-intent="${intent}"]`);
+  // v2.5: 생성 중에도 이전 답변이 유지되므로 .kr 존재만으로는 완료가 아니다 —
+  // 진행 표시(.gen) 해제 + 근거(#c-src) 표시까지 기다린다
   await p.waitForFunction(() => {
     const rows = [...document.querySelectorAll('#c-answers .lrow')];
-    return rows.length >= 1 && rows.every(r => r.querySelector('.kr')?.textContent.trim());
+    return rows.length >= 1 && rows.every(r => r.querySelector('.kr')?.textContent.trim())
+      && !document.querySelector('#card').classList.contains('gen')
+      && getComputedStyle(document.querySelector('#c-src')).display !== 'none';
   }, { timeout: 20000 }).catch(() => {});
   const card = await p.evaluate(() => ({
     en: [...document.querySelectorAll('#c-answers .en')].map(e => e.textContent.trim()),
@@ -99,7 +103,9 @@ await p.fill('#say-in', '다음 미팅이 기대된다고 말하고 싶어요');
 await p.click('#say-go');
 await p.waitForFunction(() => {
   const rows = [...document.querySelectorAll('#c-answers .lrow')];
-  return rows.length >= 1 && rows.every(r => r.querySelector('.kr')?.textContent.trim());
+  return rows.length >= 1 && rows.every(r => r.querySelector('.kr')?.textContent.trim())
+    && !document.querySelector('#card').classList.contains('gen')
+    && getComputedStyle(document.querySelector('#c-src')).display !== 'none';
 }, { timeout: 20000 }).catch(() => {});
 const quick = await p.evaluate(() => ({
   en: [...document.querySelectorAll('#c-answers .en')].map(e => e.textContent.trim()),
@@ -107,6 +113,45 @@ const quick = await p.evaluate(() => ({
 }));
 check('한국어 입력 → 영어 제안', quick.en.length >= 1, quick.en[0]?.slice(0, 46));
 check('퀵 번역도 내 자료를 검색함', /용어집|미팅|노트/.test(quick.src), quick.src.replace(/\s+/g, ' ').slice(0, 54));
+
+console.log('\n■ v2.5 글랜스 UI (표시 계층만)');
+const g1 = await p.evaluate(() => {
+  const el = document.querySelector('#c-answers .lrow.primary .en');
+  const s = el && getComputedStyle(el);
+  return s && { size: parseFloat(s.fontSize), weight: +s.fontWeight };
+});
+check('추천 문장 ≥18px · semibold', !!g1 && g1.size >= 18 && g1.weight >= 600,
+  g1 ? `${g1.size}px w${g1.weight}` : 'primary 없음');
+const g2 = await p.evaluate(() => {
+  const me = document.querySelector('.row.me'); if (!me) return null;
+  const b = me.querySelector('.bubble').getBoundingClientRect();
+  const f = document.querySelector('#feed').getBoundingClientRect();
+  return (f.right - b.right) < (b.left - f.left);
+});
+check('화자 구분 = 정렬 (내 발화 우측)', g2 === true);
+const g3 = await p.evaluate(() => {
+  for (let i = 0; i < 6; i++) addUtterance(`Filler line ${i} to make the feed scrollable.`, '상대');
+  feed.scrollTop = 0;                                  // 사용자가 위로 스크롤한 상태
+  feed.dispatchEvent(new Event('scroll'));
+  addUtterance('This new line must not yank the scroll.', '상대');
+  const held = feed.scrollTop < 40;
+  const btn = getComputedStyle(document.querySelector('#new-msg')).display !== 'none';
+  document.querySelector('#new-msg').click();
+  const returned = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 8;
+  return { held, btn, returned };
+});
+check('위로 스크롤 중 앵커 해제 + "새 메시지 ↓" 표시', g3.held && g3.btn);
+check('버튼 클릭 → 최신 자막으로 복귀', g3.returned);
+await p.click('.actions [data-intent="agree"]');
+const g4 = await p.evaluate(() => ({
+  gen: document.querySelector('#card').classList.contains('gen'),
+  kept: !!document.querySelector('#c-answers .kr')?.textContent.trim(),
+}));
+check('생성 중 이전 답변 유지 + 진행 바(.gen)', g4.gen && g4.kept);
+await p.waitForFunction(() =>
+  !document.querySelector('#card').classList.contains('gen')
+  && getComputedStyle(document.querySelector('#c-src')).display !== 'none',
+  { timeout: 20000 }).catch(() => {});
 
 console.log('\n■ 오버레이 인터뷰 모드 (v2.4 플로팅 패널 — PiP 안에서 검증)');
 await p.evaluate(() => { try { localStorage.removeItem('mc_ov'); } catch {} });
