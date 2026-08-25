@@ -332,9 +332,9 @@
   body.overlay .lrow.primary.long .en{font-size:calc(clamp(13px, 4.4vw, 21px) * var(--ovscale));line-height:1.6}
   body.overlay .lrow .kr{font-size:calc(clamp(11px, 3.4vw, 16px) * var(--ovscale))}
   body.overlay .lrow .strat{font-size:calc(clamp(11px, 3.4vw, 15px) * var(--ovscale))}
-  body.overlay .bubble .en{font-size:calc(clamp(12.5px, 3.9vw, 17px) * var(--ovscale));
+  body.overlay .bubble .en{font-size:calc(clamp(13.5px, 4.1vw, 18px) * var(--ovscale));
     font-weight:600;color:#F2F5F9}
-  body.overlay .bubble .kr{font-size:calc(clamp(11px, 3.4vw, 15px) * var(--ovscale));
+  body.overlay .bubble .kr{font-size:calc(clamp(12px, 3.6vw, 16px) * var(--ovscale));
     color:rgba(236,240,246,.6)}
 
   /* 패널 표면 — 기본 반투명(레퍼런스 톤). ⚠️ PiP 창은 OS 창이라 뒤의 Zoom이
@@ -356,6 +356,12 @@
   body.overlay .status .dot{background:#F6B73C;box-shadow:none;width:7px;height:7px}
   body.overlay .status .txt::before{content:"실시간 요약  ";color:#F6B73C;font-weight:700}
   body.overlay .status .rag{display:none}
+  /* 오버레이 텍스트 대비 상향(v4.1) — 반투명 표면 위에서 회색 보조 텍스트가
+     묻힌다는 실사용 피드백. KR/발음/메타를 한 톤씩 밝게, 긴 단어 줄바꿈 허용 */
+  body.overlay .bubble .kr, body.overlay .lrow .kr{color:#C7CFDA}
+  body.overlay .lrow .pr{color:#98A3B3}
+  body.overlay .row .meta{color:#8E99A8}
+  body.overlay .en, body.overlay .kr{overflow-wrap:break-word}
 
   /* 고스트 액션 4개 + 라운드 입력 (레퍼런스 하단부) */
   body.overlay #ctrls{border:0}
@@ -391,12 +397,17 @@
   #bg-mirror{display:none}
   body.overlay.bg-live #bg-mirror{display:block;position:fixed;inset:0;
     width:100%;height:100%;object-fit:cover;z-index:-1;
-    filter:brightness(.72) saturate(.9)}
-  /* 라이브 영상 위 가독성 — 표면을 어두운 스크림으로 강화 */
-  body.overlay.bg-live .status{background:rgba(15,17,23,.62)}
-  body.overlay.bg-live .bubble{background:rgba(15,17,23,.55)}
-  body.overlay.bg-live #card{background:rgba(15,17,23,.74)}
-  body.overlay.bg-live #ov-bar button{background:rgba(15,17,23,.5)}
+    filter:brightness(.6) saturate(.85)}
+  /* 라이브 영상 위 가독성(v4.1 실사용 피드백) — 텍스트 표면은 진한 스크림 +
+     블러로 영상 움직임을 차단하고, 표면 사이 틈으로만 얼굴이 비치게 한다 */
+  body.overlay.bg-live .status{background:rgba(11,13,18,.85);backdrop-filter:blur(6px)}
+  body.overlay.bg-live .bubble{background:rgba(11,13,18,.82);backdrop-filter:blur(6px)}
+  body.overlay.bg-live #card{background:rgba(11,13,18,.86);backdrop-filter:blur(8px)}
+  body.overlay.bg-live #ov-bar button{background:rgba(11,13,18,.6)}
+  body.overlay.bg-live .quickbar input{background:rgba(11,13,18,.8)!important}
+  body.overlay.bg-live .actions button{color:#E7ECF3;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+  body.overlay.bg-live .bubble .en, body.overlay.bg-live .lrow .en{
+    text-shadow:0 1px 2px rgba(0,0,0,.55)}
 </style>
 </head>
 <body>
@@ -405,7 +416,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v4.0</span>
+  <span class="ver" id="app-ver">v4.1</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>

@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v21';  // v4.0: 번역 자동 재시도·빈 응답 격리·스윕 워치독
+const SHELL = 'mc-shell-v22';  // v4.1: 오버레이 가독성 — 대비·크기·🎦 스크림
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {
