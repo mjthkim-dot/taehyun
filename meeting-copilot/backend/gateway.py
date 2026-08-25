@@ -38,7 +38,12 @@ _TIER = os.environ.get("GEMINI_TIER", "free")
 # p95가 8초로 밀리는 것이 실측됐다. main이 버스트의 원흉이므로 무료 8/유료 60.
 GW_RPM = int(os.environ.get("GW_RPM", "60" if _TIER == "paid" else "8"))
 GW_RPM_FAST = int(os.environ.get("GW_RPM_FAST", "120" if _TIER == "paid" else "13"))
-GW_CONC = int(os.environ.get("GW_CONC", "2"))
+# 동시 상한 (v3.8): 무료 2(예절) / 유료 6. 핵심 발견 — 중단된 투기(좀비)는
+# 첫 업스트림 청크를 기다리며 블록되어 있어 취소로 회수할 수 없고, 상한 2~3
+# 에서는 좀비+오프너가 슬롯을 채워 **본답변이 뒤에 줄을 섰다**(실측 TTFT
+# 2.2→4.2s). RPM은 토큰버킷이 별도로 지키므로 동시 6은 429와 무관하다.
+GW_CONC = int(os.environ.get(
+    "GW_CONC", "6" if os.environ.get("GEMINI_TIER", "free") == "paid" else "2"))
 GW_BURST = float(os.environ.get("GW_BURST", "2"))
 GW_DROP_S = float(os.environ.get("GW_DROP_S", "5"))
 GW_BG_DROP_S = float(os.environ.get("GW_BG_DROP_S", "15"))

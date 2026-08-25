@@ -42,6 +42,9 @@ import rag  # noqa: E402
 import review  # noqa: E402
 
 PORT = int(os.environ.get("PORT", "3799"))
+# 본답변 세대 카운터 — 더 새로운 답변 요청이 오면 이전 스트림은 스스로 종료해
+# 게이트웨이 슬롯을 반환한다 (단일 사용자 로컬 앱 전제, GIL로 원자적)
+SUGGEST_GEN = 0
 HOST = os.environ.get("HOST", "127.0.0.1")
 APP_DIR = Path(__file__).parent
 STATIC = {
@@ -117,6 +120,8 @@ def _stream(handler, messages, temperature, max_tokens, meta=None, fast=False,
     """
     it = llm.stream_ndjson(messages, temperature, max_tokens, None, fast=fast,
                            kind=kind, bg=bg)
+    cancel = getattr(handler, "_stream_cancel", None)
+    handler._stream_cancel = None      # keep-alive 연결의 다음 요청으로 새지 않게
     first = next(it, None)
     handler.send_response(200)
     handler.send_header("Content-Type", "application/x-ndjson")
@@ -136,6 +141,13 @@ def _stream(handler, messages, temperature, max_tokens, meta=None, fast=False,
         if first:
             w(first)
         for chunk in it:
+            # 낡은 스트림 능동 취소 — 같은 사용자의 더 새로운 답변 요청이 시작되면
+            # 이 스트림은 즉시 종료해 게이트웨이 슬롯을 반환한다. 클라이언트
+            # abort는 다음 write 실패까지 슬롯을 물고 있어(좀비) 새 답변을
+            # 뒤에서 줄 세웠다 (v3.8 실측: TTFT 2.21→4.23s 재현).
+            if cancel and cancel():
+                it.close()
+                break
             w(chunk)
         handler.wfile.write(b"0\r\n\r\n")
         handler.wfile.flush()
@@ -516,11 +528,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
             preset = req.get("preset") if req.get("preset") in ("meeting", "interview") else "meeting"
             if req.get("opener"):
                 # ⚡ 1초 오프너 — RAG 없이 초소형 프롬프트를 fast 레인으로.
-                # 본답변과 병렬로 나가며, 클라이언트가 첫 토큰 도착 시 교체한다.
+                # bg 우선순위: 본답변을 절대 앞지르지 않고, 슬롯이 없으면
+                # 드롭돼도 무방하다(본답변이 곧 온다).
                 _stream(self, [{"role": "user", "content": prompts.build_opener(
                     said, req.get("intent", "reply"), preset)}],
-                        0.4, 40, fast=True, kind="suggest")
+                        0.4, 40, fast=True, kind="suggest", bg=True)
                 return
+            # 본답변 세대 표식 — 더 새로운 본답변이 시작되면 이전 스트림은
+            # _stream 루프에서 스스로 종료한다 (단일 사용자 로컬 앱 전제)
+            global SUGGEST_GEN
+            SUGGEST_GEN += 1
+            _my_gen = SUGGEST_GEN
+            self._stream_cancel = lambda: SUGGEST_GEN != _my_gen
             built = prompts.build_suggest(
                 said, str(req.get("context") or "")[-3000:],
                 req.get("intent", "reply"), req.get("cefr", "B1"), store=store,

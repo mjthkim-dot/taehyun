@@ -405,7 +405,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v3.7</span>
+  <span class="ver" id="app-ver">v3.8</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -1301,6 +1301,10 @@ function maybeSpeculate(interim){
   clearTimeout(specTimer);
   if(t.split(/\s+/).length < 5 || !wantsReply(t)) return;
   if(specKey && covers(specKey,t) >= 0.92) return;
+  // 히스테리시스: 직전 투기 대비 새 어절이 4개 이상 늘었을 때만 재발사 —
+  // 어절 하나 늘 때마다 재투기하면 중단된 스트림(좀비)이 게이트웨이 슬롯을
+  // 연쇄 점유해 정작 본답변이 뒤에서 줄을 선다 (v3.8 근본 원인의 절반)
+  if(specKey && t.split(/\s+/).length - specKey.split(/\s+/).length < 4) return;
   specTimer = setTimeout(()=>{
     if(pinned || specTries >= specMax()) return;
     if(specKey && covers(specKey, specLastText) >= 0.92) return;
