@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v15';  // v3.4: EN 인라인 IPA·발음 정확도·🎦 배경 비추기
+const SHELL = 'mc-shell-v16';  // v3.5: 오버레이 제목 스크림·투기 재사용 완화
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {

@@ -374,7 +374,10 @@
   /* 답변 카드 — 유리 패널 */
   body.overlay #card{background:rgba(255,255,255,.1);border:0;border-radius:16px;
     margin:0 10px 8px;max-height:52%;box-shadow:none}
-  body.overlay #card .head{background:transparent}
+  /* 스티키 제목 줄이 투명하면 스크롤된 답변이 제목 밑을 통과해 겹쳐 보인다
+     (v3.4 실전 스크린샷 결함) — 블러 스크림으로 항상 제목이 위에 읽히게 */
+  body.overlay #card .head{background:rgba(24,27,34,.94);backdrop-filter:blur(8px)}
+  body.overlay.bg-live #card .head{background:rgba(15,17,23,.92)}
 
   /* 인터뷰 모드: 답변 카드가 최상단·전폭, 자막은 아래 1~2줄로 압축 */
   body.overlay.mode-interview #card{order:0;flex:1 1 auto;max-height:none}
@@ -400,7 +403,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v3.4</span>
+  <span class="ver" id="app-ver">v3.5</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -1128,7 +1131,10 @@ async function suggest(said, intent, auto, speculative, retried){
   if(auto && pinned) return;
   if(!auto && pinned){ pinned = false; $('#c-pin').classList.remove('on'); }
   if(!speculative){ specTries = 0; specGaps = []; specLastAt = 0; }
-  if(!speculative && specKey && covers(specKey, said) >= 0.92 && (specDone || suggestAbort)){
+  // 0.88: 투기 답변 재사용 문턱 — 0.92는 어미 몇 단어 차이로도 재생성해
+  // 투기의 이득(선생성)을 자주 버렸다. 살짝 낮춰 "질문 끝나면 이미 떠 있음"
+  // 빈도를 올린다 (핵심 어절이 같으면 답변 방향은 동일)
+  if(!speculative && specKey && covers(specKey, said) >= 0.88 && (specDone || suggestAbort)){
     $('#card').classList.remove('spec'); specKey = ''; specDone = ''; return;
   }
   if(speculative){ specKey = said; specDone = ''; }
@@ -1167,7 +1173,7 @@ async function suggest(said, intent, auto, speculative, retried){
       // 최종 발화의 중복 억제가 풀리게 한다.
       if(speculative){ specKey = ''; specDone = ''; }
       if(!retried){
-        setTimeout(()=>{ if(!suggestAbort) suggest(said, 'reply', true, false, true); }, 500);
+        setTimeout(()=>{ if(!suggestAbort) suggest(said, 'reply', true, false, true); }, 350);
         return;
       }
       // 재발사까지 드롭 — 이전 답변이 남아 있으면 요지만 되돌리고 그대로 둔다
