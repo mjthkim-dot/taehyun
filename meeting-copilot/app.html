@@ -372,7 +372,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v2.8</span>
+  <span class="ver" id="app-ver">v2.9</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -1099,7 +1099,8 @@ async function suggest(said, intent, auto, speculative){
   const context = log.slice(-7).map(l=>`${l.who==='나'?'Me':'Them'}: ${l.text}`).join('\n');
   let raw = '';
   try{
-    gov.note('main');
+    // 시간 벌기·되묻기는 서버가 fast 레인으로 보낸다 — 로컬 카운트도 맞춘다
+    gov.note(['buytime','clarify'].includes(intent) ? 'fast' : 'main');
     await streamChat('/api/suggest',{said,context,intent,cefr:$('#cefr').value,preset:appPreset(),
       bg: !!(auto || speculative)},   // 자동·투기는 게이트웨이에서 클릭보다 후순위
       tk=>{ if(!raw){ card.classList.remove('gen','slow'); clearTimeout(genSlowTimer); }
@@ -1182,14 +1183,17 @@ function speak(t){
 
 // ── 투기적 선생성 (말이 끝나기 전에 미리) ──
 let specTimer=null, specLastText='', specTries=0, specGaps=[], specLastAt=0;
-const SPEC_MAX = 2;
+// paid 티어는 예산이 넉넉해(120RPM) 투기를 더 공격적으로 쏜다 — 질문이 끝나는
+// 순간 답이 이미 화면에 있는 것이 최고의 체감 속도다. 무료 티어는 기존 보수값.
+const specMax = ()=> gov.tier === 'paid' ? 4 : 2;
 function specThreshold(){
-  if(specGaps.length < 3) return 600;
+  const paid = gov.tier === 'paid';
+  if(specGaps.length < 3) return paid ? 450 : 600;
   const s=[...specGaps].sort((a,b)=>a-b), m=s[Math.floor(s.length/2)];
-  return Math.min(1500, Math.max(500, Math.round(m*1.7)));
+  return Math.min(paid ? 1200 : 1500, Math.max(paid ? 350 : 500, Math.round(m*1.7)));
 }
 function maybeSpeculate(interim){
-  if(pinned || specTries >= SPEC_MAX) return;
+  if(pinned || specTries >= specMax()) return;
   // 투기 보수화: 분당 예산 잔여 50% 미만이면 쏘지 않는다 — 투기 한 발이
   // 실제 클릭·번역과 같은 게이트웨이 토큰을 먹기 때문에, 여유가 확실할 때만.
   if(gov.rpmHeadroom('main') < 0.5 || gov.rpdBlocked()) return;
@@ -1203,7 +1207,7 @@ function maybeSpeculate(interim){
   if(t.split(/\s+/).length < 6 || !wantsReply(t)) return;
   if(specKey && covers(specKey,t) >= 0.92) return;
   specTimer = setTimeout(()=>{
-    if(pinned || specTries >= SPEC_MAX) return;
+    if(pinned || specTries >= specMax()) return;
     if(specKey && covers(specKey, specLastText) >= 0.92) return;
     if(wantsReply(specLastText)){ specTries++; suggest(specLastText,'reply',true,true); }
   }, specThreshold());

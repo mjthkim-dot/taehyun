@@ -135,15 +135,16 @@ def build_suggest(said: str, context: str = "", intent: str = "reply",
 
     profile = _profile(st)
     if hits:
+        # 인용은 350자면 핵심이 담긴다(노트는 앞부분이 요지) — 프롬프트 다이어트로
+        # prefill 지연을 줄인다. 근거 품질은 rag-eval로 회귀 검증.
         material = "\n\n".join(
-            f"[{h['source_label']} · {h['title']}]\n{h['text'][:500]}" for h in hits)
+            f"[{h['source_label']} · {h['title']}]\n{h['text'][:350]}" for h in hits)
         material_block = f"""
 THEIR OWN MATERIAL (retrieved from their notes and glossary):
 \"\"\"{material}\"\"\"
 
-Use it ONLY where it genuinely fits the question: if a line matches this exact
-situation, use its phrasing verbatim or nearly so. If a line is only loosely
-related, IGNORE it — never force an irrelevant quote into the answer.
+Use it ONLY where it genuinely fits the question — quote matching lines
+verbatim or nearly so; IGNORE loosely related lines, never force a quote.
 """
     else:
         material_block = ("\n(No personal material matched this question — "
@@ -191,73 +192,52 @@ KR: <한국어 뜻>
 ===
 META: 요지=<상대 발언 핵심 한국어 한 줄> | 전략=<말하기 전략 한국어 한 줄>
 
-ANSWER DEPTH — match the answer to the QUESTION TYPE (this matters most).
-The speaker reads the answer aloud as it streams, so sentence 1 must be a
-direct opener (≤8 words) they can say immediately while the rest arrives.
-- SMALL TALK, greetings, quick reactions ("how are you", agreeing, thanks):
-  ONE short sentence. Do not pad.
-- FACTUAL / logistics checks (notice period, start date, location,
-  "do you have experience with X", yes/no confirmations): 2 sentences MAX —
-  the direct answer, then ONE best proof point. Never list multiple deals
-  or numbers here; save them for when they ask to go deeper.
-- SUBSTANTIVE questions (why this company, motivation, opinions,
-  "how would you approach..."): a COMPLETE spoken answer — 4 to 7 short
-  sentences around ONE proof point from THEIR OWN MATERIAL that best fits
-  this question. Aim for 20-30 seconds of speaking.
-- BEHAVIORAL deep-dives ("tell me about a time...", "walk me through that
-  deal", "give me an example of..."): a real story — 8 to 12 short
-  sentences, 45-75 seconds: 1-2 sentences situation, the middle is what
-  they DID (decisions, obstacles, who they convinced), and END with the
-  concrete result or number from their material.
-- PRESENTATION-SCALE asks ("tell me about yourself" in an interview,
-  "walk me through your territory plan", "pitch me", "why should we hire
-  you"): a structured 90-120 second answer — 16 to 22 short sentences
-  (180-250 words) covering 3 themes, each theme anchored by ONE vivid
-  specific from THEIR OWN MATERIAL (a number, a client, a short deal
-  story) — three themes, three anchors, NO more. Link themes with natural
-  spoken transitions ("So a bit about what I do...", "The other thing
-  is...", "And looking ahead..."), NOT numbered signposts — never
-  "First / Second / Third" scaffolding. When they grant time ("take your
-  time", "you have a couple of minutes"), use the top of the range.
-  End with one forward-looking line, not a summary.
-- BREVITY signals override everything: if they say "briefly", "in a word",
-  "in 30 seconds", "quick question", or it's a rapid follow-up probe,
-  cut to 1-2 sentences whatever the type.
-- Keep the whole EN answer on a single line (sentences separated by spaces).
+ANSWER DEPTH — match length to the QUESTION TYPE (this matters most).
+Sentence 1 is a direct opener (≤8 words) they can say while the rest streams.
+- SMALL TALK / greetings / quick reactions: ONE short sentence. No padding.
+- FACTUAL / logistics (notice period, start date, "experience with X",
+  yes/no): 2 sentences MAX — direct answer + ONE proof point. Never list
+  multiple deals or numbers here.
+- SUBSTANTIVE (why this company, motivation, opinions, "how would you
+  approach..."): 4-7 short sentences around ONE proof point from THEIR
+  OWN MATERIAL. ~20-30 seconds spoken.
+- BEHAVIORAL ("tell me about a time...", "walk me through that deal"):
+  a real story, 8-12 short sentences (45-75s) — 1-2 situation, middle is
+  what they DID, END on the concrete result or number from their material.
+- PRESENTATION-SCALE ("tell me about yourself", "pitch me", "why should
+  we hire you", territory plan): 16-22 short sentences (180-250 words,
+  90-120s), 3 themes, each anchored by ONE vivid specific from THEIR OWN
+  MATERIAL — three themes, three anchors, no more. Natural spoken
+  transitions ("So a bit about what I do...", "The other thing is...",
+  "And looking ahead...") — NEVER "First / Second / Third" scaffolding.
+  If they grant time ("take your time"), use the top of the range.
+  End forward-looking, not with a summary.
+- BREVITY overrides all: "briefly", "in a word", "in 30 seconds", or a
+  rapid follow-up probe → 1-2 sentences whatever the type.
+- Whole EN answer on a single line (sentences separated by spaces).
 
-SPOKEN ENGLISH rules for EN — a nervous non-native speaker must say this out loud
-INSTANTLY (CEFR B1-B2 spoken register, not written English):
-- Word caps are PER SENTENCE hard limits: sentence 1 ≤ 8 words (instant
-  opener), every other sentence ≤ 12 words. Long answers = MORE short
-  sentences, never longer sentences.
-- ALWAYS contract: I'm / I've / that's / don't / it's. Never "I am", "do not".
-- Easy verbs only: use (not utilize), say more (not elaborate), show (not
-  demonstrate), help (not facilitate), get/win (not acquire), start (not commence).
-- Spoken connectors only: So / Actually / Basically / That's why.
-  Never: Furthermore / Moreover / In addition.
-- One idea per sentence. No stacked relative clauses ("which... that...").
-- Avoid hard-to-pronounce 4+ syllable words (entrepreneurship, differentiation)
-  when a simpler word works. EXCEPTION — keep domain terms the candidate already
-  knows: iPaaS, workflow, integration, pipeline, automation, enterprise, FinOps.
+SPOKEN ENGLISH (CEFR B1-B2, said aloud instantly, not written English):
+- PER-SENTENCE hard caps: sentence 1 ≤ 8 words, all others ≤ 12 words.
+  Long answers = MORE short sentences, never longer ones.
+- ALWAYS contract (I'm / that's / don't). Easy verbs (use, show, help,
+  get, win, start — not utilize/demonstrate/facilitate/acquire/commence).
+- Spoken connectors only: So / Actually / Basically / That's why —
+  never Furthermore / Moreover / In addition.
+- One idea per sentence; no stacked relative clauses; avoid hard 4+
+  syllable words EXCEPT known domain terms (iPaaS, workflow, integration,
+  pipeline, automation, enterprise, FinOps).
 {tone_rule}
 - Prefer wording from THEIR OWN MATERIAL over inventing new phrasing.
 
-SOUND HUMAN, not like an AI reading a resume — an interviewer trusts one
-vivid specific more than five statistics:
-- HARD CAP: at most 2 numbers in the whole answer (3 only for
-  presentation-scale). Pick the number that best answers THIS question and
-  leave the rest for follow-ups. Never chain numbers back to back
-  ("38 accounts, 26.8 to 50.7 million, 89 percent" = resume recitation).
-- Say numbers the way people talk: "about fifty million dollars",
-  "we almost doubled it" — not "that's an 89 percent growth over three
-  years". Exact figures only when the question asks for exact figures.
-- Names work like numbers: at most ONE client name per answer unless
-  they ask for more examples.
-- No template skeletons: don't open every answer the same way, don't end
-  with a moral ("This taught me the value of..."). End on the concrete
-  result or a forward-looking line.
-- A light natural lead ("Honestly,", "That's a fair question.") is fine
-  once in a while — but never more than one per answer."""
+SOUND HUMAN — an interviewer trusts one vivid specific over five stats:
+- HARD CAP: ≤2 numbers per answer (≤3 for presentation-scale); never
+  chain numbers back to back ("38 accounts, 26.8 to 50.7M, 89%" = resume
+  recitation). At most ONE client name unless they ask for more.
+- Say numbers like people talk: "about fifty million dollars", "we almost
+  doubled it" — exact figures only when asked for exact figures.
+- No template skeletons: don't open every answer the same way; don't end
+  with a moral ("This taught me..."). A light lead ("Honestly,") at most
+  once per answer."""
     return {"prompt": prompt, "sources": labels, "hits": hits,
             "phrases": phrases, "rag_used": bool(hits), "has_placeholder": has_ph}
 
