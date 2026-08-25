@@ -214,6 +214,15 @@
   /* 생성 중(D2): 이전 답변을 지우지 않고 살짝 죽인 채 유지 + 헤드 하단 얇은
      진행 바. 3초 이상 걸리면 .slow가 붙어 "생성 중…" 텍스트가 추가된다 */
   #card.gen #c-answers{opacity:.45;transition:opacity .2s}
+  /* 생성 중/낡음 라벨 — 남아 있는 답변이 "직전 것"임을 글로 명시 (오독 방지).
+     이전 답변이 실제로 있을 때만(:has(.kr)) 붙인다 */
+  #card.gen #c-answers:has(.kr:not(:empty))::before{
+    content:"↻ 새 답변 생성 중 — 아래는 직전 답변";display:block;
+    font-size:10.5px;color:var(--accent);margin-bottom:6px}
+  #card.stale #c-answers{opacity:.55}
+  #card.stale #c-answers::before{
+    content:"⤴ 이전 발화의 답변 — 새 질문이면 아래 버튼을 누르세요";display:block;
+    font-size:10.5px;color:#F6B73C;margin-bottom:6px}
   #card.gen .head::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;
     background:linear-gradient(90deg,transparent,var(--accent),transparent);
     background-size:45% 100%;background-repeat:no-repeat;
@@ -377,7 +386,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v3.1</span>
+  <span class="ver" id="app-ver">v3.2</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -607,12 +616,22 @@ const ICEBREAK = ['nice to meet','pleasure to meet','great to meet','good to see
  "how's everything",'how have you been','can you hear me','can you see my',
  'is my audio','audio okay','before we start','before we dive','before we begin',
  'welcome to','long time no see','did you have a good'];
+// 질문 리드인 — STT는 물음표를 주지 않고, 실전 면접관은 질문을 문장 중간에
+// 싣는다("my next question is what...", "I'd like to ask about..."). 문두
+// 의문사 검사(Q_STARTS)가 놓치는 전환 패턴을 포함-검사로 잡는다.
+const Q_LEADS = ['question is','question for you','my next question','next question',
+ 'i want to ask','i wanted to ask',"i'd like to ask",'let me ask','ask you about',
+ 'wondering if','wondering about','curious about','moving on to','move on to',
+ "let's move on","let's talk about",'talk about your','interested to know',
+ 'love to hear about','tell me about','tell me a bit','walk me through'];
 function wantsReply(t){
   const s0 = t.trim().toLowerCase();
   if(!s0) return false;
   if(s0.includes('?')) return true;
   if(ICEBREAK.some(k => s0.includes(k))) return true;
-  for(let s of s0.split(/[.!;]/)){
+  if(s0.split(/\s+/).length >= 4 && Q_LEADS.some(k => s0.includes(k))) return true;
+  // 쉼표도 문장 경계로 취급 — "moving on, could you..." 류의 후행 질문을 잡는다
+  for(let s of s0.split(/[.!;,]/)){
     s = s.trim(); let prev = null;
     while(prev !== s){ prev = s; s = s.replace(FILLER,''); }
     if(s.split(' ').length >= 3 && Q_STARTS.some(q => s.startsWith(q))) return true;
@@ -781,7 +800,14 @@ function addUtterance(text, who){
     enqueueTranslate(row.querySelector('.kr'), text);
   }
   if(q && gov.remaining('main') > 2 && !gov.rpdBlocked()
-       && gov.rpdHeadroom('main') > 0.3) suggest(text,'reply',true);   // 일일 70% 소진 → 자동 제안 중단(클릭은 계속)
+       && gov.rpdHeadroom('main') > 0.3){ suggest(text,'reply',true); }   // 일일 70% 소진 → 자동 제안 중단(클릭은 계속)
+  else if(!me){
+    // 새 상대 발화가 왔는데 새 생성이 시작되지 않음 — 카드에 남은 답변이
+    // "이전 발화 기준"임을 명시해 새 질문의 답으로 오독되지 않게 한다
+    const card = $('#card');
+    if(card && card.style.display === 'block' && !card.classList.contains('gen') && !pinned)
+      card.classList.add('stale');
+  }
   noteUtterance();          // 롤링 요약 조건 판정 (3문장 또는 30초)
   backupLog();
   return row;
@@ -1089,6 +1115,7 @@ async function suggest(said, intent, auto, speculative, retried){
   if(suggestAbort) suggestAbort.abort();
   const card = $('#card');
   card.style.display = 'block';
+  card.classList.remove('stale');            // 새 생성 시작 — 낡음 표시 해제
   card.classList.toggle('spec', !!speculative);
   suggestAbort = new AbortController();
   const sig = suggestAbort.signal;

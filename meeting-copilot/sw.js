@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v12';  // v3.1: 지시어 맥락 해소(your/our) — 답변 주제 오판 수정
+const SHELL = 'mc-shell-v13';  // v3.2: 대화 전환 인지 — 중간 질문 감지 + 낡은 답변 표시
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {

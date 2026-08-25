@@ -159,6 +159,23 @@ await p.waitForFunction(() =>
   && getComputedStyle(document.querySelector('#c-src')).display !== 'none',
   { timeout: 20000 }).catch(() => {});
 
+console.log('\n■ v3.2 대화 전환 인지 (중간 질문 감지 + 낡음 표시)');
+check('물음표 없는 중간 질문 감지 (Q_LEADS·쉼표 분할)', await p.evaluate(() =>
+  wantsReply('my next question is what are your strengths and weaknesses') &&
+  wantsReply('moving on, could you describe your current role') &&
+  !wantsReply('sure, sounds good')));
+check('새 상대 발화(비질문) → 이전 답변 stale 표시', await p.evaluate(() => {
+  addUtterance('That was a really interesting answer indeed.', '상대');
+  return document.querySelector('#card').classList.contains('stale');
+}));
+await p.click('.actions [data-intent="ask"]');
+check('새 생성 시작 → stale 해제', await p.evaluate(() =>
+  !document.querySelector('#card').classList.contains('stale')));
+await p.waitForFunction(() =>
+  !document.querySelector('#card').classList.contains('gen')
+  && getComputedStyle(document.querySelector('#c-src')).display !== 'none',
+  { timeout: 20000 }).catch(() => {});
+
 console.log('\n■ 오버레이 인터뷰 모드 (v2.4 플로팅 패널 — PiP 안에서 검증)');
 await p.evaluate(() => { try { localStorage.removeItem('mc_ov'); } catch {} });
 await p.click('#btn-pip'); await p.waitForTimeout(400);
