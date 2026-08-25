@@ -195,6 +195,8 @@
   .lrow .kr{font-size:calc(11.5px * var(--ansz));color:var(--sub);line-height:1.5;margin-top:5px}
   /* 발음 줄 — 한글 발음 + 어려운 단어 /IPA/. 읽기 보조라 뜻(KR)보다 한 톤 낮게 */
   .lrow .pr{font-size:calc(11px * var(--ansz));color:var(--faint);line-height:1.6;margin-top:4px}
+  /* EN 인라인 IPA — 본문보다 훨씬 작고 옅게, 읽기 흐름을 깨지 않는다 */
+  .lrow .en .ipa{font-size:.6em;font-weight:400;color:var(--faint);letter-spacing:0}
   .lrow .strat{font-size:11.5px;color:var(--sub);line-height:1.5}
   .say{background:none;border:none;cursor:pointer;font-size:13px;color:var(--sub);flex:none}
   /* RAG 근거 — 12px 회색 한 줄만 (넘치면 말줄임). 답변에서 시선을 뺏지 않는다 */
@@ -378,6 +380,18 @@
   body.overlay.mode-interview #card{order:0;flex:1 1 auto;max-height:none}
   body.overlay.mode-interview #feed{order:1;flex:0 0 auto;max-height:7.5em;padding-top:2px}
   body.overlay.mode-interview .row{margin-bottom:4px}
+
+  /* ── 🎦 배경 비추기 — PiP 창은 진짜 투명이 불가(Chrome OS 창 제약)하므로
+     줌·미트 창을 화면공유 캡처로 패널 뒤에 비춘다. 로컬 렌더링만. ── */
+  #bg-mirror{display:none}
+  body.overlay.bg-live #bg-mirror{display:block;position:fixed;inset:0;
+    width:100%;height:100%;object-fit:cover;z-index:-1;
+    filter:brightness(.72) saturate(.9)}
+  /* 라이브 영상 위 가독성 — 표면을 어두운 스크림으로 강화 */
+  body.overlay.bg-live .status{background:rgba(15,17,23,.62)}
+  body.overlay.bg-live .bubble{background:rgba(15,17,23,.55)}
+  body.overlay.bg-live #card{background:rgba(15,17,23,.74)}
+  body.overlay.bg-live #ov-bar button{background:rgba(15,17,23,.5)}
 </style>
 </head>
 <body>
@@ -386,7 +400,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v3.3</span>
+  <span class="ver" id="app-ver">v3.4</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -453,8 +467,10 @@
       <button data-ovs="M" class="tiny" title="중간 (420×560)">M</button>
       <button data-ovs="L" class="tiny" title="크게 (560×720)">L</button>
       <button id="ov-alpha" class="tiny" title="배경 반투명/불투명">70%</button>
+      <button id="ov-bg" class="tiny" title="배경 비추기 — 줌·미트 창을 선택하면 패널 뒤로 상대 얼굴이 비칩니다 (내 화면에서만, 전송 없음)">🎦</button>
       <span id="ov-mic" title="화자 분리 상태"></span>
     </div>
+    <video id="bg-mirror" muted playsinline></video>
     <div id="feed">
       <div class="empty" id="feed-empty">
         <div class="big">🎧</div>
@@ -1057,11 +1073,15 @@ function answerRow(en,kr,pr,idx){
   r.className = 'lrow' + (idx === 0 ? ' primary' : '') + (long ? ' long' : '');
   r.innerHTML = `<span class="lab an">${idx === 0 ? '답변' : '대안'}</span>
     <div class="body"><div class="en"></div><div class="kr"></div><div class="pr"></div></div><button class="say">🔊</button>`;
-  r.querySelector('.en').textContent = en;
+  // EN 인라인 /IPA/는 작은 회색 스팬으로 — 영어 본문이 주인공을 유지한다.
+  // TTS·배지 매칭에는 IPA를 뺀 순수 문장을 쓴다.
+  const enClean = en.replace(/\s*\/[^/\n]{1,40}\/\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  r.querySelector('.en').innerHTML =
+    esc(en).replace(/\/([^/\n]{1,40})\//g, '<span class="ipa">/$1/</span>');
   r.querySelector('.kr').textContent = kr || '';
   const prEl = r.querySelector('.pr');
   if(pr){ prEl.textContent = '🗣 ' + pr; } else prEl.style.display = 'none';
-  const learned = usedLearned(en);
+  const learned = usedLearned(enClean);
   if(learned){
     const b = document.createElement('span');
     b.className = 'learned';
@@ -1069,7 +1089,7 @@ function answerRow(en,kr,pr,idx){
     b.title = learned;
     r.querySelector('.body').appendChild(b);
   }
-  r.querySelector('.say').onclick = ()=>speak(en);
+  r.querySelector('.say').onclick = ()=>speak(enClean);
   return r;
 }
 function renderCard(raw){
@@ -1664,6 +1684,7 @@ async function openOverlay(){
 }
 function closeOverlay(){
   if(!pipWin) return;
+  stopBgMirror();                            // 캡처 중이면 정리 (개인정보 위생)
   const win = pipWin; pipWin = null;
   const status = win.document.querySelector('#status');
   const live = win.document.querySelector('#view-live');
@@ -1708,6 +1729,31 @@ $('#ov-alpha').onclick = ()=>{
   ovPrefs.alpha = (ovPrefs.alpha ?? 70) === 70 ? 100 : 70;
   saveOv(); applyOvPrefs();
 };
+// ── 🎦 배경 비추기 — 줌·미트 창을 캡처해 패널 뒤에 비춘다 (로컬 렌더링만,
+//    어디에도 전송하지 않음). PiP 창 자체의 진짜 투명은 Chrome이 막는다.
+let bgStream = null;
+function stopBgMirror(){
+  if(!bgStream) return;
+  try{ bgStream.getTracks().forEach(t=>t.stop()); }catch{}
+  bgStream = null;
+  const v = $('#bg-mirror'); if(v) v.srcObject = null;
+  docs().forEach(d=>d.body.classList.remove('bg-live'));
+  $('#ov-bg')?.classList.remove('on');
+}
+$('#ov-bg').onclick = async ()=>{
+  if(bgStream){ stopBgMirror(); return; }
+  try{
+    // 사용자 제스처가 일어난 문서(PiP)의 API를 쓴다 — 본창 것은 활성화 없음으로 거부됨
+    const nav = (pipWin || window).navigator;
+    bgStream = await nav.mediaDevices.getDisplayMedia({video:{frameRate:15}, audio:false});
+  }catch{ return; }                          // 선택 취소 — 조용히
+  const v = $('#bg-mirror');
+  v.srcObject = bgStream; try{ v.play(); }catch{}
+  docs().forEach(d=>d.body.classList.add('bg-live'));
+  $('#ov-bg').classList.add('on');
+  bgStream.getVideoTracks()[0].addEventListener('ended', stopBgMirror);
+};
+
 // ⏸⏹은 본창 헤더 버튼의 프록시 — 로직은 한 곳(btn-listen/btn-stop)만 유지
 $('#ov-pause').onclick = ()=>{
   $('#btn-listen').click();

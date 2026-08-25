@@ -176,6 +176,13 @@ await p.waitForFunction(() =>
   && getComputedStyle(document.querySelector('#c-src')).display !== 'none',
   { timeout: 20000 }).catch(() => {});
 
+console.log('\n■ v3.4 EN 인라인 IPA');
+check('EN의 /IPA/가 작은 스팬으로 렌더 + 본문 유지', await p.evaluate(() => {
+  renderCard('EN: I use automation /ˌɔːtəˈmeɪʃən/ daily.\nKR: 자동화를 매일 씁니다.\nPR: 아이 유즈 오토메이션 데일리.');
+  const en = document.querySelector('#c-answers .en');
+  return !!en.querySelector('.ipa') && en.textContent.includes('automation');
+}));
+
 console.log('\n■ 오버레이 인터뷰 모드 (v2.4 플로팅 패널 — PiP 안에서 검증)');
 await p.evaluate(() => { try { localStorage.removeItem('mc_ov'); } catch {} });
 await p.click('#btn-pip'); await p.waitForTimeout(400);
@@ -185,6 +192,7 @@ const ov1 = await p.evaluate(() => {
     pip: !!pipWin,
     bar: d && getComputedStyle(d.querySelector('#ov-bar')).display !== 'none',
     pause: d && !!d.querySelector('#ov-pause'),
+    bg: d && !!d.querySelector('#ov-bg'),
     interview: d?.body.classList.contains('mode-interview'),
     statusShown: d && getComputedStyle(d.querySelector('#status')).display !== 'none',
     ctrlsShown: d && getComputedStyle(d.querySelector('#ctrls')).display !== 'none',
@@ -192,7 +200,7 @@ const ov1 = await p.evaluate(() => {
     a70: d?.body.classList.contains('ov-70'),
   };
 });
-check('PiP 열림 + 플로팅 바 (⏸⏹·라이브 필)', ov1.pip && ov1.bar && ov1.pause);
+check('PiP 열림 + 플로팅 바 (⏸⏹·라이브 필·🎦)', ov1.pip && ov1.bar && ov1.pause && ov1.bg);
 check('기본 = 인터뷰 모드 (요약 스트립·고스트 액션 표시, .more 숨김)',
   ov1.interview && ov1.statusShown && ov1.ctrlsShown && ov1.moreHidden);
 check('기본 = 반투명 배경 (ov-70 ON)', ov1.a70);

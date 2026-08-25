@@ -189,18 +189,24 @@ NEVER dodge: no "I'm not sure", no "I don't know how to answer" — always give
 a speakable, confident answer grounded in the profile.
 
 Respond in EXACTLY this format (plain text, no markdown), nothing else:
-EN: <ONE complete spoken answer — length per ANSWER DEPTH below>
+EN: <ONE complete spoken answer — length per ANSWER DEPTH below. Right
+after each hard-to-pronounce word (3+ syllables or a domain term) add its
+/IPA/ inline — e.g. "I apply an AI maturity /məˈtʃʊrəti/ framework".
+Easy words get no IPA. IPA does NOT count toward sentence word caps.>
 KR: <한국어 뜻>
 PR: <the EN answer written in HANGUL as it sounds when spoken aloud
 (한국어 발음 표기, 예: "아임 드로온 투 하우 유 셀…"), on ONE line; right after
 each hard-to-pronounce word ONLY (3+ syllables or domain terms) add its
 /IPA/ — e.g. 오토메이션/ˌɔːtəˈmeɪʃən/. Easy words get no IPA.
 PR accuracy rules: the Hangul must match the standard spoken pronunciation
-exactly — never drop consonants or syllables (honestly → 어니스틀리 NOT
-아너슬리; strengths → 스트렝쓰스; asked → 애스크트). Acronyms are written
-as Korean letter names with NO IPA (AWS → 에이더블유에스, SoW → 에스오더블유,
-EDP → 이디피). Numbers are written as the spoken English words
-(75.6 million → 세븐티 파이브 포인트 식스 밀리언).>
+exactly and must AGREE with the /IPA/ you wrote — derive the Hangul from
+the IPA, never from spelling. Never drop consonants or syllables
+(honestly → 어니스틀리 NOT 아너슬리; strengths → 스트렝쓰스; asked →
+애스크트; maturity → 머추리티 NOT 머튜리티; usually → 유주얼리; executive
+→ 이그제큐티브). Acronyms are written as Korean letter names with NO IPA
+(AWS → 에이더블유에스, SoW → 에스오더블유, EDP → 이디피). Numbers are
+written as the spoken English words (75.6 million → 세븐티 파이브 포인트
+식스 밀리언).>
 ===
 META: 요지=<상대 발언 핵심 한국어 한 줄> | 전략=<말하기 전략 한국어 한 줄>
 
