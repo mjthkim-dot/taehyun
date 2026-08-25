@@ -186,6 +186,23 @@ check('EN의 " / " 구분자가 .brk로 렌더 + 본문 유지', await p.evaluat
   return !!en.querySelector('.brk') && en.textContent.includes('customers');
 }));
 
+console.log('\n■ v4.0 번역 자동 재시도 (일시 503 주입 → 회복)');
+const errsBeforeInject = errs.length;
+await fetch('http://127.0.0.1:3898/__err', { method: 'POST', body: JSON.stringify({ mode: '503', p: 1 }) });
+await p.evaluate(() => addUtterance('The quarterly revenue figures look quite promising overall.', '상대'));
+await new Promise(r => setTimeout(r, 2500));                 // 첫 시도 + 서버 재시도 소진
+await fetch('http://127.0.0.1:3898/__err', { method: 'POST', body: JSON.stringify({ mode: 'off', p: 0 }) });
+// 주입 구간의 의도된 5xx는 오류 집계에서 제외 (그 외 오류는 그대로 잡는다)
+const during = errs.splice(errsBeforeInject);
+errs.push(...during.filter(e => !/HTTP 5\d\d|500|Failed to load/.test(e)));
+const trOk = await p.waitForFunction(() => {
+  const rows = [...document.querySelectorAll('#feed .row')];
+  const last = rows.reverse().find(r => r.querySelector('.en')?.textContent.includes('quarterly revenue'));
+  const kr = last?.querySelector('.kr')?.textContent || '';
+  return kr.length > 2 && !kr.includes('·') && !kr.includes('실패');
+}, { timeout: 25000 }).then(() => true).catch(() => false);
+check('일시 503 후 번역 자동 회복 (백오프 재시도·스윕)', trOk);
+
 console.log('\n■ 오버레이 인터뷰 모드 (v2.4 플로팅 패널 — PiP 안에서 검증)');
 await p.evaluate(() => { try { localStorage.removeItem('mc_ov'); } catch {} });
 await p.click('#btn-pip'); await p.waitForTimeout(400);
