@@ -195,8 +195,8 @@
   .lrow .kr{font-size:calc(11.5px * var(--ansz));color:var(--sub);line-height:1.5;margin-top:5px}
   /* 발음 줄 — 한글 발음 + 어려운 단어 /IPA/. 읽기 보조라 뜻(KR)보다 한 톤 낮게 */
   .lrow .pr{font-size:calc(11px * var(--ansz));color:var(--faint);line-height:1.6;margin-top:4px}
-  /* EN 인라인 IPA — 본문보다 훨씬 작고 옅게, 읽기 흐름을 깨지 않는다 */
-  .lrow .en .ipa{font-size:.6em;font-weight:400;color:var(--faint);letter-spacing:0}
+  /* 끊어 읽기 슬래시 — 호흡 위치 표시. 옅은 강조색으로 본문 흐름 유지 */
+  .lrow .en .brk{color:var(--accent);opacity:.55;font-weight:400}
   .lrow .strat{font-size:11.5px;color:var(--sub);line-height:1.5}
   .say{background:none;border:none;cursor:pointer;font-size:13px;color:var(--sub);flex:none}
   /* RAG 근거 — 12px 회색 한 줄만 (넘치면 말줄임). 답변에서 시선을 뺏지 않는다 */
@@ -216,6 +216,8 @@
   /* 생성 중(D2): 이전 답변을 지우지 않고 살짝 죽인 채 유지 + 헤드 하단 얇은
      진행 바. 3초 이상 걸리면 .slow가 붙어 "생성 중…" 텍스트가 추가된다 */
   #card.gen #c-answers{opacity:.45;transition:opacity .2s}
+  /* ⚡ 오프너가 이미 새 첫 문장을 띄운 상태 — 죽이지 않고 온전히 보여준다 */
+  #card.gen.opened #c-answers{opacity:1}
   /* 생성 중/낡음 라벨 — 남아 있는 답변이 "직전 것"임을 글로 명시 (오독 방지).
      이전 답변이 실제로 있을 때만(:has(.kr)) 붙인다 */
   #card.gen #c-answers:has(.kr:not(:empty))::before{
@@ -403,7 +405,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v3.6</span>
+  <span class="ver" id="app-ver">v3.7</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -1076,11 +1078,11 @@ function answerRow(en,kr,pr,idx){
   r.className = 'lrow' + (idx === 0 ? ' primary' : '') + (long ? ' long' : '');
   r.innerHTML = `<span class="lab an">${idx === 0 ? '답변' : '대안'}</span>
     <div class="body"><div class="en"></div><div class="kr"></div><div class="pr"></div></div><button class="say">🔊</button>`;
-  // EN 인라인 /IPA/는 작은 회색 스팬으로 — 영어 본문이 주인공을 유지한다.
-  // TTS·배지 매칭에는 IPA를 뺀 순수 문장을 쓴다.
-  const enClean = en.replace(/\s*\/[^/\n]{1,40}\/\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  // " / " = 끊어 읽기 표시 — 옅은 구분자로 렌더. TTS·배지 매칭에는 슬래시를
+  // 뺀 순수 문장을 쓴다 (TTS는 쉼표로 바꿔 자연스러운 호흡을 만든다).
+  const enClean = en.replace(/\s*\/\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
   r.querySelector('.en').innerHTML =
-    esc(en).replace(/\/([^/\n]{1,40})\//g, '<span class="ipa">/$1/</span>');
+    esc(en).replace(/\s\/\s/g, ' <span class="brk">/</span> ');
   r.querySelector('.kr').textContent = kr || '';
   const prEl = r.querySelector('.pr');
   if(pr){ prEl.textContent = '🗣 ' + pr; } else prEl.style.display = 'none';
@@ -1092,7 +1094,7 @@ function answerRow(en,kr,pr,idx){
     b.title = learned;
     r.querySelector('.body').appendChild(b);
   }
-  r.querySelector('.say').onclick = ()=>speak(enClean);
+  r.querySelector('.say').onclick = ()=>speak(en.replace(/\s\/\s/g, ', '));
   return r;
 }
 function renderCard(raw){
@@ -1154,9 +1156,32 @@ async function suggest(said, intent, auto, speculative, retried){
   // 첫 토큰이 오면 renderCard가 통째로 교체한다. 이전 답변이 없을 때만 플레이스홀더.
   if(!$('#c-answers .lrow'))
     $('#c-answers').innerHTML = '<div class="lrow"><span class="lab an">제안</span><div class="body"><div class="en">⏳ 생성 중…</div></div></div>';
-  card.classList.add('gen'); card.classList.remove('slow');
+  card.classList.add('gen'); card.classList.remove('slow','opened');
   clearTimeout(genSlowTimer);
   genSlowTimer = setTimeout(()=>card.classList.add('slow'), 3000);   // 3초+ 지연 → "생성 중…"
+  // ⚡ 1초 오프너 — 본답변(TTFT 1.5~4s)과 병렬로 fast 레인에 '첫 문장'만 요청.
+  // 먼저 도착하면 즉시 띄우고, 본답변 첫 토큰이 오면 renderCard가 교체한다.
+  // 투기(이미 선생성)와 퀵 번역(즉시성 다름)에는 불필요.
+  if(!speculative && intent !== 'translate'){
+    gov.note('fast');
+    fetch('/api/suggest', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({said, intent, preset: appPreset(), opener: 1}), signal: sig})
+      .then(async res=>{
+        if(!res.ok) return;
+        const rd = res.body.getReader(), dec = new TextDecoder();
+        let buf = '', txt = '';
+        for(;;){
+          const {done, value} = await rd.read(); if(done) break;
+          buf += dec.decode(value, {stream:true});
+          const lines = buf.split('\n'); buf = lines.pop();
+          for(const ln of lines){ try{ const o = JSON.parse(ln);
+            if(o.message?.content) txt += o.message.content; }catch{} }
+          if(raw) return;                          // 본답변 도착 — 오프너 폐기
+          const first = txt.trim().split('\n')[0];
+          if(first){ renderCard('EN: ' + first); card.classList.add('opened'); }
+        }
+      }).catch(()=>{});
+  }
   const context = log.slice(-7).map(l=>`${l.who==='나'?'Me':'Them'}: ${l.text}`).join('\n');
   let raw = '';
   try{
@@ -1164,7 +1189,7 @@ async function suggest(said, intent, auto, speculative, retried){
     gov.note(['buytime','clarify'].includes(intent) ? 'fast' : 'main');
     await streamChat('/api/suggest',{said,context,intent,cefr:$('#cefr').value,preset:appPreset(),
       bg: !!(auto || speculative)},   // 자동·투기는 게이트웨이에서 클릭보다 후순위
-      tk=>{ if(!raw){ card.classList.remove('gen','slow'); clearTimeout(genSlowTimer); }
+      tk=>{ if(!raw){ card.classList.remove('gen','slow','opened'); clearTimeout(genSlowTimer); }
             raw += tk; renderCard(raw); }, sig, renderSources);
     if(!raw.trim() && (auto || speculative)){                 // 게이트웨이 드롭
       // 연속 질문의 핵심 버그: 새 질문의 투기/자동 제안이 드롭되면 조용히

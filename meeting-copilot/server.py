@@ -514,6 +514,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if over_quota():
                 return
             preset = req.get("preset") if req.get("preset") in ("meeting", "interview") else "meeting"
+            if req.get("opener"):
+                # ⚡ 1초 오프너 — RAG 없이 초소형 프롬프트를 fast 레인으로.
+                # 본답변과 병렬로 나가며, 클라이언트가 첫 토큰 도착 시 교체한다.
+                _stream(self, [{"role": "user", "content": prompts.build_opener(
+                    said, req.get("intent", "reply"), preset)}],
+                        0.4, 40, fast=True, kind="suggest")
+                return
             built = prompts.build_suggest(
                 said, str(req.get("context") or "")[-3000:],
                 req.get("intent", "reply"), req.get("cefr", "B1"), store=store,

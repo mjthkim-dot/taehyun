@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v17';  // v3.6: PR 한글 전용(IPA는 EN만)·투기 확대
+const SHELL = 'mc-shell-v18';  // v3.7: 끊어읽기 슬래시 + ⚡1초 오프너
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {

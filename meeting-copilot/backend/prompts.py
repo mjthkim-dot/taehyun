@@ -189,16 +189,17 @@ NEVER dodge: no "I'm not sure", no "I don't know how to answer" — always give
 a speakable, confident answer grounded in the profile.
 
 Respond in EXACTLY this format (plain text, no markdown), nothing else:
-EN: <ONE complete spoken answer — length per ANSWER DEPTH below. Right
-after each hard-to-pronounce word (3+ syllables or a domain term) add its
-/IPA/ inline — e.g. "I apply an AI maturity /məˈtʃʊrəti/ framework".
-Easy words get no IPA. IPA does NOT count toward sentence word caps.>
+EN: <ONE complete spoken answer — length per ANSWER DEPTH below. Insert
+" / " (a slash with spaces) at natural PAUSE points so a nervous speaker
+can chunk it while reading aloud — at clause boundaries, every 3-6 words:
+"For eight years, / I sold cloud infrastructure. / But today, / clients
+need AI / to transform how they work." Slashes do not count as words.>
 KR: <한국어 뜻>
 PR: <the EN answer written in HANGUL ONLY, as it sounds when spoken aloud
 (한국어 발음 표기, 예: "아임 드로온 투 하우 유 셀…"), on ONE line.
-NO /IPA/ in this line — IPA lives inline in EN only.
-PR accuracy rules: derive the Hangul from the /IPA/ you wrote in EN, never
-from spelling. Never drop consonants or syllables (honestly → 어니스틀리
+No IPA and no slashes in this line.
+PR accuracy rules: derive the Hangul from the standard spoken pronunciation
+(IPA), never from spelling. Never drop consonants or syllables (honestly → 어니스틀리
 NOT 아너슬리; strengths → 스트렝쓰스; asked → 애스크트; maturity → 머추리티
 NOT 머튜리티; usually → 유주얼리; executive → 이그제큐티브). Acronyms as
 Korean letter names (AWS → 에이더블유에스, SoW → 에스오더블유, EDP → 이디피).
@@ -287,6 +288,22 @@ Rules:
 - 문장이 중간에 끊겼으면 끊긴 대로 옮긴다. 없는 말을 채우지 않는다.
 
 Reply with ONLY the translation — no quotes, no labels, no explanation."""
+
+
+def build_opener(said: str, intent: str = "reply", preset: str = "interview") -> str:
+    """⚡ 1초 오프너 — 본답변(TTFT 1.5~4s)이 오기 전에 경량 레인으로 '지금 바로
+    말할 첫 문장'만 먼저 만든다. RAG 검색 없이 초소형 프롬프트 = 최소 지연.
+    본답변 첫 토큰이 도착하면 클라이언트가 이 문장을 본답변으로 교체한다."""
+    role = ("candidate in a LIVE English job interview" if preset == "interview"
+            else "professional in a LIVE English business meeting")
+    goal = INTENTS.get(intent, INTENTS["reply"])
+    return (f"A Korean {role} must start speaking RIGHT NOW.\n"
+            f'The other side just said: "{said}"\n'
+            f"Their goal: {goal}\n"
+            "Give ONE natural spoken opener sentence (max 8 words) they can say\n"
+            "immediately while their full answer is being prepared — a direct,\n"
+            "substantive first sentence, NOT filler like 'that's a great question'.\n"
+            "Contractions fine. Plain text, the sentence only.")
 
 
 def build_translate_batch(texts: list[str]) -> str:

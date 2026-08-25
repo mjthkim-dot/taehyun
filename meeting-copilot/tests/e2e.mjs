@@ -151,9 +151,12 @@ check('버튼 클릭 → 최신 자막으로 복귀', g3.returned);
 await p.click('.actions [data-intent="agree"]');
 const g4 = await p.evaluate(() => ({
   gen: document.querySelector('#card').classList.contains('gen'),
-  kept: !!document.querySelector('#c-answers .kr')?.textContent.trim(),
+  // v3.7: ⚡오프너가 이전 답변을 새 첫 문장으로 이미 교체했을 수도 있다 — 둘 다 정상
+  kept: !!document.querySelector('#c-answers .kr')?.textContent.trim()
+        || document.querySelector('#card').classList.contains('opened')
+        || !!document.querySelector('#c-answers .en')?.textContent.trim(),
 }));
-check('생성 중 이전 답변 유지 + 진행 바(.gen)', g4.gen && g4.kept);
+check('생성 중 이전 답변 유지(또는 ⚡오프너) + 진행 바', g4.gen && g4.kept);
 await p.waitForFunction(() =>
   !document.querySelector('#card').classList.contains('gen')
   && getComputedStyle(document.querySelector('#c-src')).display !== 'none',
@@ -176,11 +179,11 @@ await p.waitForFunction(() =>
   && getComputedStyle(document.querySelector('#c-src')).display !== 'none',
   { timeout: 20000 }).catch(() => {});
 
-console.log('\n■ v3.4 EN 인라인 IPA');
-check('EN의 /IPA/가 작은 스팬으로 렌더 + 본문 유지', await p.evaluate(() => {
-  renderCard('EN: I use automation /ˌɔːtəˈmeɪʃən/ daily.\nKR: 자동화를 매일 씁니다.\nPR: 아이 유즈 오토메이션 데일리.');
+console.log('\n■ v3.7 끊어 읽기 슬래시');
+check('EN의 " / " 구분자가 .brk로 렌더 + 본문 유지', await p.evaluate(() => {
+  renderCard('EN: I want to change / how customers work.\nKR: 방식 자체를 바꾸고 싶습니다.\nPR: 아이 원트 투 체인지 하우 커스터머스 워크.');
   const en = document.querySelector('#c-answers .en');
-  return !!en.querySelector('.ipa') && en.textContent.includes('automation');
+  return !!en.querySelector('.brk') && en.textContent.includes('customers');
 }));
 
 console.log('\n■ 오버레이 인터뷰 모드 (v2.4 플로팅 패널 — PiP 안에서 검증)');
