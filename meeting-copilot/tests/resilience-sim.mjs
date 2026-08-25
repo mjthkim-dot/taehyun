@@ -116,7 +116,10 @@ check(`클릭 제안 생존율 ${survived}/${CLICKS}`, survived >= 6,
 check('전체 중단 없음 (주입 해제 후 번역 재개)', await (async () => {
   const n = await translatedN();
   await p.evaluate(([t, w]) => addUtterance(t, w), ['After the storm, shall we continue?', '상대']);
-  for (let w = 0; w < 20; w++) { if ((await translatedN()) > n) return true; await sleep(1000); }
+  // 45초: 폭풍 끝자락에 서킷 브레이커(30초 차단 — 의도된 보호)가 걸릴 수
+  // 있다. 동시 6(v3.8)에서 발동 확률이 올라 20초 창은 정상 동작을 실패로
+  // 오판했다. 브레이커 해제 + 재시도 드레인까지 허용한다.
+  for (let w = 0; w < 45; w++) { if ((await translatedN()) > n) return true; await sleep(1000); }
   return false;
 })());
 

@@ -416,7 +416,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v4.1</span>
+  <span class="ver" id="app-ver">v4.2</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -797,6 +797,10 @@ function restoreBackup(){
       <div class="bubble"><div class="en"></div><div class="kr"></div></div>`;
     row.querySelector('.en').textContent = e.text;
     if(e.kr){ row.querySelector('.kr').textContent = e.kr; trCache.set(trKey(e.text), e.kr); }
+    else if(!me && e.text.split(' ').length >= 3){
+      // 번역이 오기 전에 새로고침된 발화 — 복원 후 재번역 (라이브와 같은 정책)
+      enqueueTranslate(row.querySelector('.kr'), e.text);
+    }
     feed.appendChild(row);
   }
   feed.scrollTop = feed.scrollHeight;
@@ -1213,8 +1217,8 @@ async function suggest(said, intent, auto, speculative, retried){
   genSlowTimer = setTimeout(()=>card.classList.add('slow'), 3000);   // 3초+ 지연 → "생성 중…"
   // ⚡ 1초 오프너 — 본답변(TTFT 1.5~4s)과 병렬로 fast 레인에 '첫 문장'만 요청.
   // 먼저 도착하면 즉시 띄우고, 본답변 첫 토큰이 오면 renderCard가 교체한다.
-  // 투기(이미 선생성)와 퀵 번역(즉시성 다름)에는 불필요.
-  if(!speculative && intent !== 'translate'){
+  // 투기(이미 선생성)·퀵 번역·시간벌기/되묻기(자체가 fast 1초대)에는 불필요.
+  if(!speculative && !['translate','buytime','clarify'].includes(intent)){
     gov.note('fast');
     fetch('/api/suggest', {method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({said, intent, preset: appPreset(), opener: 1}), signal: sig})
