@@ -160,6 +160,9 @@
   /* 발표형(긴) 답변은 48%에서 절반쯤 잘려 읽는 도중 스크롤하게 된다 —
      긴 답변일 때만 카드를 키운다. 최신 자막 1~2줄은 여전히 위에 남는다 */
   #card:has(.lrow.long){max-height:65%}
+  /* 🎤 인터뷰 프리셋(본창): 카메라가 화면 위에 있다 — 답변을 맨 위에 두면
+     읽는 동안 눈동자가 카메라 근처를 향한다. 오버레이는 자체 인터뷰 모드 유지 */
+  body.preset-interview:not(.overlay) #card{order:-1}
   #ctrls{order:2}
   #card.spec{box-shadow:0 0 0 1px var(--accent) inset,0 -6px 24px rgba(0,0,0,.35)}
   #card .head{position:sticky;top:-11px;z-index:2;background:var(--panel2);margin:-11px -11px 8px;
@@ -190,6 +193,8 @@
   /* 한 화면에 답변은 최대 2개 — 그 이상은 잘라 시선 분산을 막는다 */
   #c-answers .lrow:nth-of-type(n+3){display:none}
   .lrow .kr{font-size:calc(11.5px * var(--ansz));color:var(--sub);line-height:1.5;margin-top:5px}
+  /* 발음 줄 — 한글 발음 + 어려운 단어 /IPA/. 읽기 보조라 뜻(KR)보다 한 톤 낮게 */
+  .lrow .pr{font-size:calc(11px * var(--ansz));color:var(--faint);line-height:1.6;margin-top:4px}
   .lrow .strat{font-size:11.5px;color:var(--sub);line-height:1.5}
   .say{background:none;border:none;cursor:pointer;font-size:13px;color:var(--sub);flex:none}
   /* RAG 근거 — 12px 회색 한 줄만 (넘치면 말줄임). 답변에서 시선을 뺏지 않는다 */
@@ -372,7 +377,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v2.9</span>
+  <span class="ver" id="app-ver">v3.0</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -1018,16 +1023,18 @@ function usedLearned(en){
   }
   return '';
 }
-function answerRow(en,kr,idx){
+function answerRow(en,kr,pr,idx){
   const r = document.createElement('div');
   // 단일 답변 — 첫 문장(≤8단어)이 즉답 오프너라 스트리밍 중에도 바로 읽기 시작한다.
   // 긴 답변(발표형 90~120초)은 큰 폰트가 오히려 스크롤을 만들므로 기본 크기로.
   const long = en.split(/\s+/).length > 45;
   r.className = 'lrow' + (idx === 0 ? ' primary' : '') + (long ? ' long' : '');
   r.innerHTML = `<span class="lab an">${idx === 0 ? '답변' : '대안'}</span>
-    <div class="body"><div class="en"></div><div class="kr"></div></div><button class="say">🔊</button>`;
+    <div class="body"><div class="en"></div><div class="kr"></div><div class="pr"></div></div><button class="say">🔊</button>`;
   r.querySelector('.en').textContent = en;
   r.querySelector('.kr').textContent = kr || '';
+  const prEl = r.querySelector('.pr');
+  if(pr){ prEl.textContent = '🗣 ' + pr; } else prEl.style.display = 'none';
   const learned = usedLearned(en);
   if(learned){
     const b = document.createElement('span');
@@ -1051,9 +1058,10 @@ function renderCard(raw){
       if(s) $('#c-strat').textContent = s;
       continue;
     }
-    const en = ((b.match(/EN\s*[:：]\s*([\s\S]*?)(?=\nKR\s*[:：]|$)/)||[])[1]||'').trim();
-    const kr = ((b.match(/KR\s*[:：]\s*([\s\S]*)/)||[])[1]||'').trim();
-    if(en) box.appendChild(answerRow(en,kr,ansIdx++));
+    const en = ((b.match(/EN\s*[:：]\s*([\s\S]*?)(?=\nKR\s*[:：]|\nPR\s*[:：]|$)/)||[])[1]||'').trim();
+    const kr = ((b.match(/KR\s*[:：]\s*([\s\S]*?)(?=\nPR\s*[:：]|$)/)||[])[1]||'').trim();
+    const pr = ((b.match(/PR\s*[:：]\s*([\s\S]*)/)||[])[1]||'').trim();
+    if(en) box.appendChild(answerRow(en,kr,pr,ansIdx++));
   }
   fitCard();          // 카드가 자라며 피드가 줄어도 최신 자막을 계속 보이게
 }
@@ -1070,7 +1078,7 @@ function renderSources(meta){
   el.style.display = 'block';
 }
 
-async function suggest(said, intent, auto, speculative){
+async function suggest(said, intent, auto, speculative, retried){
   if(auto && pinned) return;
   if(!auto && pinned){ pinned = false; $('#c-pin').classList.remove('on'); }
   if(!speculative){ specTries = 0; specGaps = []; specLastAt = 0; }
@@ -1105,8 +1113,17 @@ async function suggest(said, intent, auto, speculative){
       bg: !!(auto || speculative)},   // 자동·투기는 게이트웨이에서 클릭보다 후순위
       tk=>{ if(!raw){ card.classList.remove('gen','slow'); clearTimeout(genSlowTimer); }
             raw += tk; renderCard(raw); }, sig, renderSources);
-    if(!raw.trim() && (auto || speculative)){                 // 게이트웨이 드롭 — 카드 정리
-      // 이전 답변이 남아 있으면 요지만 되돌리고 그대로 둔다 (읽을 것을 지우지 않는다)
+    if(!raw.trim() && (auto || speculative)){                 // 게이트웨이 드롭
+      // 연속 질문의 핵심 버그: 새 질문의 투기/자동 제안이 드롭되면 조용히
+      // 사라져 "반응이 없다"가 된다 → 500ms 뒤 일반 자동 제안으로 딱 1회
+      // 재발사한다 (그 사이 새 요청이 시작됐으면 양보). 투기 상태는 해제해
+      // 최종 발화의 중복 억제가 풀리게 한다.
+      if(speculative){ specKey = ''; specDone = ''; }
+      if(!retried){
+        setTimeout(()=>{ if(!suggestAbort) suggest(said, 'reply', true, false, true); }, 500);
+        return;
+      }
+      // 재발사까지 드롭 — 이전 답변이 남아 있으면 요지만 되돌리고 그대로 둔다
       if($('#c-answers .kr')?.textContent?.trim()) $('#c-gist').textContent = prevGist;
       else card.style.display = 'none';
       return;

@@ -189,11 +189,17 @@ a speakable, confident answer grounded in the profile.
 Respond in EXACTLY this format (plain text, no markdown), nothing else:
 EN: <ONE complete spoken answer — length per ANSWER DEPTH below>
 KR: <한국어 뜻>
+PR: <the EN answer written in HANGUL as it sounds when spoken aloud
+(한국어 발음 표기, 예: "아임 드로온 투 하우 유 셀…"), on ONE line; right after
+each hard-to-pronounce word ONLY (3+ syllables or domain terms) add its
+/IPA/ — e.g. 오토메이션/ˌɔːtəˈmeɪʃən/. Easy words get no IPA.>
 ===
 META: 요지=<상대 발언 핵심 한국어 한 줄> | 전략=<말하기 전략 한국어 한 줄>
 
 ANSWER DEPTH — match length to the QUESTION TYPE (this matters most).
 Sentence 1 is a direct opener (≤8 words) they can say while the rest streams.
+- If their turn contains MORE THAN ONE question, answer the LAST question;
+  acknowledge the earlier one in one short clause only if it fits naturally.
 - SMALL TALK / greetings / quick reactions: ONE short sentence. No padding.
 - FACTUAL / logistics (notice period, start date, "experience with X",
   yes/no): 2 sentences MAX — direct answer + ONE proof point. Never list

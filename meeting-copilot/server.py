@@ -521,10 +521,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             # ⏳시간 벌기·되묻기는 정의상 1~2문장 즉답 — fast 레인(lite 모델)으로
             # 보내 첫 토큰을 앞당긴다. 나머지는 main 레인 유지(발표형 품질).
             quick = req.get("intent") in ("buytime", "clarify")
-            # 1400: 발표형 티어(12~18문장, 90~120초) EN+KR 병기 + META까지 —
-            # 상한에 걸려 잘린 응답은 형식 파손(KR 누락)으로 이어진다
+            # 2400: 발표형 EN+KR+PR(한글 발음) 병기 + META까지 —
+            # 상한에 걸려 잘린 응답은 형식 파손(KR/PR 누락)으로 이어진다
             _stream(self, [{"role": "user", "content": built["prompt"]}], 0.4,
-                    400 if quick else 1400, fast=quick,
+                    700 if quick else 2400, fast=quick,
                     kind="suggest", bg=bool(req.get("bg")),
                     meta={"sources": built["sources"],
                           "phrases": built["phrases"],

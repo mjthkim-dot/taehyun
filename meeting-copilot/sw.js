@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v10';  // v2.9: 응답 속도 — 프롬프트 다이어트·quick fast레인·투기 강화
+const SHELL = 'mc-shell-v11';  // v3.0: 카드 상단(시선)·발음 표기·연속 질문 재발사
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {

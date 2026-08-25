@@ -114,6 +114,12 @@ const quick = await p.evaluate(() => ({
 check('한국어 입력 → 영어 제안', quick.en.length >= 1, quick.en[0]?.slice(0, 46));
 check('퀵 번역도 내 자료를 검색함', /용어집|미팅|노트/.test(quick.src), quick.src.replace(/\s+/g, ' ').slice(0, 54));
 
+console.log('\n■ v3.0 발음 표기 (PR 라인)');
+check('발음 표기(🗣 한글 발음 + IPA) 표시', await p.evaluate(() => {
+  const t = document.querySelector('#c-answers .pr')?.textContent || '';
+  return t.includes('🗣') && /[가-힣]/.test(t);
+}));
+
 console.log('\n■ v2.5 글랜스 UI (표시 계층만)');
 const g1 = await p.evaluate(() => {
   const el = document.querySelector('#c-answers .lrow.primary .en');
