@@ -44,6 +44,14 @@ GW_RPM_FAST = int(os.environ.get("GW_RPM_FAST", "120" if _TIER == "paid" else "1
 # 2.2→4.2s). RPM은 토큰버킷이 별도로 지키므로 동시 6은 429와 무관하다.
 GW_CONC = int(os.environ.get(
     "GW_CONC", "6" if os.environ.get("GEMINI_TIER", "free") == "paid" else "2"))
+# 레인별 동시 슬롯 (v3.9): 전역 상한만 있으면 제안 계열(투기·본답변·좀비)이
+# 슬롯 전부를 점유해 번역이 진행 중 스트림 뒤에서 굶는다 — 자막 아래 KR 줄이
+# 밀리는 "인식·번역 느려짐"의 원인. 번역(fast) 전용 슬롯을 상시 보장한다.
+# 우선순위는 대기줄 순서만 정하고 진행 중 스트림은 못 밀어내므로, 균형은
+# 슬롯을 물리적으로 나눠야만 지켜진다. (paid 6 → fast 2 + main 4)
+GW_CONC_FAST = int(os.environ.get("GW_CONC_FAST", str(max(1, GW_CONC // 3))))
+GW_CONC_MAIN = max(1, GW_CONC - GW_CONC_FAST)
+_CAP = {"fast": GW_CONC_FAST, "main": GW_CONC_MAIN}
 GW_BURST = float(os.environ.get("GW_BURST", "2"))
 GW_DROP_S = float(os.environ.get("GW_DROP_S", "5"))
 GW_BG_DROP_S = float(os.environ.get("GW_BG_DROP_S", "15"))
@@ -85,7 +93,7 @@ class Dropped(Exception):
 _cv = threading.Condition()
 _seq = itertools.count()
 _waiting: list[tuple[int, int, str]] = []  # (priority, seq, lane)
-_inflight = 0
+_inflight = {"fast": 0, "main": 0}
 _tokens = {"fast": GW_BURST, "main": GW_BURST}
 _last_refill = time.time()
 _breaker_until = 0.0
@@ -122,12 +130,13 @@ def _fire(now: float, lane: str) -> None:
 
 
 def _my_turn(ent) -> bool:
-    # 내 레인에 토큰이 있고, 나보다 앞선(우선순위·순번) 대기자 중 토큰이 있는
-    # 레인이 없을 때 발사. 레인이 달라 토큰이 없는 앞사람은 건너뛴다 —
-    # fast/main이 서로를 머리에서 막지 않게(head-of-line 차단 방지).
-    if _tokens[ent[2]] < 1:
+    # 내 레인에 토큰·동시 슬롯이 있고, 나보다 앞선(우선순위·순번) 대기자 중
+    # 발사 가능한(토큰+슬롯) 항목이 없을 때 발사. 레인이 달라 막힌 앞사람은
+    # 건너뛴다 — fast/main이 서로를 머리에서 막지 않게(head-of-line 방지).
+    if _tokens[ent[2]] < 1 or _inflight[ent[2]] >= _CAP[ent[2]]:
         return False
-    eligible = [e for e in _waiting if _tokens[e[2]] >= 1]
+    eligible = [e for e in _waiting
+                if _tokens[e[2]] >= 1 and _inflight[e[2]] < _CAP[e[2]]]
     return bool(eligible) and min(eligible) == ent
 
 
@@ -152,10 +161,10 @@ def acquire(kind: str, fast: bool = False, bg: bool = False,
         while True:
             now = time.time()
             _refill(now)
-            if (_inflight < GW_CONC and now >= _breaker_until and _my_turn(ent)):
+            if (now >= _breaker_until and _my_turn(ent)):
                 _waiting.remove(ent)
                 heapq.heapify(_waiting)
-                _inflight += 1
+                _inflight[lane] += 1
                 _fire(now, lane)
                 _stats["dispatched"] += 1
                 _stats["by_kind"][k] = _stats["by_kind"].get(k, 0) + 1
@@ -199,8 +208,9 @@ def release(ticket: Ticket | None) -> None:
     global _inflight
     if ticket is None or GW_OFF:
         return
+    lane = "fast" if ticket.fast else "main"
     with _cv:
-        _inflight = max(0, _inflight - 1)
+        _inflight[lane] = max(0, _inflight[lane] - 1)
         _cv.notify_all()
 
 

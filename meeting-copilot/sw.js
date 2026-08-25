@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v19';  // v3.8: 응답 파일업 근본 수정(동시 6·낡은 스트림 취소·재투기 절제)
+const SHELL = 'mc-shell-v20';  // v3.9: 레인별 슬롯 분리 — 번역·답변 균형 보장
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {
