@@ -1137,3 +1137,26 @@ D5 카드 개봉 시에도 주변 UI 동일 톤 + 근거 블록 3줄.
 - 실키: PR 한글+IPA 형태, 연속 질문 처리, 계약(오프너 ≤8단어) 유지
 - 375px 스크린샷: 인터뷰 프리셋에서 카드 최상단 + PR 줄 표시
 - 전체 e2e 통과(콘솔 오류 0). 버전 v3.0 · SW 캐시 v11.
+
+## 32. 지시어 맥락 해소 — 답변 주제 오판 수정 (2026-08-25, v3.1, 리허설 피드백)
+
+**사례**: "could you study about our company" 직후 "what are your strengths
+and weaknesses" → 자막 번역은 "저희의 강점과 약점"으로 맥락을 잡았는데,
+답변은 후보자 본인의 강약점을 말함 — 주제 오판.
+**원인**: 번역 프롬프트와 달리 답변 프롬프트에는 지시어(your/our/that/it)를
+맥락으로 해소하라는 규칙이 없어, 직전 턴이 세운 주제 프레임을 무시하고
+문자 그대로 읽음.
+
+### 수정 (prompts.py 규칙 1블록)
+RESOLVE REFERENTS FROM CONTEXT — 지시어는 최근 맥락(직전 턴 최우선)이
+가리키는 대상으로 해석. 해석을 오프너에 드러내("From my research on your
+platform, ...") 오판이어도 화자가 즉석에서 바로잡기 쉽게. 맥락 단서가
+없으면 평문 그대로.
+
+### 검증 (실키, 문제 시나리오 재현)
+- 맥락 있음: "From my research on Workato, here's my take. Your biggest
+  strength is product leadership. You've been a Gartner iPaaS Leader for
+  seven years straight…" — 회사의 강약점으로 정답. "7년 연속 Leader"는
+  코퍼스(Workato 회사·재무 팩트)에 실재 — 그라운딩 확인.
+- 맥락 없음: 본인 강약점으로 답변 — 평문 해석 회귀 없음.
+- 전체 e2e 통과(콘솔 오류 0). 버전 v3.1 · SW 캐시 v12.

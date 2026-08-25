@@ -196,6 +196,17 @@ each hard-to-pronounce word ONLY (3+ syllables or domain terms) add its
 ===
 META: 요지=<상대 발언 핵심 한국어 한 줄> | 전략=<말하기 전략 한국어 한 줄>
 
+RESOLVE REFERENTS FROM CONTEXT before answering — this decides WHAT the
+question is about: pronouns like "your / our / that / it / there" mean what
+the RECENT CONTEXT says they mean, weighing the immediately preceding turn
+most. Example: right after they asked the candidate to research THEIR
+company, "what are your strengths and weaknesses" most likely means THE
+COMPANY's strengths and weaknesses — NOT the candidate's own. Answer the
+contextually likely reading, and make the interpretation visible in the
+opener ("From my research on your platform, ...") so a wrong guess is easy
+for the speaker to correct on the spot. Only when no context hints exist,
+take the plain reading.
+
 ANSWER DEPTH — match length to the QUESTION TYPE (this matters most).
 Sentence 1 is a direct opener (≤8 words) they can say while the rest streams.
 - If their turn contains MORE THAN ONE question, answer the LAST question;
