@@ -527,7 +527,7 @@ rag-eval 15/15는 "시드와 매칭되는 질문"만 검증했다. 실전 인터
 다시 실행하면 같은 표가 실측 생성문으로 갱신된다.
 
 <!-- OOC-RESULTS:START -->
-### 13.1 결과 표 (ooc_eval.py 자동 기록 — 2026-08-23 15:45 · 공급자: gemini (gemini-flash-latest))
+### 13.1 결과 표 (ooc_eval.py 자동 기록 — 2026-08-25 12:04 · 공급자: gemini (gemini-flash-latest))
 
 | 계층 | 면접관 질문 | 검색 근거 (관련성 컷 통과분) | 생성 2안 | 판정 |
 |---|---|---|---|---|
@@ -538,14 +538,14 @@ rag-eval 15/15는 "시드와 매칭되는 질문"만 검증했다. 실전 인터
 | A | What would you ask us about how the team works? | ask team structure<br>ask team culture<br>legacy middleware contrast | What do your best performers have in common. So let me share one example from a recent dea | ✅ |
 | B | What's your experience with Salesforce integration specifically? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
 | B | How do you handle a deal going dark after the proposal? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
-| B | What are your salary expectations for this position? | salary deflect<br>연봉 질문 — 밴드 역질문 (1차 표준 대응)<br>연봉 — 되물음 대응 + 밴드 반응 3종 (2차) | new-market hunter role, I'd also like to understand. So let me share one example from a re | ✅ |
+| B | What are your salary expectations for this position? | salary deflect<br>연봉 질문 — 밴드 역질문 (1차 표준 대응)<br>연봉 — 되물음 대응 + 밴드 반응 3종 (2차) | Rather than anchoring on a figure, what matters. So let me share one example from a recent | ✅ |
 | B | How do you split your time between hunting and account management? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
 | B | Have you ever sold against an incumbent vendor with a locked-in contract? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
 | C | What do you do outside work for fun? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
 | C | Tell me about a time you failed at something. | loss lesson | Now I never present before I understand the. So let me share one example from a recent dea | ✅ |
 | C | Why are you leaving your current role right now? | current role summary<br>연봉 — 되물음 대응 + 밴드 반응 3종 (2차)<br>career move logic | Rather than anchoring on a figure, what matters. So let me share one example from a recent | ✅ |
 | C | How do your colleagues usually describe you? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
-| C | Where do you see yourself in five years? | 자기소개 — 표준 골격 (08 캐노니컬, 담백한 톤) | years, most of last year's growth from GenAI-driven. So let me share one example from a re | ✅ |
+| C | Where do you see yourself in five years? | 자기소개 — 표준 골격 (08 캐노니컬, 담백한 톤) | quickly but struggle to scale into production. So let me share one example from a recent d | ✅ |
 
 **15/15** (A 5/5 · B 5/5 · C 5/5). 계층 기준 — A: 시드 검색·활용 / B: 무관 시드 강제
 인용 없이 생성 / C: 검색 0이어도 프로필 기반 답변, 회피성 문구 금지.
@@ -1160,3 +1160,28 @@ platform, ...") 오판이어도 화자가 즉석에서 바로잡기 쉽게. 맥�
   코퍼스(Workato 회사·재무 팩트)에 실재 — 그라운딩 확인.
 - 맥락 없음: 본인 강약점으로 답변 — 평문 해석 회귀 없음.
 - 전체 e2e 통과(콘솔 오류 0). 버전 v3.1 · SW 캐시 v12.
+
+## 33. 실전 전 전수 자가 진단 (2026-08-25, v3.1 기준)
+
+8/27 투입 전 최종 점검 — 원격 환경에서 검증 가능한 전 항목 실행.
+
+| 항목 | 결과 |
+|---|---|
+| e2e 전체 (UI·오버레이·PR·복습·동기화) | ✅ 전부 통과, 콘솔 오류 0 |
+| rag-eval (검색 15쿼리) | ✅ 15/15 |
+| ooc-eval + speakability (시드 밖 15문항) | ✅ 15/15 (.py·.ts 모두) |
+| resilience-sim (버스트·429폭탄·503) | ✅ 전부 통과 — 새어나간 429 0, JS 오류 0 |
+| rpm-sim 5분 (paid 예산) | ✅ 429 0건 · 번역 27/27 · p95 450ms · JS 오류 0 |
+| 실키 스팟체크 | ✅ 발표형 17문장·오프너 8단어·PR·번호골격 없음 / 사실확인 2문장 1.8s / 시간벌기 1.4s |
+| 개인 데이터 커밋 여부 | ✅ store.db·secret.key·imported/ 커밋 없음, 실키 하드코딩 없음 |
+| 쿠팡·크래프톤 정책 | ✅ 커밋 시드에 없음, 로컬 청크도 이름만(수치 0건) |
+| 버전 정합 | ✅ 칩 v3.1 · SW v12 · start.sh 자동 추출 |
+
+**진단이 잡은 결함 1건(수정 완료)**: tests/ooc-eval.ts가 v2.0 '단일 답변'
+전환 때 갱신 누락된 구 계약(2안 Safe/Rich·≤9단어)으로 남아 0/15 오탐 —
+현행 계약(ooc_eval.py와 동일)으로 동기화 후 15/15.
+
+**원격에서 검증 불가 — 맥북 리허설에서 확인할 것**: BlackHole 라우팅
+(🎧 상대 전용 표시), Chrome PiP 오버레이 실동작, 실제 체감 TTFT(프록시
+없는 환경), 마이크 권한, 실전 설정(프리셋 🎤 인터뷰 + 모드 🔒 실미팅),
+맥 코퍼스(Workato 44청크 포함 184청크) 적재 상태.

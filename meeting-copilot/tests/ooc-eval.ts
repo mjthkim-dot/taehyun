@@ -7,7 +7,7 @@
  * 3계층 × 5문항, 계층별 자동 판정:
  *  A. 시드 변형   — 같은 의도·다른 표현. 시드가 검색·활용돼야 함(관련 근거 ≥1)
  *  B. 시드 인접   — 도메인은 맞지만 시드에 없는 주제. 무관 시드를 억지로
- *                   끼워넣지 않아야 함(관련성 컷) + 회피 없는 2안 생성
+ *                   끼워넣지 않아야 함(관련성 컷) + 회피 없는 단일 답변 생성
  *  C. 완전 이탈   — 시드 무관. 검색 0이어도 프로필 기반 자연 답변(회피 금지)
  *
  * 실행:  python3 tests/mock_gemini.py (또는 실 GEMINI_API_KEY) + 서버 기동 후
@@ -88,11 +88,12 @@ async function suggest(q: string, intent = "reply") {
 
 function judge(c: Case, meta: any, en: string[]) {
   const problems: string[] = [];
-  if (en.length < 2) problems.push("2안 미생성");
+  if (en.length < 1) problems.push("답변 미생성");
   if (en.some(e => EVASIVE.test(e))) problems.push("회피성 답변");
-  // 구어체 계약: 1안(Safe) 문장당 ≤9단어, 2안(Rich) ≤12단어 + 축약형·금지어
-  en.slice(0, 2).forEach((e, i) =>
-    speakProblems(e, i === 0 ? 9 : 12).forEach(p => problems.push(`${i + 1}안 ${p}`)));
+  // 구어체 계약(단일 답변, ooc_eval.py와 동일): 문장당 ≤12단어 —
+  // 첫 문장(≤8, 즉답 오프너)은 프롬프트 규칙이고 여기서는 상한 12로 일괄 검사
+  en.slice(0, 1).forEach(e =>
+    speakProblems(e, 12).forEach(p => problems.push(p)));
   const srcs: string[] = meta?.sources ?? [];
   if (c.tier === "A") {
     const hitOk = c.expectSeed!.some(e => srcs.join(" ").toLowerCase().includes(e.toLowerCase()));
