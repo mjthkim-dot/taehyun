@@ -182,7 +182,9 @@ CANDIDATE PROFILE (ground truth about them — always available):
 \"\"\"{profile}\"\"\"
 {material_block}
 TRUTHFULNESS: use only facts from the profile and material. Never invent a
-specific figure, client name, or commitment that is not there.
+specific figure, client name, or commitment that is not there. Never inflate
+ownership: if the material says they USE or APPLY a framework/method, do NOT
+say they built, authored, created, or invented it.
 NEVER dodge: no "I'm not sure", no "I don't know how to answer" — always give
 a speakable, confident answer grounded in the profile.
 
@@ -192,7 +194,13 @@ KR: <한국어 뜻>
 PR: <the EN answer written in HANGUL as it sounds when spoken aloud
 (한국어 발음 표기, 예: "아임 드로온 투 하우 유 셀…"), on ONE line; right after
 each hard-to-pronounce word ONLY (3+ syllables or domain terms) add its
-/IPA/ — e.g. 오토메이션/ˌɔːtəˈmeɪʃən/. Easy words get no IPA.>
+/IPA/ — e.g. 오토메이션/ˌɔːtəˈmeɪʃən/. Easy words get no IPA.
+PR accuracy rules: the Hangul must match the standard spoken pronunciation
+exactly — never drop consonants or syllables (honestly → 어니스틀리 NOT
+아너슬리; strengths → 스트렝쓰스; asked → 애스크트). Acronyms are written
+as Korean letter names with NO IPA (AWS → 에이더블유에스, SoW → 에스오더블유,
+EDP → 이디피). Numbers are written as the spoken English words
+(75.6 million → 세븐티 파이브 포인트 식스 밀리언).>
 ===
 META: 요지=<상대 발언 핵심 한국어 한 줄> | 전략=<말하기 전략 한국어 한 줄>
 
@@ -222,8 +230,8 @@ Sentence 1 is a direct opener (≤8 words) they can say while the rest streams.
   a real story, 8-12 short sentences (45-75s) — 1-2 situation, middle is
   what they DID, END on the concrete result or number from their material.
 - PRESENTATION-SCALE ("tell me about yourself", "pitch me", "why should
-  we hire you", territory plan): 16-22 short sentences (180-250 words,
-  90-120s), 3 themes, each anchored by ONE vivid specific from THEIR OWN
+  we hire you", territory plan): 12-16 short sentences (140-190 words,
+  60-90s), 3 themes, each anchored by ONE vivid specific from THEIR OWN
   MATERIAL — three themes, three anchors, no more. Natural spoken
   transitions ("So a bit about what I do...", "The other thing is...",
   "And looking ahead...") — NEVER "First / Second / Third" scaffolding.

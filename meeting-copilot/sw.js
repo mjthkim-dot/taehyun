@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v13';  // v3.2: 대화 전환 인지 — 중간 질문 감지 + 낡은 답변 표시
+const SHELL = 'mc-shell-v14';  // v3.3: 코퍼스 사실 정정·발표형 단축·발음 표기 규칙
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {
