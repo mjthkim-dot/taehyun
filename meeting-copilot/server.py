@@ -316,9 +316,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
             except ImportError:
                 self._json(500, {"error": "codebundle 모듈을 찾을 수 없습니다."})
                 return
+            # fmt=json — 파일 경계가 명확해 분석에 유리하다. g=N이면 그 묶음만.
+            # 그룹은 **번호**로 받는다: 이름이 한글이라 URL에 그대로 실으면
+            # 파이썬 http.server가 "Bad request syntax"로 요청을 통째로 거부한다(실측).
+            if (q.get("fmt") or [""])[0] == "json":
+                groups = codebundle.json_groups()
+                gi = (q.get("g") or [""])[0]
+                if gi:
+                    if not gi.isdigit() or not 1 <= int(gi) <= len(groups):
+                        self._json(400, {"error": f"g는 1~{len(groups)} 사이여야 합니다.",
+                                         "groups": groups})
+                        return
+                    self._json(200, codebundle.as_json(groups[int(gi) - 1]))
+                    return
+                self._json(200, codebundle.as_json())
+                return
             n = (q.get("part") or [""])[0]
             if not n:
-                self._json(200, {"parts": codebundle.manifest()})
+                self._json(200, {"parts": codebundle.manifest(),
+                                 "json_groups": codebundle.json_groups()})
                 return
             chunks = codebundle.parts()
             if not n.isdigit() or not 1 <= int(n) <= len(chunks):

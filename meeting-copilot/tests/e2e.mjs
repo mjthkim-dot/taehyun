@@ -210,6 +210,21 @@ console.log('\n■ v5.2 코드 스냅샷 — Claude에 붙여넣기 (로컬 전�
     return r.status;
   });
   check('터널/외부 접속은 403으로 차단', blocked === 403, `HTTP ${blocked}`);
+  // JSON 형식 — 파일 경계가 명확해 분석에 유리. 조각도 각각 유효한 JSON이어야 한다.
+  const js = await p.evaluate(async () => (await fetch('/api/code?fmt=json')).json());
+  check('fmt=json — 파일 배열 + 메타',
+    Array.isArray(js.files) && js.files.length >= 10 && !!js.project,
+    `파일 ${js.files?.length}개`);
+  check('각 파일에 path·lang·purpose·content',
+    js.files.every(f => f.path && f.lang && 'content' in f) &&
+    js.files.filter(f => f.purpose).length === js.files.length,
+    '스키마 확인');
+  const g1 = await p.evaluate(async () => (await fetch('/api/code?fmt=json&g=6')).json());
+  check('g=N으로 묶음만 (한글 이름은 URL에 싣지 않는다)',
+    Array.isArray(g1.files) && g1.files.length >= 1 && g1.group !== '전체', g1.group);
+  const bad = await p.evaluate(async () => (await fetch('/api/code?fmt=json&g=99')).json());
+  check('범위 밖 g는 400 + 안내', !!bad.error && Array.isArray(bad.groups), bad.error?.slice(0, 30));
+
   const ui = await p.evaluate(() => {
     document.querySelector('.tab[data-v="lib"]')?.click();
     return document.querySelectorAll('#code-parts button').length;
@@ -420,7 +435,7 @@ if (SHOT) {
 // '예상 못 한' 오류만 세야 신호로서 값을 한다.
 const realErrs = errs.filter(e =>
   !/favicon|sw\.js|Manifest/.test(e) && !/403.*\/api\/code|api\/code.*403/.test(e)
-  && !/403 \(Forbidden\)/.test(e));
+  && !/403 \(Forbidden\)/.test(e) && !/\/api\/code.*g=99|400 \(Bad Request\)/.test(e));
 console.log(`\n콘솔/네트워크 오류: ${realErrs.length}`);
 realErrs.slice(0, 5).forEach(e => console.log('   ·', e.slice(0, 110)));
 await b.close();

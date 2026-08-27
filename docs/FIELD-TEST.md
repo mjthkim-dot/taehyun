@@ -123,7 +123,12 @@ cd ~/taehyun/meeting-copilot
 python3 tools/code_bundle.py          # 바탕화면 meeting-copilot-code/ 에 7개 파일
 python3 tools/code_bundle.py 2        # 2번 조각만 클립보드로
 python3 tools/code_bundle.py all      # 한 파일로 (드래그 첨부용)
+python3 tools/code_bundle.py json     # JSON 구조로 (파일 경계가 명확 — 분석에 유리)
 ```
+
+JSON은 파일마다 `path·lang·purpose·lines·content`가 들어 있어 Claude가 경계를
+헷갈리지 않는다. 묶음별 파일도 **각각 그 자체로 유효한 JSON**이라 나눠 넣어도 된다.
+(직접 받으려면 `localhost:3799/api/code?fmt=json`, 묶음만은 `&g=1`~`&g=6`)
 
 ⚠️ 폰이나 `trycloudflare.com` 주소에서는 이 기능이 **일부러 막혀 있다** — 그 주소는
 공개라, 열어두면 누구나 앱 소스를 가져갈 수 있기 때문이다. 맥에서
