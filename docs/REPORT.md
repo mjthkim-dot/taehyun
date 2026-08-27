@@ -1536,3 +1536,34 @@ e2e ×2 전부 통과(콘솔 오류 0), 3분 소크 429 0·번역 16/16(번역 �
 답변→자막 시선 이동이 한 뼘이고, 왼쪽 절반은 투명 — 미팅 화면(얼굴)
 전용. e2e 기하 케이스를 한 기둥 계약(우측 정렬·세로 스택)으로 갱신.
 전체 e2e 통과(콘솔 오류 0). 버전 v4.5 · SW 캐시 v26.
+
+## 48. 실전 사후 분석 — STT 붕괴 근절: Gemini 3.5 Transcribe + 턴 병합 (2026-08-27, v5.0)
+
+**실전 결과 (8/27 Workato HR 스크리닝, 실 트랜스크립트 분석)**: 답변셋이
+제때 안 나오고 맥락이 자주 깨졌다. 근본 원인은 LLM이 아니라 **입력(STT)**:
+
+1. **Web Speech가 고유명사를 파괴** — "Workato→walkato/avocado/RockAuto",
+   "MegazoneCloud→mega stone crab", "당근→Tango/Congo Market",
+   "resume→ligament", "160M→160mg". 오염된 자막이 번역·질문감지·RAG 검색을
+   연쇄로 무너뜨림 (garbage in → garbage out).
+2. **발화가 여러 조각 final로 쪼개져 도착** — 질문의 끝조각만 보고 판정하니
+   wantsReply가 놓치거나, 조각에 대한 답이 생성됨.
+
+**수정**:
+- **서버 STT 1순위 = gemini-3.5-transcribe** (Interactions API, smart 모드):
+  `transcribe_gemini()` 신설 — Files 업로드 → 전사 → **업로드 파일 즉시
+  DELETE**(민감 음성 위생). **커스텀 어휘 24개 내장**(Workato·MegazoneCloud·
+  Daangn·TuneSystem·iPaaS·OTE 등) + `STT_VOCAB` env로 추가. /api/stt 체인:
+  gemini → local-whisper → groq (실패 시 자동 폴백, 응답에 engine 표기).
+  실키 검증: 합성 음성에서 "Workato"/"Megazone Cloud" 정확 인식 확인.
+- **🎧 마이크 정밀 엔진 신설** — 맥에서 Zoom "앱" 창은 오디오 공유가 안 돼
+  탭 오디오를 못 쓴다. 기존 BlackHole 라우팅 그대로, Web Speech 대신
+  VAD→/api/stt(gemini)로 인식하는 세 번째 엔진. 트레이드오프: interim이
+  없어 투기 선생성은 쉬고 ⚡오프너→본답변이 속도를 커버.
+- **턴 병합** — 4초 내 이어지는 상대 발화를 한 턴(≤700자)으로 묶어 질문
+  판정·자동 제안·[💬 그냥 답하기]가 턴 전체를 보게 함. 자막 표시는 조각
+  그대로, stale 표시는 4단어 미만 조각엔 걸지 않음.
+
+**검증**: 전체 e2e 통과(콘솔 오류 0, 본답변 1.2~2.0s — mock 상대측정).
+중간에 나온 429 플레이크는 mock 기동 env 오기(MOCK_RPM_LITE/FLASH)였음 —
+앱 결함 아님. 버전 v5.0 · SW 캐시 v27.

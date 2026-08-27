@@ -478,17 +478,29 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not _stt_sem.acquire(timeout=10):
                 self._json(503, {"error": "지금 음성 인식이 몰려 있습니다 — 잠시 후 다시."})
                 return
+            engine = ""
             try:
-                if llm.stt_local_available():      # 로컬 우선 — 무료·무제한·비공개
+                text = None
+                # 1순위: Gemini 3.5 Transcribe — 커스텀 어휘로 고유명사 고정
+                # (실전 실측: Web Speech가 "Workato"→"avocado"로 깨며 전체 오염)
+                if llm.GEMINI_API_KEY:
+                    try:
+                        text = llm.transcribe_gemini(body, mime=ct, language=lang or None)
+                        engine = "gemini-transcribe"
+                    except Exception:      # 신모델 미가용/일시 오류 → 기존 체인 폴백
+                        text = None
+                if text is None and llm.stt_local_available():
                     text = llm.transcribe_local(body, filename=f"a{ext}", language=lang or None)
-                else:
+                    engine = "local-whisper"
+                if text is None:
                     text = llm.transcribe(body, filename=f"a{ext}", language=lang or None)
+                    engine = "groq-whisper"
             except RuntimeError as e:
                 self._json(503, {"error": str(e)})
                 return
             finally:
                 _stt_sem.release()
-            self._json(200, {"text": text})
+            self._json(200, {"text": text, "engine": engine})
             return
 
         if path == "/api/translate":

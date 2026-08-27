@@ -737,6 +737,75 @@ def embed(texts: list[str]) -> list[list[float]] | None:
         return None
 
 
+# ── Gemini 3.5 Transcribe — 실전(8/27) STT 붕괴의 해법 ──
+# 브라우저 Web Speech가 고유명사를 파괴("MegazoneCloud"→"mega stone crab",
+# "Workato"→"avocado", "당근(Daangn)"→"Tango Market")해 번역·답변 전체가
+# 오염됐다. 커스텀 어휘(최대 1,000개)로 도메인 고유명사를 고정한다.
+GEMINI_STT_MODEL = os.environ.get("GEMINI_STT_MODEL", "gemini-3.5-transcribe")
+# 기본 어휘: 태현의 세계 — 회사·고객사·도메인 용어. STT_VOCAB env로 추가.
+_STT_VOCAB_BASE = [
+    "Workato", "MegazoneCloud", "Megazone", "Daangn", "TuneSystem", "iPaaS",
+    "EDP", "AWS", "SK Group", "GC Company", "OTE", "ARR", "quota",
+    "attainment", "FinOps", "Gartner", "MuleSoft", "Boomi", "n8n",
+    "enterprise", "pipeline", "Savings Plans", "Bedrock", "Taehyun",
+]
+def _stt_vocab() -> list[str]:
+    extra = [t.strip() for t in os.environ.get("STT_VOCAB", "").split(",") if t.strip()]
+    return (_STT_VOCAB_BASE + extra)[:1000]
+
+
+def transcribe_gemini(audio: bytes, mime: str = "audio/webm",
+                      language: str | None = None) -> str:
+    """Gemini 3.5 Transcribe (Interactions API) — Files 업로드 후 전사.
+    smart 모드: 필러("um") 제거·자가수정 해소·숫자 정형화 = 다운스트림
+    번역·답변 프롬프트에 바로 쓸 수 있는 깨끗한 텍스트."""
+    if not GEMINI_API_KEY:
+        raise RuntimeError("GEMINI_API_KEY 없음")
+    # 1) Files API 업로드 (simple/raw)
+    up_url = GEMINI_URL.replace("/v1beta", "/upload/v1beta") + f"/files?key={GEMINI_API_KEY}"
+    req = urllib.request.Request(up_url, data=audio, method="POST", headers={
+        "X-Goog-Upload-Protocol": "raw", "Content-Type": mime})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        f = json.loads(r.read()).get("file", {})
+    uri, up_mime = f.get("uri"), f.get("mimeType", mime)
+    if not uri:
+        raise RuntimeError("Gemini Files 업로드 응답에 uri 없음")
+    # 2) 전사 (Interactions API)
+    body = {
+        "model": GEMINI_STT_MODEL,
+        "input": [{"type": "audio", "uri": uri, "mime_type": up_mime}],
+        "generation_config": {"transcription_config": {
+            "language_codes": [language] if language else ["en-US", "ko-KR"],
+            "custom_vocabulary": _stt_vocab(),
+            "mode": {"type": "smart"},
+        }},
+    }
+    req = urllib.request.Request(
+        f"{GEMINI_URL}/interactions?key={GEMINI_API_KEY}",
+        data=json.dumps(body).encode(), method="POST",
+        headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        obj = json.loads(r.read())
+    # 민감 오디오(면접 실음성) — 전사 즉시 업로드 파일 삭제 (best-effort)
+    name = f.get("name")
+    if name:
+        try:
+            urllib.request.urlopen(urllib.request.Request(
+                f"{GEMINI_URL}/{name}?key={GEMINI_API_KEY}", method="DELETE"), timeout=10)
+        except Exception:  # noqa: BLE001
+            pass
+    # 응답 파싱 — 실측 구조: steps[].type=model_output → content[].text
+    txt = obj.get("output_text") or ""
+    if not txt:
+        for step in obj.get("steps", []):
+            if step.get("type") == "model_output":
+                txt = " ".join(c.get("text", "") for c in step.get("content", [])
+                               if c.get("type") == "text")
+                if txt:
+                    break
+    return txt.strip()
+
+
 def transcribe(audio: bytes, filename: str = "audio.webm",
                language: str | None = None, model: str | None = None) -> str:
     """오디오 바이트 → 텍스트 (Groq Whisper). STT는 Groq 전용 — 키 없으면 에러.

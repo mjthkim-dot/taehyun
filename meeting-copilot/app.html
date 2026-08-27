@@ -436,7 +436,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v4.5</span>
+  <span class="ver" id="app-ver">v5.0</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -449,6 +449,7 @@
   <select id="engine" title="음성 인식 방식">
     <option value="web" selected>🎤 브라우저(실시간)</option>
     <option value="tab">🖥 탭 오디오(설정 불필요)</option>
+    <option value="micstt">🎧 마이크 정밀(고유명사↑)</option>
   </select>
   <select id="cefr" title="내 영어 레벨"><option>A2</option><option selected>B1</option><option>B2</option><option>C1</option></select>
   <select id="preset" title="상황 프리셋 — 버튼·말투가 바뀝니다">
@@ -842,9 +843,23 @@ function feedScroll(force){
 }
 $('#new-msg').onclick = ()=> feedScroll(true);
 
+// 턴 병합 — 실전(8/27) 실측: 리크루터의 질문이 여러 조각 final("...what
+// kind of" / "end user customer you were...")로 나뉘어 도착해 조각 단위
+// 질문 감지가 실패했고, 답변도 조각에 대해 생성됐다. 4초 내 이어지는 상대
+// 발화를 한 '턴'으로 묶어 질문 판정·답변 생성은 턴 전체 텍스트로 한다.
+// (자막 표시는 조각 그대로 — 병합은 판정·생성에만 쓴다)
+let turnBuf = '', turnAt = 0;
 function addUtterance(text, who){
   $('#feed-empty')?.remove();
-  const me = who === '나', q = !me && wantsReply(text);
+  const me = who === '나';
+  if(me){ turnBuf = ''; turnAt = 0; }
+  else{
+    const nw = Date.now();
+    turnBuf = (nw - turnAt < 4000 && turnBuf ? turnBuf + ' ' : '') + text;
+    if(turnBuf.length > 700) turnBuf = turnBuf.slice(-700);   // 폭주 방지
+    turnAt = nw;
+  }
+  const q = !me && wantsReply(turnBuf);
   log.push({who,text});
   const row = document.createElement('div');
   row.className = 'row' + (me?' me':'') + (q?' q':'');
@@ -856,10 +871,11 @@ function addUtterance(text, who){
     enqueueTranslate(row.querySelector('.kr'), text);
   }
   if(q && gov.remaining('main') > 2 && !gov.rpdBlocked()
-       && gov.rpdHeadroom('main') > 0.3){ suggest(text,'reply',true); }   // 일일 70% 소진 → 자동 제안 중단(클릭은 계속)
-  else if(!me){
+       && gov.rpdHeadroom('main') > 0.3){ suggest(turnBuf,'reply',true); } // 답변은 턴 전체로
+  else if(!me && text.split(/\s+/).length >= 4){
     // 새 상대 발화가 왔는데 새 생성이 시작되지 않음 — 카드에 남은 답변이
-    // "이전 발화 기준"임을 명시해 새 질문의 답으로 오독되지 않게 한다
+    // "이전 발화 기준"임을 명시. 조각("okay","so" 등 4단어 미만)은 카드를
+    // 건드리지 않는다 — 실전에서 조각마다 stale이 깜빡여 산만했다.
     const card = $('#card');
     if(card && card.style.display === 'block' && !card.classList.contains('gen') && !pinned)
       card.classList.add('stale');
@@ -1307,7 +1323,9 @@ $('#c-pin').onclick = ()=>{ pinned = !pinned; $('#c-pin').classList.toggle('on',
 let intentLastAt = 0, intentTimer = null;
 $$('.actions [data-intent]').forEach(b=>{
   b.onclick = ()=>{
-    const last = [...log].reverse().find(l=>l.who==='상대');
+    // 최근 10초 내 턴이 있으면 조각이 아닌 턴 전체에 답한다
+    const last = (Date.now() - turnAt < 10000 && turnBuf)
+      ? {text: turnBuf} : [...log].reverse().find(l=>l.who==='상대');
     if(!last) return;
     const fire = ()=>{ intentLastAt = Date.now(); suggest(last.text, b.dataset.intent); };
     clearTimeout(intentTimer);
@@ -1480,9 +1498,11 @@ async function sendSegment(blob, who, mime){
   }finally{ sttBusy--; updateSttStatus(); }
 }
 function updateSttStatus(){
-  if(engineMode() !== 'tab') return;
+  const m = engineMode();
+  if(m === 'web') return;
   const el = $('#status-txt');
-  if(sttBusy > 0 && !el.textContent.startsWith('⚠️')) el.textContent = '🖥 탭 오디오 인식 중…';
+  if(sttBusy > 0 && !el.textContent.startsWith('⚠️'))
+    el.textContent = m === 'tab' ? '🖥 탭 오디오 인식 중…' : '🎧 정밀 인식 중…';
 }
 const engineMode = () => $('#engine')?.value || 'web';
 
@@ -1525,6 +1545,28 @@ function stopTabCapture(){
   tabCap?.stop(); micCap?.stop();
   tabCap = micCap = null; tabStream = micStream = null;
   sttFails = 0; sttBackoffUntil = 0;
+}
+
+//  🎧 마이크 정밀 모드 — Zoom "앱" 창은 맥에서 오디오 공유가 안 돼 탭 오디오를
+//  못 쓴다. 대신 BlackHole(상대 소리 복사본)을 기본 입력으로 둔 기존 라우팅
+//  그대로, Web Speech 대신 서버 STT(커스텀 어휘 — Workato/MegazoneCloud 등
+//  고유명사 고정)로 인식한다. 웹 엔진과 같은 규칙: 이 입력의 모든 발화 = '상대'.
+async function startMicSttCapture(){
+  try{
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+  }catch{
+    setBanner('⚠️ 마이크 권한이 필요해요 — 주소창 자물쇠에서 허용');
+    return false;
+  }
+  audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  await audioCtx.resume();
+  tabCap = new SegmentRecorder(micStream, '상대');
+  const label = micStream.getAudioTracks()[0]?.label || '';
+  setBanner(/blackhole/i.test(label)
+    ? '🎧 정밀 인식 (BlackHole=상대 전용) — 고유명사 강화 STT'
+    : '🎧 정밀 인식 중 — ⚠️ 일반 마이크: 내 목소리도 "상대"로 잡힙니다 (BlackHole 권장)');
+  return true;
 }
 
 // ── STT (P0: Web Speech) ──
@@ -1672,12 +1714,14 @@ function preflight(){
 $('#btn-listen').onclick = async ()=>{
   if(listening()){ stopListening(); return; }
   if(!preflight()) return;
-  const ok = engineMode() === 'tab' ? await startTabCapture() : startSTT();
+  const em = engineMode();
+  const ok = em === 'tab' ? await startTabCapture()
+           : em === 'micstt' ? await startMicSttCapture() : startSTT();
   if(!ok) return;
   $('#engine').disabled = true;
   $('#btn-listen').textContent='⏸'; $('#btn-listen').classList.add('live');
   $('#status').classList.add('on');
-  if(engineMode() !== 'tab') $('#status-txt').textContent = '듣는 중 — 상대 발언이 자막으로 표시됩니다';
+  if(em === 'web') $('#status-txt').textContent = '듣는 중 — 상대 발언이 자막으로 표시됩니다';
 };
 
 // ── ⏹ 세션 종료: 요약 + 자료로 적재 ──
