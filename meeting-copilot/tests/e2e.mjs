@@ -247,9 +247,12 @@ const pl = await p.evaluate(() => {
   const cr = c.getBoundingClientRect(), fr = d.querySelector('#feed').getBoundingClientRect();
   const W = d.body.clientWidth;
   d.body.classList.remove('bg-live');
-  return { right: W - cr.right < 20, left: fr.left < 20, split: cr.left > fr.left + 40 };
+  // v4.5 한 기둥: 답변·자막이 같은 오른쪽 기둥에 위아래로 (시선 최소 이동)
+  return { right: W - cr.right < 24 && W - fr.right < 24,
+           col: Math.abs(cr.left - fr.left) < 8,
+           stack: cr.top < fr.top };
 });
-check('🎦 프롬프터 레이아웃 (자막 좌 · 답변 우상 분리)', pl.right && pl.left && pl.split);
+check('🎦 한 기둥 레이아웃 (답변·자막 우측 세로 정렬)', pl.right && pl.col && pl.stack);
 const f1 = await p.evaluate(() =>
   parseFloat(getComputedStyle(pipWin.document.querySelector('#c-answers .en')).fontSize));
 await p.evaluate(() => pipWin.document.querySelector('[data-ovs="L"]').click());

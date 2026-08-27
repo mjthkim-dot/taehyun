@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v25';  // v4.4: 짧은 질문 투기 적중률 — 히스테리시스 2·재사용 0.85
+const SHELL = 'mc-shell-v26';  // v4.5: 🎦 한 기둥 레이아웃 — 시선 이동 최소화
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {

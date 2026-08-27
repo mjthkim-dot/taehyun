@@ -409,19 +409,19 @@
   body.overlay.bg-live .bubble .en, body.overlay.bg-live .lrow .en{
     text-shadow:0 1px 2px rgba(0,0,0,.55)}
 
-  /* 🎦 프롬프터 레이아웃 (v4.3, 레퍼런스: 미팅 화면 위 2패널) — 배경 비추기가
-     켜지면 세로 스택 대신 [자막 통역(좌하) + 답변 프롬프터(우상) + 입력(우하)]
-     만 절대 배치로 띄운다. 패널 사이는 투명 — 미팅 화면(상대 얼굴)이 그대로
-     보인다. PiP 창을 줌 창 크기로 키우면 레퍼런스와 같은 구성이 된다. */
-  body.overlay.bg-live #view-live{position:relative}
-  body.overlay.bg-live .status{position:absolute;top:42px;left:8px;
-    width:min(52%,400px);margin:0;z-index:3}
-  body.overlay.bg-live #card{position:absolute;top:42px;right:8px;left:auto;
-    width:min(46%,440px);max-height:58%;margin:0;z-index:4}
-  body.overlay.bg-live #feed{position:absolute;left:8px;bottom:70px;top:auto;
-    width:min(50%,400px);max-height:46%;z-index:2;padding:0}
-  body.overlay.bg-live #ctrls{position:absolute;right:8px;bottom:8px;left:auto;
-    width:min(46%,440px);z-index:4}
+  /* 🎦 프롬프터 레이아웃 (v4.5 — 한 기둥) — 좌하 자막↔우상 답변의 대각선
+     시선 왕복이 실사용에서 피로했다. 모든 읽기 요소를 오른쪽 한 기둥(≤46%)에
+     위아래로 붙인다: [요약 → 답변 → 자막 1~2줄 → 입력]. 시선은 좁은 세로
+     기둥 안에서만 움직이고, 왼쪽 절반은 투명 — 미팅 화면(얼굴)이 보인다. */
+  body.overlay.bg-live .status,
+  body.overlay.bg-live #card,
+  body.overlay.bg-live #feed,
+  body.overlay.bg-live #ctrls{
+    width:min(46%,460px);margin-left:auto;margin-right:8px}
+  body.overlay.bg-live .status{margin-bottom:6px}
+  body.overlay.bg-live #card{max-height:56%;margin-bottom:6px}
+  /* 자막은 답변 바로 아래 1~2줄 — 답변→자막 시선 이동이 한 뼘이다 */
+  body.overlay.bg-live #feed{flex:0 0 auto;max-height:6.8em;padding:0 0 4px}
   body.overlay.bg-live #new-msg-wrap{display:none}
   /* 자막 패널은 '통역'이 주인공 — 한국어 크게·밝게, 영어는 보조 */
   body.overlay.bg-live .bubble .kr{font-size:calc(clamp(13px, 3.9vw, 17px) * var(--ovscale));
@@ -436,7 +436,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v4.4</span>
+  <span class="ver" id="app-ver">v4.5</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
