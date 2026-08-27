@@ -19,7 +19,8 @@ _lock = threading.Lock()
 _wins = {}                      # model -> deque[ts]
 _counts = Counter()
 _rpd_mode = {"on": False}
-_err_mode = {"mode": "off", "p": 0.0, "retry_after": None}   # 무작위 오류 주입
+_err_mode = {"mode": "off", "p": 0.0, "retry_after": None, "armed_at": 0.0}  # 무작위 오류 주입
+_ERR_TTL = 60   # 주입 자동 만료(초) — 테스트가 disarm 전에 죽어도 다음 실행을 오염시키지 않는다
 RPM = {"lite": int(os.environ.get("MOCK_RPM_LITE", "15")),
        "flash": int(os.environ.get("MOCK_RPM_FLASH", "10"))}
 
@@ -80,13 +81,15 @@ class H(http.server.BaseHTTPRequestHandler):
         if self.path == "/__err":
             cfg = json.loads(body or b"{}")
             _err_mode.update(mode=cfg.get("mode","off"), p=float(cfg.get("p",0)),
-                             retry_after=cfg.get("retry_after"))
+                             retry_after=cfg.get("retry_after"), armed_at=time.time())
             self._json(200, dict(_err_mode)); return
         m = re.search(r"/models/([^:]+):(\w+)", self.path)
         if not m: self.send_error(404); return
         model, verb = m.group(1), m.group(2)
         # 무작위 오류 주입 — 429는 Retry-After 헤더 포함(게이트웨이가 준수하는지 검증)
         import random as _r
+        if _err_mode["mode"] != "off" and time.time() - _err_mode["armed_at"] > _ERR_TTL:
+            _err_mode.update(mode="off", p=0.0)          # TTL 만료 — 자동 해제
         if _err_mode["mode"] != "off" and _r.random() < _err_mode["p"]:
             _counts[f"inject_{_err_mode['mode']}"] += 1
             if _err_mode["mode"] == "empty":

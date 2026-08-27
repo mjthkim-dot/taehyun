@@ -436,7 +436,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v4.3</span>
+  <span class="ver" id="app-ver">v4.4</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -1209,10 +1209,10 @@ async function suggest(said, intent, auto, speculative, retried){
   if(auto && pinned) return;
   if(!auto && pinned){ pinned = false; $('#c-pin').classList.remove('on'); }
   if(!speculative){ specTries = 0; specGaps = []; specLastAt = 0; }
-  // 0.88: 투기 답변 재사용 문턱 — 0.92는 어미 몇 단어 차이로도 재생성해
-  // 투기의 이득(선생성)을 자주 버렸다. 살짝 낮춰 "질문 끝나면 이미 떠 있음"
-  // 빈도를 올린다 (핵심 어절이 같으면 답변 방향은 동일)
-  if(!speculative && specKey && covers(specKey, said) >= 0.88 && (specDone || suggestAbort)){
+  // 0.85: 투기 답변 재사용 문턱 — 짧은 질문(8단어)에서 마지막 1어절만
+  // 놓쳐도 7/8=0.875로 0.88에 걸려 재생성됐다. 어미 1~2어절 차이는 답변
+  // 방향을 바꾸지 않는다 (접두 부분 투기는 covers 구조상 여전히 재사용 불가)
+  if(!speculative && specKey && covers(specKey, said) >= 0.85 && (specDone || suggestAbort)){
     $('#card').classList.remove('spec'); specKey = ''; specDone = ''; return;
   }
   if(speculative){ specKey = said; specDone = ''; }
@@ -1377,10 +1377,12 @@ function maybeSpeculate(interim){
   clearTimeout(specTimer);
   if(t.split(/\s+/).length < 5 || !wantsReply(t)) return;
   if(specKey && covers(specKey,t) >= 0.92) return;
-  // 히스테리시스: 직전 투기 대비 새 어절이 4개 이상 늘었을 때만 재발사 —
-  // 어절 하나 늘 때마다 재투기하면 중단된 스트림(좀비)이 게이트웨이 슬롯을
-  // 연쇄 점유해 정작 본답변이 뒤에서 줄을 선다 (v3.8 근본 원인의 절반)
-  if(specKey && t.split(/\s+/).length - specKey.split(/\s+/).length < 4) return;
+  // 히스테리시스: 직전 투기 대비 새 어절 2개 이상일 때만 재발사.
+  // 4로 두면 짧은 질문(면접 질문 대부분 8~15단어)의 마지막 성장분을 놓쳐
+  // 최종 문장과의 일치율(covers)이 떨어지고 → 미리 만든 답을 버리고
+  // 재생성 = 체감 3~5초의 원인이었다. 좀비 부담은 동시 상한 6 + 낡은
+  // 스트림 취소(v3.8)가 흡수한다 — 실측 무해.
+  if(specKey && t.split(/\s+/).length - specKey.split(/\s+/).length < 2) return;
   specTimer = setTimeout(()=>{
     if(pinned || specTries >= specMax()) return;
     if(specKey && covers(specKey, specLastText) >= 0.92) return;
