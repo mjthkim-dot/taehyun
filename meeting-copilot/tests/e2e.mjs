@@ -190,6 +190,49 @@ check('EN의 " / " 구분자가 .brk로 렌더 + 본문 유지', await p.evaluat
   return !!en.querySelector('.brk') && en.textContent.includes('customers');
 }));
 
+console.log('\n■ v5.1 턴 정착 — 조각난 질문에 답변 1회만 발사');
+{
+  // v5.0 결함 재발 방지: 조각마다 suggest가 나가면 직전 생성을 abort해 답변
+  // 시계가 리셋되고(체감 3~5초), 버려진 오프너가 fast 레인을 점유해 번역까지
+  // 밀렸다(실측 큐 대기 430ms). 계약: 한 턴 = ⚡오프너 1 + 본답변 1.
+  let calls = 0; const bodies = [];
+  const count = r => {
+    if (r.url().includes('/api/suggest')) { calls++; bodies.push(r.postData() || ''); }
+  };
+  p.on('request', count);
+  await p.evaluate(() => addUtterance('Sure, happy to walk you through it.', '나'));  // 내 답변 = 턴 경계
+  await p.waitForTimeout(200);
+  for (const f of ["I'd love to understand", "what kind of customers",
+                   "you worked with,", "and how big were those deals?"]) {
+    await p.evaluate(t => addUtterance(t, '상대'), f);
+    await p.waitForTimeout(800);
+  }
+  await p.waitForTimeout(2500);
+  p.off('request', count);
+  check('조각 4개 질문 → suggest ≤2회 (오프너+본답변)', calls <= 2, `${calls}회`);
+  // 본답변 요청의 said가 마지막 조각이 아니라 턴 전체여야 한다
+  const main = bodies.find(b => !/"opener"\s*:\s*1/.test(b)) || '';
+  const said = (main.match(/"said"\s*:\s*"([^"]*)"/) || [])[1] || '';
+  check('본답변 입력 = 턴 전체(조각 아님) · 이전 턴 미혼입',
+    said.startsWith("I'd love to understand") && /how big were those deals/.test(said),
+    said.slice(0, 60));
+}
+
+console.log('\n■ v5.1 고유명사 교정 (지연 0 · 브라우저 STT 오인식 복구)');
+{
+  await p.evaluate(() => addUtterance('So you were at mega stone crab working on avocado?', '상대'));
+  await p.waitForTimeout(300);
+  const en = await p.evaluate(() =>
+    [...document.querySelectorAll('#feed .row .en')].pop()?.textContent || '');
+  check('"mega stone crab"→MegazoneCloud · "avocado"→Workato',
+    en.includes('MegazoneCloud') && en.includes('Workato'), en.slice(0, 60));
+  const keep = await p.evaluate(() => {
+    addUtterance('I pass on that one for now', '상대');
+    return [...document.querySelectorAll('#feed .row .en')].pop()?.textContent || '';
+  });
+  check('일상어는 건드리지 않음 ("I pass")', keep.includes('I pass'), keep.slice(0, 40));
+}
+
 console.log('\n■ v4.0 번역 자동 재시도 (일시 503 주입 → 회복)');
 const errsBeforeInject = errs.length;
 try {

@@ -436,7 +436,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v5.0</span>
+  <span class="ver" id="app-ver">v5.1</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -848,15 +848,80 @@ $('#new-msg').onclick = ()=> feedScroll(true);
 // 질문 감지가 실패했고, 답변도 조각에 대해 생성됐다. 4초 내 이어지는 상대
 // 발화를 한 '턴'으로 묶어 질문 판정·답변 생성은 턴 전체 텍스트로 한다.
 // (자막 표시는 조각 그대로 — 병합은 판정·생성에만 쓴다)
-let turnBuf = '', turnAt = 0;
+// ── 고유명사 교정 (지연 0) ──
+//  8/27 실전에서 브라우저 STT가 회사·제품명을 통째로 깨뜨렸고, 오염된 자막이
+//  번역·질문감지·RAG 검색을 연쇄로 무너뜨렸다(실측: "Workato"→avocado/walkato,
+//  "MegazoneCloud"→mega stone crab, "당근"→Congo Market). 서버 전사(🎧 정밀)는
+//  정확하지만 왕복 2.5초가 붙는다 — 실시간을 지키면서 이름만 되살리기 위해
+//  브라우저 STT 결과를 표시 직전에 사전으로 교정한다. API 호출이 없어 공짜다.
+//  보수적으로: 확실한 오인식 패턴만 잡는다(일상어 오교정 금지).
+const NAME_FIXES = [
+  [/\bmega\s*(?:stone|zone)\s*(?:crab|cloud|crowd|club)\b/gi, 'MegazoneCloud'],
+  [/\bmegazone\s*(?:crab|crowd|club)\b/gi, 'MegazoneCloud'],
+  [/\b(?:walkato|workato|work\s*auto|rock\s*auto|avocado)\b/gi, 'Workato'],
+  [/\b(?:tune\s*system|tunesystem|bus\s*company)\b/gi, 'TuneSystem'],
+  [/\b(?:daangn|dang\s*geun|congo\s*market|tango\s*market)\b/gi, 'Daangn'],
+  [/\bi-?paas\b|\bipass\b/gi, 'iPaaS'],
+  [/\bdev\s*sec\s*ops\b/gi, 'DevSecOps'],
+  [/\bgit\s*lab\b/gi, 'GitLab'],
+  [/\bnexus\s*community\b/gi, 'Nexus Community'],
+  [/(\d+)\s*mg\b/gi, '$1M'],          // "160mg" → "160M" (금액 오인식)
+];
+function fixNames(t){
+  let out = t;
+  for(const [re, to] of NAME_FIXES) out = out.replace(re, to);
+  return out;
+}
+
+let turnBuf = '', turnAt = 0, turnFired = '', turnTimer = null, turnOpened = false;
+const TURN_GAP = 4000;                    // 이 시간 안에 이어지면 같은 턴
+
+// 문장 단위 트리밍 — slice(-700)은 단어 중간을 잘라 프롬프트를 오염시켰다.
+// 긴 독백에서도 '지금 답할 질문'이 흐려지지 않게 최근 3문장만 남긴다.
+function turnTrim(s){
+  if(s.length <= 700) return s;
+  let out = s.split(/(?<=[.!?])\s+/).slice(-3).join(' ');
+  if(out.length > 700) out = out.slice(-700).replace(/^\S*\s+/, '');
+  return out;
+}
+function resetTurn(){
+  clearTimeout(turnTimer); turnTimer = null;
+  turnBuf = ''; turnAt = 0; turnFired = ''; turnOpened = false;
+  if(openerAbort){ openerAbort.abort(); openerAbort = null; }
+}
+
+// 턴 정착 후 1회 발사 — v5.0 실측 결함: 조각 4개짜리 질문 하나에 /api/suggest가
+// 8번 나가(조각마다 본답변+오프너) 직전 생성을 계속 abort했다. 답변 시계가 매
+// 조각마다 리셋됐고, 버려진 오프너들이 fast 레인 2슬롯을 점유해 번역까지 줄을
+// 세웠다(트레이스 실측: 번역 큐 대기 430ms · 오프너 1137ms).
+//  · ⚡오프너: 질문을 처음 감지한 즉시 1회 — 상대가 말을 마치기 전에 첫 문장
+//  · 본답변 : 턴이 멈춘 뒤 1회 — 문장이 끝난 모양이면 짧게, 이어질 듯하면 길게
+function scheduleTurnAnswer(){
+  clearTimeout(turnTimer); turnTimer = null;
+  if(!wantsReply(turnBuf)) return;
+  if(!(gov.remaining('main') > 2 && !gov.rpdBlocked() && gov.rpdHeadroom('main') > 0.3)) return;
+  if(!turnOpened && turnBuf.split(/\s+/).length >= 5){ turnOpened = true; fireOpener(turnBuf, 'reply'); }
+  // 정착 창은 '문장이 끝났는가'로 가른다. 조각 간격(실측 0.6~1.0s)보다 짧으면
+  // 말하는 중에 발사돼 다시 조각 단위로 돌아간다 — 종결부호가 없으면 넉넉히 기다린다.
+  // 기다리는 동안은 ⚡오프너가 이미 첫 문장을 띄워 두므로 체감 공백이 없다.
+  const settle = /[?.!]["')\]]?\s*$/.test(turnBuf) ? 250 : 1100;
+  turnTimer = setTimeout(()=>{
+    turnTimer = null;
+    if(turnFired && covers(turnFired, turnBuf) >= 0.85) return;   // 이미 답한 턴
+    turnFired = turnBuf;
+    suggest(turnBuf, 'reply', true);
+  }, settle);
+}
+
 function addUtterance(text, who){
   $('#feed-empty')?.remove();
   const me = who === '나';
-  if(me){ turnBuf = ''; turnAt = 0; }
+  if(!me) text = fixNames(text);        // 상대 발화의 고유명사부터 되살린다
+  if(me) resetTurn();
   else{
     const nw = Date.now();
-    turnBuf = (nw - turnAt < 4000 && turnBuf ? turnBuf + ' ' : '') + text;
-    if(turnBuf.length > 700) turnBuf = turnBuf.slice(-700);   // 폭주 방지
+    if(nw - turnAt >= TURN_GAP){ turnBuf = ''; turnFired = ''; turnOpened = false; }  // 새 턴
+    turnBuf = turnTrim((turnBuf ? turnBuf + ' ' : '') + text);
     turnAt = nw;
   }
   const q = !me && wantsReply(turnBuf);
@@ -867,11 +932,11 @@ function addUtterance(text, who){
     <div class="bubble"><div class="en"></div><div class="kr"></div></div>`;
   row.querySelector('.en').textContent = text;
   feed.appendChild(row); feedScroll();
-  if(!me && text.split(' ').length >= 3){          // 번역은 상대 발언만 (내 영어를 되돌릴 이유 없음)
+  if(!me && text.split(' ').length >= 2){          // 번역은 상대 발언만 (내 영어를 되돌릴 이유 없음)
+    // 2단어: 조각 STT에서는 "Why not?" "How many?"처럼 짧아도 의미가 있다
     enqueueTranslate(row.querySelector('.kr'), text);
   }
-  if(q && gov.remaining('main') > 2 && !gov.rpdBlocked()
-       && gov.rpdHeadroom('main') > 0.3){ suggest(turnBuf,'reply',true); } // 답변은 턴 전체로
+  if(q){ scheduleTurnAnswer(); }               // 턴이 정착하면 1회 — 조각마다 재발사 금지
   else if(!me && text.split(/\s+/).length >= 4){
     // 새 상대 발화가 왔는데 새 생성이 시작되지 않음 — 카드에 남은 답변이
     // "이전 발화 기준"임을 명시. 조각("okay","so" 등 4단어 미만)은 카드를
@@ -1221,6 +1286,39 @@ function renderSources(meta){
   el.style.display = 'block';
 }
 
+// ⚡ 즉답 오프너 — 본답변(TTFT 1.5~4s)을 기다리는 동안 '말을 시작할 첫 문장'만
+// fast 레인에서 먼저 가져온다. v5.1: suggest() 안에 있던 것을 분리했다 — 안에
+// 있으면 재생성 때마다 같이 발사돼 fast 레인(번역과 공유)을 점유했다.
+// 이제 턴당 1회만, 질문을 감지한 즉시 나간다.
+let openerAbort = null, mainRaw = '';
+function fireOpener(said, intent){
+  if(pinned) return;
+  if(['translate','buytime','clarify'].includes(intent)) return;   // 자체가 1초대
+  if(openerAbort) openerAbort.abort();
+  openerAbort = new AbortController();
+  const sig = openerAbort.signal;
+  const card = $('#card');
+  card.style.display = 'block';
+  gov.note('fast');
+  fetch('/api/suggest', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({said, intent, preset: appPreset(), opener: 1}), signal: sig})
+    .then(async res=>{
+      if(!res.ok) return;
+      const rd = res.body.getReader(), dec = new TextDecoder();
+      let buf = '', txt = '';
+      for(;;){
+        const {done, value} = await rd.read(); if(done) break;
+        buf += dec.decode(value, {stream:true});
+        const lines = buf.split('\n'); buf = lines.pop();
+        for(const ln of lines){ try{ const o = JSON.parse(ln);
+          if(o.message?.content) txt += o.message.content; }catch{} }
+        if(mainRaw) return;                        // 본답변 도착 — 오프너 폐기
+        const first = txt.trim().split('\n')[0];
+        if(first){ renderCard('EN: ' + first); card.classList.add('opened'); }
+      }
+    }).catch(()=>{});
+}
+
 async function suggest(said, intent, auto, speculative, retried){
   if(auto && pinned) return;
   if(!auto && pinned){ pinned = false; $('#c-pin').classList.remove('on'); }
@@ -1251,38 +1349,16 @@ async function suggest(said, intent, auto, speculative, retried){
   card.classList.add('gen'); card.classList.remove('slow','opened');
   clearTimeout(genSlowTimer);
   genSlowTimer = setTimeout(()=>card.classList.add('slow'), 3000);   // 3초+ 지연 → "생성 중…"
-  // ⚡ 1초 오프너 — 본답변(TTFT 1.5~4s)과 병렬로 fast 레인에 '첫 문장'만 요청.
-  // 먼저 도착하면 즉시 띄우고, 본답변 첫 토큰이 오면 renderCard가 교체한다.
-  // 투기(이미 선생성)·퀵 번역·시간벌기/되묻기(자체가 fast 1초대)에는 불필요.
-  if(!speculative && !['translate','buytime','clarify'].includes(intent)){
-    gov.note('fast');
-    fetch('/api/suggest', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({said, intent, preset: appPreset(), opener: 1}), signal: sig})
-      .then(async res=>{
-        if(!res.ok) return;
-        const rd = res.body.getReader(), dec = new TextDecoder();
-        let buf = '', txt = '';
-        for(;;){
-          const {done, value} = await rd.read(); if(done) break;
-          buf += dec.decode(value, {stream:true});
-          const lines = buf.split('\n'); buf = lines.pop();
-          for(const ln of lines){ try{ const o = JSON.parse(ln);
-            if(o.message?.content) txt += o.message.content; }catch{} }
-          if(raw) return;                          // 본답변 도착 — 오프너 폐기
-          const first = txt.trim().split('\n')[0];
-          if(first){ renderCard('EN: ' + first); card.classList.add('opened'); }
-        }
-      }).catch(()=>{});
-  }
   const context = log.slice(-7).map(l=>`${l.who==='나'?'Me':'Them'}: ${l.text}`).join('\n');
   let raw = '';
+  mainRaw = '';                    // 이 턴의 본답변 시작 — 오프너는 첫 토큰에서 물러난다
   try{
     // 시간 벌기·되묻기는 서버가 fast 레인으로 보낸다 — 로컬 카운트도 맞춘다
     gov.note(['buytime','clarify'].includes(intent) ? 'fast' : 'main');
     await streamChat('/api/suggest',{said,context,intent,cefr:$('#cefr').value,preset:appPreset(),
       bg: !!(auto || speculative)},   // 자동·투기는 게이트웨이에서 클릭보다 후순위
       tk=>{ if(!raw){ card.classList.remove('gen','slow','opened'); clearTimeout(genSlowTimer); }
-            raw += tk; renderCard(raw); }, sig, renderSources);
+            raw += tk; mainRaw = raw; renderCard(raw); }, sig, renderSources);
     if(!raw.trim() && (auto || speculative)){                 // 게이트웨이 드롭
       // 연속 질문의 핵심 버그: 새 질문의 투기/자동 제안이 드롭되면 조용히
       // 사라져 "반응이 없다"가 된다 → 500ms 뒤 일반 자동 제안으로 딱 1회
@@ -1327,7 +1403,8 @@ $$('.actions [data-intent]').forEach(b=>{
     const last = (Date.now() - turnAt < 10000 && turnBuf)
       ? {text: turnBuf} : [...log].reverse().find(l=>l.who==='상대');
     if(!last) return;
-    const fire = ()=>{ intentLastAt = Date.now(); suggest(last.text, b.dataset.intent); };
+    const fire = ()=>{ intentLastAt = Date.now();
+      fireOpener(last.text, b.dataset.intent); suggest(last.text, b.dataset.intent); };
     clearTimeout(intentTimer);
     const dt = Date.now() - intentLastAt;
     if(dt >= 300) fire();
@@ -1458,8 +1535,10 @@ class SegmentRecorder {
     } else {
       const dur = Date.now() - this.started;
       if(lv < Math.max(this.floor*2.0, 0.005)) this.silence += 100; else this.silence = 0;
-      // 0.9초 침묵이면 문장이 끝난 것으로 보고 컷. 14초를 넘으면 강제로 자른다.
-      if((this.silence >= 900 && dur > 400) || dur > 14000){
+      // 0.7초 침묵이면 문장이 끝난 것으로 보고 컷. 14초를 넘으면 강제로 자른다.
+      // 0.9→0.7초: 서버 전사 왕복(실측 2.5초)에 얹히는 순수 대기라 체감이 크다.
+      // 문장이 일찍 잘려도 턴 병합이 4초 안의 조각을 한 턴으로 묶어 복구한다.
+      if((this.silence >= 700 && dur > 400) || dur > 14000){
         this.speaking = false; this.silence = 0;
         try{ this.rec.stop(); }catch{ this.flush(); }
       }

@@ -14,6 +14,7 @@
 """
 from __future__ import annotations
 
+import base64
 import json
 import os
 import time
@@ -47,8 +48,12 @@ GEMINI_URL = os.environ.get("GEMINI_URL", "https://generativelanguage.googleapis
 # 버전 고정은 은퇴 사고를 부른다 — 맥북 실측: 2.5는 "신규 사용자 제공 종료"
 # 404, 고정 3.5도 언젠가 같은 길을 간다. 구글이 관리하는 "latest" 별칭을 쓰면
 # 항상 현행 무료 권장 모델을 가리킨다 (특정 버전이 필요하면 env로 고정).
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
-GEMINI_FAST_MODEL = os.environ.get("GEMINI_FAST_MODEL", "gemini-flash-lite-latest")
+# 실측(2026-08, 실키·유료)으로 고른 기본값. `*-latest` 별칭은 생각(thinking)이 무거운
+# 세대를 가리켜 답변이 중앙 4.8초·최대 13.3초로 튀었다(52초까지 관측). 3.6-flash는
+# 같은 품질에 중앙 1.97초·최대 2.11초로 꼬리가 없다 — 실시간 면접에는 예측 가능성이
+# 우선이라 버전을 고정한다. 폐기되면 아래 _FALLBACK_MODEL로 자동 전환한다.
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+GEMINI_FAST_MODEL = os.environ.get("GEMINI_FAST_MODEL", "gemini-3.1-flash-lite")
 # 무료 티어는 입력이 모델 개선에 사용될 수 있다(구글 약관) — 유료 결제 계정이면
 # GEMINI_TIER=paid 로 선언 (API로는 티어를 조회할 수 없어 선언 기반이다)
 GEMINI_TIER = os.environ.get("GEMINI_TIER", "free")
@@ -223,6 +228,19 @@ def _anthropic_stream(messages, temperature, max_tokens, model):
 #  · flash-lite-latest(→3.5-lite): thinking 미지원이라 같은 필드가 400
 # 모델별로 첫 400에서 학습해 빼고 재시도한다 (모델당 1회만 왕복 추가).
 _thinkcfg_bad: set[str] = set()
+# 모델별 '생각 최소화' 설정 — 모델 세대마다 받는 파라미터가 정반대라 협상해서 기억한다.
+#   실측(2026-08): gemini-flash-lite-latest는 thinkingBudget:0을 400으로 거부하고
+#   thinkingLevel:"minimal"을 받는다(1.23s·thoughts 0). gemini-flash-latest는 그 반대로
+#   thinkingLevel을 400으로 거부하고 thinkingBudget:128이 가장 빠르다(2.78s).
+#   아무것도 안 주면 생각이 무제한이라 7.8초~52초까지 튄다(실전 지연의 주범).
+_THINK_TRY = [{"thinkingLevel": "minimal"}, {"thinkingBudget": 128},
+              {"thinkingBudget": 0}, None]
+_think_cfg: dict[str, dict | None] = {}
+# 고정 버전이 폐기되면(구글은 실제로 gemini-2.5-flash를 404로 내렸다) 별칭으로 자동
+# 전환한다 — 미팅 도중 전 기능이 멈추는 것보다 조금 느린 편이 낫다.
+_FALLBACK_MODEL = {"gemini-3.6-flash": "gemini-flash-latest",
+                   "gemini-3.1-flash-lite": "gemini-flash-lite-latest"}
+_model_gone: dict[str, str] = {}
 
 
 def _gemini_payload(messages, json_mode, temperature, max_tokens, mdl=""):
@@ -236,8 +254,10 @@ def _gemini_payload(messages, json_mode, temperature, max_tokens, mdl=""):
     payload: dict = {"contents": contents,
                      "generationConfig": {"temperature": temperature,
                                           "maxOutputTokens": max_tokens}}
-    if os.environ.get("GEMINI_THINKING") != "1" and mdl not in _thinkcfg_bad:
-        payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}
+    if os.environ.get("GEMINI_THINKING") != "1":
+        cfg = _think_cfg.get(mdl, _THINK_TRY[0])
+        if cfg:
+            payload["generationConfig"]["thinkingConfig"] = dict(cfg)
     if system_parts:
         payload["systemInstruction"] = {"parts": system_parts}
     if json_mode:
@@ -245,16 +265,31 @@ def _gemini_payload(messages, json_mode, temperature, max_tokens, mdl=""):
     return payload
 
 
-def _gemini_open(url, mdl, build):
-    # build(mdl) → payload. thinkingConfig 400이면 그 모델을 기억하고 빼고 1회 재시도
-    try:
-        return _open(url, build(mdl), timeout=120)
-    except urllib.error.HTTPError as e:
-        had_cfg = "thinkingConfig" in json.dumps(build(mdl))
-        if e.code == 400 and had_cfg:
-            _thinkcfg_bad.add(mdl)
-            return _open(url, build(mdl), timeout=120)
-        raise
+def _gemini_open(url_for, mdl, build):
+    """build(mdl) → payload. thinkingConfig가 400이면 다음 후보로 내려가며 협상한다.
+
+    성공한 설정은 모델별로 캐시되므로 협상 비용은 프로세스당 1회다. 생각을 막지
+    못하면 답변 지연이 7.8~52초까지 튀므로(실측), '설정 없음'은 최후 수단이다.
+    """
+    mdl = _model_gone.get(mdl, mdl)
+    while True:
+        try:
+            return _open(url_for(mdl), build(mdl), timeout=120)
+        except urllib.error.HTTPError as e:
+            if e.code == 404 and mdl in _FALLBACK_MODEL:
+                _model_gone[mdl] = _FALLBACK_MODEL[mdl]     # 폐기 — 별칭으로 전환
+                mdl = _FALLBACK_MODEL[mdl]
+                continue
+            cur = _think_cfg.get(mdl, _THINK_TRY[0])
+            if e.code != 400 or cur is None:
+                raise
+            try:
+                nxt = _THINK_TRY[_THINK_TRY.index(cur) + 1]
+            except (ValueError, IndexError):
+                nxt = None
+            _think_cfg[mdl] = nxt
+            if nxt is None:
+                _thinkcfg_bad.add(mdl)      # 진단용 — 생각을 못 막은 모델
 
 
 def _gemini_text(obj) -> str:
@@ -266,16 +301,16 @@ def _gemini_text(obj) -> str:
 
 def _gemini_chat(messages, json_mode, temperature, max_tokens, model):
     mdl = model or GEMINI_MODEL
-    url = f"{GEMINI_URL}/models/{mdl}:generateContent?key={GEMINI_API_KEY}"
-    with _gemini_open(url, mdl, lambda m: _gemini_payload(
+    url_for = lambda m: f"{GEMINI_URL}/models/{m}:generateContent?key={GEMINI_API_KEY}"
+    with _gemini_open(url_for, mdl, lambda m: _gemini_payload(
             messages, json_mode, temperature, max_tokens, m)) as r:
         return _gemini_text(json.loads(r.read()))
 
 
 def _gemini_stream(messages, temperature, max_tokens, model):
     mdl = model or GEMINI_MODEL
-    url = f"{GEMINI_URL}/models/{mdl}:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
-    with _gemini_open(url, mdl, lambda m: _gemini_payload(
+    url_for = lambda m: f"{GEMINI_URL}/models/{m}:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
+    with _gemini_open(url_for, mdl, lambda m: _gemini_payload(
             messages, False, temperature, max_tokens, m)) as resp:
         for raw in resp:  # SSE: "data: {...}\n"
             line = raw.decode("utf-8", "ignore").strip()
@@ -742,6 +777,8 @@ def embed(texts: list[str]) -> list[list[float]] | None:
 # "Workato"→"avocado", "당근(Daangn)"→"Tango Market")해 번역·답변 전체가
 # 오염됐다. 커스텀 어휘(최대 1,000개)로 도메인 고유명사를 고정한다.
 GEMINI_STT_MODEL = os.environ.get("GEMINI_STT_MODEL", "gemini-3.5-transcribe")
+# 이 크기 이하는 본문 인라인으로 한 번만 왕복한다(업로드 왕복 ~2초 절약).
+STT_INLINE_MAX = int(os.environ.get("STT_INLINE_MAX", str(6 * 1024 * 1024)))
 # 기본 어휘: 태현의 세계 — 회사·고객사·도메인 용어. STT_VOCAB env로 추가.
 _STT_VOCAB_BASE = [
     "Workato", "MegazoneCloud", "Megazone", "Daangn", "TuneSystem", "iPaaS",
@@ -756,42 +793,50 @@ def _stt_vocab() -> list[str]:
 
 def transcribe_gemini(audio: bytes, mime: str = "audio/webm",
                       language: str | None = None) -> str:
-    """Gemini 3.5 Transcribe (Interactions API) — Files 업로드 후 전사.
-    smart 모드: 필러("um") 제거·자가수정 해소·숫자 정형화 = 다운스트림
-    번역·답변 프롬프트에 바로 쓸 수 있는 깨끗한 텍스트."""
+    """Gemini 3.5 Transcribe (Interactions API) — 오디오 → 텍스트.
+
+    smart 모드: 필러("um") 제거·자가수정 해소·숫자 정형화 = 다운스트림 번역·답변
+    프롬프트에 바로 쓸 수 있는 깨끗한 텍스트. custom_vocabulary가 고유명사를 고정한다.
+
+    실시간성: 오디오를 **본문에 인라인**으로 실어 한 번만 왕복한다. Files API에
+    올린 뒤 전사하는 2단계는 업로드 왕복이 통째로 더 붙었다(실측 3초 발화 기준
+    업로드 2.00s + 추론 2.73s = 4.73s → 인라인 2.3~3.1s). 인라인은 파일이 서버에
+    남지 않아 민감 음성 위생에도 유리하다. 요청 본문 상한이 있으므로 큰 오디오
+    (미팅 통째 업로드 등)만 기존 Files 경로로 넘긴다.
+    """
     if not GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY 없음")
-    # 1) Files API 업로드 (simple/raw)
-    up_url = GEMINI_URL.replace("/v1beta", "/upload/v1beta") + f"/files?key={GEMINI_API_KEY}"
-    req = urllib.request.Request(up_url, data=audio, method="POST", headers={
-        "X-Goog-Upload-Protocol": "raw", "Content-Type": mime})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        f = json.loads(r.read()).get("file", {})
-    uri, up_mime = f.get("uri"), f.get("mimeType", mime)
-    if not uri:
-        raise RuntimeError("Gemini Files 업로드 응답에 uri 없음")
-    # 2) 전사 (Interactions API)
-    body = {
-        "model": GEMINI_STT_MODEL,
-        "input": [{"type": "audio", "uri": uri, "mime_type": up_mime}],
-        "generation_config": {"transcription_config": {
-            "language_codes": [language] if language else ["en-US", "ko-KR"],
-            "custom_vocabulary": _stt_vocab(),
-            "mode": {"type": "smart"},
-        }},
-    }
+    cfg = {"transcription_config": {
+        "language_codes": [language] if language else ["en-US", "ko-KR"],
+        "custom_vocabulary": _stt_vocab(),
+        "mode": {"type": "smart"},
+    }}
+    fname = None
+    if len(audio) <= STT_INLINE_MAX:
+        src = {"type": "audio", "data": base64.b64encode(audio).decode(),
+               "mime_type": mime}
+    else:                                   # 큰 파일만 업로드 경로
+        up_url = GEMINI_URL.replace("/v1beta", "/upload/v1beta") + f"/files?key={GEMINI_API_KEY}"
+        req = urllib.request.Request(up_url, data=audio, method="POST", headers={
+            "X-Goog-Upload-Protocol": "raw", "Content-Type": mime})
+        with urllib.request.urlopen(req, timeout=120) as r:
+            f = json.loads(r.read()).get("file", {})
+        if not f.get("uri"):
+            raise RuntimeError("Gemini Files 업로드 응답에 uri 없음")
+        fname = f.get("name")
+        src = {"type": "audio", "uri": f["uri"], "mime_type": f.get("mimeType", mime)}
+
+    body = {"model": GEMINI_STT_MODEL, "input": [src], "generation_config": cfg}
     req = urllib.request.Request(
         f"{GEMINI_URL}/interactions?key={GEMINI_API_KEY}",
         data=json.dumps(body).encode(), method="POST",
         headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=60) as r:
         obj = json.loads(r.read())
-    # 민감 오디오(면접 실음성) — 전사 즉시 업로드 파일 삭제 (best-effort)
-    name = f.get("name")
-    if name:
+    if fname:      # 민감 오디오(면접 실음성) — 전사 즉시 삭제 (best-effort)
         try:
             urllib.request.urlopen(urllib.request.Request(
-                f"{GEMINI_URL}/{name}?key={GEMINI_API_KEY}", method="DELETE"), timeout=10)
+                f"{GEMINI_URL}/{fname}?key={GEMINI_API_KEY}", method="DELETE"), timeout=10)
         except Exception:  # noqa: BLE001
             pass
     # 응답 파싱 — 실측 구조: steps[].type=model_output → content[].text

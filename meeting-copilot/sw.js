@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v27';  // v5.0: gemini-3.5-transcribe STT + 턴 병합 — 실전 사후 개선
+const SHELL = 'mc-shell-v28';  // v5.1: 턴 정착·오프너 분리·모델 고정 — 지연 폭발 근절
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {

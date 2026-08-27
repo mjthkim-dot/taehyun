@@ -57,8 +57,12 @@ STATIC = {
 MAX_BODY = int(os.environ.get("MAX_BODY_MB", "8")) * 1024 * 1024
 # 리버스 프록시(Caddy/nginx) 뒤에서만 1로 — X-Forwarded-* 를 신뢰하게 된다
 TRUST_PROXY = os.environ.get("TRUST_PROXY") == "1"
-# 로컬 Whisper는 CPU를 통째로 쓴다 — 동시 인식 수를 코어 절반으로 제한
-STT_MAX_CONC = int(os.environ.get("STT_MAX_CONC", str(max(1, (os.cpu_count() or 2) // 2))))
+# 로컬 Whisper는 CPU를 통째로 쓴다 — 동시 인식 수를 코어 절반으로 제한.
+# 반면 Gemini 전사는 네트워크 대기라 코어 수로 묶으면 조각들이 헛되이 줄을 선다
+# (VAD 0.7초 컷 이후 조각이 촘촘해졌다) — 키가 있으면 네트워크 기준으로 넓힌다.
+STT_MAX_CONC = int(os.environ.get(
+    "STT_MAX_CONC",
+    "4" if os.environ.get("GEMINI_API_KEY") else str(max(1, (os.cpu_count() or 2) // 2))))
 _stt_sem = threading.BoundedSemaphore(STT_MAX_CONC)
 
 # ── 사용자별 스토어 레지스트리 ─────────────────────────────────

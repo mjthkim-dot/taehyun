@@ -129,14 +129,25 @@ def _fire(now: float, lane: str) -> None:
         _sent.popleft()
 
 
+def _cap_for(ent) -> int:
+    """배경 작업(오프너·투기 제안·자산화·요약)은 레인의 마지막 슬롯을 비워 둔다.
+
+    우선순위는 '대기줄 순서'만 정할 뿐 진행 중인 스트림을 밀어내지 못한다. 그래서
+    배경 작업이 fast 레인을 꽉 채우면 뒤에 온 번역은 앞자리를 받고도 슬롯이 없어
+    기다렸다(v5.0 실측: 번역 큐 대기 430ms, 오프너 1137ms). 마지막 슬롯을 예약해
+    번역·클릭 제안이 항상 즉시 발사되게 한다."""
+    cap = _CAP[ent[2]]
+    return cap - 1 if (ent[0] >= 2 and cap >= 2) else cap
+
+
 def _my_turn(ent) -> bool:
     # 내 레인에 토큰·동시 슬롯이 있고, 나보다 앞선(우선순위·순번) 대기자 중
     # 발사 가능한(토큰+슬롯) 항목이 없을 때 발사. 레인이 달라 막힌 앞사람은
     # 건너뛴다 — fast/main이 서로를 머리에서 막지 않게(head-of-line 방지).
-    if _tokens[ent[2]] < 1 or _inflight[ent[2]] >= _CAP[ent[2]]:
+    if _tokens[ent[2]] < 1 or _inflight[ent[2]] >= _cap_for(ent):
         return False
     eligible = [e for e in _waiting
-                if _tokens[e[2]] >= 1 and _inflight[e[2]] < _CAP[e[2]]]
+                if _tokens[e[2]] >= 1 and _inflight[e[2]] < _cap_for(e)]
     return bool(eligible) and min(eligible) == ent
 
 
