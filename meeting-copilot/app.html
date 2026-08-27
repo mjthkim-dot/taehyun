@@ -408,6 +408,26 @@
   body.overlay.bg-live .actions button{color:#E7ECF3;text-shadow:0 1px 3px rgba(0,0,0,.8)}
   body.overlay.bg-live .bubble .en, body.overlay.bg-live .lrow .en{
     text-shadow:0 1px 2px rgba(0,0,0,.55)}
+
+  /* 🎦 프롬프터 레이아웃 (v4.3, 레퍼런스: 미팅 화면 위 2패널) — 배경 비추기가
+     켜지면 세로 스택 대신 [자막 통역(좌하) + 답변 프롬프터(우상) + 입력(우하)]
+     만 절대 배치로 띄운다. 패널 사이는 투명 — 미팅 화면(상대 얼굴)이 그대로
+     보인다. PiP 창을 줌 창 크기로 키우면 레퍼런스와 같은 구성이 된다. */
+  body.overlay.bg-live #view-live{position:relative}
+  body.overlay.bg-live .status{position:absolute;top:42px;left:8px;
+    width:min(52%,400px);margin:0;z-index:3}
+  body.overlay.bg-live #card{position:absolute;top:42px;right:8px;left:auto;
+    width:min(46%,440px);max-height:58%;margin:0;z-index:4}
+  body.overlay.bg-live #feed{position:absolute;left:8px;bottom:70px;top:auto;
+    width:min(50%,400px);max-height:46%;z-index:2;padding:0}
+  body.overlay.bg-live #ctrls{position:absolute;right:8px;bottom:8px;left:auto;
+    width:min(46%,440px);z-index:4}
+  body.overlay.bg-live #new-msg-wrap{display:none}
+  /* 자막 패널은 '통역'이 주인공 — 한국어 크게·밝게, 영어는 보조 */
+  body.overlay.bg-live .bubble .kr{font-size:calc(clamp(13px, 3.9vw, 17px) * var(--ovscale));
+    color:#EAF0F7;font-weight:600;line-height:1.5}
+  body.overlay.bg-live .bubble .en{font-size:calc(clamp(10.5px, 3vw, 13px) * var(--ovscale));
+    color:#9AA5B4}
 </style>
 </head>
 <body>
@@ -416,7 +436,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v4.2</span>
+  <span class="ver" id="app-ver">v4.3</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>

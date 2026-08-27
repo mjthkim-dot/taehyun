@@ -30,6 +30,10 @@ const SAMPLE = [
   ["나",   "Understood. Let me align internally and get back to you."],
 ];
 
+// 이전 실행이 주입(armed) 상태로 죽었어도 이번 실행이 오염되지 않게 — 시작 시 해제
+await fetch('http://127.0.0.1:3898/__err',
+  { method: 'POST', body: JSON.stringify({ mode: 'off', p: 0 }) }).catch(() => {});
+
 const b = await chromium.launch({ executablePath: EXEC });
 const p = await b.newPage({ viewport: { width: 390, height: 844 } });   // 모바일 390px
 const errs = [];
@@ -188,10 +192,14 @@ check('EN의 " / " 구분자가 .brk로 렌더 + 본문 유지', await p.evaluat
 
 console.log('\n■ v4.0 번역 자동 재시도 (일시 503 주입 → 회복)');
 const errsBeforeInject = errs.length;
-await fetch('http://127.0.0.1:3898/__err', { method: 'POST', body: JSON.stringify({ mode: '503', p: 1 }) });
-await p.evaluate(() => addUtterance('The quarterly revenue figures look quite promising overall.', '상대'));
-await new Promise(r => setTimeout(r, 2500));                 // 첫 시도 + 서버 재시도 소진
-await fetch('http://127.0.0.1:3898/__err', { method: 'POST', body: JSON.stringify({ mode: 'off', p: 0 }) });
+try {
+  await fetch('http://127.0.0.1:3898/__err', { method: 'POST', body: JSON.stringify({ mode: '503', p: 1 }) });
+  await p.evaluate(() => addUtterance('The quarterly revenue figures look quite promising overall.', '상대'));
+  await new Promise(r => setTimeout(r, 2500));               // 첫 시도 + 서버 재시도 소진
+} finally {
+  // 어떤 경로로 죽어도 주입을 끄고 나간다 — 다음 실행 오염 방지
+  await fetch('http://127.0.0.1:3898/__err', { method: 'POST', body: JSON.stringify({ mode: 'off', p: 0 }) }).catch(() => {});
+}
 // 주입 구간의 의도된 5xx는 오류 집계에서 제외 (그 외 오류는 그대로 잡는다)
 const during = errs.splice(errsBeforeInject);
 errs.push(...during.filter(e => !/HTTP 5\d\d|500|Failed to load/.test(e)));
@@ -233,6 +241,15 @@ const ov2 = await p.evaluate(() => {
            feedShort: fr.height <= 150 };
 });
 check('답변 카드 최상단·전폭 + 자막 1~2줄', ov2.top && ov2.wide && ov2.feedShort);
+const pl = await p.evaluate(() => {
+  const d = pipWin.document; d.body.classList.add('bg-live');
+  const c = d.querySelector('#card'); c.style.display = 'block';
+  const cr = c.getBoundingClientRect(), fr = d.querySelector('#feed').getBoundingClientRect();
+  const W = d.body.clientWidth;
+  d.body.classList.remove('bg-live');
+  return { right: W - cr.right < 20, left: fr.left < 20, split: cr.left > fr.left + 40 };
+});
+check('🎦 프롬프터 레이아웃 (자막 좌 · 답변 우상 분리)', pl.right && pl.left && pl.split);
 const f1 = await p.evaluate(() =>
   parseFloat(getComputedStyle(pipWin.document.querySelector('#c-answers .en')).fontSize));
 await p.evaluate(() => pipWin.document.querySelector('[data-ovs="L"]').click());
