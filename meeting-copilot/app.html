@@ -436,7 +436,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v5.2</span>
+  <span class="ver" id="app-ver">v5.3</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -451,6 +451,7 @@
     <option value="tab">🖥 탭 오디오(설정 불필요)</option>
     <option value="micstt">🎧 마이크 정밀(고유명사↑)</option>
   </select>
+  <select id="mic-dev" title="상대 목소리가 들어오는 입력 장치 — BlackHole을 고르면 내 목소리가 섞이지 않습니다"></select>
   <select id="cefr" title="내 영어 레벨"><option>A2</option><option selected>B1</option><option>B2</option><option>C1</option></select>
   <select id="preset" title="상황 프리셋 — 버튼·말투가 바뀝니다">
     <option value="meeting" selected>💼 미팅</option>
@@ -1591,6 +1592,7 @@ function updateSttStatus(){
     el.textContent = m === 'tab' ? '🖥 탭 오디오 인식 중…' : '🎧 정밀 인식 중…';
 }
 const engineMode = () => $('#engine')?.value || 'web';
+$('#engine')?.addEventListener('change', ()=> paintMicSource());
 
 async function startTabCapture(){
   if(!navigator.mediaDevices?.getDisplayMedia){
@@ -1619,7 +1621,7 @@ async function startTabCapture(){
   // 내 목소리는 마이크에서 따로 — 화자 분리가 물리적으로 확실해진다
   try{
     micStream = await navigator.mediaDevices.getUserMedia({
-      audio:{echoCancellation:true, noiseSuppression:true}});
+      audio: meAudio({echoCancellation:true, noiseSuppression:true})});
     micCap = new SegmentRecorder(micStream, '나');
   }catch{ /* 마이크 거부해도 상대 인식은 계속 */ }
 
@@ -1640,9 +1642,11 @@ function stopTabCapture(){
 async function startMicSttCapture(){
   try{
     micStream = await navigator.mediaDevices.getUserMedia({
-      audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
-  }catch{
-    setBanner('⚠️ 마이크 권한이 필요해요 — 주소창 자물쇠에서 허용');
+      audio: themAudio({echoCancellation:false, noiseSuppression:false, autoGainControl:false})});
+  }catch(e){
+    setBanner(e.name === 'OverconstrainedError'
+      ? '⚠️ 고른 입력 장치를 쓸 수 없어요 — 상단 장치 목록에서 다시 골라주세요'
+      : '⚠️ 마이크 권한이 필요해요 — 주소창 자물쇠에서 허용');
     return false;
   }
   audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
@@ -1661,26 +1665,110 @@ let rec = null, watchdog = null;
 // 웹 엔진은 인식된 모든 발화를 '상대'로 처리하므로, 입력이 BlackHole(상대
 // 소리의 복사본)이면 내 목소리는 아예 안 잡힌다 = 화자 분리 완성.
 // 일반 마이크면 내 말도 자막·제안을 유발하므로 경고를 띄운다.
+// ── 🎧 상대 입력 장치 고르기 ──
+//  Chrome 기본 입력을 그대로 쓰면 내장 마이크가 잡혀 내 목소리까지 자막이 된다.
+//  getUserMedia는 deviceId로 장치를 **직접 지정**할 수 있으므로, 서버 STT를 쓰는
+//  모드(🎧 정밀·🖥 탭 오디오)에서는 앱이 BlackHole을 확실히 집는다.
+//  ⚠️ 한계: Web Speech(🎤 브라우저)는 MediaStream을 받지 못해 장치 지정이
+//  불가능하다 — 그 모드만은 Chrome 기본 입력 자체를 BlackHole로 바꿔야 한다.
+const MICDEV_KEY = 'mc-mic-dev';
+let micDevices = [];
+const isBH = d => /blackhole/i.test(d.label || '');
+
+async function loadMicDevices(){
+  const sel = $('#mic-dev');
+  if(!sel || !navigator.mediaDevices?.enumerateDevices) return;
+  try{
+    micDevices = (await navigator.mediaDevices.enumerateDevices())
+      .filter(d => d.kind === 'audioinput');
+  }catch{ return; }
+  const saved = localStorage.getItem(MICDEV_KEY) || '';
+  const opts = ['<option value="">기본 입력 (Chrome 설정 따름)</option>'];
+  for(const d of micDevices){
+    const name = (d.label || '입력 장치').replace(/[<>]/g, '');
+    opts.push(`<option value="${d.deviceId}">${isBH(d) ? '🎧 ' : ''}${name}</option>`);
+  }
+  sel.innerHTML = opts.join('');
+  // 화자 분리가 목적이므로 BlackHole이 있으면 기본으로 집는다
+  const bh = micDevices.find(isBH);
+  sel.value = (saved && micDevices.some(d => d.deviceId === saved)) ? saved
+            : (bh ? bh.deviceId : '');
+  sel.onchange = ()=>{ localStorage.setItem(MICDEV_KEY, sel.value); paintMicSource(); };
+}
+
+// 상대 목소리용 제약 — 고른 장치가 있으면 그것만, 없으면 기본 입력
+function themAudio(extra){
+  const id = $('#mic-dev')?.value;
+  return Object.assign({}, extra, id ? {deviceId: {exact: id}} : {});
+}
+// 내 목소리용 제약(🖥 탭 오디오 전용) — BlackHole은 상대 소리 복사본이라
+// 여기에 잡히면 상대 발화가 '나'로 두 번 기록된다. 아닌 장치를 골라 준다.
+function meAudio(extra){
+  const mine = micDevices.find(d => !isBH(d) && d.deviceId !== 'communications');
+  return Object.assign({}, extra, mine ? {deviceId: {ideal: mine.deviceId}} : {});
+}
+
 async function paintMicSource(){
   const el = $('#status-mic');
   if(!el || !navigator.mediaDevices?.getUserMedia) return;
+  const mini = $('#ov-mic');          // 오버레이에서도 분리 상태를 유지 표시
+  const set = (txt, mn, color)=>{
+    el.textContent = txt; el.style.color = color;
+    if(mini){ mini.textContent = mn; mini.style.color = color; }
+  };
   try{
-    const st = await navigator.mediaDevices.getUserMedia({audio:true});
-    const label = st.getAudioTracks()[0]?.label || '';
-    st.getTracks().forEach(t=>t.stop());
-    const mini = $('#ov-mic');            // 오버레이 인터뷰 모드에서도 분리 상태 유지 표시
-    if(/blackhole/i.test(label)){
-      el.textContent = '🎧 상대 전용(BlackHole) — 화자 분리 ON';
-      el.style.color = 'var(--accent)';
-      if(mini){ mini.textContent = '🎧 분리 ON'; mini.style.color = 'var(--accent)'; }
-    }else{
-      el.textContent = `⚠️ ${label || '기본 마이크'} — 내 목소리도 잡힘`;
-      el.style.color = 'var(--warn)';
-      el.title = '화자 분리: 주소창에 chrome://settings/content/microphone → '
-        + '기본 마이크를 BlackHole 2ch로. 자세한 절차는 docs/FIELD-TEST.md §화자 분리';
-      if(mini){ mini.textContent = '⚠️ 내 목소리 잡힘'; mini.style.color = 'var(--warn)'; }
+    // 라벨은 권한이 있어야 나온다 — 한 번 열어서 권한을 확보한 뒤 목록을 읽는다
+    const probe = await navigator.mediaDevices.getUserMedia({audio:true});
+    const defLabel = probe.getAudioTracks()[0]?.label || '';
+    probe.getTracks().forEach(t=>t.stop());
+    if(!micDevices.length) await loadMicDevices();
+
+    const mode = engineMode();
+    if(mode === 'web'){
+      // Web Speech는 MediaStream을 못 받는다 → Chrome 기본 입력이 곧 이 모드의 입력.
+      // 앱이 바꿀 수 없으므로, 무엇을 해야 하는지 정확히 알려준다.
+      if(/blackhole/i.test(defLabel)){
+        set('🎧 상대 전용(BlackHole) — 화자 분리 ON', '🎧 분리 ON', 'var(--accent)');
+        el.title = '';
+      }else{
+        const bh = micDevices.find(isBH);
+        // 툴팁은 놓치기 쉽다 — 무엇을 해야 하는지 문구 자체에 넣는다
+        set(bh ? `⚠️ ${defLabel || '기본 마이크'} — Chrome 기본 입력을 BlackHole로 바꾸세요`
+               : `⚠️ ${defLabel || '기본 마이크'} — 내 목소리도 잡힘`,
+            '⚠️ 내 목소리 잡힘', 'var(--warn)');
+        el.title = bh
+          ? 'BlackHole이 설치돼 있는데 Chrome 기본 입력이 아닙니다.\n'
+            + '① chrome://settings/content/microphone → 기본 마이크를 BlackHole 2ch로\n'
+            + '② 또는 인식 엔진을 🎧 마이크 정밀로 바꾸면 앱이 직접 BlackHole을 잡습니다'
+          : 'BlackHole이 안 보입니다 — docs/FIELD-TEST.md §3.5의 다중 출력 기기 설정을 먼저 하세요';
+      }
+      return;
     }
-  }catch{ /* 권한 거부 등 — 상태 표시는 보조 정보라 조용히 넘어간다 */ }
+    // 🎧 정밀 · 🖥 탭 오디오 — 앱이 장치를 직접 지정하므로 '고른 장치'가 진실이다
+    const id = $('#mic-dev')?.value;
+    const picked = micDevices.find(d => d.deviceId === id);
+    if(mode === 'tab'){
+      set('🖥 탭 오디오 = 상대 · 마이크 = 나 — 화자 분리 ON', '🖥 분리 ON', 'var(--accent)');
+      el.title = '상대 소리는 공유한 탭에서, 내 목소리는 마이크에서 따로 들어옵니다.';
+      return;
+    }
+    if(picked && isBH(picked)){
+      set('🎧 상대 전용(BlackHole) — 화자 분리 ON', '🎧 분리 ON', 'var(--accent)');
+      el.title = '앱이 이 장치를 직접 지정합니다 — Chrome 기본 입력과 무관합니다.';
+    }else{
+      const bh = micDevices.find(isBH);
+      set(`⚠️ ${picked?.label || defLabel || '기본 입력'} — 내 목소리도 잡힘`,
+          '⚠️ 내 목소리 잡힘', 'var(--warn)');
+      el.title = bh ? '상단 장치 목록에서 BlackHole 2ch를 고르면 즉시 분리됩니다.'
+                    : 'BlackHole이 안 보입니다 — docs/FIELD-TEST.md §3.5 설정을 먼저 하세요';
+    }
+  }catch(e){
+    // 조용히 넘어가면 상태줄이 텅 비어 '분리가 됐는지' 알 길이 없다 —
+    // 화자 분리는 면접 성패가 걸린 설정이라 반드시 무언가를 보여준다.
+    set(e.name === 'NotAllowedError'
+        ? '⚠️ 마이크 권한이 필요합니다 — 주소창 자물쇠에서 허용'
+        : '⚠️ 입력 장치를 확인할 수 없습니다', '⚠️ 입력 확인 불가', 'var(--warn)');
+  }
 }
 function startSTT(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1714,7 +1802,7 @@ function startSTT(){
   rec.onerror = ev=>{ if(ev.error==='not-allowed'){ $('#status-txt').textContent='⚠️ 마이크 권한을 허용해 주세요'; stopSTT(); } };
   rec.onend = ()=>{ if(rec){ try{ rec.start(); }catch{} } };
   try{ rec.start(); }catch(e){ $('#status-txt').textContent='인식 시작 실패: '+e.message; return false; }
-  paintMicSource();               // 어느 장치를 듣는지 표시 (화자 분리 확인)
+  paintMicSource();                        // 시작 직후 화자 분리 상태 재확인
   // 첫 실행 힌트: 오버레이는 눌러야 보이는 기능이라 존재를 모르면 못 쓴다
   if(!pipWin && !localStorage.getItem('mc_pip_hint')){
     setBanner('💡 🪟 버튼: Zoom·Teams·Meet 위에 항상 떠 있는 작은 창으로 전환됩니다');
@@ -2095,6 +2183,12 @@ async function paintCodeParts(){
   }catch(e){ box.textContent = '코드 스냅샷을 불러오지 못했습니다.'; }
 }
 paintCodeParts();
+
+// 입력 장치는 ▶를 누르기 전에 고를 수 있어야 한다 — 로드 시 1회 채운다.
+// devicechange는 여기서만 등록한다(startSTT 안에 두면 시작할 때마다 쌓인다).
+loadMicDevices().then(paintMicSource);
+navigator.mediaDevices?.addEventListener?.('devicechange',
+  ()=> loadMicDevices().then(paintMicSource));
 
 // ── 🔄 수동 동기화 — 배경에서 자동으로 돌지 않는다 ──
 const SYNC_KEY = 'mc_sync_pages';

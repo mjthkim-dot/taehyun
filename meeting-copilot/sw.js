@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v29';  // v5.2: 코드 스냅샷 — Claude에 붙여넣기(로컬 전용)
+const SHELL = 'mc-shell-v30';  // v5.3: 상대 입력 장치 선택 — 내 목소리 섞임 방지
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {

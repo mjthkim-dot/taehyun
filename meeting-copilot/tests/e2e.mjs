@@ -34,8 +34,13 @@ const SAMPLE = [
 await fetch('http://127.0.0.1:3898/__err',
   { method: 'POST', body: JSON.stringify({ mode: 'off', p: 0 }) }).catch(() => {});
 
-const b = await chromium.launch({ executablePath: EXEC });
-const p = await b.newPage({ viewport: { width: 390, height: 844 } });   // 모바일 390px
+// 가짜 오디오 장치 + 마이크 권한 — 화자 분리(입력 장치) 계약을 실제로 검증하려면
+// 브라우저가 입력 장치를 하나라도 갖고 있어야 한다.
+const b = await chromium.launch({ executablePath: EXEC,
+  args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] });
+const ctx = await b.newContext({ viewport: { width: 390, height: 844 },   // 모바일 390px
+  permissions: ['microphone'] });
+const p = await ctx.newPage();
 const errs = [];
 p.on('pageerror', e => errs.push(e.message));
 p.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
@@ -189,6 +194,46 @@ check('EN의 " / " 구분자가 .brk로 렌더 + 본문 유지', await p.evaluat
   const en = document.querySelector('#c-answers .en');
   return !!en.querySelector('.brk') && en.textContent.includes('customers');
 }));
+
+console.log('\n■ v5.3 상대 입력 장치 — 내 목소리 섞임 방지');
+{
+  // BlackHole이 꽂힌 맥을 흉내 — enumerateDevices에 한 대 끼워 넣는다
+  await p.evaluate(() => {
+    if (window.__bhPatched) return;
+    window.__bhPatched = 1;
+    const real = navigator.mediaDevices.enumerateDevices.bind(navigator.mediaDevices);
+    navigator.mediaDevices.enumerateDevices = async () => [...await real(),
+      { kind: 'audioinput', label: 'BlackHole 2ch', deviceId: 'bh-2ch',
+        groupId: 'g', toJSON() { return this; } }];
+  });
+  const r = await p.evaluate(async () => {
+    await loadMicDevices();
+    document.querySelector('#engine').value = 'micstt';
+    document.querySelector('#engine').dispatchEvent(new Event('change'));
+    await new Promise(r => setTimeout(r, 700));
+    return { value: document.querySelector('#mic-dev').value,
+             status: document.querySelector('#status-mic')?.textContent || '',
+             them: themAudio({}), me: meAudio({}) };
+  });
+  check('BlackHole이 있으면 자동 선택', r.value === 'bh-2ch', r.value);
+  check('🎧 모드 상태 = 화자 분리 ON', /분리 ON/.test(r.status), r.status.slice(0, 34));
+  check('상대 입력을 deviceId로 못박음(exact)',
+    r.them?.deviceId?.exact === 'bh-2ch', JSON.stringify(r.them));
+  check('내 목소리는 BlackHole이 아닌 장치로',
+    !!r.me?.deviceId && r.me.deviceId.ideal !== 'bh-2ch', JSON.stringify(r.me));
+  const web = await p.evaluate(async () => {
+    document.querySelector('#engine').value = 'web';
+    document.querySelector('#engine').dispatchEvent(new Event('change'));
+    await new Promise(r => setTimeout(r, 700));
+    return document.querySelector('#status-mic')?.textContent || '';
+  });
+  // Web Speech는 장치 지정이 불가능하다 — 무엇을 해야 하는지 문구로 알려야 한다
+  check('🎤 모드는 Chrome 기본 입력 안내', /BlackHole로 바꾸세요|분리 ON/.test(web), web.slice(0, 44));
+  await p.evaluate(() => {
+    document.querySelector('#engine').value = 'web';
+    document.querySelector('#engine').dispatchEvent(new Event('change'));
+  });
+}
 
 console.log('\n■ v5.2 코드 스냅샷 — Claude에 붙여넣기 (로컬 전용)');
 {
