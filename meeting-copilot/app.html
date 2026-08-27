@@ -436,7 +436,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v5.1</span>
+  <span class="ver" id="app-ver">v5.2</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -557,6 +557,13 @@
     <h3>📚 내 자료 (RAG)</h3>
     <div class="stat" id="lib-stat"></div>
     <p>제안 문장은 <b>여기 있는 자료에서만</b> 나옵니다. 자료가 늘수록 “내가 실제로 말할 법한 문장”에 가까워집니다.</p>
+
+    <h3>🧩 코드를 Claude에 보내기</h3>
+    <p>앱 소스를 <b>붙여넣기 좋은 조각</b>으로 나눠 복사합니다. 조각을 순서대로
+       Claude 대화창에 ⌘V 하면 코드 분석·개선 요청을 할 수 있습니다.<br>
+       <b>미팅 기록·개인 노트·API 키는 들어가지 않습니다.</b>
+       (이 맥에서 직접 연 주소에서만 동작 — 폰·터널 주소에서는 막힙니다)</p>
+    <div id="code-parts" class="note">불러오는 중…</div>
 
     <h3>🔄 동기화</h3>
     <p>색인은 <b>이 버튼을 눌렀을 때와 미팅을 끝냈을 때만</b> 갱신됩니다 —
@@ -2047,6 +2054,47 @@ $('#np-go').onclick = async ()=>{
     rememberPage(page); refreshStats();
   }catch(e){ $('#np-st').textContent='실패: '+e.message; }
 };
+
+// ── 🧩 코드 스냅샷 — Claude에 붙여넣을 조각 단위로 복사 ──
+//  큰 파일(app.html 125KB)을 통째로 붙여넣기는 어렵다 → 서버가 논리 단위로
+//  잘라 주고, 여기서는 조각별 [복사] 버튼만 그린다. 개인 데이터·키는 서버의
+//  화이트리스트에서 이미 빠진다.
+async function paintCodeParts(){
+  const box = $('#code-parts');
+  if(!box) return;
+  try{
+    const r = await fetch('/api/code');
+    if(r.status === 403){
+      box.textContent = '이 주소에서는 막혀 있습니다 — 맥에서 localhost:3799로 열어주세요.';
+      return;
+    }
+    const d = await r.json();
+    box.innerHTML = '';
+    d.parts.forEach(p=>{
+      const b = document.createElement('button');
+      b.className = 'go ghost';
+      b.style.cssText = 'margin:4px 6px 0 0;width:auto;display:inline-block';
+      b.textContent = `${p.part}번 복사 (${Math.round(p.chars/1000)}k자)`;
+      b.onclick = async ()=>{
+        b.disabled = true; const was = b.textContent; b.textContent = '가져오는 중…';
+        try{
+          const t = await (await fetch(`/api/code?part=${p.part}`)).text();
+          await navigator.clipboard.writeText(t);
+          b.textContent = `✅ ${p.part}번 복사됨 — ⌘V`;
+        }catch(e){
+          b.textContent = '복사 실패 — 터미널 방식을 쓰세요';
+        }
+        setTimeout(()=>{ b.textContent = was; b.disabled = false; }, 4000);
+      };
+      box.appendChild(b);
+    });
+    const tip = document.createElement('div');
+    tip.style.cssText = 'margin-top:8px;opacity:.75';
+    tip.textContent = `총 ${d.parts.length}조각 — 1번부터 순서대로 복사해 Claude에 붙여넣고, 마지막에 질문하세요.`;
+    box.appendChild(tip);
+  }catch(e){ box.textContent = '코드 스냅샷을 불러오지 못했습니다.'; }
+}
+paintCodeParts();
 
 // ── 🔄 수동 동기화 — 배경에서 자동으로 돌지 않는다 ──
 const SYNC_KEY = 'mc_sync_pages';

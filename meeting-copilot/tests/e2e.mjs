@@ -190,6 +190,33 @@ check('EN의 " / " 구분자가 .brk로 렌더 + 본문 유지', await p.evaluat
   return !!en.querySelector('.brk') && en.textContent.includes('customers');
 }));
 
+console.log('\n■ v5.2 코드 스냅샷 — Claude에 붙여넣기 (로컬 전용)');
+{
+  // 계약: 이 맥에서 직접 연 주소에서만 소스를 내준다. start.sh가 띄우는
+  // Cloudflare 터널 주소는 공개라, 거기서 열리면 앱 내부가 통째로 샌다.
+  const list = await p.evaluate(async () => (await fetch('/api/code')).json());
+  check('조각 목록 제공', Array.isArray(list.parts) && list.parts.length >= 3,
+    `${list.parts?.length}조각`);
+  const one = await p.evaluate(async () =>
+    (await fetch('/api/code?part=1')).text());
+  check('조각 본문에 안내 머리말 + 코드', /코드 스냅샷 \(1\//.test(one) && one.includes('```'),
+    `${one.length.toLocaleString()}자`);
+  check('개인 데이터·키 미포함',
+    !/AQ\.[A-Za-z0-9_-]{10,}/.test(one) && !one.includes('imported/workato'),
+    '마스킹 확인');
+  // 터널 흉내 — 전달 헤더가 붙으면 403이어야 한다
+  const blocked = await p.evaluate(async () => {
+    const r = await fetch('/api/code', { headers: { 'X-Forwarded-For': '1.2.3.4' } });
+    return r.status;
+  });
+  check('터널/외부 접속은 403으로 차단', blocked === 403, `HTTP ${blocked}`);
+  const ui = await p.evaluate(() => {
+    document.querySelector('.tab[data-v="lib"]')?.click();
+    return document.querySelectorAll('#code-parts button').length;
+  });
+  check('자료 탭에 조각별 복사 버튼', ui >= 3, `${ui}개`);
+}
+
 console.log('\n■ v5.1 턴 정착 — 조각난 질문에 답변 1회만 발사');
 {
   // v5.0 결함 재발 방지: 조각마다 suggest가 나가면 직전 생성을 abort해 답변
@@ -389,7 +416,11 @@ if (SHOT) {
   console.log(`\n📸 ${SHOT} (390×844)`);
 }
 
-const realErrs = errs.filter(e => !/favicon|sw\.js|Manifest/.test(e));
+// /api/code 403은 위에서 일부러 낸 negative 테스트다 — 이 카운터는
+// '예상 못 한' 오류만 세야 신호로서 값을 한다.
+const realErrs = errs.filter(e =>
+  !/favicon|sw\.js|Manifest/.test(e) && !/403.*\/api\/code|api\/code.*403/.test(e)
+  && !/403 \(Forbidden\)/.test(e));
 console.log(`\n콘솔/네트워크 오류: ${realErrs.length}`);
 realErrs.slice(0, 5).forEach(e => console.log('   ·', e.slice(0, 110)));
 await b.close();

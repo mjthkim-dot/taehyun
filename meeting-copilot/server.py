@@ -297,6 +297,42 @@ class Handler(http.server.BaseHTTPRequestHandler):
         gate = auth.enabled()
         user = self._user() if gate else None
 
+        if path == "/api/code":
+            # 🧩 코드 스냅샷 — Claude에 붙여넣어 분석시키기 위한 텍스트.
+            # **로컬 접속에서만** 연다: start.sh가 띄우는 Cloudflare 터널 주소는
+            # 공개라, 여기서 소스를 내주면 누구나 앱 내부를 가져갈 수 있다.
+            # 터널을 타고 온 요청은 전달 헤더(X-Forwarded-*/CF-*)가 붙고 Host가
+            # trycloudflare 도메인이라 그것으로 가른다.
+            fwd = any(self.headers.get(h) for h in
+                      ("X-Forwarded-For", "X-Forwarded-Host", "CF-Connecting-IP"))
+            host = (self.headers.get("Host") or "").split(":")[0].lower()
+            local = host in ("localhost", "127.0.0.1", "[::1]", "::1")
+            if fwd or not local:
+                self._json(403, {"error": "코드 스냅샷은 이 맥에서 직접 연 주소"
+                                          "(localhost:3799)에서만 받을 수 있습니다."})
+                return
+            try:
+                import codebundle
+            except ImportError:
+                self._json(500, {"error": "codebundle 모듈을 찾을 수 없습니다."})
+                return
+            n = (q.get("part") or [""])[0]
+            if not n:
+                self._json(200, {"parts": codebundle.manifest()})
+                return
+            chunks = codebundle.parts()
+            if not n.isdigit() or not 1 <= int(n) <= len(chunks):
+                self._json(400, {"error": f"part는 1~{len(chunks)} 사이여야 합니다."})
+                return
+            body = chunks[int(n) - 1].encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            self._status = 200
+            return
+
         if path == "/api/usage":
             # 무료 티어 예산 표시·클라이언트 스로틀용 — LLM을 부르지 않는다
             self._json(200, llm.usage())

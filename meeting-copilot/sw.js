@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v28';  // v5.1: 턴 정착·오프너 분리·모델 고정 — 지연 폭발 근절
+const SHELL = 'mc-shell-v29';  // v5.2: 코드 스냅샷 — Claude에 붙여넣기(로컬 전용)
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {
