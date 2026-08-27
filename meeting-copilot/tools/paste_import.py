@@ -24,7 +24,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DEST = ROOT / "backend" / "data" / "imported" / "workato-corpus.json"
+# 저장 파일명 — 인자로 바꿀 수 있다: python3 tools/paste_import.py gitlab-pitch
+# (기본값 그대로 쓰면 기존 workato-corpus.json을 덮어쓰니, 새 자료는 새 이름으로!)
+_name = (sys.argv[1] if len(sys.argv) > 1 else "workato-corpus").removesuffix(".json")
+DEST = ROOT / "backend" / "data" / "imported" / f"{_name}.json"
 
 
 def _read_paste() -> str | None:
