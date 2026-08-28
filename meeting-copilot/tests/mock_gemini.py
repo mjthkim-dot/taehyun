@@ -58,10 +58,14 @@ def make_text(payload, model):
             picked = " ".join(max(c, key=len).split()[:8]).rstrip(",.")
     if not picked:
         picked = "I'm a B2B sales hunter in cloud"
-    return (f"EN: {picked}. So let me share one example from a recent deal.\n"
-            f"KR: (모의 번역) 한국어 뜻입니다. 최근 딜에서 예를 하나 말씀드릴게요.\n"
-            f"PR: (모의 발음) 아임 어 비투비 세일즈 헌터 인 클라우드.\n===\n"
-            f"META: 요지=면접 질문 | 전략=프로필 근거 답변")
+    # 프롬프트가 요청한 줄만 낸다 — 실제 모델과 같은 계약을 흉내내야
+    # KR·PR 제거가 테스트에 반영된다(v5.4).
+    out = f"EN: {picked}. So let me share one example from a recent deal.\n"
+    if "KR: <" in user:
+        out += "KR: (모의 번역) 한국어 뜻입니다. 최근 딜에서 예를 하나 말씀드릴게요.\n"
+    if "PR: <" in user:
+        out += "PR: (모의 발음) 아임 어 비투비 세일즈 헌터 인 클라우드.\n"
+    return out + "===\nMETA: 요지=면접 질문 | 전략=프로필 근거 답변"
 
 class H(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"

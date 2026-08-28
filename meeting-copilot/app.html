@@ -205,6 +205,15 @@
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #c-src b{color:var(--sub)}
   #c-src .warn{color:var(--danger)}
+  /* 자료에 없는 숫자 — 그대로 읽으면 거짓 진술이 된다. 눈에 띄게 표시한다 */
+  .en .unverified{background:rgba(255,77,79,.16);border-bottom:2px solid var(--danger);
+    border-radius:3px;padding:0 2px}
+  /* Tier C — 대본이 없다는 사실 자체가 정보다 */
+  #c-tierc{display:none;margin:6px 0 2px;padding:8px 10px;border-radius:8px;
+    background:rgba(255,193,7,.13);border:1px solid rgba(255,193,7,.4);font-size:12.5px}
+  #c-tierc b{color:var(--warn)}
+  #c-tierc ul{margin:5px 0 0;padding-left:16px}
+  #c-tierc li{margin:2px 0;color:var(--sub)}
 
   /* 카드가 열려 있는 동안 나머지(자막·상태줄·헤더)는 한 단계 회색조로 —
      인지 부하가 높은 순간 시선은 답변 카드 하나로 모은다 */
@@ -220,7 +229,7 @@
   #card.gen.opened #c-answers{opacity:1}
   /* 생성 중/낡음 라벨 — 남아 있는 답변이 "직전 것"임을 글로 명시 (오독 방지).
      이전 답변이 실제로 있을 때만(:has(.kr)) 붙인다 */
-  #card.gen #c-answers:has(.kr:not(:empty))::before{
+  #card.gen #c-answers:has(.en:not(:empty))::before{
     content:"↻ 새 답변 생성 중 — 아래는 직전 답변";display:block;
     font-size:10.5px;color:var(--accent);margin-bottom:6px}
   #card.stale #c-answers{opacity:.55}
@@ -436,7 +445,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v5.3</span>
+  <span class="ver" id="app-ver">v5.4</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -550,6 +559,7 @@
         <span class="lab st">전략</span><div class="body"><div class="strat" id="c-strat"></div></div>
       </div>
       <div id="c-answers"></div>
+      <div id="c-tierc"></div>
       <div id="c-src"></div>
     </div>
   </div>
@@ -1246,8 +1256,10 @@ function answerRow(en,kr,pr,idx){
   // " / " = 끊어 읽기 표시 — 옅은 구분자로 렌더. TTS·배지 매칭에는 슬래시를
   // 뺀 순수 문장을 쓴다 (TTS는 쉼표로 바꿔 자연스러운 호흡을 만든다).
   const enClean = en.replace(/\s*\/\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  // 수치 게이트 — 화면 문장은 그대로 발화된다. 자료에 없는 숫자는 거짓 진술이
+  // 되므로 표시 단계에서 붉게 잡는다(프롬프트 금지문만으로는 막지 못했다).
   r.querySelector('.en').innerHTML =
-    esc(en).replace(/\s\/\s/g, ' <span class="brk">/</span> ');
+    markNumbers(esc(en)).replace(/\s\/\s/g, ' <span class="brk">/</span> ');
   r.querySelector('.kr').textContent = kr || '';
   const prEl = r.querySelector('.pr');
   if(pr){ prEl.textContent = '🗣 ' + pr; } else prEl.style.display = 'none';
@@ -1262,8 +1274,38 @@ function answerRow(en,kr,pr,idx){
   r.querySelector('.say').onclick = ()=>speak(en.replace(/\s\/\s/g, ', '));
   return r;
 }
+// ── 수치 게이트 (#14) ──
+//  서버가 '자료에 실재하는 수치 집합'을 함께 내려준다. 출력에 그 밖의 숫자가
+//  있으면 붉게 표시한다. 차단하지 않는 이유: 면접 중 화면이 통째로 비면 대응이
+//  불가능하다. 사람이 1초 안에 '이 숫자는 근거 없음'을 알면 건너뛰고 읽을 수 있다.
+let knownNumbers = [];
+const numKey = t => t.toLowerCase().replace(/\s+/g,'').replace(/[.,]$/,'');
+function markNumbers(html){
+  if(!knownNumbers.length) return html;
+  return html.replace(/\d[\d,.]*\s*(?:%|억|만|천|million|M|billion|B|k)?/gi, m=>{
+    const k = numKey(m);
+    if(knownNumbers.some(n => n === k || k.startsWith(n) || n.startsWith(k))) return m;
+    return `<span class="unverified" title="내 자료에 없는 숫자입니다 — 확인 전에는 읽지 마세요">${m}</span>`;
+  });
+}
+
+// ── Tier C 표시 (#16) ──
+function renderTierC(meta){
+  const el = $('#c-tierc');
+  if(!el) return;
+  if(!meta || meta.tier !== 'C'){ el.style.display='none'; return; }
+  const facts = (meta.facts||[]).map(f=>`<li>${esc(f)}</li>`).join('');
+  el.innerHTML = `<b>📭 대본 없음</b> — 내 자료에서 근거를 찾지 못했습니다. `
+    + `아래 확정 사실만 쓰고, <b>숫자는 지어내지 마세요</b>.`
+    + (facts ? `<ul>${facts}</ul>` : '');
+  el.style.display = 'block';
+}
+
 function renderCard(raw){
-  const box = $('#c-answers'); box.innerHTML = '';
+  // 박스를 먼저 비우면 안 된다 — 스트리밍 첫 순간("EN:"만 도착)엔 파싱 결과가
+  // 비어 카드가 통째로 사라진다(깜빡임). 만들 게 생겼을 때만 교체한다.
+  const box = $('#c-answers');
+  const frag = document.createDocumentFragment();
   let ansIdx = 0;
   for(const b of raw.split('===')){
     if(/META|요지\s*=/.test(b)){
@@ -1277,12 +1319,15 @@ function renderCard(raw){
     const en = ((b.match(/EN\s*[:：]\s*([\s\S]*?)(?=\nKR\s*[:：]|\nPR\s*[:：]|$)/)||[])[1]||'').trim();
     const kr = ((b.match(/KR\s*[:：]\s*([\s\S]*?)(?=\nPR\s*[:：]|$)/)||[])[1]||'').trim();
     const pr = ((b.match(/PR\s*[:：]\s*([\s\S]*)/)||[])[1]||'').trim();
-    if(en) box.appendChild(answerRow(en,kr,pr,ansIdx++));
+    if(en) frag.appendChild(answerRow(en,kr,pr,ansIdx++));
   }
+  if(ansIdx){ box.innerHTML = ''; box.appendChild(frag); }
   fitCard();          // 카드가 자라며 피드가 줄어도 최신 자막을 계속 보이게
 }
 function renderSources(meta){
   lastPhrases = meta?.phrases || [];
+  knownNumbers = (meta?.known_numbers || []).map(numKey);
+  renderTierC(meta);
   const el = $('#c-src');
   if(!meta || (!meta.sources?.length && !meta.has_placeholder)){ el.style.display='none'; return; }
   const p = [];

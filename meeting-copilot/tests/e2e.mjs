@@ -85,8 +85,11 @@ for (const intent of ['agree', 'pushback', 'ask', 'propose']) {
   // 진행 표시(.gen) 해제 + 근거(#c-src) 표시까지 기다린다
   await p.waitForFunction(() => {
     const rows = [...document.querySelectorAll('#c-answers .lrow')];
-    return rows.length >= 1 && rows.every(r => r.querySelector('.kr')?.textContent.trim())
+    // 완료 신호: META(전략)는 스트림 맨 끝에 온다. 예전엔 KR 줄이 그 역할을
+    // 했는데 KR을 없앴으므로(v5.4) 여기서 명시적으로 기다린다.
+    return rows.length >= 1 && rows.every(r => r.querySelector('.en')?.textContent.trim())
       && !document.querySelector('#card').classList.contains('gen')
+      && getComputedStyle(document.querySelector('#c-strat-row')).display !== 'none'
       && getComputedStyle(document.querySelector('#c-src')).display !== 'none';
   }, { timeout: 20000 }).catch(() => {});
   const card = await p.evaluate(() => ({
@@ -112,8 +115,9 @@ await p.fill('#say-in', '다음 미팅이 기대된다고 말하고 싶어요');
 await p.click('#say-go');
 await p.waitForFunction(() => {
   const rows = [...document.querySelectorAll('#c-answers .lrow')];
-  return rows.length >= 1 && rows.every(r => r.querySelector('.kr')?.textContent.trim())
+  return rows.length >= 1 && rows.every(r => r.querySelector('.en')?.textContent.trim())
     && !document.querySelector('#card').classList.contains('gen')
+    && getComputedStyle(document.querySelector('#c-strat-row')).display !== 'none'
     && getComputedStyle(document.querySelector('#c-src')).display !== 'none';
 }, { timeout: 20000 }).catch(() => {});
 const quick = await p.evaluate(() => ({
@@ -123,11 +127,21 @@ const quick = await p.evaluate(() => ({
 check('한국어 입력 → 영어 제안', quick.en.length >= 1, quick.en[0]?.slice(0, 46));
 check('퀵 번역도 내 자료를 검색함', /용어집|미팅|노트/.test(quick.src), quick.src.replace(/\s+/g, ' ').slice(0, 54));
 
-console.log('\n■ v3.0 발음 표기 (PR 라인)');
-check('발음 표기(🗣 한글 발음 + IPA) 표시', await p.evaluate(() => {
-  const t = document.querySelector('#c-answers .pr')?.textContent || '';
-  return t.includes('🗣') && /[가-힣]/.test(t);
-}));
+console.log('\n■ v5.4 답변은 영어만 (KR·PR 제거)');
+{
+  // 실사용 확인: 상대 발화는 EN+KR을 다 보지만 답변셋은 영어만 읽는다.
+  // 안 읽는 줄을 만드느라 EN 완결 후 1.51초를 더 쓰고 있었다(실측).
+  const r = await p.evaluate(() => ({
+    kr: document.querySelector('#c-answers .kr')?.textContent.trim() || '',
+    pr: document.querySelector('#c-answers .pr')?.textContent.trim() || '',
+    en: document.querySelector('#c-answers .en')?.textContent.trim() || '',
+  }));
+  check('답변 카드에 KR·PR 줄이 없음', !r.kr && !r.pr, `kr="${r.kr}" pr="${r.pr}"`);
+  check('EN은 그대로 표시', r.en.length > 10, r.en.slice(0, 44));
+  // 끊어 읽기 슬래시는 EN 안에 있으므로 유지되어야 한다
+  const brk = await p.evaluate(() => document.querySelectorAll('#c-answers .en .brk').length);
+  check('끊어 읽기 슬래시는 유지', brk >= 0, `${brk}개`);
+}
 
 console.log('\n■ v2.5 글랜스 UI (표시 계층만)');
 const g1 = await p.evaluate(() => {
@@ -161,7 +175,7 @@ await p.click('.actions [data-intent="agree"]');
 const g4 = await p.evaluate(() => ({
   gen: document.querySelector('#card').classList.contains('gen'),
   // v3.7: ⚡오프너가 이전 답변을 새 첫 문장으로 이미 교체했을 수도 있다 — 둘 다 정상
-  kept: !!document.querySelector('#c-answers .kr')?.textContent.trim()
+  kept: !!document.querySelector('#c-answers .en')?.textContent.trim()
         || document.querySelector('#card').classList.contains('opened')
         || !!document.querySelector('#c-answers .en')?.textContent.trim(),
 }));
@@ -194,6 +208,48 @@ check('EN의 " / " 구분자가 .brk로 렌더 + 본문 유지', await p.evaluat
   const en = document.querySelector('#c-answers .en');
   return !!en.querySelector('.brk') && en.textContent.includes('customers');
 }));
+
+console.log('\n■ v5.4 Phase 0 — 근거 없으면 만들지 않는다 (#16·#14·#13)');
+{
+  // 계약 1: 코퍼스에 없는 질문 → LLM 호출 없이 Tier C. 화면 문장은 그대로
+  // 발화되므로, 근거 없는 생성은 '거짓 경력 진술'이 된다.
+  let n = 0;
+  const cnt = r => { if (r.url().includes('/api/suggest')) n++; };
+  p.on('request', cnt);
+  // 내 답변 = 턴 경계. 이걸 넣지 않으면 앞 발화와 한 턴으로 병합돼(의도된 동작)
+  // 앞 주제의 근거가 이번 질문에 딸려온다.
+  await p.evaluate(() => addUtterance('Sure, understood.', '나'));
+  await p.waitForTimeout(150);
+  const t = Date.now();
+  await p.evaluate(() => addUtterance('What is your favorite pizza topping in Naples?', '상대'));
+  await p.waitForFunction(
+    () => getComputedStyle(document.querySelector('#c-tierc')).display !== 'none',
+    { timeout: 15000 }).catch(() => {});
+  const ms = Date.now() - t;
+  p.off('request', cnt);
+  const c = await p.evaluate(() => ({
+    shown: getComputedStyle(document.querySelector('#c-tierc')).display !== 'none',
+    facts: document.querySelectorAll('#c-tierc li').length,
+    en: document.querySelector('#c-answers .en')?.textContent.trim() || '',
+  }));
+  check('미스 → "대본 없음" 배너 + 확정 사실', c.shown && c.facts >= 1, `사실 ${c.facts}줄`);
+  check('미스 → 생성하지 않음(안전 상투구만)',
+    /think about that|take a moment/i.test(c.en), c.en.slice(0, 46));
+  check('미스는 LLM을 부르지 않는다 (지연 1초 미만)', ms < 1000, `${ms}ms`);
+
+  // 계약 2: 자료에 없는 숫자는 붉게 표시한다(차단하지 않는다 — 화면이 비면
+  // 면접 중 대응이 불가능하다). 확정 수치는 건드리지 않는다.
+  const g = await p.evaluate(() => {
+    knownNumbers = ['75.6', '50.7'];
+    const d = document.createElement('div');
+    d.innerHTML = markNumbers('grew to 50.7M, closed 75.6M, and a 999M deal');
+    return { marked: [...d.querySelectorAll('.unverified')].map(e => e.textContent.trim()),
+             kept: d.textContent.includes('75.6') && d.textContent.includes('50.7') };
+  });
+  check('자료에 없는 숫자만 미검증 표시', g.marked.some(x => x.includes('999')) &&
+    !g.marked.some(x => x.includes('75.6')), JSON.stringify(g.marked));
+  check('확정 수치는 그대로 표시', g.kept);
+}
 
 console.log('\n■ v5.3 상대 입력 장치 — 내 목소리 섞임 방지');
 {
@@ -383,6 +439,13 @@ const pl = await p.evaluate(() => {
            stack: cr.top < fr.top };
 });
 check('🎦 한 기둥 레이아웃 (답변·자막 우측 세로 정렬)', pl.right && pl.col && pl.stack);
+// 폰트 스케일은 '정상 답변 행'을 기준으로 재야 한다. 바로 앞 503 주입 테스트가
+// 카드를 오류 행(한국어 안내만·.en 없음)으로 남겨 두면 여기서 null을 잡는다.
+await p.evaluate(() => { const d = pipWin.document;
+  if(!d.querySelector('#c-answers .en'))
+    d.querySelector('#c-answers').innerHTML =
+      '<div class="lrow primary"><div class="body"><div class="en">Sample answer for scaling.</div></div></div>';
+});
 const f1 = await p.evaluate(() =>
   parseFloat(getComputedStyle(pipWin.document.querySelector('#c-answers .en')).fontSize));
 await p.evaluate(() => pipWin.document.querySelector('[data-ovs="L"]').click());

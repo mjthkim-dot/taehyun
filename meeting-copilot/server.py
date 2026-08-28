@@ -24,6 +24,7 @@ import re
 import signal
 import sys
 import threading
+import pathlib
 import time
 import urllib.error
 import urllib.parse
@@ -45,6 +46,21 @@ PORT = int(os.environ.get("PORT", "3799"))
 # 본답변 세대 카운터 — 더 새로운 답변 요청이 오면 이전 스트림은 스스로 종료해
 # 게이트웨이 슬롯을 반환한다 (단일 사용자 로컬 앱 전제, GIL로 원자적)
 SUGGEST_GEN = 0
+
+_MISS_LOG = pathlib.Path(__file__).parent / "logs" / "misses.jsonl"
+
+
+def _log_miss(said: str, user=None) -> None:
+    """대본 없이 지나간 질문을 남긴다 — 무엇을 답변 유닛으로 만들지의 입력.
+    발화 원문이라 개인 정보다: logs/는 .gitignore 대상이고 밖으로 나가지 않는다."""
+    try:
+        _MISS_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with _MISS_LOG.open("a", encoding="utf-8") as f:
+            f.write(json.dumps({"ts": time.time(), "said": said[:400],
+                                "uid": (user or {}).get("id")},
+                               ensure_ascii=False) + "\n")
+    except OSError:
+        pass
 HOST = os.environ.get("HOST", "127.0.0.1")
 APP_DIR = Path(__file__).parent
 STATIC = {
@@ -612,6 +628,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 said, str(req.get("context") or "")[-3000:],
                 req.get("intent", "reply"), req.get("cefr", "B1"), store=store,
                 preset=preset)
+            # Tier C — 근거를 못 찾았다. 여기서 생성하면 그대로 발화된다.
+            # LLM을 아예 부르지 않는다: 환각 0 · 지연 0 · 토큰 0.
+            if built["tier"] == "C" and req.get("intent") == "reply":
+                c = prompts.build_tier_c(said, store=store)
+                _log_miss(said, user)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
+                self.end_headers()
+                for obj in ({"meta": {"tier": "C", "sources": [],
+                                      "rag_used": False, "facts": c["facts"],
+                                      "known_numbers": c["known_numbers"],
+                                      "has_placeholder": False}},
+                            {"message": {"content": f"EN: {c['en']}\n===\n"
+                                         f"META: 요지={c['gist']} | 전략={c['strategy']}"}},
+                            {"done": True}):
+                    self.wfile.write((json.dumps(obj, ensure_ascii=False) + "\n").encode())
+                self.wfile.flush()
+                self._status = 200
+                return
             # ⏳시간 벌기·되묻기는 정의상 1~2문장 즉답 — fast 레인(lite 모델)으로
             # 보내 첫 토큰을 앞당긴다. 나머지는 main 레인 유지(발표형 품질).
             quick = req.get("intent") in ("buytime", "clarify")
@@ -623,6 +658,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     meta={"sources": built["sources"],
                           "phrases": built["phrases"],
                           "rag_used": built["rag_used"],
+                          "tier": built["tier"],
+                          "known_numbers": built["known_numbers"],
                           "has_placeholder": built["has_placeholder"]})
             return
 

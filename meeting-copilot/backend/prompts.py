@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import os
 import re
 
 import rag
@@ -35,6 +36,29 @@ INTENTS = {
 # ≥ 2" 또는 의미(벡터) 히트만 '자료'로 인정한다. 컷을 통과한 게 하나도 없으면
 # 자료 없이 프로필 기반으로 생성한다 — 무관 시드를 억지로 인용하는 것보다 낫다.
 RAG_MIN_MATCH_TERMS = 2
+
+# 답변 카드에 담을 줄. 실사용 확인(2026-08): 상대 발화는 EN+KR을 모두 보지만
+# **답변셋은 영어만 읽는다**. KR·PR은 출력 토큰의 52%(KR 25%·PR 28%)를 차지하며
+# EN 완결 이후 1.51초를 더 쓰게 했다(실측). 안 보는 줄을 만드느라 기다린 셈이라
+# 기본을 EN 단독으로 바꾼다. 되돌리려면 ANSWER_LINES=en,kr,pr 로 기동한다.
+ANSWER_LINES = [x.strip().lower() for x in
+                os.environ.get("ANSWER_LINES", "en").split(",") if x.strip()]
+SHOW_KR = "kr" in ANSWER_LINES
+SHOW_PR = "pr" in ANSWER_LINES
+
+# 수치 게이트용 — 자료·프로필에 실재하는 숫자만 '확정'으로 본다.
+_NUM = re.compile(r"\d[\d,.]*\s*(?:%|억|만|천|million|m|billion|b|k)?", re.I)
+
+
+def _known_numbers(texts: list[str]) -> list[str]:
+    """자료에 문자열로 실재하는 수치 토큰 집합. 출력 검증의 기준선."""
+    out: set[str] = set()
+    for t in texts:
+        for m in _NUM.finditer(t or ""):
+            tok = m.group(0).strip().rstrip(".,")
+            if any(ch.isdigit() for ch in tok):
+                out.add(tok.lower().replace(" ", ""))
+    return sorted(out)
 
 
 def _strong_hits(hits: list[dict]) -> list[dict]:
@@ -169,6 +193,18 @@ verbatim or nearly so; IGNORE loosely related lines, never force a quote.
         who = "The other side just said:"
         tone_rule = "- Business tone: professional, spoken, contractions fine. No slang, no filler."
 
+    kr_line = "KR: <한국어 뜻>\n" if SHOW_KR else ""
+    pr_line = ("""PR: <the EN answer written in HANGUL ONLY, as it sounds when spoken aloud
+(한국어 발음 표기, 예: "아임 드로온 투 하우 유 셀…"), on ONE line.
+No IPA and no slashes in this line.
+PR accuracy rules: derive the Hangul from the standard spoken pronunciation
+(IPA), never from spelling. Never drop consonants or syllables (honestly → 어니스틀리
+NOT 아너슬리; strengths → 스트렝쓰스; asked → 애스크트; maturity → 머추리티
+NOT 머튜리티; usually → 유주얼리; executive → 이그제큐티브). Acronyms as
+Korean letter names (AWS → 에이더블유에스, SoW → 에스오더블유, EDP → 이디피).
+Numbers as the spoken English words (75.6 million → 세븐티 파이브 포인트
+식스 밀리언).>
+""" if SHOW_PR else "")
     prompt = f"""{head}
 {ctx}
 {who}
@@ -194,18 +230,7 @@ EN: <ONE complete spoken answer — length per ANSWER DEPTH below. Insert
 can chunk it while reading aloud — at clause boundaries, every 3-6 words:
 "For eight years, / I sold cloud infrastructure. / But today, / clients
 need AI / to transform how they work." Slashes do not count as words.>
-KR: <한국어 뜻>
-PR: <the EN answer written in HANGUL ONLY, as it sounds when spoken aloud
-(한국어 발음 표기, 예: "아임 드로온 투 하우 유 셀…"), on ONE line.
-No IPA and no slashes in this line.
-PR accuracy rules: derive the Hangul from the standard spoken pronunciation
-(IPA), never from spelling. Never drop consonants or syllables (honestly → 어니스틀리
-NOT 아너슬리; strengths → 스트렝쓰스; asked → 애스크트; maturity → 머추리티
-NOT 머튜리티; usually → 유주얼리; executive → 이그제큐티브). Acronyms as
-Korean letter names (AWS → 에이더블유에스, SoW → 에스오더블유, EDP → 이디피).
-Numbers as the spoken English words (75.6 million → 세븐티 파이브 포인트
-식스 밀리언).>
-===
+{kr_line}{pr_line}===
 META: 요지=<상대 발언 핵심 한국어 한 줄> | 전략=<말하기 전략 한국어 한 줄>
 
 RESOLVE REFERENTS FROM CONTEXT before answering — this decides WHAT the
@@ -273,8 +298,50 @@ SOUND HUMAN — an interviewer trusts one vivid specific over five stats:
 - No template skeletons: don't open every answer the same way; don't end
   with a moral ("This taught me..."). A light lead ("Honestly,") at most
   once per answer."""
-    return {"prompt": prompt, "sources": labels, "hits": hits,
+    # Tier C(미스) — 자료에서 근거를 못 찾았다. 여기서 답을 '만들면' 그대로
+    # 발화되므로, 티어를 알려 서버가 생성을 건너뛰게 한다(#16 escalation).
+    # 프로필은 일반 사실이지 '이 질문의 대본'이 아니다 — 그대로 읽을 문장의
+    # 근거로 삼지 않는다.
+    # 티어는 **이번 질문**에 대본이 있는지로 가른다. 검색 질의에 맥락을 섞으면
+    # 앞선 주제의 적중이 이번 질문의 근거인 양 새어 들어와 미스가 감춰진다
+    # (실측: 대화가 쌓인 뒤엔 코퍼스에 전혀 없는 질문도 tier B로 나왔다).
+    # 예외 — 짧은 후속 질문("Why?" / "How big?")은 정의상 앞 맥락에 기댄다.
+    # 또 하나 — '대본'은 **준비한 자료**(노트·용어집)다. 지난 미팅 트랜스크립트는
+    # 원본 기록이지 이번 질문의 답변 근거가 아니다. 키워드 검색만 도는 지금은
+    # 트랜스크립트가 일반 영어로 폭넓게 걸려 미스를 가린다(실측: 코퍼스에 없는
+    # 질문의 상위 적중이 지난 미팅 기록이었다).
+    if intent == "reply" and len(said.split()) >= 4:
+        own = _strong_hits(st.search(said.strip()[-400:], k=k,
+                                     sources=["note", "glossary"]))
+        tier = "C" if not own else "B"
+    else:
+        tier = "C" if not hits else "B"
+    known = _known_numbers([h["text"] for h in hits] + [profile])
+    return {"prompt": prompt, "sources": labels, "hits": hits, "tier": tier,
+            "known_numbers": known,
             "phrases": phrases, "rag_used": bool(hits), "has_placeholder": has_ph}
+
+
+# Tier C에서 화면에 띄울 것 — 생성이 아니라 고정 문구다(환각 위험 0, 지연 0).
+# 빈 화면은 면접 중 더 당황스럽다. 안전한 상투구로 시간을 벌게 하고,
+# 자료에 있는 확정 수치·키워드만 곁들인다.
+TIER_C_OPENERS = [
+    "That's a good question. / Let me think about that for a second.",
+    "Let me take a moment / on that one.",
+]
+
+
+def build_tier_c(said: str, store=None) -> dict:
+    """근거 없음 — 생성하지 않고 시간 벌기 문장 + 확정 사실만 돌려준다."""
+    st = store or rag.default_store()
+    profile = _profile(st)
+    return {
+        "en": TIER_C_OPENERS[0],
+        "gist": "대본 없음 — 내 자료에서 근거를 찾지 못했습니다",
+        "strategy": "시간을 벌고, 아는 사실만 말하세요 (지어내지 마세요)",
+        "facts": [l.strip("- ").strip() for l in profile.splitlines() if l.strip()][:4],
+        "known_numbers": _known_numbers([profile]),
+    }
 
 
 # 자막 번역 — 읽는 사람은 미팅 중이라 0.5초 안에 뜻만 잡으면 된다.

@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v30';  // v5.3: 상대 입력 장치 선택 — 내 목소리 섞임 방지
+const SHELL = 'mc-shell-v31';  // v5.4: Phase 0 — 근거 없으면 만들지 않는다 + 답변은 영어만
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {
