@@ -40,7 +40,8 @@ fi
 if curl -s --max-time 2 "http://localhost:11434/api/tags" 2>/dev/null | grep -q bge-m3; then
   echo "  · bge-m3 감지 — 의미 검색 활성 (한국어 노트 ↔ 영어 발언)"
 else
-  echo "  💡 의미 검색을 켜려면: ollama pull bge-m3  (무료·로컬, 없어도 키워드로 동작)"
+  echo "  · 의미 검색: Gemini 임베딩 사용 (설치 불필요 — 자료 탭에서 '지금 동기화' 한 번)"
+  echo "    더 빠르게 하려면(로컬·무료): ollama pull bge-m3"
 fi
 if [ -n "${NOTION_TOKEN:-}" ]; then
   echo "  · NOTION_TOKEN 설정됨 — '자료' 탭에서 수업 노트 페이지를 당겨올 수 있습니다"

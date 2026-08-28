@@ -4,7 +4,9 @@
 
  설계 근거는 docs/ARCHITECTURE.md 4장. 요약하면:
   · 저장은 표준 라이브러리 sqlite3만 쓴다 (설치 불필요, 파일 1개, 백업 쉬움)
-  · 임베딩은 로컬 Ollama bge-m3 — $0이고 한국어 노트 ↔ 영어 발언이 교차 검색된다
+  · 임베딩은 로컬 Ollama bge-m3 우선(왕복 0), 없으면 Gemini(설치 불필요).
+    질의 임베딩은 실측 0.43~0.68초라 매 검색에 쓰지 않는다 — BM25(1ms)로 먼저
+    찾고, 비었을 때만 의미검색 2차 패스를 돌린다(prompts.build_suggest)
   · 개인용 규모(수천~수만 청크)에서 ANN은 불필요하므로 브루트포스 코사인
   · 임베딩이 없어도 키워드(BM25) 단독으로 쓸 만해야 한다 ← 설계 원칙
 
@@ -272,18 +274,25 @@ class Store:
         return out[:k]
 
     def search(self, query: str, k: int = 6, per_source: int = 3,
-               sources: list[str] | None = None) -> list[dict]:
+               sources: list[str] | None = None,
+               semantic: bool | None = None) -> list[dict]:
         """하이브리드 검색 — 키워드 순위와 벡터 순위를 RRF로 융합.
 
         RRF를 쓰는 이유: BM25 점수와 코사인 유사도는 스케일이 달라 가중합을 쓰면
         튜닝이 필요하지만, 순위만 쓰는 RRF는 스케일에서 자유롭다.
         per_source: 한 소스가 결과를 독점하지 못하게 막는다(용어집만 6개 나오면 문맥이 빈다).
+
+        semantic: 질의를 임베딩할지. None이면 **공짜일 때만**(로컬 모델) 한다.
+          Gemini 임베딩은 질의당 실측 0.43~0.68초라 매 질문에 얹으면 답변이
+          그만큼 늦어진다. 그래서 기본은 BM25(1ms)로 가고, 호출부가 '적중이
+          약하다'고 판단했을 때만 semantic=True로 두 번째 패스를 돌린다.
         """
         if not query.strip():
             return []
         pool = max(k * 4, 20)
+        use_vec = semantic if semantic is not None else llm._ollama_embed_available()
         # 질의 임베딩은 네트워크 호출이라 락 밖에서 — 락은 CPU 구간만 지킨다
-        qv = (llm.embed([query]) or [None])[0] if llm.embed_available() else None
+        qv = (llm.embed([query]) or [None])[0] if use_vec else None
         with self._search_lock:
             kw = self._bm25(query, pool)
             vec = self._vector(qv, pool) if qv else []
@@ -307,6 +316,9 @@ class Store:
 
         kwr = {c: i for i, (c, _, _n) in enumerate(kw)}
         vcr = {c: i for i, (c, _) in enumerate(vec)}
+        # 코사인 유사도 원값 — 벡터 검색은 아무리 멀어도 최근접 k개를 돌려주므로,
+        # '의미로 걸렸다'만으로는 관련성 판정이 안 된다. 호출부가 하한을 건다.
+        vsim = {c: sim for c, sim in vec}
         picked: list[dict] = []
         per: dict[str, int] = {}
         for cid, score in order:
@@ -327,6 +339,7 @@ class Store:
                 # 관련성 신호: 매칭된 어절 질의어 수. 의미(벡터) 히트는 키워드가
                 # 없어도 정당하므로 컷 판정에서 via를 함께 본다
                 "match_terms": match_terms.get(cid, 0),
+                "sim": round(vsim.get(cid, 0.0), 4),
                 "via": ("키워드+의미" if cid in kwr and cid in vcr
                         else "의미" if cid in vcr else "키워드"),
             })
@@ -397,8 +410,9 @@ def reembed_missing(limit: int = 500) -> int:
 
 
 def search(query: str, k: int = 6, per_source: int = 3,
-           sources: list[str] | None = None) -> list[dict]:
-    return _default.search(query, k, per_source, sources)
+           sources: list[str] | None = None,
+           semantic: bool | None = None) -> list[dict]:
+    return _default.search(query, k, per_source, sources, semantic)
 
 
 def stats() -> dict:

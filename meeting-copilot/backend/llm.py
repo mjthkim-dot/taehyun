@@ -742,8 +742,8 @@ def probe_cached(refresh: bool = False) -> list[dict]:
 _embed_ok_cache: tuple[float, bool] = (0.0, False)
 
 
-def embed_available() -> bool:
-    """EMBED_MODEL이 Ollama에 설치돼 있는지 (60초 캐시). 없으면 키워드 검색 폴백."""
+def _ollama_embed_available() -> bool:
+    """EMBED_MODEL이 Ollama에 설치돼 있는지 (60초 캐시)."""
     global _embed_ok_cache
     ts, ok = _embed_ok_cache
     if time.time() - ts < 60:
@@ -759,17 +759,64 @@ def embed_available() -> bool:
     return ok
 
 
-def embed(texts: list[str]) -> list[list[float]] | None:
-    """텍스트들 → 임베딩 벡터 (로컬 bge-m3, 한·영 교차). 불가하면 None."""
-    if not texts or not embed_available():
-        return None
+# Gemini 임베딩 — 로컬 설치(ollama + 2GB 모델) 없이 의미검색을 켜는 길.
+# 실측: 질의 1건 427ms(768차원 385ms) · 배치 16건 0.53s(218청크 ≈ 7.3초).
+# 질의마다 쓰기엔 비싸므로 **색인은 여기서, 질의는 BM25가 약할 때만** 쓴다
+# (rag.Store.search의 2단 구조). 차원을 768로 낮춰 저장·비교 비용을 줄인다.
+GEMINI_EMBED_MODEL = os.environ.get("GEMINI_EMBED_MODEL", "gemini-embedding-001")
+GEMINI_EMBED_DIM = int(os.environ.get("GEMINI_EMBED_DIM", "768"))
+
+
+def _gemini_embed(texts: list[str]) -> list[list[float]] | None:
+    body = {"requests": [
+        {"model": f"models/{GEMINI_EMBED_MODEL}",
+         "content": {"parts": [{"text": t[:8000]}]},
+         "outputDimensionality": GEMINI_EMBED_DIM} for t in texts]}
     try:
-        with _open(f"{OLLAMA_URL}/api/embed",
-                   {"model": EMBED_MODEL, "input": texts}, timeout=60) as r:
-            vecs = json.loads(r.read()).get("embeddings")
+        req = urllib.request.Request(
+            f"{GEMINI_URL}/models/{GEMINI_EMBED_MODEL}:batchEmbedContents?key={GEMINI_API_KEY}",
+            data=json.dumps(body).encode(), method="POST",
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            vecs = [e.get("values") for e in json.loads(r.read()).get("embeddings", [])]
         return vecs if vecs and len(vecs) == len(texts) else None
     except Exception:  # noqa: BLE001
         return None
+
+
+def embed_available() -> bool:
+    """의미검색을 쓸 수 있는가 — 로컬 모델이 있거나 Gemini 키가 있으면 True."""
+    return _ollama_embed_available() or bool(GEMINI_API_KEY)
+
+
+def embed(texts: list[str]) -> list[list[float]] | None:
+    """텍스트들 → 임베딩 벡터. 로컬(bge-m3) 우선, 없으면 Gemini. 불가하면 None.
+
+    로컬을 우선하는 이유: 네트워크 왕복이 없어 질의 임베딩이 공짜에 가깝다.
+    """
+    if not texts:
+        return None
+    if _ollama_embed_available():
+        try:
+            with _open(f"{OLLAMA_URL}/api/embed",
+                       {"model": EMBED_MODEL, "input": texts}, timeout=60) as r:
+                vecs = json.loads(r.read()).get("embeddings")
+            if vecs and len(vecs) == len(texts):
+                return vecs
+        except Exception:  # noqa: BLE001
+            pass
+    if GEMINI_API_KEY:
+        return _gemini_embed(texts)
+    return None
+
+
+def embed_backend() -> str:
+    """지금 어떤 임베딩을 쓸 수 있는지 — 진단·표시용."""
+    if _ollama_embed_available():
+        return f"로컬 {EMBED_MODEL}"
+    if GEMINI_API_KEY:
+        return f"Gemini {GEMINI_EMBED_MODEL} ({GEMINI_EMBED_DIM}차원)"
+    return ""
 
 
 # ── Gemini 3.5 Transcribe — 실전(8/27) STT 붕괴의 해법 ──

@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 import re
 
+import llm
 import rag
 
 # 퀵 액션 의도 — 미팅 공통 + 인터뷰 전용(8/27 HR 스크리닝 대비)
@@ -61,9 +62,22 @@ def _known_numbers(texts: list[str]) -> list[str]:
     return sorted(out)
 
 
+# 의미(벡터) 히트의 코사인 하한. 벡터 검색은 아무리 멀어도 최근접 k개를
+# 돌려주므로 '의미로 걸렸다'만으로는 관련성이 아니다 — 하한이 없으면 코퍼스에
+# 전혀 없는 질문도 근거가 있는 것처럼 통과해 Tier C 게이트가 무력해진다.
+# 실측 분포(gemini-embedding-001, 768차원): 코퍼스 안·패러프레이즈 0.583~0.707,
+# 코퍼스 밖 0.463~0.522. 두 무리 사이인 0.55를 하한으로 둔다.
+RAG_MIN_SIM = float(os.environ.get("RAG_MIN_SIM", "0.55"))
+
+
 def _strong_hits(hits: list[dict]) -> list[dict]:
-    return [h for h in hits
-            if h.get("match_terms", 0) >= RAG_MIN_MATCH_TERMS or "의미" in h.get("via", "")]
+    out = []
+    for h in hits:
+        if h.get("match_terms", 0) >= RAG_MIN_MATCH_TERMS:
+            out.append(h)                       # 키워드로 충분히 겹친다
+        elif "의미" in h.get("via", "") and h.get("sim", 0.0) >= RAG_MIN_SIM:
+            out.append(h)                       # 의미로 걸렸고 충분히 가깝다
+    return out
 
 
 # 시드가 전혀 없는 질문(취미·실패담·이직 사유 등)에도 "말할 수 있는 답"이 나오게
@@ -151,6 +165,12 @@ def build_suggest(said: str, context: str = "", intent: str = "reply",
         "\n".join(ctx_lines) + "\n" + said)
     st = store or rag.default_store()
     hits = _strong_hits(st.search(query.strip()[-800:], k=k))   # 관련성 컷
+    # 2단 검색 — BM25(1ms)가 비면 그때만 의미검색을 돌린다. 면접관이 내 트리거와
+    # 다른 어휘로 물으면("largest contract you've signed" vs "biggest deal")
+    # 키워드로는 못 잡는데, 질의 임베딩은 실측 0.43~0.68초라 매번 쓸 수 없다.
+    # 놓치면 어차피 Tier C로 답을 안 만드는 구간이라, 그 비용을 여기서만 낸다.
+    if not hits and llm.embed_available():
+        hits = _strong_hits(st.search(query.strip()[-800:], k=k, semantic=True))
 
     phrases = _learned_phrases(hits)
     labels = [f"{h['source_label']}: {h['title']}" for h in hits]
@@ -313,6 +333,9 @@ SOUND HUMAN — an interviewer trusts one vivid specific over five stats:
     if intent == "reply" and len(said.split()) >= 4:
         own = _strong_hits(st.search(said.strip()[-400:], k=k,
                                      sources=["note", "glossary"]))
+        if not own and llm.embed_available():
+            own = _strong_hits(st.search(said.strip()[-400:], k=k,
+                                         sources=["note", "glossary"], semantic=True))
         tier = "C" if not own else "B"
     else:
         tier = "C" if not hits else "B"
