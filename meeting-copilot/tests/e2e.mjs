@@ -288,6 +288,17 @@ console.log('\n■ v5.4 Phase 0 — 근거 없으면 만들지 않는다 (#16·#
   check('자료에 없는 숫자만 미검증 표시', g.marked.some(x => x.includes('999')) &&
     !g.marked.some(x => x.includes('75.6')), JSON.stringify(g.marked));
   check('확정 수치는 그대로 표시', g.kept);
+
+  // 라벨·연도는 수치 주장이 아니다. 여기서 오탐이 나면 검수한 대본이 온통
+  // 빨갛게 뜨고(실측 61곳), 겁주는 표시가 흔해지면 진짜 경고를 못 믿는다.
+  const lbl = await p.evaluate(() => {
+    knownNumbers = ['75.6', '50.7'];
+    const d = document.createElement('div');
+    d.innerHTML = markNumbers('L1 through L4, n8n is free, a D2C group, founded 2013, from 2022 to 2025');
+    return [...d.querySelectorAll('.unverified')].map(e => e.textContent.trim());
+  });
+  check('라벨·연도는 미검증 표시하지 않음 (L4·n8n·D2C·2013·2025)',
+    lbl.length === 0, lbl.length ? JSON.stringify(lbl) : '오탐 0');
 }
 
 console.log('\n■ v5.3 상대 입력 장치 — 내 목소리 섞임 방지');

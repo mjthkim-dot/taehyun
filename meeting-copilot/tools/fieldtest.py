@@ -648,14 +648,14 @@ def cmd_preflight(args) -> int:
     print("─" * 56)
     fails: list[tuple[str, str]] = []
 
-    print("[1/4] 마이크")
+    print("[1/5] 마이크")
     if args.skip_mic:
         info("건너뜀 (--skip-mic — 탭 오디오 모드 전용이면 무관)")
     elif not _check_mic():
         fails.append(("마이크", "시스템 설정 → 개인정보 보호 → 마이크 허용 후 재실행 "
                                 "(탭 오디오만 쓸 거면 --skip-mic)"))
 
-    print("[2/4] LLM 키 + 실 호출")
+    print("[2/5] LLM 키 + 실 호출")
     _backend()
     import llm
     llm_ms = None
@@ -680,7 +680,7 @@ def cmd_preflight(args) -> int:
             bad(str(e)[:120])
             fails.append(("LLM 호출", str(e)[:80]))
 
-    print("[3/4] 잔여 한도")
+    print("[3/5] 잔여 한도")
     try:
         import llm
         u = llm.usage()
@@ -707,7 +707,7 @@ def cmd_preflight(args) -> int:
     except Exception as e:  # noqa: BLE001
         info(f"한도 확인 생략: {e}")
 
-    print("[4/4] 성능 스냅샷")
+    print("[4/5] 성능 스냅샷")
     try:
         import rag
         st = rag.default_store()
@@ -726,6 +726,54 @@ def cmd_preflight(args) -> int:
             fails.append(("검색 지연", f"p50 {p50:.0f}ms — 색인이 비정상적으로 큽니다. 재기동 후 재확인"))
     except Exception as e:  # noqa: BLE001
         fails.append(("검색", str(e)[:80]))
+
+    # 이 세 가지는 전부 '조용히' 깨진다 — 앱은 멀쩡히 돌고 답변도 나오는데
+    # 품질만 떨어지거나 사실이 틀린다. 그래서 실전 직전에 눈으로 확인한다.
+    print("[5/5] 답변 자산")
+    try:
+        import sqlite3
+        db = ROOT / "backend" / "data" / "store.db"
+        con = sqlite3.connect(str(db))
+        n_note = con.execute("SELECT COUNT(*) FROM chunks WHERE source='note'").fetchone()[0]
+        n_vec = con.execute("SELECT COUNT(*) FROM chunks c JOIN vecs v ON v.chunk_id=c.id "
+                            "WHERE c.source='note'").fetchone()[0]
+        con.close()
+        # 코퍼스를 --replace로 재적재하면 벡터가 고아가 되어 의미검색이 죽는다.
+        # 앱은 멀쩡해 보이지만 패러프레이즈 질문을 놓치기 시작한다.
+        if n_note and n_vec < n_note:
+            bad(f"임베딩 {n_vec}/{n_note} — 의미검색이 부분적으로 꺼져 있습니다")
+            fails.append(("임베딩 누락",
+                          f"{n_note - n_vec}개 청크에 벡터가 없습니다 — "
+                          "GEMINI_API_KEY=… python3 tools/import_private.py --replace"))
+        else:
+            ok(f"임베딩 {n_vec}/{n_note} — 의미검색 정상")
+    except Exception as e:  # noqa: BLE001
+        info(f"임베딩 확인 생략: {e}")
+
+    try:
+        r = subprocess.run([sys.executable, str(ROOT / "tests" / "claims_guard.py")],
+                           capture_output=True, text=True, timeout=30)
+        if r.returncode == 0:
+            ok("과장 주장 없음 (코퍼스 + 대본)")
+        else:
+            bad("과장 주장이 자료에 남아 있습니다 — 그대로 읽으면 거짓 진술이 됩니다")
+            fails.append(("과장 주장", "python3 tools/fix_claims.py 실행 후 재점검"))
+    except Exception as e:  # noqa: BLE001
+        info(f"사실 가드 생략: {e}")
+
+    try:
+        sys.path.insert(0, str(ROOT / "backend"))
+        import units
+        st_u = units.stats()
+        if st_u["total"] == 0:
+            info("검수 대본 없음 — 모든 답변을 그때그때 생성합니다")
+        elif st_u["reviewed"] == 0:
+            warn(f"대본 {st_u['total']}개가 전부 미검수 — Tier A가 한 번도 뜨지 않습니다",
+                 "검수 후 answer_units.json의 reviewed를 true로 바꾸세요")
+        else:
+            ok(f"검수 대본 {st_u['reviewed']}/{st_u['total']}개 활성")
+    except Exception as e:  # noqa: BLE001
+        info(f"대본 확인 생략: {e}")
 
     print("─" * 56)
     if fails:

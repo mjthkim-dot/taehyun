@@ -215,12 +215,18 @@
   #c-tierc ul{margin:5px 0 0;padding-left:16px}
   #c-tierc li{margin:2px 0;color:var(--sub)}
   /* Tier A — 검수된 대본. 지어낸 문장이 아니라는 사실을 눈으로 확인시킨다 */
-  #c-tiera{display:none;margin:6px 0 2px;padding:7px 10px;border-radius:8px;
+  #c-tiera{display:none;margin:6px 0 2px;padding:6px 10px;border-radius:8px;
     background:rgba(82,196,26,.13);border:1px solid rgba(82,196,26,.42);font-size:12.5px;
-    display:none;align-items:center;gap:8px;flex-wrap:wrap}
+    align-items:center;gap:8px;flex-wrap:nowrap}
   #c-tiera.on{display:flex}
-  #c-tiera b{color:var(--ok,#52c41a)}
-  #c-tiera .ttl{color:var(--sub);font-size:11.5px}
+  #c-tiera b{color:var(--ok,#52c41a);white-space:nowrap}
+  /* 제목은 길다("딜 스토리 A — 당근마켓 $75.6M EDP"). 줄바꿈을 허용하면 배너가
+     2~3줄로 부풀어(실측 S에서 87px) 정작 읽어야 할 답변을 밀어낸다. 한 줄로 자른다. */
+  #c-tiera .ttl{color:var(--sub);font-size:11.5px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1 1 auto}
+  /* 오버레이는 세로가 가장 귀하다 — 제목은 버리고 배지와 버튼만 남긴다 */
+  body.overlay #c-tiera .ttl{display:none}
+  body.overlay #c-tiera{padding:4px 8px;margin:4px 0 2px}
   #c-tiera button{margin-left:auto;background:rgba(82,196,26,.18);color:inherit;
     border:1px solid rgba(82,196,26,.5);border-radius:6px;padding:3px 9px;
     font-size:11.5px;cursor:pointer}
@@ -455,7 +461,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v5.9</span>
+  <span class="ver" id="app-ver">v5.10</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -568,8 +574,11 @@
       <div class="lrow" id="c-strat-row" style="display:none">
         <span class="lab st">전략</span><div class="body"><div class="strat" id="c-strat"></div></div>
       </div>
-      <div id="c-answers"></div>
+      <!-- Tier A 배너는 답변 '위'에 둔다. 아래에 두면 82단어짜리 대본이 밀어내
+           기본 오버레이(420x560)에서 배너도 90초 버튼도 화면 밖으로 나간다
+           (실측: 버튼 y=694 · 창 560). 안심 신호가 안 보이면 배너의 의미가 없다. -->
       <div id="c-tiera"></div>
+      <div id="c-answers"></div>
       <div id="c-tierc"></div>
       <div id="c-src"></div>
     </div>
@@ -1291,9 +1300,15 @@ function answerRow(en,kr,pr,idx){
 //  불가능하다. 사람이 1초 안에 '이 숫자는 근거 없음'을 알면 건너뛰고 읽을 수 있다.
 let knownNumbers = [];
 const numKey = t => t.toLowerCase().replace(/\s+/g,'').replace(/[.,]$/,'');
+// 라벨과 연도는 '수치 주장'이 아니다. 앞뒤가 글자면 건너뛴다 —
+// 안 그러면 L4·n8n·D2C의 숫자와 2025 같은 연도가 전부 빨갛게 뜬다
+// (실측: 검수 대본 37개에서 오탐 61곳). 겁주는 표시가 흔해지면 진짜 경고를 못 믿는다.
+const _YEAR = /^(19|20)\d\d$/;
 function markNumbers(html){
   if(!knownNumbers.length) return html;
-  return html.replace(/\d[\d,.]*\s*(?:%|억|만|천|million|M|billion|B|k)?/gi, m=>{
+  return html.replace(/(?<![A-Za-z0-9])\d[\d,.]*\s*(?:%|억|만|천|million|M|billion|B|k)?(?![A-Za-z])/gi, m=>{
+    const digits = m.replace(/[^\d]/g,'');
+    if(_YEAR.test(digits)) return m;                  // 2013·2025 = 연도
     const k = numKey(m);
     if(knownNumbers.some(n => n === k || k.startsWith(n) || n.startsWith(k))) return m;
     return `<span class="unverified" title="내 자료에 없는 숫자입니다 — 확인 전에는 읽지 마세요">${m}</span>`;
