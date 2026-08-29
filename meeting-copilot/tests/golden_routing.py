@@ -142,6 +142,13 @@ UNIT_OK: dict[str, str] = {
     "What's your sales methodology?": "딜 검증 습관",
     "Why Workato, and why now?": "이직 사유",
     "Why should we hire you over other candidates?": "왜 나인가",
+    # 2차 배치 — 각 대본을 질문과 나란히 읽어 보고 승인했다.
+    "What do you know about Workato's product line?": "Workato 제품 라인",
+    "Walk me through how you think about AI maturity with customers.": "L1-L4 프레임워크",
+    "What would your first 90 days look like here?": "6개월 실행 계획",
+    # 초안은 시장 진단으로 시작해 "어떻게 세울 것인가"에 답하지 않았다.
+    # 계획을 앞에 세우고 진단을 근거로 내린 뒤에 승인했다.
+    "How would you build a territory plan for Korea?": "한국 테리토리 전략",
 }
 
 

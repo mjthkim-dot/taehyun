@@ -51,6 +51,12 @@ EXPANSIONS: list[tuple[str, str]] = [
     (r"\b(biggest|largest|best)\b.{0,20}\b(deal|contract|account)\b"
      r"|\bdeal\b.{0,16}\b(proud|proudest)\b",
      "renewal early renewal EDP commoditization expansion architecture 딜 스토리 A"),
+    # 실행 계획 — 노트가 둘이다(GitLab 시절 일반론 vs 워카토용 상세).
+    # 면접에서는 상세한 쪽을 읽어야 하므로 그 어휘를 실어 준다.
+    (r"\b(first (90|ninety) days|30.?60.?90|what would you do first|your plan if we hire)\b",
+     "6개월 실행 계획 new logo quick win AM 네트워크 반복 가능한 GTM 모션 온보딩"),
+    (r"\bterritory (plan|strategy)\b|\bbuild a territory\b",
+     "한국 테리토리 전략 시장 진단 온프렘 계열사 자율성 규제 비치헤드 L3 L4 공백"),
     # 시장
     (r"\b(korean market|market in korea|korea opportunity|territory)\b"
      r"|\bwhat.{0,16}\bsee\b.{0,20}\bmarket\b",
