@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v33';  // v5.6: Phase 2 — 소스 위계 + 질의 확장 + 라우팅 골든셋
+const SHELL = 'mc-shell-v34';  // v5.7: Tier A — 검수된 대본을 생성 없이 그대로
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {

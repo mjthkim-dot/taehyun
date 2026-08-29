@@ -214,6 +214,16 @@
   #c-tierc b{color:var(--warn)}
   #c-tierc ul{margin:5px 0 0;padding-left:16px}
   #c-tierc li{margin:2px 0;color:var(--sub)}
+  /* Tier A — 검수된 대본. 지어낸 문장이 아니라는 사실을 눈으로 확인시킨다 */
+  #c-tiera{display:none;margin:6px 0 2px;padding:7px 10px;border-radius:8px;
+    background:rgba(82,196,26,.13);border:1px solid rgba(82,196,26,.42);font-size:12.5px;
+    display:none;align-items:center;gap:8px;flex-wrap:wrap}
+  #c-tiera.on{display:flex}
+  #c-tiera b{color:var(--ok,#52c41a)}
+  #c-tiera .ttl{color:var(--sub);font-size:11.5px}
+  #c-tiera button{margin-left:auto;background:rgba(82,196,26,.18);color:inherit;
+    border:1px solid rgba(82,196,26,.5);border-radius:6px;padding:3px 9px;
+    font-size:11.5px;cursor:pointer}
 
   /* 카드가 열려 있는 동안 나머지(자막·상태줄·헤더)는 한 단계 회색조로 —
      인지 부하가 높은 순간 시선은 답변 카드 하나로 모은다 */
@@ -445,7 +455,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v5.6</span>
+  <span class="ver" id="app-ver">v5.7</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -559,6 +569,7 @@
         <span class="lab st">전략</span><div class="body"><div class="strat" id="c-strat"></div></div>
       </div>
       <div id="c-answers"></div>
+      <div id="c-tiera"></div>
       <div id="c-tierc"></div>
       <div id="c-src"></div>
     </div>
@@ -1301,6 +1312,22 @@ function renderTierC(meta){
   el.style.display = 'block';
 }
 
+// ── Tier A 표시 — 검수된 대본을 그대로 읽는 중이라는 신호 ──
+// 왜 배너를 다는가: 화면만 보면 생성문과 구분되지 않는다. "이건 내가 검수한
+// 문장"임을 알아야 안심하고 그대로 읽는다.
+let lastSaid = '';                 // 90초 판본 재요청에 쓴다
+function renderTierA(meta){
+  const el = $('#c-tiera');
+  if(!el) return;
+  if(!meta || meta.tier !== 'A'){ el.classList.remove('on'); el.innerHTML=''; return; }
+  const ttl = meta.unit_title ? `<span class="ttl">${esc(meta.unit_title)}</span>` : '';
+  el.innerHTML = `<b>📌 검수된 대본</b> ${ttl}`
+    + (meta.has_90s ? `<button id="c-90s" type="button">＋ 90초 판본</button>` : '');
+  el.classList.add('on');
+  const b = $('#c-90s');
+  if(b) b.onclick = ()=>{ b.disabled = true; suggest(lastSaid, 'reply', false, false, false, '90s'); };
+}
+
 function renderCard(raw){
   // 박스를 먼저 비우면 안 된다 — 스트리밍 첫 순간("EN:"만 도착)엔 파싱 결과가
   // 비어 카드가 통째로 사라진다(깜빡임). 만들 게 생겼을 때만 교체한다.
@@ -1328,6 +1355,7 @@ function renderSources(meta){
   lastPhrases = meta?.phrases || [];
   knownNumbers = (meta?.known_numbers || []).map(numKey);
   renderTierC(meta);
+  renderTierA(meta);
   const el = $('#c-src');
   if(!meta || (!meta.sources?.length && !meta.has_placeholder)){ el.style.display='none'; return; }
   const p = [];
@@ -1372,7 +1400,7 @@ function fireOpener(said, intent){
     }).catch(()=>{});
 }
 
-async function suggest(said, intent, auto, speculative, retried){
+async function suggest(said, intent, auto, speculative, retried, depth){
   if(auto && pinned) return;
   if(!auto && pinned){ pinned = false; $('#c-pin').classList.remove('on'); }
   if(!speculative){ specTries = 0; specGaps = []; specLastAt = 0; }
@@ -1390,6 +1418,7 @@ async function suggest(said, intent, auto, speculative, retried){
   card.classList.toggle('spec', !!speculative);
   suggestAbort = new AbortController();
   const sig = suggestAbort.signal;
+  lastSaid = said;                             // 90초 판본 재요청용
   const prevGist = $('#c-gist').textContent;   // 드롭 시 이전 답변과 요지를 함께 복원
   $('#c-gist').textContent = said.length > 46 ? said.slice(0,46)+'…' : said;
   $('#c-strat-row').style.display = 'none';
@@ -1409,6 +1438,7 @@ async function suggest(said, intent, auto, speculative, retried){
     // 시간 벌기·되묻기는 서버가 fast 레인으로 보낸다 — 로컬 카운트도 맞춘다
     gov.note(['buytime','clarify'].includes(intent) ? 'fast' : 'main');
     await streamChat('/api/suggest',{said,context,intent,cefr:$('#cefr').value,preset:appPreset(),
+      depth: depth || '30s',           // Tier A 유닛의 30초/90초 판본 선택
       bg: !!(auto || speculative)},   // 자동·투기는 게이트웨이에서 클릭보다 후순위
       tk=>{ if(!raw){ card.classList.remove('gen','slow','opened'); clearTimeout(genSlowTimer); }
             raw += tk; mainRaw = raw; renderCard(raw); }, sig, renderSources);

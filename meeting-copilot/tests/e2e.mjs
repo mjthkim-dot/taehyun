@@ -209,6 +209,43 @@ check('EN의 " / " 구분자가 .brk로 렌더 + 본문 유지', await p.evaluat
   return !!en.querySelector('.brk') && en.textContent.includes('customers');
 }));
 
+console.log('\n■ v5.7 Tier A — 검수된 대본을 그대로 (생성 없음)');
+{
+  // 계약 1: 검수 전(reviewed:false) 유닛은 절대 Tier A로 나가지 않는다.
+  // 검수 안 된 문장이 그대로 발화되는 게 이 기능의 유일한 큰 위험이다.
+  const a = await fetch(APP + '/api/suggest', { method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ said: "Walk me through the biggest deal you've closed end to end.",
+                           context: '', intent: 'reply', cefr: 'B1',
+                           preset: 'interview', depth: '30s' }) })
+    .then(r => r.text()).catch(() => '');
+  const metaLine = a.split('\n').find(l => l.includes('"meta"'));
+  const tier = metaLine ? (JSON.parse(metaLine).meta || {}).tier : '?';
+  check('미검수 유닛은 Tier A로 나가지 않는다', tier !== 'A', `tier=${tier}`);
+
+  // 계약 2: Tier A 배너는 '검수된 대본'임을 화면에 밝힌다 — 생성문과 구분되어야
+  // 사용자가 안심하고 그대로 읽는다. 90초 판본이 있으면 버튼도 함께.
+  const ui = await p.evaluate(() => {
+    renderSources({ tier: 'A', sources: ['노트: 딜 스토리 A'], rag_used: true,
+                    unit_title: '딜 스토리 A — 당근마켓 $75.6M EDP', has_90s: true,
+                    known_numbers: ['75.6'], has_placeholder: false });
+    const el = document.querySelector('#c-tiera');
+    return { on: el.classList.contains('on'), txt: el.textContent,
+             btn: !!document.querySelector('#c-90s') };
+  });
+  check('Tier A → 📌 검수된 대본 배너 + 노트 제목', ui.on && /검수된 대본/.test(ui.txt)
+    && ui.txt.includes('딜 스토리 A'), ui.txt.trim().slice(0, 44));
+  check('90초 판본이 있으면 버튼 노출', ui.btn);
+
+  // 계약 3: Tier A가 아니면 배너는 사라진다(이전 답변의 잔상 금지).
+  const off = await p.evaluate(() => {
+    renderSources({ tier: 'B', sources: ['노트: 무엇'], rag_used: true,
+                    known_numbers: [], has_placeholder: false });
+    return document.querySelector('#c-tiera').classList.contains('on');
+  });
+  check('Tier B로 바뀌면 배너 사라짐', !off);
+}
+
 console.log('\n■ v5.4 Phase 0 — 근거 없으면 만들지 않는다 (#16·#14·#13)');
 {
   // 계약 1: 코퍼스에 없는 질문 → LLM 호출 없이 Tier C. 화면 문장은 그대로

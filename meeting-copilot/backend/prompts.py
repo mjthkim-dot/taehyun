@@ -15,6 +15,7 @@ import re
 import llm
 import rag
 import triggers
+import units
 
 # 퀵 액션 의도 — 미팅 공통 + 인터뷰 전용(8/27 HR 스크리닝 대비)
 INTENTS = {
@@ -38,6 +39,11 @@ INTENTS = {
 # ≥ 2" 또는 의미(벡터) 히트만 '자료'로 인정한다. 컷을 통과한 게 하나도 없으면
 # 자료 없이 프로필 기반으로 생성한다 — 무관 시드를 억지로 인용하는 것보다 낫다.
 RAG_MIN_MATCH_TERMS = 2
+
+# Tier A(검수 대본 그대로 읽기) 전용 게이트 — Tier B보다 엄격하다.
+# 생성 없이 그대로 발화되므로, 애매하면 열지 않고 Tier B로 떨어뜨린다.
+UNIT_MIN_TERMS = int(os.environ.get("UNIT_MIN_TERMS", "4"))
+UNIT_MIN_SIM = float(os.environ.get("UNIT_MIN_SIM", "0.62"))
 
 # 답변 카드에 담을 줄. 실사용 확인(2026-08): 상대 발화는 EN+KR을 모두 보지만
 # **답변셋은 영어만 읽는다**. KR·PR은 출력 토큰의 52%(KR 25%·PR 28%)를 차지하며
@@ -349,6 +355,7 @@ SOUND HUMAN — an interviewer trusts one vivid specific over five stats:
     # 원본 기록이지 이번 질문의 답변 근거가 아니다. 키워드 검색만 도는 지금은
     # 트랜스크립트가 일반 영어로 폭넓게 걸려 미스를 가린다(실측: 코퍼스에 없는
     # 질문의 상위 적중이 지난 미팅 기록이었다).
+    unit = None
     if intent == "reply" and len(said.split()) >= 4:
         s_exp = triggers.expand(said.strip()[-400:])
         own = _strong_hits(st.search(s_exp, k=k, sources=["note", "glossary"]))
@@ -356,12 +363,46 @@ SOUND HUMAN — an interviewer trusts one vivid specific over five stats:
             own = _strong_hits(st.search(s_exp, k=k, sources=["note", "glossary"],
                                          semantic=True)) or own
         tier = "C" if not own else "B"
+        # Tier A — 1순위 근거에 검수된 영어 판본이 있으면 생성하지 않는다.
+        # 1순위만 본다: 2순위 이하까지 훑으면 '비슷한 다른 대본'을 읽게 되는데,
+        # 그대로 발화되므로 틀린 답을 자신 있게 읽는 셈이라 더 나쁘다.
+        #
+        # 게이트가 Tier B보다 엄격한 이유(실측): "What would you ask us about how
+        # the team works day to day?"가 '첫 90일 계획 패턴'을 1순위로 집었다
+        # (match_terms=2, 'day'가 겹쳤을 뿐). Tier B는 LLM이 질문과 근거 3개를
+        # 함께 보므로 이런 미스를 어느 정도 흡수하지만, Tier A는 흡수 장치가
+        # 없다 — 그대로 읽힌다. 그래서 '확실할 때만' 연다.
+        # 실측 분포: 맞는 1순위 match_terms 5~9 / 틀린 1순위 2.
+        if own:
+            h0 = own[0]
+            confident = (int(h0.get("match_terms") or 0) >= UNIT_MIN_TERMS
+                         or float(h0.get("sim") or 0.0) >= UNIT_MIN_SIM)
+            if confident:
+                unit = units.find(h0.get("title", ""))
+                if unit:
+                    tier = "A"
     else:
         tier = "C" if not hits else "B"
     known = _known_numbers([h["text"] for h in hits] + [profile])
     return {"prompt": prompt, "sources": labels, "hits": hits, "tier": tier,
-            "known_numbers": known,
+            "known_numbers": known, "unit": unit,
             "phrases": phrases, "rag_used": bool(hits), "has_placeholder": has_ph}
+
+
+# Tier A — 검수된 대본을 그대로. LLM을 부르지 않으므로 문장이 매번 같다.
+# "그대로 읽을 생각"이라는 사용자 전제에서, 매번 달라지는 문장은 그 자체로 결함이다.
+def build_tier_a(unit: dict, depth: str = "30s") -> dict:
+    """검수된 유닛을 카드 형태로 돌려준다. 생성 없음 · 지연 ~0 · 환각 0."""
+    en = unit.get("answer_en_90s") if depth == "90s" else unit.get("answer_en_30s")
+    en = (en or unit.get("answer_en_30s") or "").strip()
+    return {
+        "en": en,
+        "gist": unit.get("gist") or "검수된 대본",
+        "strategy": unit.get("strategy") or "그대로 읽으세요",
+        "known_numbers": list(unit.get("key_numbers") or []),
+        "note_title": unit.get("note_title", ""),
+        "has_90s": bool((unit.get("answer_en_90s") or "").strip()),
+    }
 
 
 # Tier C에서 화면에 띄울 것 — 생성이 아니라 고정 문구다(환각 위험 0, 지연 0).

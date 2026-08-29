@@ -527,7 +527,7 @@ rag-eval 15/15는 "시드와 매칭되는 질문"만 검증했다. 실전 인터
 다시 실행하면 같은 표가 실측 생성문으로 갱신된다.
 
 <!-- OOC-RESULTS:START -->
-### 13.1 결과 표 (ooc_eval.py 자동 기록 — 2026-08-29 01:07 · 공급자: gemini (gemini-3.6-flash))
+### 13.1 결과 표 (ooc_eval.py 자동 기록 — 2026-08-29 01:25 · 공급자: gemini (gemini-3.6-flash))
 
 | 계층 | 면접관 질문 | 검색 근거 (관련성 컷 통과분) | 생성 2안 | 판정 |
 |---|---|---|---|---|
@@ -543,7 +543,7 @@ rag-eval 15/15는 "시드와 매칭되는 질문"만 검증했다. 실전 인터
 | B | Have you ever sold against an incumbent vendor with a locked-in contract? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
 | C | What do you do outside work for fun? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
 | C | Tell me about a time you failed at something. | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
-| C | Why are you leaving your current role right now? | 이직 사유 — 시그니처 답변 (Why Workato)<br>연봉 — 되물음 대응 + 밴드 반응 3종 (2차)<br>딜 검증 습관 — 니즈에서 시작 | Rather than anchoring on a figure, what matters. So let me share one example from a recent | ❌ 무관 시드 인용 의심: Notion 수업 노트: 이직 사유 — 시그니처 답변 (Why Workato), Notion 수업 노트: 연봉 — 되물음 대응 + 밴드 반응 3종 (2차), Notion 수업 노트: 딜 검증 습관 — 니즈에서 시작 |
+| C | Why are you leaving your current role right now? | 이직 사유 — 시그니처 답변 (Why Workato)<br>GitLab 판매 실적 — 엔터프라이즈 플랫폼 셀링 증거<br>연봉 — 되물음 대응 + 밴드 반응 3종 (2차) | I recently closed Nexus Community, and ING Story. So let me share one example from a recen | ❌ 무관 시드 인용 의심: Notion 수업 노트: 이직 사유 — 시그니처 답변 (Why Workato), Notion 수업 노트: GitLab 판매 실적 — 엔터프라이즈 플랫폼 셀링 증거, Notion 수업 노트: 연봉 — 되물음 대응 + 밴드 반응 3종 (2차) |
 | C | How do your colleagues usually describe you? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
 | C | Where do you see yourself in five years? | 자기소개 — 표준 골격 (08 캐노니컬, 담백한 톤) | quickly but struggle to scale into production. So let me share one example from a recent d | ✅ |
 
@@ -1923,3 +1923,102 @@ SOURCE_WEIGHT = {"note": 1.0, "glossary": 0.55, "transcript": 0.40}
 셈이 된다).
 
 버전 v5.6 · SW 캐시 v33.
+
+---
+
+## 55. Tier A — 검수된 대본을 생성 없이 그대로 (2026-08-29, v5.7)
+
+**한 줄:** 미리 검수한 영어 판본이 있는 질문은 LLM을 부르지 않는다. **6~12ms**에
+뜨고, 문장이 매번 같다.
+
+### 왜 필요했나
+
+사용자의 전제는 "답변을 그대로 읽는다"였다. 그런데 코퍼스의 핵심 자산인
+딜 스토리 A~H는 **한국어 S/A/R 속기**다("갱신이 커머디티화될 위기, 트랜잭셔널
+리셀러 관계"). 읽을 수 있는 문장이 아니다.
+
+매번 LLM에 영작을 시키는 것으로 메우고 있었는데, 그 방식은 세 가지가 나쁘다.
+
+1. 느리다 — TTFT 0.82초
+2. **매번 문장이 달라진다** — 그대로 읽을 문장이 매번 다르면 리허설이 무의미하다
+3. 숫자가 흔들린다
+
+### 구조
+
+`backend/units.py` — 노트 제목으로 이어 붙이는 별도 파일
+(`backend/data/imported/answer_units.json`, gitignore 대상). 코퍼스를
+`--replace`로 재적재해도 유닛은 유지된다.
+
+유닛 하나에 30초 판본과 90초 판본, 이 답변이 말해도 되는 수치(`key_numbers`),
+그리고 `reviewed` 플래그가 들어간다. **`reviewed: false`면 Tier A로 나가지
+않는다** — 검수 안 된 문장이 그대로 발화되는 것이 이 기능의 유일한 큰 위험이라,
+기본값을 잠가 뒀다.
+
+### 실측 결함 — Tier A 게이트는 Tier B보다 엄해야 한다
+
+첫 구현은 "1순위 근거에 유닛이 있으면 연다"였다. 그러자 이런 게 나왔다.
+
+```
+Q: "What would you ask us about how the team works day to day?"
+→ [A] 첫 90일 계획 패턴          ← 틀린 대본. 'day'가 겹쳤을 뿐이다.
+```
+
+top1 정확도가 89%라는 건, **11%는 틀린 대본을 자신 있게 읽는다**는 뜻이다.
+Tier B는 LLM이 질문과 근거 3개를 함께 보므로 이런 미스를 어느 정도 흡수한다.
+Tier A에는 흡수 장치가 없다.
+
+실측 분포가 답을 줬다 — 맞는 1순위의 `match_terms`는 5~9, 틀린 1순위는 2였다.
+그래서 Tier A 전용 게이트를 뒀다(`UNIT_MIN_TERMS=4`).
+
+| 임계값 | 발동 | 맞음 | **틀림** |
+|---|---|---|---|
+| 2 | 27 | 24 | **3** |
+| 3 | 20 | 19 | **1** |
+| **4** | **12** | **12** | **0** |
+| 5 | 11 | 11 | 0 |
+| 6 | 10 | 10 | 0 |
+
+4가 무릎이다 — 오발화 0을 유지하는 최대 커버리지. 커버리지가 낮은 건 견딜 수
+있다(Tier B로 떨어질 뿐). **오발화는 못 견딘다.**
+
+### 속도
+
+| 경로 | 첫 화면까지 |
+|---|---|
+| Tier A (검수 대본) | **6~12ms** |
+| Tier B (생성) | 820ms (TTFT) |
+| Tier C (미스) | 1.2초 |
+
+### 라우팅 — 유닛 점검이 코퍼스 결함을 잡았다
+
+`tools/check_units.py`를 만들어 유닛마다 4가지를 검사했다(노트 연결 · 수치 근거 ·
+라우팅 · 발화 길이). 이게 세 가지를 잡아냈다.
+
+1. **중복 주제 노트** — "영어 리스크"와 "영어 커뮤니케이션"이 같은 주제로 경합.
+   유닛을 검색이 실제로 집는 쪽에 붙였다. 랜드앤익스팬드도 같은 문제였다.
+2. **`why workato` 미스** — 골든셋의 top1 미스 중 하나. 기존 트리거 패턴이
+   `leaving`·`motivating`만 잡고 "Why Workato, and why now?"를 놓쳤다.
+3. **`biggest deal`이 작은 딜 노트로** — 최대 딜은 EDP 갱신 쪽인데 랜드앤익스팬드
+   노트가 이겼다.
+
+트리거 3개를 추가해 유닛 라우팅 20/20, 골든셋 top1이 87% → **89%**로 올랐다.
+
+### 검증
+
+| 스위트 | 결과 |
+|---|---|
+| `tests/golden_routing.py` | top1 34/38 (89%) · top3 38/38 (100%) · 티어 40/40 · **Tier A 오발화 0** |
+| `tools/check_units.py` | 유닛 20개 · 형식 0건 · 라우팅 20/20 |
+| `tests/e2e.mjs` | 전부 통과 (Tier A 계약 4건 신규) · 콘솔 오류 0 |
+| `tests/rag_eval.py` | 8/15 (변경 전과 동일) |
+| `tests/ooc_eval.py` | 10/15 (변경 전과 동일) |
+
+골든셋 러너에 **Tier A 오발화를 실패 조건으로 넣었다** — 틀린 대본이 하나라도
+뜨면 스위트가 실패한다. 커버리지 저하는 실패가 아니다.
+
+### 남은 것 — 사용자 검수
+
+유닛 20개는 초안이고 전부 `reviewed: false`다. 사실관계와 말투는 본인만 판단할
+수 있다. 검수 전까지 Tier A는 한 번도 발동하지 않는다(골든셋 실측: 발동 0/38).
+
+버전 v5.7 · SW 캐시 v34.

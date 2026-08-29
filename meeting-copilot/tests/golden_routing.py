@@ -132,6 +132,8 @@ CASES: list[dict] = [
 def run(verbose: bool = False) -> int:
     st = rag.default_store()
     top1 = top3 = tier_ok = 0
+    a_fired = a_right = 0
+    a_wrong: list[tuple[str, str]] = []
     b_cases = [c for c in CASES if c["tier"] == "B"]
     misses: list[tuple[str, str]] = []
     for c in CASES:
@@ -145,7 +147,17 @@ def run(verbose: bool = False) -> int:
             top3 += hit3
             if not hit3:
                 misses.append((c["q"], titles[0] if titles else "—"))
-        tier_ok += built["tier"] == c["tier"]
+        # Tier A는 '검수한 대본을 그대로 읽는' 경로다. 티어 판정에서는 B로 친다
+        # (둘 다 '대본이 있다'는 뜻). 대신 아래에서 따로, 더 엄하게 잰다.
+        eff = "B" if built["tier"] == "A" else built["tier"]
+        tier_ok += eff == c["tier"]
+        if built["tier"] == "A":
+            ut = (built.get("unit") or {}).get("note_title", "")
+            a_fired += 1
+            if any(e in ut for e in c["expect"]):
+                a_right += 1
+            else:
+                a_wrong.append((c["q"], ut))
         if verbose:
             mark = "✅" if (hit3 if c["expect"] else built["tier"] == "C") else "❌"
             print(f"  {mark} [{built['tier']}] {c['q'][:52]:54} → {titles[0][:34] if titles else '—'}")
@@ -153,11 +165,16 @@ def run(verbose: bool = False) -> int:
     print(f"\n  top1 적중  {top1}/{n_b} ({top1/n_b*100:.0f}%)")
     print(f"  top3 적중  {top3}/{n_b} ({top3/n_b*100:.0f}%)")
     print(f"  티어 정확  {tier_ok}/{len(CASES)} ({tier_ok/len(CASES)*100:.0f}%)")
+    # Tier A는 생성 없이 그대로 발화된다 — 틀린 유닛이 하나라도 뜨면 실패다.
+    # 커버리지가 낮은 건 견딜 수 있다(Tier B로 떨어질 뿐). 오발화는 못 견딘다.
+    print(f"  Tier A 발동 {a_fired}/{n_b} · 맞음 {a_right} · 틀림 {len(a_wrong)}")
+    for q, ut in a_wrong:
+        print(f"   ✗ {q[:56]}\n       → 틀린 대본: {ut[:46]}")
     if misses:
         print(f"\n  ── 놓친 문항 {len(misses)}건 (다음 유닛 승격의 입력) ──")
         for q, got in misses:
             print(f"   · {q[:60]}\n     → 대신 나온 것: {got[:50]}")
-    return 0 if top3 == n_b and tier_ok == len(CASES) else 1
+    return 0 if top3 == n_b and tier_ok == len(CASES) and not a_wrong else 1
 
 
 if __name__ == "__main__":

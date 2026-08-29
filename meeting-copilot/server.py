@@ -628,6 +628,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 said, str(req.get("context") or "")[-3000:],
                 req.get("intent", "reply"), req.get("cefr", "B1"), store=store,
                 preset=preset)
+            # Tier A — 검수된 대본이 있다. 생성할 이유가 없다.
+            # LLM을 부르지 않으므로 문장이 매번 같고, 첫 화면까지 ~0초다.
+            if built["tier"] == "A" and built.get("unit"):
+                a = prompts.build_tier_a(built["unit"], str(req.get("depth") or "30s"))
+                self.send_response(200)
+                self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
+                self.end_headers()
+                for obj in ({"meta": {"tier": "A", "sources": built["sources"],
+                                      "rag_used": True,
+                                      "unit_title": a["note_title"],
+                                      "has_90s": a["has_90s"],
+                                      "known_numbers": a["known_numbers"],
+                                      "has_placeholder": False}},
+                            {"message": {"content": f"EN: {a['en']}\n===\n"
+                                         f"META: 요지={a['gist']} | 전략={a['strategy']}"}},
+                            {"done": True}):
+                    self.wfile.write((json.dumps(obj, ensure_ascii=False) + "\n").encode())
+                self.wfile.flush()
+                self._status = 200
+                return
             # Tier C — 근거를 못 찾았다. 여기서 생성하면 그대로 발화된다.
             # LLM을 아예 부르지 않는다: 환각 0 · 지연 0 · 토큰 0.
             if built["tier"] == "C" and req.get("intent") == "reply":

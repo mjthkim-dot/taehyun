@@ -41,9 +41,20 @@ EXPANSIONS: list[tuple[str, str]] = [
      "framework L1 L2 L3 L4 maturity 프레임워크 execution grounding connection governance"),
     (r"\b(where|how).{0,24}\b(money|value|revenue)\b.{0,24}\b(made|come from)\b",
      "L4 세일즈 논리 governance gartner agent failures who pays"),
-    # 동기
-    (r"\b(motivating|motivates|why (a )?change|why (are you )?(looking|leaving))\b",
-     "why workato why leave motivation career move 이직 사유"),
+    # 동기 — "Why Workato, and why now?"는 leaving/motivating 어느 쪽도 안 쓴다.
+    # 유닛 라우팅 점검에서 이 표현이 '프레임워크 매핑' 노트로 새는 것을 잡았다.
+    (r"\b(motivating|motivates|why (a )?change|why (are you )?(looking|leaving))\b"
+     r"|\bwhy (workato|us|this company|here|now)\b|\breason for (the )?(change|move)\b",
+     "why workato why leave motivation career move 이직 사유 platform scale consultants"),
+    # 규모 — "biggest/largest deal"은 랜드앤익스팬드 노트와 경합한다. 최대 딜은
+    # EDP 갱신 쪽이므로 그 어휘를 실어 준다(작은 딜 노트를 지우지는 않는다).
+    (r"\b(biggest|largest|best)\b.{0,20}\b(deal|contract|account)\b"
+     r"|\bdeal\b.{0,16}\b(proud|proudest)\b",
+     "renewal early renewal EDP commoditization expansion architecture 딜 스토리 A"),
+    # 시장
+    (r"\b(korean market|market in korea|korea opportunity|territory)\b"
+     r"|\bwhat.{0,16}\bsee\b.{0,20}\bmarket\b",
+     "korea market opportunity AI native production PoC customer pain 한국 시장"),
 ]
 
 _COMPILED = [(re.compile(p, re.I), t) for p, t in EXPANSIONS]
