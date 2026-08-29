@@ -42,7 +42,11 @@ RAG_MIN_MATCH_TERMS = 2
 
 # Tier A(검수 대본 그대로 읽기) 전용 게이트 — Tier B보다 엄격하다.
 # 생성 없이 그대로 발화되므로, 애매하면 열지 않고 Tier B로 떨어뜨린다.
-UNIT_MIN_TERMS = int(os.environ.get("UNIT_MIN_TERMS", "4"))
+# 4였다가 2로 내렸다. 4는 **의도 게이트가 없던 시절**의 값이다 — 그때는 어휘가
+# 유일한 방어선이라 좁게 잡아야 했다(임계 2에서 오발화 3건). 의도 게이트가
+# 생긴 뒤 다시 재니 임계 2에서도 틀린 노트가 0건이고, 발동은 10 → 21건으로
+# 두 배가 된다. 답변 지연이 1.17초 → 0.27초로 떨어지는 문항이 그만큼 늘어난다.
+UNIT_MIN_TERMS = int(os.environ.get("UNIT_MIN_TERMS", "2"))
 UNIT_MIN_SIM = float(os.environ.get("UNIT_MIN_SIM", "0.62"))
 
 # 답변 카드에 담을 줄. 실사용 확인(2026-08): 상대 발화는 EN+KR을 모두 보지만

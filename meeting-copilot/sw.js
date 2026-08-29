@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v37';  // v5.10: QA — 수치 오탐·배너 위치·프리플라이트
+const SHELL = 'mc-shell-v38';  // v5.11: Tier A 커버리지 2배 — 답변 1.17s → 0.28s
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {

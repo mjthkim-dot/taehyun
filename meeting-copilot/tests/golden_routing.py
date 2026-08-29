@@ -149,6 +149,21 @@ UNIT_OK: dict[str, str] = {
     # 초안은 시장 진단으로 시작해 "어떻게 세울 것인가"에 답하지 않았다.
     # 계획을 앞에 세우고 진단을 근거로 내린 뒤에 승인했다.
     "How would you build a territory plan for Korea?": "한국 테리토리 전략",
+    # 어휘 임계값을 2로 내리며 새로 열린 것들 — 하나씩 질문과 나란히 읽고 승인.
+    "Tell me about a complex deal with many stakeholders.": "딜 스토리 C",
+    "What was the ROI story you told that customer?": "딜 스토리 D",
+    "How do you generate new pipeline?": "메가존 네트워크 레버리지",
+    "How would you position us against MuleSoft or Boomi?": "경쟁 — MuleSoft·Boomi",
+    "A customer says n8n is free, why would they pay us?": "반론 대응 — n8n",
+    "What if they say they'll just build their own MCP layer?": "반론 대응 — 자체 MCP",
+    "What do you know about our company and financials?": "Workato 회사·재무 팩트",
+    "How do you work with partners in a co-sell motion?": "파트너 전략",
+    "Are you comfortable running meetings in English with a global team?": "영어 커뮤니케이션",
+    "What are your compensation expectations?": "연봉 질문",
+    # 승인하지 않은 것 —
+    #  "How do you keep a remote manager informed about your deals?"
+    #  대본이 "English isn't my first language…"로 시작한다. 보고 체계를 물었는데
+    #  영어 실력으로 답하는 셈이라 회피로 들린다. 태그를 걷어 Tier B로 보냈다.
 }
 
 
