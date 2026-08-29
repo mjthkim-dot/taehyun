@@ -527,7 +527,7 @@ rag-eval 15/15는 "시드와 매칭되는 질문"만 검증했다. 실전 인터
 다시 실행하면 같은 표가 실측 생성문으로 갱신된다.
 
 <!-- OOC-RESULTS:START -->
-### 13.1 결과 표 (ooc_eval.py 자동 기록 — 2026-08-29 01:25 · 공급자: gemini (gemini-3.6-flash))
+### 13.1 결과 표 (ooc_eval.py 자동 기록 — 2026-08-29 04:46 · 공급자: gemini (gemini-3.6-flash))
 
 | 계층 | 면접관 질문 | 검색 근거 (관련성 컷 통과분) | 생성 2안 | 판정 |
 |---|---|---|---|---|
@@ -2022,3 +2022,94 @@ Tier A에는 흡수 장치가 없다.
 수 있다. 검수 전까지 Tier A는 한 번도 발동하지 않는다(골든셋 실측: 발동 0/38).
 
 버전 v5.7 · SW 캐시 v34.
+
+---
+
+## 56. 의도 게이트 — 어휘가 겹친다고 답이 되지는 않는다 (2026-08-29, v5.8)
+
+**한 줄:** §55의 어휘 게이트를 통과하고도 **묻지 않은 질문에 답하는 대본**이
+2건 열려 있었다. 유닛이 선언한 의도(`intent_tags`)를 게이트로 승격해 막았다.
+
+### 무엇을 놓쳤나
+
+§55에서 `match_terms >= 4` 게이트로 오발화를 0으로 만들었다고 적었다. 그 판정의
+근거는 골든셋의 `expect` 목록이었는데, **그 목록이 너무 헐거웠다.** 여러 노트
+제목을 허용하다 보니 "이 대본이 이 질문에 답하는가"를 묻지 못했다.
+
+12건을 하나씩 소리 내어 읽어 보고 2건을 찾았다.
+
+```
+Q: "What does your outbound motion actually look like day to day?"
+→ [A] 네트워크 없이 파이프라인 만들기
+   읽는 문장: "If I couldn't lean on my network at all, I'd still build pipeline…"
+```
+
+면접관은 **평소 하는 방식**을 물었는데 대본은 **묻지도 않은 가정**("네트워크를
+못 쓴다면")에 답한다. 그대로 읽으면 회피로 들린다. 어휘는 충분히 겹쳤다
+(network, pipeline, outbound) — 그래서 어휘 게이트로는 못 걸렀다.
+
+두 번째는 "How would you build a territory plan for Korea?"가 시장 진단 대본을
+읽는 건이었다. 계획을 물었는데 진단을 답한다.
+
+### 고친 것
+
+`intent_tags`는 원래 "사람이 읽는 메모 · 검색엔 안 씀"이라고 주석에 적혀 있었다.
+이걸 **게이트로 승격**했다(`units.matches_intent`). 판정은 **구(phrase) 단위
+완전 일치**다 — 낱말 하나 겹침으로 여는 방식은 같은 실수를 반복한다.
+
+Tier A는 이제 둘 다 통과해야 열린다.
+
+| 게이트 | 묻는 것 |
+|---|---|
+| `match_terms >= 4` | 이 노트가 맞는가 (어휘) |
+| `intent_tags` 구 일치 | 이 대본이 **이 질문에** 답하는가 (의도) |
+
+내가 쓴 태그도 감사했다. `territory`, `automation`, `network`, `enterprise`,
+`channel` 같은 **한 낱말 태그 11개를 걷어냈다** — 다른 질문에서도 흔히 쓰이는
+말이라 의도의 증거가 못 된다. 특히 `territory`는 한국 시장 노트에 잘못 달려
+있었다(테리토리 전략 노트가 따로 있다). 대신 구 단위 태그로 메웠다.
+
+### 결과 — 커버리지를 절반으로 줄여 정확도를 샀다
+
+| | 발동 | 승인된 것 | 미승인 |
+|---|---|---|---|
+| §55 (어휘만) | 12 | 10 | **2** |
+| §56 (어휘+의도) | **6** | **6** | **0** |
+
+골든셋에 **승인 목록(`UNIT_OK`)** 을 넣었다. 여기 없는 유닛이 Tier A로 뜨면
+스위트가 실패한다. 게이트를 둘 다 통과해도 "그 대본이 이 질문에 답하는지"는
+결국 사람이 읽어 봐야 알기 때문이다 — 두 번 데고 나서 배웠다.
+
+### 줄어든 커버리지는 버려지지 않는다
+
+Tier A로 안 열린 유닛도 **Tier B의 근거로 들어간다.** 원본 노트는 한국어 S/A/R
+속기라 모델이 매번 새로 영작하는데, 검수된 영어 판본을 주면 그 말투를 그대로
+쓴다. 프롬프트에 `REVIEWED SPOKEN VERSION` 표식과 함께 넣고 "이 사람이 실제로
+말하는 방식이니 재번역하지 말라"고 지시한다.
+
+실측 — 아까 잘못 열리던 두 질문의 **생성 결과**:
+
+```
+Q: What does your outbound motion actually look like day to day?
+→ "For me, hunting is not about cold calls… Day to day, I look for business
+   triggers on LinkedIn and news. Then I find the warm path in using internal
+   account managers. I multi-thread from day one… Cold outreach is my last
+   resort, not my first move."                                   (2.04s)
+```
+
+묻은 것에 답하면서 검수된 말투를 유지한다. 틀린 대본을 그대로 읽는 것보다
+낫고, 한국어 속기에서 매번 새로 영작하는 것보다도 낫다.
+
+`units.find()`가 미검수 유닛을 걸러내므로 **검수 전에는 Tier B 동작도 바뀌지
+않는다.** 검수를 마치면 두 티어가 함께 좋아진다.
+
+### 검증
+
+| 스위트 | 결과 |
+|---|---|
+| `golden_routing.py` | top1 34/38 (89%) · top3 38/38 (100%) · 티어 40/40 · **Tier A 미승인 0** |
+| `check_units.py` | 유닛 20개 · 형식 0건 · 라우팅 20/20 |
+| `e2e.mjs` | 전부 통과 · 콘솔 오류 0 |
+| `rag_eval.py` / `ooc_eval.py` | 8/15 · 10/15 (둘 다 변경 전과 동일) |
+
+버전 v5.8 · SW 캐시 v35.

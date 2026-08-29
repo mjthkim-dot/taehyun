@@ -129,6 +129,22 @@ CASES: list[dict] = [
 ]
 
 
+# Tier A로 열어도 되는 조합 — **사람이 하나씩 읽어 보고 승인한 것만** 넣는다.
+# 여기 없는 유닛이 Tier A로 뜨면 스위트는 실패한다. 어휘 게이트(match_terms)와
+# 의도 게이트(intent_tags)를 둘 다 통과해도, 그 대본이 이 질문에 답하는지는
+# 결국 사람이 읽어 봐야 안다 — 실측으로 두 번 데었다:
+#   · "how the team works day to day" → '첫 90일 계획'  (어휘만 겹침)
+#   · "outbound motion day to day"    → '네트워크 없이'  (묻지 않은 가정에 답함)
+UNIT_OK: dict[str, str] = {
+    "Walk me through the biggest deal you've closed end to end.": "딜 스토리 A",
+    "What's the largest contract you have ever signed?": "딜 스토리 A",
+    "How do you find brand new customers from scratch?": "네트워크 없이 파이프라인 만들기",
+    "What's your sales methodology?": "딜 검증 습관",
+    "Why Workato, and why now?": "이직 사유",
+    "Why should we hire you over other candidates?": "왜 나인가",
+}
+
+
 def run(verbose: bool = False) -> int:
     st = rag.default_store()
     top1 = top3 = tier_ok = 0
@@ -154,7 +170,8 @@ def run(verbose: bool = False) -> int:
         if built["tier"] == "A":
             ut = (built.get("unit") or {}).get("note_title", "")
             a_fired += 1
-            if any(e in ut for e in c["expect"]):
+            want = UNIT_OK.get(c["q"])
+            if want and want in ut:
                 a_right += 1
             else:
                 a_wrong.append((c["q"], ut))
@@ -167,9 +184,9 @@ def run(verbose: bool = False) -> int:
     print(f"  티어 정확  {tier_ok}/{len(CASES)} ({tier_ok/len(CASES)*100:.0f}%)")
     # Tier A는 생성 없이 그대로 발화된다 — 틀린 유닛이 하나라도 뜨면 실패다.
     # 커버리지가 낮은 건 견딜 수 있다(Tier B로 떨어질 뿐). 오발화는 못 견딘다.
-    print(f"  Tier A 발동 {a_fired}/{n_b} · 맞음 {a_right} · 틀림 {len(a_wrong)}")
+    print(f"  Tier A 발동 {a_fired}/{n_b} · 승인됨 {a_right} · 미승인 {len(a_wrong)}")
     for q, ut in a_wrong:
-        print(f"   ✗ {q[:56]}\n       → 틀린 대본: {ut[:46]}")
+        print(f"   ✗ {q[:56]}\n       → 승인 안 된 대본: {ut[:46]}")
     if misses:
         print(f"\n  ── 놓친 문항 {len(misses)}건 (다음 유닛 승격의 입력) ──")
         for q, got in misses:

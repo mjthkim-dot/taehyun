@@ -14,7 +14,7 @@
   note_title      잇는 노트 제목. 접두 일치로 찾는다(제목이 길어져도 버틴다).
   answer_en_30s   30초 판본 — 기본으로 읽는 문장.
   answer_en_90s   90초 판본 — 더 파고들 때(선택).
-  intent_tags     이 유닛이 답하는 질문 유형(사람이 읽는 메모 · 검색엔 안 씀).
+  intent_tags     이 유닛이 답하는 질문 유형. **게이트로 쓰인다**(아래 참고).
   key_numbers     이 답변이 말해도 되는 수치. 여기 없는 숫자는 말하지 않는다.
   gist            한 줄 요지(한국어) — 카드 상단에 뜬다.
   strategy        말하기 전략(한국어) — 어디에 힘을 줄지.
@@ -63,6 +63,28 @@ def load(force: bool = False) -> list[dict]:
             return []
         _cache, _mtime = data, mt
         return data
+
+
+def matches_intent(query: str, unit: dict) -> bool:
+    """이 대본이 **이 질문에 답하는가**. 어휘 겹침과는 다른 신호다.
+
+    왜 필요한가(실측): 노트 하나가 서로 다른 의도의 질문에 동시에 1순위로 잡힌다.
+    "네트워크 없이 파이프라인 만들기"는
+      · "How do you find brand new customers from scratch?"  → 맞다
+      · "What does your outbound motion look like day to day?" → 틀리다
+    둘 다 어휘는 충분히 겹친다. 그래서 어휘 게이트(match_terms)만으로는 못 가른다.
+    뒤엣것에 이 대본을 읽으면 "제 네트워크를 못 쓴다면…"으로 시작하는데,
+    묻지도 않은 가정에 답하는 셈이라 회피로 들린다.
+
+    판정은 **구(phrase) 단위 완전 일치**다. 낱말 하나만 겹쳐도 여는 방식은
+    같은 실수를 반복한다("outbound"만 겹친 위 사례).
+    """
+    q = " " + " ".join((query or "").lower().replace("?", " ").replace(",", " ").split()) + " "
+    for tag in unit.get("intent_tags") or []:
+        t = " ".join(str(tag).lower().split())
+        if t and f" {t} " in q:
+            return True
+    return False
 
 
 def find(title: str) -> dict | None:

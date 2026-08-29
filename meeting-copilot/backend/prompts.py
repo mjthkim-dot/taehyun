@@ -206,15 +206,34 @@ def build_suggest(said: str, context: str = "", intent: str = "reply",
     if hits:
         # 인용은 350자면 핵심이 담긴다(노트는 앞부분이 요지) — 프롬프트 다이어트로
         # prefill 지연을 줄인다. 근거 품질은 rag-eval로 회귀 검증.
-        material = "\n\n".join(
-            f"[{h['source_label']} · {h['title']}]\n{h['text'][:350]}" for h in hits)
+        # 검수된 영어 판본이 있으면 그걸 근거로 준다. 원본 노트는 한국어 S/A/R
+        # 속기라("갱신이 커머디티화될 위기") 모델이 매번 새로 영작하게 되는데,
+        # 그러면 문장이 매번 달라지고 말투가 흔들린다. Tier A로 열 만큼
+        # 확신이 없어도, 검수된 문장을 '이 사람의 말투'로 주는 값은 크다.
+        # (units.find는 미검수 유닛을 걸러내므로 검수 전에는 동작이 바뀌지 않는다.)
+        parts, n_units = [], 0
+        for h in hits:
+            u = units.find(h["title"]) if h["source"] in ("note", "glossary") else None
+            if u and (u.get("answer_en_30s") or "").strip():
+                n_units += 1
+                parts.append(f"[{h['source_label']} · {h['title']} — REVIEWED SPOKEN "
+                             f"VERSION, this is how they actually say it]\n"
+                             f"{u['answer_en_30s'].strip()}")
+            else:
+                parts.append(f"[{h['source_label']} · {h['title']}]\n{h['text'][:350]}")
+        material = "\n\n".join(parts)
+        reviewed_rule = ("""
+A block marked REVIEWED SPOKEN VERSION is this candidate's own approved wording.
+If it fits the question, reuse its sentences and its voice — adapt only what the
+question actually requires. Do not re-translate or "improve" it.
+""" if n_units else "")
         material_block = f"""
 THEIR OWN MATERIAL (retrieved from their notes and glossary):
 \"\"\"{material}\"\"\"
 
 Use it ONLY where it genuinely fits the question — quote matching lines
 verbatim or nearly so; IGNORE loosely related lines, never force a quote.
-"""
+{reviewed_rule}"""
     else:
         material_block = ("\n(No personal material matched this question — "
                           "answer naturally from the CANDIDATE PROFILE above.)\n")
@@ -378,8 +397,11 @@ SOUND HUMAN — an interviewer trusts one vivid specific over five stats:
             confident = (int(h0.get("match_terms") or 0) >= UNIT_MIN_TERMS
                          or float(h0.get("sim") or 0.0) >= UNIT_MIN_SIM)
             if confident:
-                unit = units.find(h0.get("title", ""))
-                if unit:
+                cand = units.find(h0.get("title", ""))
+                # 어휘가 겹치는 것과 '이 질문에 답하는 대본'인 것은 다르다.
+                # 둘 다 통과해야 연다 — 그대로 읽히기 때문이다.
+                if cand and units.matches_intent(said, cand):
+                    unit = cand
                     tier = "A"
     else:
         tier = "C" if not hits else "B"

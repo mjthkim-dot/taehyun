@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v34';  // v5.7: Tier A — 검수된 대본을 생성 없이 그대로
+const SHELL = 'mc-shell-v35';  // v5.8: 의도 게이트 + 검수 대본을 Tier B 근거로
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {
