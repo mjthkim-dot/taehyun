@@ -13,5 +13,7 @@ backend/data/auth.db*
 backend/data/secret.key
 backend/data/u/
 backend/data/backups/
+# 유닛 검수 문서 — 실명 고객사·실적이 본문에 그대로 있다. 로컬 전용.
+docs/UNITS-REVIEW.md
 # API 호출 트레이스 — 발화 내용은 없지만 사용 패턴이라 로컬에만 둔다
 logs/
