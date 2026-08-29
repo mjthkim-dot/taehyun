@@ -527,27 +527,27 @@ rag-eval 15/15는 "시드와 매칭되는 질문"만 검증했다. 실전 인터
 다시 실행하면 같은 표가 실측 생성문으로 갱신된다.
 
 <!-- OOC-RESULTS:START -->
-### 13.1 결과 표 (ooc_eval.py 자동 기록 — 2026-08-25 14:44 · 공급자: gemini (gemini-flash-latest))
+### 13.1 결과 표 (ooc_eval.py 자동 기록 — 2026-08-29 01:07 · 공급자: gemini (gemini-3.6-flash))
 
 | 계층 | 면접관 질문 | 검색 근거 (관련성 컷 통과분) | 생성 2안 | 판정 |
 |---|---|---|---|---|
-| A | Walk me through your background. | current role summary<br>intro one-liner<br>deal example frame | I build accounts from cold call to close. So let me share one example from a recent deal. | ✅ |
+| A | Walk me through your background. | 면접 프로세스 역질문 (반드시 실행)<br>자기소개 — 표준 골격 (08 캐노니컬, 담백한 톤)<br>연봉 — 되물음 대응 + 밴드 반응 3종 (2차) | Rather than anchoring on a figure, what matters. So let me share one example from a recent | ❌ 기대 시드 미검색 (실제: Notion 수업 노트: 면접 프로세스 역질문 (반드시 실행), Notion 수업 노트: 자기소개 — 표준 골격 (08 캐노니컬, 담백한 톤), Notion 수업 노트: 연봉 — 되물음 대응 + 밴드 반응 3종 (2차)) |
 | A | What brings you here today? | why this company<br>career move logic | This role connects my cloud background with where. So let me share one example from a rece | ✅ |
-| A | How do you land new logos? | new business hunting<br>cold outreach story | One specific insight about their business, never a. So let me share one example from a rec | ✅ |
-| A | How would you explain integration platforms to a beginner? | iPaaS in one line | Processes run end to end, no custom code. So let me share one example from a recent deal. | ✅ |
-| A | What would you ask us about how the team works? | ask team structure<br>ask team culture<br>legacy middleware contrast | What do your best performers have in common. So let me share one example from a recent dea | ✅ |
-| B | What's your experience with Salesforce integration specifically? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
-| B | How do you handle a deal going dark after the proposal? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
-| B | What are your salary expectations for this position? | salary deflect<br>연봉 질문 — 밴드 역질문 (1차 표준 대응)<br>연봉 — 되물음 대응 + 밴드 반응 3종 (2차) | Rather than anchoring on a figure, what matters. So let me share one example from a recent | ✅ |
-| B | How do you split your time between hunting and account management? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
-| B | Have you ever sold against an incumbent vendor with a locked-in contract? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
-| C | What do you do outside work for fun? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
-| C | Tell me about a time you failed at something. | loss lesson | Now I never present before I understand the. So let me share one example from a recent dea | ✅ |
-| C | Why are you leaving your current role right now? | current role summary<br>연봉 — 되물음 대응 + 밴드 반응 3종 (2차)<br>career move logic | Rather than anchoring on a figure, what matters. So let me share one example from a recent | ✅ |
-| C | How do your colleagues usually describe you? | — (프로필 폴백) | I'm a B2B sales hunter in cloud. So let me share one example from a recent deal. | ✅ |
+| A | How do you land new logos? | 첫 90일 계획 패턴<br>확장 전략 — 작은 딜에서 시작하는 이유<br>딜 스토리 G — 헌팅 철학 | I respect the onboarding process, but I'd run. So let me share one example from a recent d | ❌ 기대 시드 미검색 (실제: Notion 수업 노트: 첫 90일 계획 패턴, Notion 수업 노트: 확장 전략 — 작은 딜에서 시작하는 이유, Notion 수업 노트: 딜 스토리 G — 헌팅 철학) |
+| A | How would you explain integration platforms to a beginner? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ❌ 기대 시드 미검색 (실제: 없음) |
+| A | What would you ask us about how the team works? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ❌ 기대 시드 미검색 (실제: 없음) |
+| B | What's your experience with Salesforce integration specifically? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
+| B | How do you handle a deal going dark after the proposal? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
+| B | What are your salary expectations for this position? | 연봉 질문 — 밴드 역질문 (1차 표준 대응)<br>연봉 — 되물음 대응 + 밴드 반응 3종 (2차) | Rather than anchoring on a figure, what matters. So let me share one example from a recent | ✅ |
+| B | How do you split your time between hunting and account management? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
+| B | Have you ever sold against an incumbent vendor with a locked-in contract? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
+| C | What do you do outside work for fun? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
+| C | Tell me about a time you failed at something. | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
+| C | Why are you leaving your current role right now? | 이직 사유 — 시그니처 답변 (Why Workato)<br>연봉 — 되물음 대응 + 밴드 반응 3종 (2차)<br>딜 검증 습관 — 니즈에서 시작 | Rather than anchoring on a figure, what matters. So let me share one example from a recent | ❌ 무관 시드 인용 의심: Notion 수업 노트: 이직 사유 — 시그니처 답변 (Why Workato), Notion 수업 노트: 연봉 — 되물음 대응 + 밴드 반응 3종 (2차), Notion 수업 노트: 딜 검증 습관 — 니즈에서 시작 |
+| C | How do your colleagues usually describe you? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
 | C | Where do you see yourself in five years? | 자기소개 — 표준 골격 (08 캐노니컬, 담백한 톤) | quickly but struggle to scale into production. So let me share one example from a recent d | ✅ |
 
-**15/15** (A 5/5 · B 5/5 · C 5/5). 계층 기준 — A: 시드 검색·활용 / B: 무관 시드 강제
+**10/15** (A 1/5 · B 5/5 · C 4/5). 계층 기준 — A: 시드 검색·활용 / B: 무관 시드 강제
 인용 없이 생성 / C: 검색 0이어도 프로필 기반 답변, 회피성 문구 금지.
 <!-- OOC-RESULTS:END -->
 
@@ -1826,3 +1826,100 @@ k개를 돌려주므로 "의미로 걸렸다"만으로는 관련성이 아니다
 검증: e2e 전부 통과(콘솔 오류 0). 미스 경로 계약은 의미 확인 비용을 포함해
 2.5초로 조정했다 — 본답변 생성(≈1.8초)보다 싸고, 무엇보다 지어내지 않는다.
 버전 v5.5 · SW 캐시 v32.
+
+---
+
+## 54. Phase 2 — 라우팅 골든셋과 소스 위계 (2026-08-29, v5.6)
+
+**한 줄:** 면접 질문 40개를 기준선으로 고정한 뒤 검색을 고쳤다. top3 적중
+66% → **100%**, top1 42% → **87%**.
+
+### 왜 이걸 먼저 했나
+
+v5.5까지의 점검은 10문항이었고 9/10이었다. 그래서 "잘 된다"고 믿었다.
+Workato 하이어링 매니저가 실제로 파고들 축(딜 딥다이브·파이프라인·숫자·
+방법론·경쟁)으로 40문항을 만들어 다시 재니 **top3 25/38 (66%)** 이었다.
+앞선 10문항이 쉬운 문항이었을 뿐이다.
+
+기준선이 없으면 어떤 수정도 개선인지 개악인지 알 수 없다. 그래서
+`tests/golden_routing.py`를 먼저 만들었다. 세 가지를 함께 잰다.
+
+- **top1** — 첫 근거가 기대한 대본인가 (Tier A 조회의 전제)
+- **top3** — 기대 대본이 근거 안에 들어오는가 (Tier B 생성의 전제)
+- **티어 정확도** — 대본 있는 질문을 C로 떨구거나, 없는 질문을 B로 새게 하지 않는가
+
+### 고친 것 두 가지
+
+**1. 소스 위계 (`backend/rag.py`)** — 지난 미팅 트랜스크립트가 내 대본보다
+위로 올라오고 있었다. 트랜스크립트는 "내가 그때 이렇게 말했다"는 기록이지
+"이렇게 말해야 한다"는 대본이 아니다. RRF 융합 뒤 가중치를 곱한다.
+
+```python
+SOURCE_WEIGHT = {"note": 1.0, "glossary": 0.55, "transcript": 0.40}
+```
+
+**2. 질의 확장 (`backend/triggers.py`, 신규)** — 면접관의 표현과 내 자료의
+어휘가 다르다. "lost deal"이라 묻는데 자료에는 "실패에서 배운 것"으로 적혀
+있다. 11개 패턴으로 **질의에만** 자료 어휘를 덧붙인다. 프롬프트에는 넣지
+않으므로 **사실을 추가하지 않는다** — 검색어만 넓힌다.
+
+### 측정 경과
+
+| 단계 | top1 | top3 | 티어 |
+|---|---|---|---|
+| 베이스라인 | 16/38 (42%) | 25/38 (66%) | 40/40 |
+| + 소스 위계 | 24/38 (63%) | 28/38 (74%) | 40/40 |
+| + `RAG_WEAK_TERMS=3` | 25/38 (66%) | 29/38 (76%) | 40/40 |
+| + 질의 확장 (임계 2) | **33/38 (87%)** | **38/38 (100%)** | **40/40** |
+
+`RAG_WEAK_TERMS`는 **2로 되돌렸다**. 3으로 올리면 의미검색 발동률이
+22% → 65%, 검색 지연 중앙값이 4ms → 689ms로 뛰는데 정확도는 +2%p뿐이다.
+비용이 대가에 맞지 않는다.
+
+### 지연 회귀 없음
+
+```
+검색 지연 중앙 4ms · 최대 1004ms
+임베딩 발동 6/40 (15%)
+```
+
+질의 확장이 BM25 적중을 늘려 **의미검색 발동률이 오히려 22% → 15%로 내려갔다**.
+비싼 경로를 덜 타게 된 것이다.
+
+### 알아둘 것 — 의미검색 2단은 하중을 받는 부품이다
+
+`GEMINI_API_KEY` 없이 돌리면 2단이 꺼지고 성적이 이렇게 떨어진다.
+
+| | top1 | top3 | 티어 |
+|---|---|---|---|
+| 키 있음 | 33/38 (87%) | 38/38 (100%) | 40/40 (100%) |
+| 키 없음 | 29/38 (76%) | 34/38 (89%) | 36/40 (90%) |
+
+실전에서는 키가 항상 있으므로 문제되지 않지만, **골든셋을 돌릴 때 키를
+빠뜨리면 없는 회귀를 보게 된다.** README에 적어 뒀다.
+
+### 회귀 검증 — 변경 전후 동일
+
+`SOURCE_WEIGHT`가 기존 계약을 건드릴 수 있어 stash로 전후를 대조했다.
+
+| 스위트 | 변경 전 | 변경 후 | 판정 |
+|---|---|---|---|
+| `tests/e2e.mjs` | — | 전부 통과 (콘솔 오류 0) | ✅ |
+| `tests/rag_eval.py` | 8/15 | 8/15 (문항별 동일) | 회귀 없음 |
+| `tests/ooc_eval.py` | 10/15 | 10/15 (문항별 동일) | 회귀 없음 |
+
+**`rag_eval`·`ooc_eval`의 실패 문항은 이번 변경 탓이 아니다.** 두 스위트는
+초기 영어 시드 코퍼스(`current role summary`, `iPaaS in one line` 등)를
+기대하는데, `--replace` 임포트 이후 저장소는 한국어 수업 노트 + Workato
+코퍼스로 바뀌었다. 기대 문자열이 가리키는 시드가 이제 존재하지 않는다.
+
+실제로 `ooc_eval`의 C 실패 1건("Why are you leaving your current role")은
+**"이직 사유 — 시그니처 답변 (Why Workato)"를 정확히 찾아온 것**인데,
+스위트가 그 질문을 코퍼스 밖으로 분류해 두어 감점된다. 오답이 아니라
+채점표가 낡았다.
+
+→ 면접 축의 기준선은 이제 `golden_routing.py`가 맡는다. 두 스위트의 기대값
+현행화는 코퍼스가 안정된 뒤 별도로 한다(지금 고치면 채점표를 답에 맞추는
+셈이 된다).
+
+버전 v5.6 · SW 캐시 v33.

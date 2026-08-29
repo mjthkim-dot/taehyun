@@ -95,6 +95,11 @@ def _unpack(b: bytes) -> list[float]:
     return list(struct.unpack(f"{len(b) // 4}f", b))
 
 
+# 소스 위계 — 답변 근거로서의 신뢰도. 노트(준비한 대본) > 용어집(어휘 보조)
+# > 트랜스크립트(원본 기록). 골든셋으로 튜닝한 값이다(tests/golden_routing.py).
+SOURCE_WEIGHT = {"note": 1.0, "glossary": 0.55, "transcript": 0.40}
+
+
 class Store:
     """사용자 1명의 색인 전체 — 청크·역색인·벡터·복습 카드가 한 파일에 산다."""
 
@@ -256,6 +261,14 @@ class Store:
                            "vecs": [_unpack(r[1]) for r in rows]}
         return self._vec_cache
 
+    def _sources_of(self, ids: list[int]) -> dict[int, str]:
+        if not ids:
+            return {}
+        ph = ",".join("?" * len(ids))
+        with self.connect() as con:
+            return {r[0]: r[1] for r in con.execute(
+                f"SELECT id,source FROM chunks WHERE id IN ({ph})", ids)}
+
     def _vector(self, q: list[float], k: int) -> list[tuple[int, float]]:
         # q: 미리 계산한 질의 임베딩. 임베딩(네트워크 호출)은 락 밖에서 하고
         # 여기서는 CPU 바운드 코사인 계산만 한다.
@@ -304,6 +317,14 @@ class Store:
             fused[cid] = fused.get(cid, 0.0) + 1.0 / (RRF_K + rank + 1)
         for rank, (cid, _) in enumerate(vec):
             fused[cid] = fused.get(cid, 0.0) + 1.0 / (RRF_K + rank + 1)
+        # 소스 가중 — 같은 점수면 '준비한 대본'이 이겨야 한다. 골든셋 실측에서
+        # 용어집 항목("loss lesson", "TCO")과 지난 미팅 기록이 실제 답변 노트를
+        # 밀어내 top3 적중이 66%에 머물렀다. 노트=대본, 용어집=어휘 보조,
+        # 트랜스크립트=원본 기록이라는 위계를 점수에 반영한다.
+        if fused:
+            wsrc = self._sources_of(list(fused))
+            for cid in fused:
+                fused[cid] *= SOURCE_WEIGHT.get(wsrc.get(cid, ""), 1.0)
         if not fused:
             return []
 

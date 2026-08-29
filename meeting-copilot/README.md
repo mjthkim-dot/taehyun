@@ -168,10 +168,16 @@ ollama pull bge-m3
 ```bash
 bash meeting-copilot/start.sh          # 다른 터미널에서 서버를 띄운 뒤
 
-python3 meeting-copilot/tests/rag_eval.py   # 검색 품질 10케이스 (node 없이)
-npx tsx  meeting-copilot/tests/rag-eval.ts  # 같은 케이스, TS 러너
-node     meeting-copilot/tests/e2e.mjs      # Playwright E2E (샘플 트랜스크립트 주입)
+python3 meeting-copilot/tests/golden_routing.py  # 라우팅 골든셋 40문항 (면접 기준선)
+python3 meeting-copilot/tests/ooc_eval.py       # 코퍼스 밖 질문에 지어내지 않는가
+python3 meeting-copilot/tests/rag_eval.py       # 검색 품질 15케이스 (node 없이)
+npx tsx  meeting-copilot/tests/rag-eval.ts      # 같은 케이스, TS 러너
+node     meeting-copilot/tests/e2e.mjs          # Playwright E2E (샘플 트랜스크립트 주입)
 ```
+
+`golden_routing.py`는 **면접 답변 품질의 기준선**이다. 검색·프롬프트·코퍼스를
+건드린 뒤에는 이걸 먼저 돌린다 — 통과 기준은 top3 ≥ 95%, 티어 정확도 100%.
+`GEMINI_API_KEY`가 있어야 의미검색 2단이 살아난다(없으면 top3 89%로 떨어진다).
 
 측정 결과는 [../docs/REPORT.md](../docs/REPORT.md)에 정리했다 —
 검색 10/10(임베딩 없이), E2E 32개 체크 통과, Lighthouse 모바일·데스크톱 100점.

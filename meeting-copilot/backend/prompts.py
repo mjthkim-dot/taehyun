@@ -14,6 +14,7 @@ import re
 
 import llm
 import rag
+import triggers
 
 # 퀵 액션 의도 — 미팅 공통 + 인터뷰 전용(8/27 HR 스크리닝 대비)
 INTENTS = {
@@ -68,6 +69,19 @@ def _known_numbers(texts: list[str]) -> list[str]:
 # 실측 분포(gemini-embedding-001, 768차원): 코퍼스 안·패러프레이즈 0.583~0.707,
 # 코퍼스 밖 0.463~0.522. 두 무리 사이인 0.55를 하한으로 둔다.
 RAG_MIN_SIM = float(os.environ.get("RAG_MIN_SIM", "0.55"))
+
+
+# 키워드 증거가 이 정도는 돼야 '제대로 걸렸다'고 본다. 미만이면 의미검색을 한 번
+# 더 돌린다 — 비었을 때만 돌리면 "엉뚱하지만 뭔가 걸린" 경우를 구제하지 못한다
+# (골든셋 실측: "AI maturity"가 자기소개 노트에 걸려 프레임워크 노트를 놓쳤다).
+# 임계값 스윕 실측(골든셋 40문항): 3이면 top3가 74%→76%로 오르지만 의미검색
+# 발동률이 22%→65%가 되어 중앙 지연이 4ms→689ms로 뛴다. +2%p의 대가로
+# 너무 비싸다 → 2(사실상 "비었거나 거의 빈 경우")로 둔다.
+RAG_WEAK_TERMS = int(os.environ.get("RAG_WEAK_TERMS", "2"))
+
+
+def _weak(hits: list[dict]) -> bool:
+    return not hits or max((h.get("match_terms", 0) for h in hits), default=0) < RAG_WEAK_TERMS
 
 
 def _strong_hits(hits: list[dict]) -> list[dict]:
@@ -164,13 +178,18 @@ def build_suggest(said: str, context: str = "", intent: str = "reply",
     query = said if intent == "translate" else (
         "\n".join(ctx_lines) + "\n" + said)
     st = store or rag.default_store()
-    hits = _strong_hits(st.search(query.strip()[-800:], k=k))   # 관련성 컷
+    # 면접관 표현 ↔ 내 자료 어휘를 잇는다(사실은 더하지 않는다). 질의에만 붙고
+    # 프롬프트에는 들어가지 않으므로 답변 문장에는 영향이 없다.
+    q_exp = triggers.expand(query.strip()[-800:])
+    hits = _strong_hits(st.search(q_exp, k=k))                  # 관련성 컷
     # 2단 검색 — BM25(1ms)가 비면 그때만 의미검색을 돌린다. 면접관이 내 트리거와
     # 다른 어휘로 물으면("largest contract you've signed" vs "biggest deal")
     # 키워드로는 못 잡는데, 질의 임베딩은 실측 0.43~0.68초라 매번 쓸 수 없다.
     # 놓치면 어차피 Tier C로 답을 안 만드는 구간이라, 그 비용을 여기서만 낸다.
-    if not hits and llm.embed_available():
-        hits = _strong_hits(st.search(query.strip()[-800:], k=k, semantic=True))
+    if _weak(hits) and llm.embed_available():
+        sem = _strong_hits(st.search(q_exp, k=k, semantic=True))
+        if sem:
+            hits = sem
 
     phrases = _learned_phrases(hits)
     labels = [f"{h['source_label']}: {h['title']}" for h in hits]
@@ -331,11 +350,11 @@ SOUND HUMAN — an interviewer trusts one vivid specific over five stats:
     # 트랜스크립트가 일반 영어로 폭넓게 걸려 미스를 가린다(실측: 코퍼스에 없는
     # 질문의 상위 적중이 지난 미팅 기록이었다).
     if intent == "reply" and len(said.split()) >= 4:
-        own = _strong_hits(st.search(said.strip()[-400:], k=k,
-                                     sources=["note", "glossary"]))
-        if not own and llm.embed_available():
-            own = _strong_hits(st.search(said.strip()[-400:], k=k,
-                                         sources=["note", "glossary"], semantic=True))
+        s_exp = triggers.expand(said.strip()[-400:])
+        own = _strong_hits(st.search(s_exp, k=k, sources=["note", "glossary"]))
+        if _weak(own) and llm.embed_available():
+            own = _strong_hits(st.search(s_exp, k=k, sources=["note", "glossary"],
+                                         semantic=True)) or own
         tier = "C" if not own else "B"
     else:
         tier = "C" if not hits else "B"
