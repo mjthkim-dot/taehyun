@@ -441,9 +441,24 @@ TIER_C_OPENERS = [
 
 
 def build_tier_c(said: str, store=None) -> dict:
-    """근거 없음 — 생성하지 않고 시간 벌기 문장 + 확정 사실만 돌려준다."""
+    """근거 없음 — 생성하지 않고 시간 벌기 문장 + 확정 사실만 돌려준다.
+
+    단, '자료에 없다'와 '확인하지 못했다'는 구분한다. 임베딩이 429 등으로
+    실패하면 의미검색이 통째로 꺼지는데, 그때 "대본 없음"이라고 말하면
+    **대본이 있는데도 없다고 말하는 셈**이다(실측 2026-09-01: 골든셋 2문항이
+    이 경로로 미스가 됐다). 사용자에겐 다시 눌러 보라고 알려야 한다.
+    """
     st = store or rag.default_store()
     profile = _profile(st)
+    err = llm.embed_last_error()
+    if err:
+        return {
+            "en": TIER_C_OPENERS[0],
+            "gist": "확인 실패 — 의미검색이 일시적으로 꺼졌습니다 (다시 눌러 보세요)",
+            "strategy": f"자료가 없는 게 아니라 검색을 못 했습니다 ({err})",
+            "facts": [l.strip("- ").strip() for l in profile.splitlines() if l.strip()][:4],
+            "known_numbers": _known_numbers([profile]),
+        }
     return {
         "en": TIER_C_OPENERS[0],
         "gist": "대본 없음 — 내 자료에서 근거를 찾지 못했습니다",

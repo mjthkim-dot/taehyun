@@ -1,0 +1,57 @@
+{
+  "_읽어보세요": [
+    "다음 회사 면접 준비 = 이 파일 하나만 채우면 됩니다.",
+    "1) 이 파일을 backend/data/imported/company/<회사슬러그>.json 으로 복사",
+    "2) 아래 항목을 채우고, backend/data/imported/ACTIVE_COMPANY 에 슬러그를 적습니다",
+    "3) GEMINI_API_KEY=... python3 tools/import_private.py --replace",
+    "4) python3 tests/golden_routing.py 로 라우팅 확인",
+    "회사 무관 자산(딜 스토리·실적·헌팅·연봉·영어·소프트스킬)은 core/ 에 있고 건드릴 필요 없습니다."
+  ],
+
+  "company": {
+    "name": "회사명 (예: Acme)  ← core 노트의 {{COMPANY}} 자리에 들어갑니다",
+    "slug": "파일명과 같게 (예: acme)"
+  },
+
+  "links": {
+    "_설명": "회사 무관 노트에 붙일 '이 회사와의 연결' 한 문장. 노트 제목을 키로 씁니다. 없으면 비워두세요.",
+    "딜 스토리 A — ...": "이 딜이 이 회사 제품과 어떻게 이어지는지 한두 문장",
+    "딜 스토리 C — ...": "",
+    "딜 스토리 D — ...": ""
+  },
+
+  "notes": [
+    {"title": "<회사> 회사·재무 팩트",
+     "text": "설립·CEO·밸류에이션·ARR 성장·고객 수·업계 포지션.\n왜 지금 이 롤이 열렸는지로 연결하면 좋습니다.\n[검색어] what do you know about our company research revenue funding leadership"},
+    {"title": "<회사> 제품 라인",
+     "text": "포지셔닝 한 줄 + 주요 제품 3~4개 + 차별점(거버넌스/규모/속도).\n기능 나열보다 '무엇을 사는 결정인가'로 묶으세요.\n[검색어] product line our products platform what do we sell features"},
+    {"title": "경쟁 — <경쟁사 A>·<경쟁사 B> 카운터",
+     "text": "경쟁사별 약점과 '어떤 고객에게 누가 맞나'.\n깎아내리기보다 세그먼트로 가르는 편이 안전합니다.\n[검색어] competitors position us against compare landscape"},
+    {"title": "반론 대응 — <가장 흔한 반론>",
+     "text": "① 인정 ② 리프레임 ③ 킬라인.\n인정을 먼저 하지 않으면 나머지가 안 들립니다.\n[검색어] objection why not pushback cheaper alternative"},
+    {"title": "이직 사유 — 시그니처 답변 (Why <회사>)",
+     "text": "현 직장을 비난하지 않으면서 '구조적으로 막힌 벽'을 말하고,\n이 회사가 그 벽을 어떻게 넘는지로 연결.\n[검색어] why this company why leaving motivation career move why now"},
+    {"title": "<회사> 한국 시장 현황 + JD 핵심",
+     "text": "한국 고객 현황·파트너 생태계·JD 요구사항(연차·딜 규모·리포팅 라인).\n[검색어] korea market local presence job description role requirements"},
+    {"title": "레퍼런스 카드 — <대표 고객>",
+     "text": "Pain / Solution / Numbers / 궤적.\n⚠️ 시점을 정확히 — 오래된 사례를 최신 기능 사례로 말하면 신뢰를 잃습니다.\n[검색어] customer reference case study success story"},
+    {"title": "<회사> 6개월 실행 계획 (30/60/90+)",
+     "text": "Day 1~30 / 31~60 / 61~90 / Month 4~6.\n미팅 수가 아니라 '계정별 적합성 정리'를 성과로 잡으세요.\n[검색어] first ninety days six months plan what would you do first"}
+  ],
+
+  "golden": [
+    {"q": "What do you know about {{COMPANY}}'s product line?",
+     "expect": ["제품 라인"], "tier": "B"},
+    {"q": "How would you position us against <경쟁사>?",
+     "expect": ["경쟁"], "tier": "B"},
+    {"q": "What do you know about our company and financials?",
+     "expect": ["회사·재무"], "tier": "B"},
+    {"q": "Why {{COMPANY}}, and why now?",
+     "expect": ["이직 사유"], "tier": "B"}
+  ],
+
+  "unit_ok": {
+    "_설명": "검수한 대본을 '그대로 읽어도 되는' 조합만 넣습니다. 질문 → 대본 제목 조각.",
+    "Why {{COMPANY}}, and why now?": "이직 사유"
+  }
+}

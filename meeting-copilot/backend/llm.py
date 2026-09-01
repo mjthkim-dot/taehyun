@@ -767,26 +767,72 @@ GEMINI_EMBED_MODEL = os.environ.get("GEMINI_EMBED_MODEL", "gemini-embedding-001"
 GEMINI_EMBED_DIM = int(os.environ.get("GEMINI_EMBED_DIM", "768"))
 
 
+# 질의 임베딩이 한 번 실패하면 조용히 키워드 전용으로 떨어진다 — 그러면 대본이
+# 있는 질문도 "대본 없음"(Tier C)으로 뜬다. 면접 중엔 그게 제일 나쁜 실패다.
+# 실측 2026-09-01: 골든셋 2문항이 이 일시 실패로 미스가 됐고, 재실행하니 정상이었다.
+# 그래서 짧게 한 번 더 시도한다(질의 1건은 ~0.4초라 재시도 비용이 작다).
+_EMBED_TRIES = 2
+_embed_warned = ""
+
+
 def _gemini_embed(texts: list[str]) -> list[list[float]] | None:
     body = {"requests": [
         {"model": f"models/{GEMINI_EMBED_MODEL}",
          "content": {"parts": [{"text": t[:8000]}]},
          "outputDimensionality": GEMINI_EMBED_DIM} for t in texts]}
-    try:
-        req = urllib.request.Request(
-            f"{GEMINI_URL}/models/{GEMINI_EMBED_MODEL}:batchEmbedContents?key={GEMINI_API_KEY}",
-            data=json.dumps(body).encode(), method="POST",
-            headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=60) as r:
-            vecs = [e.get("values") for e in json.loads(r.read()).get("embeddings", [])]
-        return vecs if vecs and len(vecs) == len(texts) else None
-    except Exception:  # noqa: BLE001
-        return None
+    last = ""
+    for attempt in range(_EMBED_TRIES):
+        try:
+            req = urllib.request.Request(
+                f"{GEMINI_URL}/models/{GEMINI_EMBED_MODEL}:batchEmbedContents?key={GEMINI_API_KEY}",
+                data=json.dumps(body).encode(), method="POST",
+                headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                vecs = [e.get("values") for e in json.loads(r.read()).get("embeddings", [])]
+            if vecs and len(vecs) == len(texts):
+                return vecs
+            # 200인데 형식이 다르다 = 설정 문제. 다시 물어도 같은 답이 온다.
+            last = f"응답 {len(vecs)}건 / 요청 {len(texts)}건"
+            break
+        except urllib.error.HTTPError as e:
+            last = f"HTTP {e.code}"
+            if e.code < 500 and e.code != 429:
+                break                            # 엔드포인트·모델·키 문제 — 즉시 포기
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            last = repr(e)[:120]                 # 네트워크 — 이것만 재시도할 값이 있다
+        except Exception as e:  # noqa: BLE001
+            last = repr(e)[:120]
+            break
+        if attempt + 1 < _EMBED_TRIES:
+            time.sleep(0.25)
+    # 조용히 죽지 않는다 — 왜 의미검색이 꺼졌는지 로그에 남긴다.
+    # 단, 같은 사유를 반복해 찍지 않는다(미팅 중 로그 도배 방지).
+    global _embed_warned
+    if last != _embed_warned:
+        _embed_warned = last
+        print(f"⚠️  임베딩 실패 — 의미검색 없이 키워드로만 검색합니다: {last}", flush=True)
+    return None
 
 
 def embed_available() -> bool:
     """의미검색을 쓸 수 있는가 — 로컬 모델이 있거나 Gemini 키가 있으면 True."""
     return _ollama_embed_available() or bool(GEMINI_API_KEY)
+
+
+# 질의 임베딩 캐시 — 같은 질문 형태가 리허설·면접에서 반복된다. 그리고 임베딩
+# API에는 별도 RPM 한도가 있어서(실측 2026-09-01: 골든셋 반복 실행 중 HTTP 429),
+# 한도가 마르면 의미검색이 통째로 꺼지고 대본 있는 질문이 '대본 없음'으로 뜬다.
+# 캐시는 그 한도를 아끼는 가장 싼 수단이다. 프로세스 수명 동안만 유지한다.
+_EMBED_CACHE: dict[str, list[float]] = {}
+_EMBED_CACHE_MAX = 512
+
+
+def embed_last_error() -> str:
+    """직전 임베딩 실패 사유. 빈 문자열이면 정상.
+
+    '자료에 없다'와 '확인하지 못했다'는 다르다 — 후자를 미스로 처리하면
+    대본이 있는데도 "대본 없음"이라고 말하게 된다."""
+    return _embed_warned
 
 
 def embed(texts: list[str]) -> list[list[float]] | None:
@@ -796,18 +842,27 @@ def embed(texts: list[str]) -> list[list[float]] | None:
     """
     if not texts:
         return None
+    hit = [_EMBED_CACHE.get(t) for t in texts]
+    if all(v is not None for v in hit):
+        return hit                                     # type: ignore[return-value]
     if _ollama_embed_available():
         try:
             with _open(f"{OLLAMA_URL}/api/embed",
                        {"model": EMBED_MODEL, "input": texts}, timeout=60) as r:
                 vecs = json.loads(r.read()).get("embeddings")
             if vecs and len(vecs) == len(texts):
+                _EMBED_CACHE.update(zip(texts, vecs))
                 return vecs
         except Exception:  # noqa: BLE001
             pass
-    if GEMINI_API_KEY:
-        return _gemini_embed(texts)
-    return None
+    vecs = _gemini_embed(texts) if GEMINI_API_KEY else None
+    if vecs:
+        global _embed_warned
+        _embed_warned = ""                             # 성공했으니 경고 상태 해제
+        if len(_EMBED_CACHE) > _EMBED_CACHE_MAX:
+            _EMBED_CACHE.clear()
+        _EMBED_CACHE.update(zip(texts, vecs))
+    return vecs
 
 
 def embed_backend() -> str:

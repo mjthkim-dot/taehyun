@@ -14,6 +14,8 @@
 """
 from __future__ import annotations
 
+import json
+import os
 import sys
 from pathlib import Path
 
@@ -24,8 +26,7 @@ import rag  # noqa: E402
 
 # expect: 이 문자열 중 하나가 근거 제목에 들어오면 적중.
 # tier:  B = 대본이 있어야 함 / C = 대본이 없어야 함(지어내면 안 됨)
-CASES: list[dict] = [
-    # ── 딜 딥다이브 (HM이 가장 깊게 파는 축) ──
+CORE_CASES: list[dict] = [
     {"q": "Walk me through the biggest deal you've closed end to end.",
      "expect": ["딜 스토리 A", "딜 사례", "deal example"], "tier": "B"},
     {"q": "What's the largest contract you have ever signed?",
@@ -42,8 +43,6 @@ CASES: list[dict] = [
      "expect": ["딜 사례", "실적 숫자", "확장 전략"], "tier": "B"},
     {"q": "What was the ROI story you told that customer?",
      "expect": ["딜 스토리 D", "ROI"], "tier": "B"},
-
-    # ── 파이프라인 생성 (JD 핵심) ──
     {"q": "How do you generate new pipeline?",
      "expect": ["메가존 네트워크", "파이프라인"], "tier": "B"},
     {"q": "How do you find brand new customers from scratch?",
@@ -54,8 +53,6 @@ CASES: list[dict] = [
      "expect": ["네트워크 없이 파이프라인", "딜 스토리 G", "헌팅"], "tier": "B"},
     {"q": "Which accounts would you target first in Korea?",
      "expect": ["Warm Target", "한국 테리토리", "한국 시장"], "tier": "B"},
-
-    # ── 숫자 검증 (HM은 반드시 판다) ──
     {"q": "What was your quota last year and did you hit it?",
      "expect": ["실적 숫자"], "tier": "B"},
     {"q": "What's your average deal size?",
@@ -64,22 +61,6 @@ CASES: list[dict] = [
      "expect": ["실적 숫자", "확장 전략", "리텐션"], "tier": "B"},
     {"q": "How many accounts do you manage today?",
      "expect": ["실적 숫자", "내 프로필"], "tier": "B"},
-
-    # ── 제품·경쟁 (Workato 특화) ──
-    {"q": "What do you know about Workato's product line?",
-     "expect": ["Workato 제품"], "tier": "B"},
-    {"q": "How would you position us against MuleSoft or Boomi?",
-     "expect": ["경쟁", "MuleSoft"], "tier": "B"},
-    {"q": "A customer says n8n is free, why would they pay us?",
-     "expect": ["n8n", "반론 대응"], "tier": "B"},
-    {"q": "Our prospect is all-in on AWS. Why not just use native services?",
-     "expect": ["AWS 네이티브", "반론 대응"], "tier": "B"},
-    {"q": "What if they say they'll just build their own MCP layer?",
-     "expect": ["MCP", "반론 대응", "Build"], "tier": "B"},
-    {"q": "What do you know about our company and financials?",
-     "expect": ["Workato 회사", "Workato 제품"], "tier": "B"},
-
-    # ── 방법론·프레임워크 ──
     {"q": "What's your sales methodology?",
      "expect": ["딜 검증 습관", "L1-L4", "L4 세일즈"], "tier": "B"},
     {"q": "Walk me through how you think about AI maturity with customers.",
@@ -88,40 +69,26 @@ CASES: list[dict] = [
      "expect": ["L4 세일즈 논리"], "tier": "B"},
     {"q": "How do you multithread into an account?",
      "expect": ["L4 클로징", "멀티스레딩"], "tier": "B"},
-
-    # ── 파트너·채널 ──
     {"q": "How do you work with partners in a co-sell motion?",
      "expect": ["파트너 전략", "딜 스토리 E"], "tier": "B"},
     {"q": "Tell me about a time a partner conflict threatened a deal.",
      "expect": ["딜 스토리 E", "파트너 충돌"], "tier": "B"},
-
-    # ── 동기·적합성 ──
-    {"q": "Why Workato, and why now?",
-     "expect": ["이직 사유", "Why Workato"], "tier": "B"},
     {"q": "What's motivating you to make a change right now?",
      "expect": ["이직 사유"], "tier": "B"},
     {"q": "Why should we hire you over other candidates?",
      "expect": ["왜 나인가", "발표 — 마무리"], "tier": "B"},
     {"q": "Tell me about yourself.",
      "expect": ["자기소개", "내 프로필"], "tier": "B"},
-
-    # ── 실행 계획 ──
     {"q": "What would your first 90 days look like here?",
      "expect": ["첫 90일", "6개월 실행"], "tier": "B"},
     {"q": "How would you build a territory plan for Korea?",
      "expect": ["한국 테리토리", "한국 시장", "6개월 실행"], "tier": "B"},
-
-    # ── 협업·언어 ──
     {"q": "Are you comfortable running meetings in English with a global team?",
      "expect": ["영어 커뮤니케이션", "영어 리스크"], "tier": "B"},
     {"q": "How do you keep a remote manager informed about your deals?",
      "expect": ["영어 커뮤니케이션", "소프트스킬"], "tier": "B"},
-
-    # ── 보상 ──
     {"q": "What are your compensation expectations?",
      "expect": ["연봉"], "tier": "B"},
-
-    # ── 대본이 없어야 하는 것 (지어내면 안 된다) ──
     {"q": "What is your favorite pizza topping in Naples?",
      "expect": [], "tier": "C"},
     {"q": "How do you make authentic carbonara at home?",
@@ -135,36 +102,51 @@ CASES: list[dict] = [
 # 결국 사람이 읽어 봐야 안다 — 실측으로 두 번 데었다:
 #   · "how the team works day to day" → '첫 90일 계획'  (어휘만 겹침)
 #   · "outbound motion day to day"    → '네트워크 없이'  (묻지 않은 가정에 답함)
-UNIT_OK: dict[str, str] = {
+CORE_UNIT_OK: dict[str, str] = {
     "Walk me through the biggest deal you've closed end to end.": "딜 스토리 A",
     "What's the largest contract you have ever signed?": "딜 스토리 A",
     "How do you find brand new customers from scratch?": "네트워크 없이 파이프라인 만들기",
     "What's your sales methodology?": "딜 검증 습관",
-    "Why Workato, and why now?": "이직 사유",
     "Why should we hire you over other candidates?": "왜 나인가",
-    # 2차 배치 — 각 대본을 질문과 나란히 읽어 보고 승인했다.
-    "What do you know about Workato's product line?": "Workato 제품 라인",
     "Walk me through how you think about AI maturity with customers.": "L1-L4 프레임워크",
     "What would your first 90 days look like here?": "6개월 실행 계획",
-    # 초안은 시장 진단으로 시작해 "어떻게 세울 것인가"에 답하지 않았다.
-    # 계획을 앞에 세우고 진단을 근거로 내린 뒤에 승인했다.
     "How would you build a territory plan for Korea?": "한국 테리토리 전략",
-    # 어휘 임계값을 2로 내리며 새로 열린 것들 — 하나씩 질문과 나란히 읽고 승인.
     "Tell me about a complex deal with many stakeholders.": "딜 스토리 C",
     "What was the ROI story you told that customer?": "딜 스토리 D",
     "How do you generate new pipeline?": "메가존 네트워크 레버리지",
-    "How would you position us against MuleSoft or Boomi?": "경쟁 — MuleSoft·Boomi",
-    "A customer says n8n is free, why would they pay us?": "반론 대응 — n8n",
-    "What if they say they'll just build their own MCP layer?": "반론 대응 — 자체 MCP",
-    "What do you know about our company and financials?": "Workato 회사·재무 팩트",
     "How do you work with partners in a co-sell motion?": "파트너 전략",
     "Are you comfortable running meetings in English with a global team?": "영어 커뮤니케이션",
     "What are your compensation expectations?": "연봉 질문",
-    # 승인하지 않은 것 —
-    #  "How do you keep a remote manager informed about your deals?"
-    #  대본이 "English isn't my first language…"로 시작한다. 보고 체계를 물었는데
-    #  영어 실력으로 답하는 셈이라 회피로 들린다. 태그를 걷어 Tier B로 보냈다.
 }
+
+
+def _company_overlay() -> tuple[str, list[dict], dict]:
+    """회사별 오버레이 — 제품·경쟁·Why This Company처럼 회사가 바뀌면 통째로 갈리는 문항.
+
+    코어 33문항(딜·파이프라인·숫자·방법론·동기·실행·협업·보상)은 어디에 지원하든
+    같다. 회사 전용 7문항만 company/<회사>.json 의 golden에 둔다 — 다음 회사는
+    그 파일 하나만 새로 쓰면 바로 측정할 수 있다.
+    """
+    imp = ROOT / "backend" / "data" / "imported"
+    slug = os.environ.get("INTERVIEW_COMPANY", "").strip()
+    if not slug:
+        f = imp / "ACTIVE_COMPANY"
+        slug = f.read_text(encoding="utf-8").strip() if f.exists() else ""
+    cf = imp / "company" / f"{slug}.json"
+    if not cf.exists():
+        return (slug or "(미지정)"), [], {}
+    cj = json.loads(cf.read_text(encoding="utf-8"))
+    name = (cj.get("company") or {}).get("name") or slug
+    sub = lambda t: t.replace("{{COMPANY}}", name)
+    cases = [{**c, "q": sub(c["q"])} for c in (cj.get("golden") or [])]
+    ok = {sub(q): v for q, v in (cj.get("unit_ok") or {}).items()}
+    return name, cases, ok
+
+
+COMPANY_NAME, _COMPANY_CASES, _COMPANY_OK = _company_overlay()
+_sub = lambda t: t.replace("{{COMPANY}}", COMPANY_NAME)
+CASES = [{**c, "q": _sub(c["q"])} for c in CORE_CASES] + _COMPANY_CASES
+UNIT_OK = {**{_sub(q): v for q, v in CORE_UNIT_OK.items()}, **_COMPANY_OK}
 
 
 def run(verbose: bool = False) -> int:
@@ -201,7 +183,8 @@ def run(verbose: bool = False) -> int:
             mark = "✅" if (hit3 if c["expect"] else built["tier"] == "C") else "❌"
             print(f"  {mark} [{built['tier']}] {c['q'][:52]:54} → {titles[0][:34] if titles else '—'}")
     n_b = len(b_cases)
-    print(f"\n  top1 적중  {top1}/{n_b} ({top1/n_b*100:.0f}%)")
+    print(f"\n  지원 회사: {COMPANY_NAME} · 코어 {len(CORE_CASES)} + 회사 {len(_COMPANY_CASES)}문항")
+    print(f"  top1 적중  {top1}/{n_b} ({top1/n_b*100:.0f}%)")
     print(f"  top3 적중  {top3}/{n_b} ({top3/n_b*100:.0f}%)")
     print(f"  티어 정확  {tier_ok}/{len(CASES)} ({tier_ok/len(CASES)*100:.0f}%)")
     # Tier A는 생성 없이 그대로 발화된다 — 틀린 유닛이 하나라도 뜨면 실패다.
