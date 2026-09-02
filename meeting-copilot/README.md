@@ -169,6 +169,7 @@ ollama pull bge-m3
 bash meeting-copilot/start.sh          # 다른 터미널에서 서버를 띄운 뒤
 
 python3 meeting-copilot/tests/golden_routing.py  # 라우팅 골든셋 40문항 (면접 기준선)
+python3 meeting-copilot/tests/golden_followup.py # 후속 질문 11문항 — 자료에 없는 수치를 지어내면 실패
 python3 meeting-copilot/tests/ooc_eval.py       # 코퍼스 밖 질문에 지어내지 않는가
 python3 meeting-copilot/tests/rag_eval.py       # 검색 품질 15케이스 (node 없이)
 npx tsx  meeting-copilot/tests/rag-eval.ts      # 같은 케이스, TS 러너

@@ -461,7 +461,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v6.0</span>
+  <span class="ver" id="app-ver">v6.1</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -816,6 +816,7 @@ async function streamChat(url, payload, onToken, signal, onMeta){
         if(o.dropped) return;              // 게이트웨이가 밀린 항목을 버림 — 조용히 스킵
         if(o.error) throw new Error(o.error);
         if(o.meta){ onMeta?.(o.meta); continue; }
+        if(o.verify){ markUnverified(o.verify.unverified||[]); continue; }
         if(o.message?.content) onToken(o.message.content);
       }catch(e){ if(e.message && !(e instanceof SyntaxError)) throw e; }
     }
@@ -1325,6 +1326,21 @@ function renderTierC(meta){
     + `아래 확정 사실만 쓰고, <b>숫자는 지어내지 마세요</b>.`
     + (facts ? `<ul>${facts}</ul>` : '');
   el.style.display = 'block';
+}
+
+// ── 서버 검증 결과 표시 — 풀어 쓴 숫자("four months")까지 서버가 잡아 보낸다 ──
+// 클라이언트 정규식(markNumbers)은 아라비아 숫자만 보므로 이쪽이 진짜 방어선이다.
+function markUnverified(spans){
+  if(!spans.length) return;
+  for(const en of document.querySelectorAll('#c-answers .en')){
+    let html = en.innerHTML;
+    for(const sp of spans){
+      const esc_ = sp.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+      html = html.replace(new RegExp('(?<![\\w>])'+esc_+'(?![\\w<])','g'),
+        `<span class="unverified" title="내 자료에 없는 숫자입니다 — 확인 전에는 읽지 마세요">${sp}</span>`);
+    }
+    en.innerHTML = html;
+  }
 }
 
 // ── Tier A 표시 — 검수된 대본을 그대로 읽는 중이라는 신호 ──

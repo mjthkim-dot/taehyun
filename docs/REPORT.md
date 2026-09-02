@@ -527,7 +527,7 @@ rag-eval 15/15는 "시드와 매칭되는 질문"만 검증했다. 실전 인터
 다시 실행하면 같은 표가 실측 생성문으로 갱신된다.
 
 <!-- OOC-RESULTS:START -->
-### 13.1 결과 표 (ooc_eval.py 자동 기록 — 2026-09-01 12:42 · 공급자: gemini (gemini-3.6-flash))
+### 13.1 결과 표 (ooc_eval.py 자동 기록 — 2026-09-02 01:10 · 공급자: gemini (gemini-3.6-flash))
 
 | 계층 | 면접관 질문 | 검색 근거 (관련성 컷 통과분) | 생성 2안 | 판정 |
 |---|---|---|---|---|
@@ -2361,3 +2361,92 @@ backend/data/imported/
 | `rag_eval.py` / `ooc_eval.py` | 8/15 · 10/15 (동일) |
 
 버전 v6.0 · SW 캐시 v39.
+
+---
+
+## 60. CTO 진단 — 이 도구만으로 HM 면접을 통과하는가 (2026-09-02, v6.1)
+
+**한 줄:** 첫 질문은 강하고 **후속 질문은 위험했다.** HM이 세부를 파고들면
+모델이 자료에 없는 수치·기간·사유를 자신 있게 지어냈고, 검증기는 그걸 하나도
+못 잡았다. 구조를 바꿔 숫자 날조는 8/11 → 0/11로 잡았다.
+
+### 질문을 바꿨다
+
+"기술적으로 동작하는가"가 아니라 **"이것만 들고 들어가서 통과하는가."** 워카토
+탈락 직후라 추상이 아니다. 가설 4개를 세우고 실험으로 갈랐다.
+
+| 가설 | 결과 |
+|---|---|
+| 골든셋에 후속 질문이 없다 | **0/40** — 전부 첫 질문. HM 면접의 절반이 후속인데 |
+| 후속에서 세부를 지어낸다 | **8/11 날조** — "six months", "ten to twelve", "thirty to forty percent" |
+| 검증기가 풀어 쓴 숫자를 못 본다 | 정규식이 아라비아 숫자만 봄. 프롬프트는 "말로 풀어 쓰라"고 지시 — **서로 모순** |
+| Tier A 대본에 끊어읽기가 없다 | **0/37** — 82단어를 통으로 읽음 |
+| STT가 e2e에서 우회된다 | 텍스트 주입 12건 vs 실전사 0건. 별도 스모크로 6/6 정확 전사(단, 합성 음성) |
+
+### 날조의 실물
+
+```
+Q: And how long did that whole renewal take?
+A: "The whole process took six months. The pilot took four weeks…"     ← 자료에 없음
+Q: How many first meetings do you personally generate per month?
+A: "about ten to twelve qualified first meetings every single month"    ← 자료에 없음, [CONFIRM] 항목
+Q: Why did that account leave in the first place?
+A: "Our contact changed. The new decision maker wanted a different…"   ← 이탈 사유는 자료에 없음
+```
+
+그대로 읽고 HM이 나중에 교차 확인하면 끝이다. 워카토에서 무슨 일이 있었는지는
+모르지만, 이 경로는 열려 있었다.
+
+### 고친 것 — 프롬프트 규칙이 아니라 구조
+
+**1. `backend/numwords.py`** — 풀어 쓴 수사를 값으로. "seventy-five million" →
+75,000,000, "three to five" → [3, 5], "four-month" → 4. 라벨(L4·n8n)과 연도는 제외.
+자료와 답변을 같은 방식으로 수치화해 표기가 달라도 비교한다.
+
+**2. 허용 수치 목록을 프롬프트 맨 위에** — 끝에 묻힌 "지어내지 말라"는 무력했다
+(실측: 규칙을 추가해도 8/11 그대로). 대신 `NUMBERS YOU MAY SAY (the ONLY ones):
+1, 3, 8, 38, 89, 100, 1700, 26.8M, 50.7M, 75.6M, 890M` 을 첫 줄에 박고,
+숫자를 묻는 질문(`how many / how long / what share / give me a number`)이면
+"목록에 없으면 없다고 말하라"를 지시문으로 추가한다. **8/11 → 0/11.**
+
+**3. 서버 종료 검증** — 스트림이 끝나면 서버가 `numwords.unverified()`로 답변을
+검사해 `{"verify": {"unverified": [...]}}`를 보낸다. 클라이언트 정규식은 폴백으로만.
+
+**4. 사유 질문 가드** — `why did / what caused / in the first place`에 같은 방식.
+회피 문장은 붙지만 뒤에 여전히 그럴듯한 이유를 덧붙인다 — **절반만 잡혔다.**
+숫자처럼 결정적으로 검출할 수 없어서다. 남은 위험으로 기록한다.
+
+**5. 끊어읽기** — `build_tier_a`가 쉼표·접속사 경계에 ` / `를 넣는다. 37/37.
+
+**6. `tests/golden_followup.py`** — 후속 11문항, 자료에 없는 수치가 하나라도
+나오면 실패. 회귀 스위트 편입.
+
+### 회피 문장은 말할 만한가
+
+> "I don't have that exact figure in front of me. My model focuses on
+> opportunity validation rather than conversion rates. For every opportunity,
+> I validate four things…"
+
+없는 걸 없다고 하고 있는 것으로 넘어간다. 면접에서 이게 지어낸 숫자보다 낫다.
+
+### 남은 위험 — 정직하게
+
+- **사유 날조 절반** — 결정적 검출이 안 된다. 후속 골든셋에서 감시는 한다.
+- **STT는 깨끗한 합성 음성만 검증** — 억양·속도·끼어들기는 미검증. 실전 오디오
+  코퍼스가 필요하다(8/27·워카토 녹음이 있으면 그게 답이다).
+- **검출기 위양성** — "two things"처럼 구조적 수는 자료에 없어도 잡힌다. 과잉
+  경고가 낫다고 판단해 뒀다.
+- **`[CONFIRM]` 미확정** — 평균 딜 사이즈·신규 로고 비중·사이클·현재 Base·노티스.
+  도구가 채울 수 없는 건 그대로다. 확정 전엔 회피 문장이 나간다 — 그게 맞다.
+
+### 검증
+
+| 스위트 | 결과 |
+|---|---|
+| `golden_followup.py` (신규) | 후속 11 · **날조 수치 0** · 회피 누락 1 |
+| `golden_routing.py` | top1 89% · top3 100% · 티어 40/40 · 미승인 0 (동일) |
+| `e2e.mjs` | 전부 통과 · 콘솔 오류 0 |
+| `check_units` / `claims_guard` | 37/37 · 통과 |
+| `rag_eval` / `ooc_eval` | 8/15 · 10/15 (동일) |
+
+버전 v6.1 · SW 캐시 v40.

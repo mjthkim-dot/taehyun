@@ -38,6 +38,7 @@ import ingest  # noqa: E402
 import gateway
 import llm  # noqa: E402
 import notion  # noqa: E402
+import numwords
 import prompts  # noqa: E402
 import rag  # noqa: E402
 import review  # noqa: E402
@@ -155,11 +156,26 @@ def _stream(handler, messages, temperature, max_tokens, meta=None, fast=False,
         handler.wfile.write(f"{len(b):x}\r\n".encode() + b + b"\r\n")
         handler.wfile.flush()
 
+    # 답변 본문을 모아 두었다가 끝에 수치를 검증한다. 클라이언트도 자체 정규식으로
+    # 표시하지만 그건 아라비아 숫자만 본다 — 모델은 "four months", "three to five"
+    # 처럼 풀어 쓰므로(프롬프트가 그렇게 시킨다) 날조 수치가 전부 통과했다.
+    known_v = set((meta or {}).get("known_values") or [])
+    acc: list[str] = []
+
+    def _grab(b: bytes) -> None:
+        try:
+            o = json.loads(b)
+            c = (o.get("message") or {}).get("content")
+            if c:
+                acc.append(c)
+        except (ValueError, AttributeError):
+            pass
+
     try:
         if meta:
             w((json.dumps({"meta": meta}, ensure_ascii=False) + "\n").encode())
         if first:
-            w(first)
+            w(first); _grab(first)
         for chunk in it:
             # 낡은 스트림 능동 취소 — 같은 사용자의 더 새로운 답변 요청이 시작되면
             # 이 스트림은 즉시 종료해 게이트웨이 슬롯을 반환한다. 클라이언트
@@ -168,7 +184,11 @@ def _stream(handler, messages, temperature, max_tokens, meta=None, fast=False,
             if cancel and cancel():
                 it.close()
                 break
-            w(chunk)
+            w(chunk); _grab(chunk)
+        if meta and "known_values" in meta and acc:
+            en = "".join(acc).split("===")[0]
+            bad = numwords.unverified(en, known_v)
+            w((json.dumps({"verify": {"unverified": bad}}, ensure_ascii=False) + "\n").encode())
         handler.wfile.write(b"0\r\n\r\n")
         handler.wfile.flush()
     except (BrokenPipeError, ConnectionResetError):
@@ -680,6 +700,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                           "rag_used": built["rag_used"],
                           "tier": built["tier"],
                           "known_numbers": built["known_numbers"],
+                          "known_values": built["known_values"],
                           "has_placeholder": built["has_placeholder"]})
             return
 

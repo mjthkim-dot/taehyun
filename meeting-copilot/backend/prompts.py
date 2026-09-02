@@ -13,6 +13,7 @@ import os
 import re
 
 import llm
+import numwords
 import rag
 import triggers
 import units
@@ -60,6 +61,41 @@ SHOW_PR = "pr" in ANSWER_LINES
 
 # 수치 게이트용 — 자료·프로필에 실재하는 숫자만 '확정'으로 본다.
 _NUM = re.compile(r"\d[\d,.]*\s*(?:%|억|만|천|million|m|billion|b|k)?", re.I)
+
+
+# "숫자를 달라"는 질문. 여기서 자료에 값이 없으면 모델은 거의 반드시 지어낸다
+# (실측 2026-09-02: 후속 11건 중 8건 날조 — 프롬프트 끝의 금지 규칙은 무력했다).
+_ASKS_NUMBER = re.compile(
+    r"\b(how (many|much|long|often|big|large|fast)|what('s| is| was) (your|the) "
+    r"(number|share|rate|ratio|conversion|percentage|split|quota|cycle|size|figure)|"
+    r"give me a (number|figure|rough)|what (percent|share|portion|fraction)|"
+    r"on average|per (month|week|quarter|year)|how (frequently|quickly))\b", re.I)
+
+
+def _asks_number(q: str) -> bool:
+    return bool(_ASKS_NUMBER.search(q or ""))
+
+
+# 사유·경위를 묻는 후속 질문. 자료엔 결과만 있고 이유가 없는 경우가 많다
+# (예: "이탈했던 계정 win-back" — 왜 이탈했는지는 없다). 숫자와 같은 방식으로,
+# 없으면 지어내지 말고 그렇게 말하라고 위에서 못 박는다.
+_ASKS_REASON = re.compile(
+    r"\b(why (did|was|were|had|didn't|wasn't)|what (caused|went wrong|happened|was the (reason|trigger|root cause))|"
+    r"how come|what made (them|it|him|her)|in the first place|walk me through what happened)\b", re.I)
+
+
+def _asks_reason(q: str) -> bool:
+    return bool(_ASKS_REASON.search(q or ""))
+
+
+def _known_values(texts: list[str]) -> list[float]:
+    """자료에 실재하는 수치를 **값**으로. 표기(75.6M / seventy-five million)가 달라도
+    같은 값이면 같은 출처다. 풀어 쓴 수까지 잡는 numwords 기반 — 아라비아 숫자만
+    보던 _known_numbers를 대체한다(그건 화면 표시 호환용으로만 남긴다)."""
+    out: set[float] = set()
+    for t in texts:
+        out |= numwords.values(t or "")
+    return sorted(out)
 
 
 def _known_numbers(texts: list[str]) -> list[str]:
@@ -243,6 +279,31 @@ verbatim or nearly so; IGNORE loosely related lines, never force a quote.
                           "answer naturally from the CANDIDATE PROFILE above.)\n")
 
     goal = INTENTS.get(intent, INTENTS["reply"])
+    # 허용 수치를 **맨 위에** 명시한다. 끝에 묻힌 "지어내지 말라"는 무시된다.
+    known_v = _known_values([h["text"] for h in hits] + [profile])
+    allowed = ", ".join(numwords.fmt(v) for v in known_v[:40]) or "(none)"
+    number_block = f"""
+=== NUMBERS YOU MAY SAY (the ONLY ones) ===
+{allowed}
+Any number, duration, count, percentage, or share NOT in this list is
+forbidden — do not estimate, round, or infer one. Spelled-out numbers
+("about six months", "ten to twelve") count as numbers.
+"""
+    if _asks_reason(said):
+        number_block += """
+>>> THE QUESTION ASKS WHY / WHAT HAPPENED. Only give a reason, cause, or
+>>> sequence of events that is stated in THEIR OWN MATERIAL or in the
+>>> previous answer in the context. If neither says why, do NOT construct
+>>> a plausible story. Say what the material does say, and be honest that
+>>> the full picture is more than you'd want to reconstruct on the spot.
+"""
+    if _asks_number(said):
+        number_block += """
+>>> THE QUESTION ASKS FOR A NUMBER. Check the list above. If the number
+>>> asked for is NOT there, you MUST say you don't have the exact figure
+>>> in front of you, then answer with what you DO know from the material.
+>>> Do not give a range. Do not say "roughly" and then guess.
+"""
     ctx = (f"\nRecent meeting context:\n\"\"\"{chr(10).join(ctx_lines)}\"\"\"\n"
            if ctx_lines else "")
 
@@ -273,7 +334,7 @@ Korean letter names (AWS → 에이더블유에스, SoW → 에스오더블유, 
 Numbers as the spoken English words (75.6 million → 세븐티 파이브 포인트
 식스 밀리언).>
 """ if SHOW_PR else "")
-    prompt = f"""{head}
+    prompt = number_block + f"""{head}
 {ctx}
 {who}
 
@@ -365,7 +426,23 @@ SOUND HUMAN — an interviewer trusts one vivid specific over five stats:
   doubled it" — exact figures only when asked for exact figures.
 - No template skeletons: don't open every answer the same way; don't end
   with a moral ("This taught me..."). A light lead ("Honestly,") at most
-  once per answer."""
+  once per answer.
+
+NEVER INVENT SPECIFICS — this is read aloud in a real interview and will be
+cross-checked:
+- Every number, duration, date, percentage, count, and named person or team
+  in your answer MUST appear in THEIR OWN MATERIAL or the CANDIDATE PROFILE.
+  If the question asks for one that isn't there (how long did it take, how
+  many per month, what's your conversion rate, why did they leave), do NOT
+  make one up. Say it plainly and move on: "I'd want to give you the exact
+  figure rather than guess — roughly, it was …" is allowed ONLY if the rough
+  figure is in the material. Otherwise: "I don't have that number in front
+  of me; what I can tell you is …" and answer with what IS in the material.
+- Follow-up questions probe details of the previous answer. Reuse the facts
+  already given; do not add new events, people, or steps that the material
+  doesn't mention.
+- A confident wrong number costs the interview. A frank "I'd need to check"
+  does not."""
     # Tier C(미스) — 자료에서 근거를 못 찾았다. 여기서 답을 '만들면' 그대로
     # 발화되므로, 티어를 알려 서버가 생성을 건너뛰게 한다(#16 escalation).
     # 프로필은 일반 사실이지 '이 질문의 대본'이 아니다 — 그대로 읽을 문장의
@@ -411,8 +488,31 @@ SOUND HUMAN — an interviewer trusts one vivid specific over five stats:
         tier = "C" if not hits else "B"
     known = _known_numbers([h["text"] for h in hits] + [profile])
     return {"prompt": prompt, "sources": labels, "hits": hits, "tier": tier,
-            "known_numbers": known, "unit": unit,
+            "known_numbers": known, "known_values": known_v, "unit": unit,
             "phrases": phrases, "rag_used": bool(hits), "has_placeholder": has_ph}
+
+
+_BREAK_AT = re.compile(r"(,|;|—|–| — )\s+|\s+(?=(?:and|but|so|because|which|when|then|so that|instead|rather than|where)\b)")
+
+
+def _breaks(text: str, max_words: int = 9) -> str:
+    """대본에 끊어읽기( / )를 넣는다. 생성 답변은 모델이 넣지만(v3.7) 검수 대본은
+    산문 그대로라 82단어를 통으로 읽게 된다(실측: 37개 전부 슬래시 0).
+    쉼표·접속사 경계에서 끊되, 한 덩어리가 max_words를 넘으면 그 안에서도 끊는다."""
+    if " / " in text:
+        return text
+    out: list[str] = []
+    for sent in re.split(r"(?<=[.!?])\s+", text.strip()):
+        parts = [p for p in _BREAK_AT.split(sent) if p and p.strip() and p.strip() not in ",;—–"]
+        chunks: list[str] = []
+        for part in parts:
+            words = part.split()
+            while len(words) > max_words:
+                chunks.append(" ".join(words[:max_words])); words = words[max_words:]
+            if words:
+                chunks.append(" ".join(words))
+        out.append(" / ".join(c.strip(" ,") for c in chunks if c.strip(" ,")))
+    return " ".join(out)
 
 
 # Tier A — 검수된 대본을 그대로. LLM을 부르지 않으므로 문장이 매번 같다.
@@ -422,7 +522,7 @@ def build_tier_a(unit: dict, depth: str = "30s") -> dict:
     en = unit.get("answer_en_90s") if depth == "90s" else unit.get("answer_en_30s")
     en = (en or unit.get("answer_en_30s") or "").strip()
     return {
-        "en": en,
+        "en": _breaks(en),
         "gist": unit.get("gist") or "검수된 대본",
         "strategy": unit.get("strategy") or "그대로 읽으세요",
         "known_numbers": list(unit.get("key_numbers") or []),
