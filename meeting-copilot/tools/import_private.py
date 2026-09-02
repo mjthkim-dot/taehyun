@@ -85,7 +85,17 @@ def _load_layers() -> tuple[dict, list[dict]]:
 
     name = company.get("name") or slug
     items: list[dict] = []
-    for f in sorted((IMP / "core").glob("*.json")):
+    # 하위 호환 — core/ 폴더가 없는 옛 구조(imported/*.json 한 파일)도 그대로 읽는다.
+    # 맥북의 자료는 아직 옛 구조일 수 있다. 새 구조로 옮기지 않아도 동작해야 한다.
+    core_dir = IMP / "core"
+    if core_dir.is_dir():
+        core_files = sorted(core_dir.glob("*.json"))
+    else:
+        core_files = [f for f in sorted(IMP.glob("*.json")) if f.name != "answer_units.json"]
+        if core_files:
+            print(f"ℹ️  옛 구조 감지 — {len(core_files)}개 파일을 회사 무관 자료로 적재합니다"
+                  f" (새 구조: {IMP}/core/ + company/)")
+    for f in core_files:
         try:
             for it in json.loads(f.read_text(encoding="utf-8")):
                 t, x = it.get("title"), it.get("text")
