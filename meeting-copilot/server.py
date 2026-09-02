@@ -692,8 +692,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             quick = req.get("intent") in ("buytime", "clarify")
             # 2400: 발표형 EN+KR+PR(한글 발음) 병기 + META까지 —
             # 상한에 걸려 잘린 응답은 형식 파손(KR/PR 누락)으로 이어진다
+            # 후속 질문은 40단어 상한이라 토큰도 그만큼만 — 완성이 빨라진다
             _stream(self, [{"role": "user", "content": built["prompt"]}], 0.4,
-                    700 if quick else 2400, fast=quick,
+                    700 if quick else (400 if built.get("followup") else 2400), fast=quick,
                     kind="suggest", bg=bool(req.get("bg")),
                     meta={"sources": built["sources"],
                           "phrases": built["phrases"],

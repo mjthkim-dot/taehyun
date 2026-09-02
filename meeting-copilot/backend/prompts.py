@@ -72,6 +72,35 @@ _ASKS_NUMBER = re.compile(
     r"on average|per (month|week|quarter|year)|how (frequently|quickly))\b", re.I)
 
 
+# 후속 질문 — 앞 답변의 세부를 캐묻는다. 지시어(that/you said/why)가 있거나,
+# 맥락이 있는데 질문이 짧다(첫 질문은 보통 길다). 영어가 약한 사용자는 후속을
+# 도구 없이 못 받으므로 이 경로가 실전의 절반이다. 짧게 강제하는 이유:
+# (1) 빨리 끝나고 (2) 빨리 읽고 (3) 지어낼 자리가 준다.
+_FOLLOWUP_CUE = re.compile(
+    r"\b(you (said|mentioned|talked about)|that (deal|account|customer|one|framework|number)|"
+    r"why did|why was|how did (that|you)|what happened|and (then|after)|in the first place|"
+    r"go on|tell me more|can you (elaborate|expand)|specifically|exactly|walk me through that)\b", re.I)
+
+
+def _is_followup(said: str, context: str) -> bool:
+    """맥락(앞 문답)이 있을 때, 이 질문이 그걸 캐묻는가.
+
+    실측 2026-09-02: 지시어 정규식만으로는 후속 11건 중 6건을 첫 질문으로
+    오판했다 — "And how long did that renewal take…", "Give me a number. How
+    many…"처럼 지시어 없이 길게 묻는 후속이 흔하다. 맥락이 있고 (a) 지시어가
+    있거나 (b) 숫자를 묻거나 (c) 접속사로 시작하거나 (d) 짧으면 후속으로 본다.
+    새 주제의 첫 질문("Tell me about your framework")만 걸러내면 된다.
+    """
+    if not (context or "").strip():
+        return False
+    q = (said or "").strip()
+    if _FOLLOWUP_CUE.search(q) or _asks_number(q):
+        return True
+    if re.match(r"^(and|but|so|ok(ay)?|right|got it|interesting|sure)[,.\s]", q, re.I):
+        return True
+    return len(q.split()) <= 12
+
+
 def _asks_number(q: str) -> bool:
     return bool(_ASKS_NUMBER.search(q or ""))
 
@@ -297,6 +326,14 @@ forbidden — do not estimate, round, or infer one. Spelled-out numbers
 >>> a plausible story. Say what the material does say, and be honest that
 >>> the full picture is more than you'd want to reconstruct on the spot.
 """
+    followup = _is_followup(said, context)
+    if followup:
+        number_block += """
+>>> THIS IS A FOLLOW-UP. The interviewer is probing the previous answer.
+>>> Answer in AT MOST 40 words. Restate ONE fact already given, then add
+>>> the single point that answers what was asked. No new events, people,
+>>> or steps that the material and previous answer don't contain.
+"""
     if _asks_number(said):
         number_block += """
 >>> THE QUESTION ASKS FOR A NUMBER. Check the list above. If the number
@@ -489,6 +526,7 @@ cross-checked:
     known = _known_numbers([h["text"] for h in hits] + [profile])
     return {"prompt": prompt, "sources": labels, "hits": hits, "tier": tier,
             "known_numbers": known, "known_values": known_v, "unit": unit,
+            "followup": followup,
             "phrases": phrases, "rag_used": bool(hits), "has_placeholder": has_ph}
 
 

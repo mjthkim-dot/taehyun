@@ -197,6 +197,16 @@
   .lrow .pr{font-size:calc(11px * var(--ansz));color:var(--faint);line-height:1.6;margin-top:4px}
   /* 끊어 읽기 슬래시 — 호흡 위치 표시. 옅은 강조색으로 본문 흐름 유지 */
   .lrow .en .brk{color:var(--accent);opacity:.55;font-weight:400}
+  /* 프롬프터 모드 — 조각이 곧 줄. 인터뷰 프리셋 기본 ON. */
+  body.prompter .lrow.primary .en .seg{display:block;padding:1px 0}
+  body.prompter .lrow.primary .en .brk{display:none}
+  body.prompter .lrow.primary .en{line-height:1.5}
+  /* 긴 답변도 줄 단위로 읽으므로 폰트를 덜 줄인다 — 스크롤은 카드가 맡는다 */
+  body.prompter .lrow.primary.long .en{font-size:calc(16.5px * var(--ansz));line-height:1.5}
+  body.overlay.prompter .lrow.primary .en{font-size:calc(clamp(17px, 6.2vw, 28px) * var(--ovscale))}
+  body.overlay.prompter .lrow.primary.long .en{font-size:calc(clamp(15px, 5vw, 23px) * var(--ovscale));line-height:1.5}
+  /* 현재 읽는 줄 강조 없이도 되게 — 줄 간격을 넉넉히 */
+  body.prompter .lrow.primary .en .seg + .seg{margin-top:2px}
   .lrow .strat{font-size:11.5px;color:var(--sub);line-height:1.5}
   .say{background:none;border:none;cursor:pointer;font-size:13px;color:var(--sub);flex:none}
   /* RAG 근거 — 12px 회색 한 줄만 (넘치면 말줄임). 답변에서 시선을 뺏지 않는다 */
@@ -227,6 +237,7 @@
   /* 오버레이는 세로가 가장 귀하다 — 제목은 버리고 배지와 버튼만 남긴다 */
   body.overlay #c-tiera .ttl{display:none}
   body.overlay #c-tiera{padding:4px 8px;margin:4px 0 2px}
+  #c-prompter.on{color:var(--accent)}
   #c-tiera button{margin-left:auto;background:rgba(82,196,26,.18);color:inherit;
     border:1px solid rgba(82,196,26,.5);border-radius:6px;padding:3px 9px;
     font-size:11.5px;cursor:pointer}
@@ -461,7 +472,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v6.1</span>
+  <span class="ver" id="app-ver">v6.2</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -567,6 +578,7 @@
         <span class="gist" id="c-gist"></span>
         <span class="spec-tag" title="말이 끝나기 전에 미리 생성 중">미리</span>
         <span id="c-wait">생성 중…</span>
+        <button id="c-prompter" title="프롬프터 (한 줄씩)" onclick="togglePrompter()">≡</button>
         <button id="c-size" title="글자 크기 (+/-)">🔎</button>
         <button id="c-pin" title="고정 (Space)">📌</button>
         <button id="c-close" title="닫기 (Esc)">✕</button>
@@ -1279,8 +1291,13 @@ function answerRow(en,kr,pr,idx){
   const enClean = en.replace(/\s*\/\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
   // 수치 게이트 — 화면 문장은 그대로 발화된다. 자료에 없는 숫자는 거짓 진술이
   // 되므로 표시 단계에서 붉게 잡는다(프롬프트 금지문만으로는 막지 못했다).
+  // 텔레프롬프터: " / " 조각마다 .seg로 감싼다. 프롬프터 모드면 조각이 한 줄이
+  // 된다 — 영어가 약한 사용자는 산문 82단어를 못 읽지만, 6~8단어 한 줄은 한
+  // 호흡에 읽는다. 눈이 좌우로 덜 움직여 읽는 티도 준다(앵커 프롬프터 원리).
   r.querySelector('.en').innerHTML =
-    markNumbers(esc(en)).replace(/\s\/\s/g, ' <span class="brk">/</span> ');
+    markNumbers(esc(en)).split(/\s\/\s/)
+      .map(seg => `<span class="seg">${seg.trim()}</span>`)
+      .join(' <span class="brk">/</span> ');
   r.querySelector('.kr').textContent = kr || '';
   const prEl = r.querySelector('.pr');
   if(pr){ prEl.textContent = '🗣 ' + pr; } else prEl.style.display = 'none';
@@ -1343,6 +1360,21 @@ function markUnverified(spans){
   }
 }
 
+// ── 프롬프터 모드 — 인터뷰 프리셋 기본 ON, 저장된 선택이 우선 ──
+function applyPrompter(){
+  let on;
+  // 기본 ON — 이 사용자는 프리셋과 무관하게 답변을 그대로 읽는다.
+  try{ const v = localStorage.getItem('mc_prompter'); on = v==null ? true : v==='1'; }
+  catch{ on = true; }
+  document.body.classList.toggle('prompter', !!on);
+  const b = $('#c-prompter'); if(b) b.classList.toggle('on', !!on);
+}
+function togglePrompter(){
+  const on = !document.body.classList.contains('prompter');
+  try{ localStorage.setItem('mc_prompter', on?'1':'0'); }catch{}
+  applyPrompter();
+}
+
 // ── Tier A 표시 — 검수된 대본을 그대로 읽는 중이라는 신호 ──
 // 왜 배너를 다는가: 화면만 보면 생성문과 구분되지 않는다. "이건 내가 검수한
 // 문장"임을 알아야 안심하고 그대로 읽는다.
@@ -1403,6 +1435,18 @@ function renderSources(meta){
 // 있으면 재생성 때마다 같이 발사돼 fast 레인(번역과 공유)을 점유했다.
 // 이제 턴당 1회만, 질문을 감지한 즉시 나간다.
 let openerAbort = null, mainRaw = '';
+// 오프너를 최종 확정(isFinal) 전, 중간 인식 단계에서 쏜다. 브라우저가 문장을
+// 확정하기까지 0.5~1초가 걸리는데, 영어가 약한 사용자는 그 침묵을 스스로 못
+// 메운다. 오프너는 "That's a good question — let me share one example" 같은
+// 범용 문장이라 중간 인식의 오자에 영향받지 않는다. 턴당 1회(turnOpened).
+function maybeOpener(interim){
+  if(turnOpened || pinned) return;
+  const t = interim.trim();
+  if(t.split(/\s+/).length < 5 || !wantsReply(t)) return;
+  turnOpened = true;
+  fireOpener(t, 'reply');
+}
+
 function fireOpener(said, intent){
   if(pinned) return;
   if(['translate','buytime','clarify'].includes(intent)) return;   // 자체가 1초대
@@ -1903,6 +1947,7 @@ function startSTT(){
       interimRow.querySelector('.en').textContent = interim;
       feedScroll();
       maybeSpeculate(interim);
+      maybeOpener(interim);
     } else if(interimRow){ interimRow.remove(); interimRow=null; }
   };
   rec.onerror = ev=>{ if(ev.error==='not-allowed'){ $('#status-txt').textContent='⚠️ 마이크 권한을 허용해 주세요'; stopSTT(); } };
@@ -1949,6 +1994,7 @@ const PRESET_BTNS = {
 };
 function appPreset(){ return $('#preset').value; }
 function applyPreset(){
+  applyPrompter();                         // 프리셋에 따라 프롬프터 기본값 결정
   const cfg = PRESET_BTNS[appPreset()] || PRESET_BTNS.meeting;
   const mains = $$('.actions button.main');
   const mores = $$('.actions button.more');

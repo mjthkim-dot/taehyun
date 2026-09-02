@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v40';  // v6.1: 후속 질문 날조 차단 — 허용 수치 목록 + 풀어 쓴 수 검증
+const SHELL = 'mc-shell-v41';  // v6.2: 읽는 사람을 위한 설계 — 프롬프터·B1 대본·interim 오프너·후속 40단어
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {

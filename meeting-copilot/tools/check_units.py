@@ -20,11 +20,13 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "backend"))
 import prompts  # noqa: E402
 import rag  # noqa: E402
+import readability  # noqa: E402
 import units  # noqa: E402
 
-# 말하는 속도 ~150 wpm 기준. 30초 = 75단어, 90초 = 225단어 근처.
-LEN_30 = (55, 115)
-LEN_90 = (170, 290)
+# 영어가 약한 사용자가 소리 내어 읽는 속도 ≈ 100 wpm. 30초 = 55단어, 90초 = 160단어.
+# (원래 150 wpm 기준 75/225였다 — 원어민 기준이라 실측 45초 넘게 걸렸다.)
+LEN_30 = (25, 55)
+LEN_90 = (80, 160)
 
 # 주장하는 수치만 잡는다. 라벨(L4, D2C, 30/60/90)과 연도(2025)는 주장이 아니다.
 _NUM = re.compile(r"(?<![A-Za-z0-9])\d[\d,.]*(?![A-Za-z])")
@@ -68,11 +70,13 @@ def main() -> int:
                 if k not in allowed and not any(k in a or a in k for a in allowed):
                     probs.append(f"{depth}: 근거 없는 숫자 {m!r}")
 
-        # 4. 길이
+        # 4. 길이 + B1 가독성 — 그대로 읽는 대본이라 문장 길이·어려운 단어를 본다
         for depth, (lo, hi) in (("answer_en_30s", LEN_30), ("answer_en_90s", LEN_90)):
             n = len((u.get(depth) or "").split())
-            if not (lo <= n <= hi):
+            if n < lo:
                 probs.append(f"{depth}: {n}단어 (기대 {lo}~{hi})")
+            for pr in readability.check(u.get(depth) or "", hi):
+                probs.append(f"{depth}: {pr}")
 
         mark = "❌" if probs else "✅"
         if probs:

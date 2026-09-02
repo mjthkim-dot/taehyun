@@ -103,7 +103,9 @@ def extract(text: str) -> list[tuple[str, float]]:
         # 'a'·'and'만으로 된 덩어리는 수가 아니다
         if words and any(p in _ONES or p in _TENS or p in _SCALE for p in words):
             val = _words_to_int(words)
-            if val is not None:
+            # 홀로 쓰인 'one'은 한정사다("one platform", "no one department").
+            # 수치 주장이 아니므로 자료·답변 어느 쪽에서도 세지 않는다.
+            if val is not None and not (len(words) == 1 and words[0] == "one"):
                 out.append((text[toks[i][1]:toks[j-1][2]], val))
             i = j
         else:
@@ -122,6 +124,8 @@ def unverified(answer: str, known: set[float]) -> list[str]:
     """답변 속 수치 중 자료(known)에 없는 것의 원문 조각."""
     bad = []
     for raw, v in extract(answer):
+        # 'one'이 홀로 쓰이면 거의 항상 한정사다("one platform", "no one department").
+        # 'one in three'처럼 범위·비율이면 다른 수와 같이 잡히므로 여기서만 거른다.
         if any(abs(v - k) <= max(0.05 * max(abs(k), 1), 0.01) for k in known):
             continue                                   # 근사 일치(반올림·'about')
         bad.append(raw)
