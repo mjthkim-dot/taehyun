@@ -8080,3 +8080,433 @@ body,
   .fx-piece, .fx-float, .fx-combo { animation: none; }
   .fx-piece { display: none; }
 }
+
+/* ── 12주 트레이닝 프로그램 (pg-*) ──
+ * 홈의 첫 카드이자 앱의 척추. 다른 카드보다 한 단계 더 또렷하게(테두리 강조,
+ * 큰 Day 숫자) 만들어, 스크롤하지 않아도 "오늘 뭘 해야 하는지"가 먼저 읽히게 한다. */
+.pg-card {
+  border: 1px solid var(--accent-soft, rgba(52, 199, 123, 0.35));
+}
+.pg-kicker {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--accent, #34c77b);
+}
+.pg-title {
+  font-size: 1.12rem;
+  margin: 6px 0 8px;
+  line-height: 1.45;
+}
+.pg-lede {
+  font-size: 0.86rem;
+  line-height: 1.7;
+  color: var(--text);
+  margin: 0 0 4px;
+}
+.pg-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.pg-day {
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+.pg-day .muted {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.pg-badge {
+  margin-left: 8px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--accent, #34c77b);
+  color: #04150c;
+  vertical-align: middle;
+}
+.pg-more {
+  flex: none;
+}
+.pg-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.08));
+  overflow: hidden;
+  margin: 10px 0 8px;
+}
+.pg-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent, #34c77b);
+  transition: width 0.4s ease;
+}
+.pg-focus {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+/* 다음 블록 — 카드 안에서 가장 큰 버튼. 고민 없이 여기만 누르면 된다. */
+.pg-next {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: 14px;
+  padding: 14px 15px;
+  background: var(--accent, #34c77b);
+  color: #04150c;
+  cursor: pointer;
+}
+.pg-next-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  opacity: 0.72;
+}
+.pg-next-label em {
+  font-style: normal;
+}
+.pg-next-title {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: 3px 0 4px;
+}
+.pg-next-why {
+  display: block;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  opacity: 0.85;
+}
+.pg-next-go {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 700;
+  margin-top: 9px;
+}
+.pg-meter {
+  font-size: 0.74rem;
+  color: var(--muted);
+  margin-top: 9px;
+}
+.pg-meter-bar {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.08));
+  overflow: hidden;
+  margin-top: 5px;
+}
+.pg-meter-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent, #34c77b);
+}
+.pg-done {
+  border-radius: 12px;
+  padding: 13px 14px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.05));
+}
+.pg-done p {
+  margin: 5px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+.pg-toggle {
+  display: block;
+  width: 100%;
+  margin-top: 11px;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  padding: 6px;
+  cursor: pointer;
+}
+
+/* 오늘 4블록 */
+.pg-blocks {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pg-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-radius: 12px;
+  padding: 10px 11px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.05));
+}
+.pg-block.done {
+  opacity: 0.6;
+}
+.pg-check {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 7px;
+  border: 1.5px solid var(--border, rgba(255, 255, 255, 0.22));
+  background: transparent;
+  color: var(--accent, #34c77b);
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+.pg-block.done .pg-check {
+  border-color: var(--accent, #34c77b);
+}
+.pg-check:disabled {
+  cursor: default;
+}
+.pg-block-main {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+}
+.pg-block-title {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.pg-block-title em {
+  font-style: normal;
+  font-weight: 500;
+  font-size: 0.72rem;
+  margin-left: 5px;
+}
+.pg-auto {
+  margin-left: 6px;
+  font-size: 0.6rem;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft, rgba(52, 199, 123, 0.18));
+  color: var(--accent, #34c77b);
+  font-weight: 700;
+}
+.pg-block-why {
+  display: block;
+  font-size: 0.73rem;
+  line-height: 1.55;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.pg-nudge {
+  font-size: 0.75rem;
+  line-height: 1.6;
+  margin: 11px 0 0;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.05));
+  color: var(--muted);
+}
+.pg-nudge.back {
+  border-left: 3px solid var(--accent, #34c77b);
+  color: var(--text);
+}
+
+/* 서약 */
+.pg-sec {
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin: 14px 0 6px;
+}
+.pg-hint {
+  font-size: 0.72rem;
+  line-height: 1.55;
+  margin: 0 0 7px;
+}
+.pg-why {
+  width: 100%;
+}
+.pg-mins {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.pg-min {
+  text-align: left;
+  border-radius: 11px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border, rgba(255, 255, 255, 0.14));
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.pg-min.on {
+  border-color: var(--accent, #34c77b);
+  background: var(--accent-soft, rgba(52, 199, 123, 0.12));
+}
+.pg-min b {
+  display: block;
+  font-size: 0.88rem;
+}
+.pg-min span {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.pg-start {
+  width: 100%;
+  margin-top: 14px;
+}
+.pg-fine {
+  font-size: 0.71rem;
+  line-height: 1.6;
+  margin: 9px 0 0;
+}
+
+/* 프로그램 화면 */
+.pg-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 12px;
+}
+.pg-stats > div {
+  text-align: center;
+  padding: 9px 4px;
+  border-radius: 10px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.05));
+}
+.pg-stats b {
+  display: block;
+  font-size: 0.92rem;
+}
+.pg-stats span {
+  display: block;
+  font-size: 0.66rem;
+  margin-top: 2px;
+}
+.pg-quote {
+  margin: 0;
+  padding: 11px 13px;
+  border-left: 3px solid var(--accent, #34c77b);
+  border-radius: 0 10px 10px 0;
+  background: var(--surface-2, rgba(255, 255, 255, 0.05));
+  font-size: 0.87rem;
+  line-height: 1.7;
+}
+.pg-pledge-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 0.74rem;
+}
+.pg-sec-h {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin: 20px 4px 9px;
+}
+.pg-phase.now {
+  border: 1px solid var(--accent, #34c77b);
+}
+.pg-phase-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.92rem;
+}
+.pg-phase-head .muted {
+  font-size: 0.72rem;
+  flex: none;
+}
+.pg-phase-promise {
+  font-size: 0.8rem;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 7px 0 0;
+}
+.pg-phase-now {
+  display: inline-block;
+  margin-top: 9px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--accent, #34c77b);
+  color: #04150c;
+}
+.pg-weeks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pg-week {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.07));
+}
+.pg-week:last-child {
+  border-bottom: 0;
+}
+.pg-week.future {
+  opacity: 0.55;
+}
+.pg-week.now {
+  background: var(--accent-soft, rgba(52, 199, 123, 0.1));
+  border-radius: 9px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.pg-week-n {
+  flex: none;
+  width: 34px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--muted);
+  padding-top: 1px;
+}
+.pg-week.now .pg-week-n,
+.pg-week.done .pg-week-n {
+  color: var(--accent, #34c77b);
+}
+.pg-week-body {
+  flex: 1;
+  min-width: 0;
+}
+.pg-week-focus {
+  display: block;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+.pg-week-meta {
+  display: block;
+  font-size: 0.7rem;
+  margin-top: 2px;
+}
+.pg-week-prog {
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent, #34c77b);
+  padding-top: 1px;
+}

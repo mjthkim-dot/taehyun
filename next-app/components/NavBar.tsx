@@ -6,6 +6,7 @@ import { haptic } from '../lib/haptics';
 
 export type Mode =
   | 'master'
+  | 'program'
   | 'study'
   | 'drill'
   | 'talk'

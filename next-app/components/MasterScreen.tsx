@@ -30,6 +30,12 @@ import { computeMaturity, type MaturityState } from '../lib/maturity';
 import { pickTodayPattern, sessionDoneToday } from '../lib/session';
 import { loadStories } from '../lib/storyData';
 import { weeklyTestDue } from '../lib/weeklyTest';
+import { programState, PROGRAM_EVENT } from '../lib/program';
+// 12주 프로그램 — 홈의 첫 카드. 서약 폼과 오늘 4블록을 모두 품어 무겁기에 지연 청크로.
+const ProgramCard = dynamic(() => import('./ProgramCard'), {
+  ssr: false,
+  loading: () => <div className="pg-card" style={{ minHeight: 200 }} aria-hidden="true" />,
+});
 import type { Mode } from './NavBar';
 
 /** 주간 말하기 시험 배너 — 때가 됐을 때만 조용히 나타난다(매일 조르지 않는다). */
@@ -121,6 +127,9 @@ export default function MasterScreen({
   // 서버 키가 있는 배포에서 기기의 만료된 키를 자동 정리했을 때 알리는 안내(경고 아님).
   const [keyHealed, setKeyHealed] = useState(false);
   useEffect(() => {
+    // 프로그램을 시작/초기화하면 홈 구성이 바뀐다(세션 CTA 노출 여부) — 즉시 반영
+    const onProg = () => setTick((t) => t + 1);
+    window.addEventListener(PROGRAM_EVENT, onProg);
     setFrozenFilled(consumeFreezesForGaps().length);
     setReady(true);
     const k = groqKey();
@@ -138,6 +147,7 @@ export default function MasterScreen({
         }
       });
     }
+    return () => window.removeEventListener(PROGRAM_EVENT, onProg);
   }, []);
   if (!ready) {
     // SSR/하이드레이션 전 첫 페인트 — null을 돌려주면 JS가 다 내려와 실행될 때까지
@@ -164,6 +174,8 @@ export default function MasterScreen({
   }
   const freeze = getFreezeCount();
 
+  // 프로그램 진행 중이면 홈의 주도권은 프로그램 카드에 있다(중복 CTA 억제)
+  const onProgram = !!programState();
   const prof = getProfile();
   const streak = calcStreak();
   const done = todayCount();
@@ -206,8 +218,12 @@ export default function MasterScreen({
 
       {/* 불꽃 히어로 — 발화가 불을 붙인다(스픽 벤치마크). tick으로 미션·연습의
           발화가 즉시 반영돼, 목표에 닿는 순간 이 자리에서 점화된다. */}
+      {/* 12주 프로그램이 홈의 주인공 — 오늘 무엇을 할지 앱이 정해준다.
+          프로그램을 돌리는 중이면 세션 CTA는 카드 안 '코어' 블록과 중복이라 감춘다. */}
+      <ProgramCard onNavigate={onNavigate} />
+
       {/* 코스 중심 홈 — 고민 없이 누르는 오늘의 한 버튼이 맨 위 */}
-      <SessionCta onNavigate={onNavigate} />
+      {!onProgram && <SessionCta onNavigate={onNavigate} />}
 
       {/* 주간 측정 리추얼 — 7일에 한 번만 등장 */}
       <WeeklyTestBanner onNavigate={onNavigate} />
