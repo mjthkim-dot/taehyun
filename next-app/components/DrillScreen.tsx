@@ -10,13 +10,48 @@
  * Groq API를 전혀 쓰지 않는다(무료 한도 보호).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ALL_LESSONS, LESSONS, CEFR_GSE, cefrOf } from '../lib/lessons';
-import { addWeakItem, bumpSkill, buildTodayQueue, gradeWeakItem, groqKey, markPracticedToday, type DrillItem, type FlashGrade } from '../lib/state';
+import { CEFR_GSE, cefrOf } from '../lib/cefr';
+import { lessonsNow } from '../lib/lessonData';
+import { addWeakItem, bumpSkill, buildTodayQueue, gradeWeakItem, groqKey, markPracticedToday, takeDrillQueue, type DrillItem, type FlashGrade } from '../lib/state';
 import { groqComplete, GroqError } from '../lib/groq';
+import { HANGUL_RE } from '../lib/aiGuard';
 import { useLessonStore } from '../store/useLessonStore';
 import SpeakingPractice from './SpeakingPractice';
+import { speakText } from './SpeakButton';
+import { SpeakerIcon } from './icons';
+import { rateLabel, useSlowRate } from './SpeechRate';
 
 const LOW_SCORE_THRESHOLD = 70;
+
+/** AI 발음 코칭 한 건 — 문제가 된 소리(영어) + 한국어 설명 + 연습 문장 */
+interface CoachTip {
+  focus: string;
+  tip: string;
+  example?: string;
+}
+
+/** 모델 응답을 CoachTip 배열로 정돈한다 — 문자열 배열(구형식)도 받아준다. */
+function parseCoachTips(raw: string): CoachTip[] {
+  const data = JSON.parse(raw);
+  const arr = Array.isArray(data.tips) ? data.tips : [];
+  return arr
+    .map((t: unknown): CoachTip | null => {
+      if (typeof t === 'string') return t.trim() ? { focus: '', tip: t.trim() } : null;
+      if (t && typeof t === 'object') {
+        const o = t as Record<string, unknown>;
+        const tip = typeof o.tip === 'string' ? o.tip.trim() : '';
+        if (!tip) return null;
+        return {
+          focus: typeof o.focus === 'string' ? o.focus.trim() : '',
+          tip,
+          example: typeof o.example === 'string' && o.example.trim() ? o.example.trim() : undefined,
+        };
+      }
+      return null;
+    })
+    .filter((t: CoachTip | null): t is CoachTip => t !== null)
+    .slice(0, 3);
+}
 
 function scoreToGrade(score: number): FlashGrade {
   if (score >= 90) return 'easy';
@@ -26,8 +61,11 @@ function scoreToGrade(score: number): FlashGrade {
 }
 
 export default function DrillScreen({ lessonId, auto = false }: { lessonId: number; auto?: boolean }) {
+  // LessonsGate 아래에서만 렌더되므로 동기 접근이 안전하다
+  const { ALL_LESSONS, LESSONS } = lessonsNow();
   const lesson = useMemo(
     () => ALL_LESSONS.find((l) => l.id === lessonId) ?? LESSONS[LESSONS.length - 1],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [lessonId]
   );
   const baseItems = useMemo<DrillItem[]>(
@@ -35,24 +73,38 @@ export default function DrillScreen({ lessonId, auto = false }: { lessonId: numb
     [lesson]
   );
   const [items, setItems] = useState<DrillItem[]>(baseItems);
+  /** 어휘·스크립트에서 넘어온 큐의 출처 — 무엇을 연습 중인지 화면에 밝힌다 */
+  const [handoffLabel, setHandoffLabel] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);
   const [scores, setScores] = useState<number[]>([]);
+  /** 문장별로 인식되지 않은 단어들 — AI 코칭에 "무엇이 안 들렸는지"를 알려준다 */
+  const [missedLog, setMissedLog] = useState<Record<number, string[]>>({});
   const [finished, setFinished] = useState(false);
-  const [coachTip, setCoachTip] = useState<string | null>(null);
+  const [coachTips, setCoachTips] = useState<CoachTip[] | null>(null);
   const [coachLoading, setCoachLoading] = useState(false);
   const [coachError, setCoachError] = useState<string | null>(null);
   // 한국어 뜻을 보고 영어로 말하기(영작) 모드 — 기본값. 끄면 영어를 보고 따라 읽기.
   const [krMode, setKrMode] = useState(true);
+  const slow = useSlowRate();
 
   const accuracyScore = useLessonStore((s) => s.accuracyScore);
   const missedWords = useLessonStore((s) => s.missedWords);
 
   useEffect(() => {
-    setItems(auto ? buildTodayQueue(lesson.examples ?? []) : baseItems);
+    // 어휘·미팅 스크립트에서 넘어온 큐가 있으면 그걸 먼저 쓴다(1회 소비).
+    const handoff = takeDrillQueue();
+    if (handoff) {
+      setHandoffLabel(handoff.label);
+      setItems(handoff.items.map((it) => ({ en: it.en, kr: it.kr, fromWeak: false })));
+    } else {
+      setHandoffLabel(null);
+      setItems(auto ? buildTodayQueue(lesson.examples ?? []) : baseItems);
+    }
     setIdx(0);
     setScores([]);
+    setMissedLog({});
     setFinished(false);
-    setCoachTip(null);
+    setCoachTips(null);
     setCoachError(null);
   }, [lessonId, lesson, auto, baseItems]);
 
@@ -68,6 +120,7 @@ export default function DrillScreen({ lessonId, auto = false }: { lessonId: numb
     const next = scores.slice();
     if (accuracyScore > 0) {
       next[idx] = accuracyScore;
+      if (missedWords.length) setMissedLog((m) => ({ ...m, [idx]: missedWords }));
       const item = items[idx];
       if (item.fromWeak) {
         gradeWeakItem(item.en, scoreToGrade(accuracyScore));
@@ -98,8 +151,9 @@ export default function DrillScreen({ lessonId, auto = false }: { lessonId: numb
   function restart() {
     setIdx(0);
     setScores([]);
+    setMissedLog({});
     setFinished(false);
-    setCoachTip(null);
+    setCoachTips(null);
     setCoachError(null);
   }
 
@@ -111,16 +165,36 @@ export default function DrillScreen({ lessonId, auto = false }: { lessonId: numb
     setCoachLoading(true);
     setCoachError(null);
     try {
+      // 낮았던 문장 + 그때 인식되지 않은 단어를 함께 보낸다 — "무엇이 안 들렸는지"가
+      // 있어야 코칭이 구체적이 된다(없으면 모델이 일반론을 늘어놓는다).
       const weakSentences = items
-        .map((it, i) => ({ en: it.en, score: scores[i] }))
-        .filter((s) => typeof s.score === 'number' && s.score < LOW_SCORE_THRESHOLD);
-      const sys = 'You are an English pronunciation coach for a Korean learner. Output ONLY JSON.';
-      const user = `The learner practiced shadowing these sentences and a speech-recognizer scored each one (0-100, lower = likely mispronounced or missed words):
+        .map((it, i) => ({ en: it.en, score: scores[i], missed: missedLog[i] ?? [] }))
+        .filter((s) => typeof s.score === 'number' && s.score < LOW_SCORE_THRESHOLD)
+        .slice(0, 5);
+      const sys =
+        'You are an English pronunciation coach for Korean learners. 모든 설명(tip)은 반드시 한국어 존댓말로 작성한다. 영어 문장으로 설명하면 안 된다. Output ONLY JSON.';
+      const user = `한국인 학습자가 아래 영어 문장들을 소리 내어 말했는데 음성 인식 점수가 낮았습니다(0~100). "missed"는 인식되지 않은 단어들 — 발음이 뭉개졌을 가능성이 큽니다.
 ${JSON.stringify(weakSentences)}
-Return JSON: {"tips":["2-3 specific Korean-language tips about likely pronunciation issues (e.g. consonant clusters, word stress, linking sounds) based on these sentences",...]}`;
-      const raw = await groqComplete([{ role: 'system', content: sys }, { role: 'user', content: user }], { json: true, maxTokens: 400, temperature: 0.4 });
-      const data = JSON.parse(raw);
-      setCoachTip((data.tips || []).join('\n'));
+다음 JSON 형식으로 답하세요:
+{"tips":[{"focus":"문제가 된 영어 단어나 소리 (예: two, water의 t)","tip":"한국어 설명 2문장 이내 — 왜 안 들렸는지, 입모양·혀 위치·한글 발음 비유로 어떻게 고치는지 (예: '포 투'처럼 끊지 말고 '포투'처럼 붙여서)","example":"그 소리를 연습할 8단어 이하의 쉬운 영어 문장"}]}
+규칙: tips는 2~3개. tip 필드는 반드시 한국어로 쓰고, linking·stress 같은 전문용어 대신 쉬운 우리말로 설명한다. focus와 example만 영어를 쓴다.`;
+      const ask = (extraSys: string) =>
+        groqComplete(
+          [{ role: 'system', content: sys + extraSys }, { role: 'user', content: user }],
+          { json: true, maxTokens: 600, temperature: 0.4 }
+        );
+      let tips = parseCoachTips(await ask('')).filter((t) => HANGUL_RE.test(t.tip));
+      if (!tips.length) {
+        // 모델이 영어로 답하는 경우가 있다 — 한국어가 하나도 없으면 한 번만 다시 묻는다.
+        tips = parseCoachTips(
+          await ask(' 직전 답변이 영어였다. 이번에는 tip 필드를 반드시 한국어로만 작성하라.')
+        ).filter((t) => HANGUL_RE.test(t.tip));
+      }
+      if (!tips.length) {
+        setCoachError('코칭을 만들지 못했어요 — 잠시 후 다시 시도해 주세요.');
+      } else {
+        setCoachTips(tips);
+      }
     } catch (e) {
       setCoachError(e instanceof GroqError ? e.message : String(e));
     } finally {
@@ -151,7 +225,7 @@ Return JSON: {"tips":["2-3 specific Korean-language tips about likely pronunciat
           )}
           <button className="start-drill-btn" style={{ marginTop: 14 }} onClick={restart}>↻ 다시 (처음부터)</button>
 
-          {!coachTip && (
+          {!coachTips && (
             <button className="btn" style={{ marginTop: 10 }} disabled={coachLoading || lowCount === 0} onClick={getAiTip}>
               {coachLoading ? '🤖 분석 중...' : lowCount === 0 ? '🎉 모든 문장 정확해요' : '🤖 AI 발음 코칭 받기'}
             </button>
@@ -162,9 +236,33 @@ Return JSON: {"tips":["2-3 specific Korean-language tips about likely pronunciat
           {coachError && coachError !== 'NO_KEY' && (
             <p style={{ fontSize: '0.78rem', color: 'var(--red)', marginTop: 10 }}>{coachError}</p>
           )}
-          {coachTip && (
-            <div style={{ textAlign: 'left', background: 'var(--surface2)', borderRadius: 10, padding: 12, marginTop: 12, fontSize: '0.82rem', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
-              {coachTip}
+          {coachTips && (
+            <div className="coach-tips">
+              <div className="coach-tips-head">AI 발음 코칭 — 이번 드릴에서 잡힌 것</div>
+              {coachTips.map((t, i) => (
+                <div className="coach-tip" key={i}>
+                  {t.focus && (
+                    <div className="coach-tip-top">
+                      <b className="coach-focus">{t.focus}</b>
+                      <button
+                        type="button"
+                        className="speak-mini"
+                        aria-label={`${t.focus} ${rateLabel(slow)} 느리게 듣기`}
+                        title={`${rateLabel(slow)} 느리게 듣기`}
+                        onClick={() => speakText(t.focus, 'en-US', slow)}
+                      >
+                        <SpeakerIcon />
+                      </button>
+                    </div>
+                  )}
+                  <div className="coach-tip-body">{t.tip}</div>
+                  {t.example && (
+                    <button type="button" className="coach-example" onClick={() => speakText(t.example!, 'en-US')}>
+                      <SpeakerIcon /> {t.example}
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -176,6 +274,7 @@ Return JSON: {"tips":["2-3 specific Korean-language tips about likely pronunciat
 
   return (
     <div className="drill-screen">
+      {handoffLabel && <div className="drill-source">{handoffLabel} 연습 중</div>}
       <div className="drill-progress muted" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         <span>
           {idx + 1} / {items.length}
@@ -190,12 +289,8 @@ Return JSON: {"tips":["2-3 specific Korean-language tips about likely pronunciat
           {krMode ? '🇰🇷 뜻 보고 말하기' : '🇺🇸 영어 보고 따라하기'}
         </button>
       </div>
-      <SpeakingPractice key={idx} sentence={cur.en} prompt={cur.kr} hideTarget={krMode} />
-      {!krMode && (
-        <div className="kr muted" style={{ marginTop: 8 }}>
-          {cur.kr}
-        </div>
-      )}
+      {/* 뜻(kr)은 SpeakingPractice가 문장 바로 아래에 그린다 — 여기서 또 그리면 중복 */}
+      <SpeakingPractice key={idx} sentence={cur.en} prompt={cur.kr} hideTarget={krMode} source="drill" />
       <div className="drill-nav">
         <button type="button" disabled={idx === 0} onClick={() => setIdx((i) => i - 1)}>
           ← 이전

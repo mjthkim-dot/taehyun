@@ -2,9 +2,10 @@
 
 /** 독해 — voice-assistant/index.html 의 renderReading()/gradeReading() 포팅. AI 새 지문 생성 포함. */
 import { useState } from 'react';
-import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/lessons';
+import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/cefr';
 import { addPhrase, bumpSkill, getProfile, groqKey, markPracticedToday } from '../lib/state';
 import { groqComplete, GroqError } from '../lib/groq';
+import { hasHangul } from '../lib/aiGuard';
 import { READING_BANK, type ReadingItem } from '../lib/contentBanks';
 import { speakText } from './SpeakButton';
 
@@ -54,13 +55,20 @@ export default function ReadingScreen() {
     setGenError(null);
     setGenLoading(true);
     try {
-      const sys = `You are an English reading-material author. Output ONLY JSON.`;
+      const sys = `You are an English reading-material author. Output ONLY JSON. vocab의 kr 필드는 반드시 한국어 뜻으로 쓴다.`;
       const user = `Create a CEFR ${level} reading passage for a Korean learner.
-JSON shape: {"title":"...","text":"5-7 sentences at ${level} difficulty","qs":[{"q":"...","o":["a","b","c"],"a":0},{...3 questions...}],"vocab":[{"w":"word/phrase","kr":"Korean meaning"},{...3 items...}]}
+JSON shape: {"title":"...","text":"5-7 sentences at ${level} difficulty","qs":[{"q":"...","o":["a","b","c"],"a":0},{...3 questions...}],"vocab":[{"w":"word/phrase","kr":"한국어 뜻"},{...3 items...}]}
 Keep vocabulary and grammar appropriate for ${level}. "a" is the index (0-based) of the correct option.`;
       const raw = await groqComplete([{ role: 'system', content: sys }, { role: 'user', content: user }], { json: true, maxTokens: 900, temperature: 0.7 });
       const data = JSON.parse(raw);
       if (!data.text || !Array.isArray(data.qs)) throw new Error('bad');
+      // 보기가 배열이 아닌 문항이 섞이면 렌더에서 죽는다 — 지문 전체를 실패 처리
+      if (data.qs.some((q: { o?: unknown }) => !q || !Array.isArray(q.o) || (q.o as unknown[]).length < 2)) throw new Error('bad');
+      // vocab은 없어도 화면이 살아야 하고(빈 배열 폴백), 영어 "뜻"은 저장 시
+      // 암기카드를 오염시키므로 한국어 뜻이 있는 항목만 남긴다
+      data.vocab = (Array.isArray(data.vocab) ? data.vocab : []).filter(
+        (v: { w?: unknown; kr?: unknown }) => v && v.w && hasHangul(v.kr)
+      );
       start(data);
     } catch (e) {
       setGenError(e instanceof GroqError ? e.message : '지문 생성 실패 — 기본 지문으로 진행하세요.');
@@ -97,7 +105,7 @@ Keep vocabulary and grammar appropriate for ${level}. "a" is the index (0-based)
                 cursor: 'pointer',
                 border: `1px solid ${c === level ? 'var(--primary)' : 'var(--border)'}`,
                 background: c === level ? 'var(--primary)' : 'var(--surface)',
-                color: c === level ? '#fff' : 'var(--text-muted)',
+                color: c === level ? 'var(--on-primary)' : 'var(--text-muted)',
               }}
             >
               {c}
@@ -153,7 +161,7 @@ Keep vocabulary and grammar appropriate for ${level}. "a" is the index (0-based)
                   } else if (picked) {
                     border = 'var(--primary)';
                     bg = 'var(--primary)';
-                    color = '#fff';
+                    color = 'var(--on-primary)';
                   }
                   return (
                     <button

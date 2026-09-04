@@ -2,9 +2,10 @@
 
 /** 작문 — voice-assistant/index.html 의 renderWriting()/gradeWriting() 포팅. */
 import { useState } from 'react';
-import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/lessons';
+import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/cefr';
 import { bumpSkill, getProfile, groqKey, markPracticedToday } from '../lib/state';
-import { groqComplete, GroqError } from '../lib/groq';
+import { GroqError } from '../lib/groq';
+import { AI_FAIL_KO, groqKoJson, hasHangul } from '../lib/aiGuard';
 import { WRITE_PROMPTS } from '../lib/contentBanks';
 import { Skeleton } from './Skeleton';
 
@@ -51,20 +52,41 @@ export default function WritingScreen() {
     setLoading(true);
     setFeedback(null);
     try {
-      const sys = `You are an IELTS/CEFR writing examiner for Korean learners. Output ONLY JSON.`;
-      const user = `Task prompt: "${prompt.p}"
-Target level: CEFR ${level}.
-Student's writing: """${text.trim()}"""
-Return JSON: {"cefr":"estimated CEFR like B1","score":0-100,"summary":"1-2 sentence overall in Korean","strengths":["Korean point",...],"issues":[{"wrong":"exact phrase from text","fix":"corrected phrase","why":"short Korean reason"},... up to 5],"corrected":"the full text rewritten correctly in natural English","modelAnswer":"a model answer at ${level}+ level"}`;
-      const raw = await groqComplete([{ role: 'system', content: sys }, { role: 'user', content: user }], { json: true, maxTokens: 1400, temperature: 0.4 });
-      const d: Feedback = JSON.parse(raw);
+      // 설명 필드(summary/strengths/why)는 학습자가 읽는 부분 — 반드시 한국어.
+      // 시스템 프롬프트를 한국어로 쓰고, 어기면 groqKoJson이 한 번 다시 묻는다.
+      const sys = `너는 한국인 학습자를 위한 영어 작문 첨삭 코치다. 채점 기준은 IELTS/CEFR. summary·strengths·why는 반드시 한국어(존댓말)로 쓴다. 영어는 corrected·modelAnswer·wrong·fix에만 쓴다. Output ONLY JSON.`;
+      const user = `과제: "${prompt.p}"
+목표 레벨: CEFR ${level}.
+학생의 작문: """${text.trim()}"""
+JSON으로 답하라: {"cefr":"추정 CEFR (예: B1)","score":0-100 숫자,"summary":"한국어 총평 1~2문장","strengths":["한국어로 쓴 잘한 점",...2개],"issues":[{"wrong":"원문에서 틀린 구절 그대로","fix":"고친 구절 (영어)","why":"왜 고쳐야 하는지 한국어 한 줄"},...최대 5개],"corrected":"전체 글을 자연스럽게 고쳐 쓴 영어","modelAnswer":"${level}+ 수준의 영어 모범답안"}`;
+      const d = await groqKoJson<Feedback>(
+        [{ role: 'system', content: sys }, { role: 'user', content: user }],
+        { maxTokens: 1400, temperature: 0.4 },
+        (data) => {
+          const o = (data ?? {}) as Feedback;
+          // 형태: 교정문이 있어야 첨삭이라 부를 수 있다. 언어: 총평이 한국어여야 하고,
+          // 설명 배열이 배열이 아니면(모델 변덕) 응답을 버린다.
+          if (!o || typeof o !== 'object' || !o.corrected) return null;
+          if (!hasHangul(o.summary)) return null;
+          if (o.strengths != null && !Array.isArray(o.strengths)) return null;
+          if (o.issues != null && !Array.isArray(o.issues)) return null;
+          return o;
+        }
+      );
+      if (!d) {
+        setError(AI_FAIL_KO);
+        return;
+      }
       setFeedback(d);
+      // score가 "85/100" 같은 문자열로 와도 NaN이 스킬 저장소로 흘러가지 않게 한다
+      const rawScore = Number(String(d.score ?? '').replace(/[^\d.]/g, ''));
+      const score = Number.isFinite(rawScore) && rawScore > 0 ? Math.min(rawScore, 100) : 60;
       const band = CEFR_GSE[level];
-      const gse = Math.round(band.min + (band.max - band.min) * Math.min(1, (d.score ?? 60) / 100));
+      const gse = Math.round(band.min + (band.max - band.min) * Math.min(1, score / 100));
       bumpSkill('writing', gse);
       markPracticedToday();
     } catch (e) {
-      setError(e instanceof GroqError ? e.message : String(e));
+      setError(e instanceof GroqError ? e.message : AI_FAIL_KO);
     } finally {
       setLoading(false);
     }
@@ -94,7 +116,7 @@ Return JSON: {"cefr":"estimated CEFR like B1","score":0-100,"summary":"1-2 sente
                 cursor: 'pointer',
                 border: `1px solid ${c === level ? 'var(--primary)' : 'var(--border)'}`,
                 background: c === level ? 'var(--primary)' : 'var(--surface)',
-                color: c === level ? '#fff' : 'var(--text-muted)',
+                color: c === level ? 'var(--on-primary)' : 'var(--text-muted)',
               }}
             >
               {c}

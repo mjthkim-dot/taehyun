@@ -6,7 +6,8 @@
  * MISSIONS 데이터가 아직 이전되지 않아 이번 단계에서는 제외했다.
  */
 import { useEffect, useState } from 'react';
-import { LESSONS, lessonLabel, gseToCefr } from '../lib/lessons';
+import { lessonLabel, gseToCefr } from '../lib/cefr';
+import { lessonsNow } from '../lib/lessonData';
 import { MASTER_CURRICULUM } from '../lib/curriculum';
 import {
   getProfile,
@@ -22,6 +23,9 @@ import {
   SKILLS,
 } from '../lib/state';
 import { CountUp, RadarChart, GaugeRing } from './Charts';
+import TrainingDashboard from './TrainingDashboard';
+import WeeklyReport from './WeeklyReport';
+import type { Mode } from './NavBar';
 
 interface CafSession {
   date: number;
@@ -29,12 +33,25 @@ interface CafSession {
   caf: { complexity: number; accuracy: number; fluency: number };
 }
 
-export default function ProgressScreen() {
+export default function ProgressScreen({ onNavigate, onSelectLesson }: { onNavigate?: (m: Mode) => void; onSelectLesson?: (id: number) => void } = {}) {
   const [ready, setReady] = useState(false);
+  /**
+   * 주간 리포트는 한 프레임 늦게 채운다. 이 화면에서 가장 무거운 서브트리라
+   * (측정: 중급 폰 근사에서 첫 커밋 ~1초) 함께 그리면 화면 전체가 그만큼 늦게
+   * 뜬다. 통계 카드·진도 막대를 먼저 보여주고, 리포트는 바로 다음 프레임에
+   * 이어 그린다 — 전체 작업량은 같지만 사용자는 화면을 두 배 빨리 본다.
+   */
+  const [showReport, setShowReport] = useState(false);
 
-  useEffect(() => setReady(true), []);
+  useEffect(() => {
+    setReady(true);
+    const raf = requestAnimationFrame(() => setShowReport(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
   if (!ready) return null;
 
+  // LessonsGate 아래에서만 렌더되므로 동기 접근이 안전하다
+  const { LESSONS } = lessonsNow();
   const stats = getLessonStats();
   const totalAttempts = Object.values(stats).reduce((s, v) => s + v.attempts, 0);
   const totalCorrect = Object.values(stats).reduce((s, v) => s + v.correct, 0);
@@ -51,6 +68,16 @@ export default function ProgressScreen() {
 
   return (
     <div className="study-screen">
+      {/* 훈련 대시보드 — "늘고 있나"가 이 화면의 첫 질문이므로 맨 위.
+          시도 로그 기반의 정확도·입 트임 추이와 약점·실전 사용 */}
+      <TrainingDashboard onNavigate={onNavigate ?? (() => {})} />
+
+      {showReport ? (
+        <WeeklyReport onNavigate={onNavigate} onSelectLesson={onSelectLesson} />
+      ) : (
+        <div className="screen-loading" aria-hidden="true" />
+      )}
+
       <div className="stat-grid">
         <div className="stat-card">
           <div className="num"><CountUp value={calcStreak()} /></div>

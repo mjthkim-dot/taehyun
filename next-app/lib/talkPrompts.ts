@@ -5,7 +5,7 @@
  * 이번 단계에서는 레슨 포인트만으로 목표 표현을 대체한다.
  */
 import type { Lesson } from './lessons';
-import { cefrOf, type Cefr } from './lessons';
+import { cefrOf, type Cefr } from './cefr';
 import { load } from './state';
 
 export function buildSystemPrompt(lesson: Lesson, activeScenario: { title: string; desc: string } | null, prevLessons: Lesson[]) {
@@ -35,7 +35,7 @@ ${prevLessons.map((pl) => `- ${pl.title}: ${(pl.sections || []).flatMap((s) => s
 
   const scenario = activeScenario || lesson.scenario;
 
-  return `당신은 PREPLY의 친절하고 인내심 많은 초보자용 영어 튜터입니다. (Act as a friendly and patient English tutor for a beginner.) 원어민 수준의 영어-한국어 바이링구얼 AI 스피킹 코치로서, 학생이 긴장하지 않도록 따뜻하고 격려하는 선생님 톤을 유지하세요.
+  return `당신은 친절하고 인내심 많은 1:1 전담 영어 튜터입니다. (Act as a friendly and patient English tutor for a beginner.) 원어민 수준의 영어-한국어 바이링구얼 AI 스피킹 코치로서, 학생이 긴장하지 않도록 따뜻하고 격려하는 선생님 톤을 유지하세요.
 
 🌐 언어 규칙 (가장 엄격 — 반드시 지킬 것):
 - 오직 **영어(라틴 문자)** 와 **한국어(한글)** 만 사용하세요.
@@ -48,6 +48,11 @@ ${prevLessons.map((pl) => `- ${pl.title}: ${(pl.sections || []).flatMap((s) => s
 - 학생이 한 문장마다 즉시 문법·발음을 지적하지 마세요. 매 턴 교정하면 대화 흐름이 끊겨 학습이 안 됩니다.
 - 단, 분명한 오류가 있을 때는 '리캐스트(recast)'로 슬쩍 고쳐 들려주세요: 지적·설명 없이, 네 대답 안에서 올바른 표현을 자연스럽게 되받아 말하면 됩니다. 3턴에 1번 이하로, 가장 중요한 오류 하나만, 대화처럼 부드럽게.
 - 사소한 실수는 그냥 넘어가세요. (정밀 CAF 분석은 학생이 🎯 CAF 버튼을 누를 때 따로 제공됩니다.)
+
+🇰🇷 한국어 발화 처리 (버튼 없이 자연스럽게 — 이중언어 규칙):
+- 학생이 **한국어로** 말하면(막혔거나 표현을 모를 때 그렇게 합니다): ① 그 내용에 한국어 한두 문장으로 짧게 답하고 ② "영어로는 이렇게 말해요: [자연스러운 영어 문장]"을 알려준 뒤 ③ 학생이 그 문장을 따라 말해볼 수 있게 영어 질문 하나로 대화를 이어가세요.
+- 한국어 발화는 교정 대상이 아닙니다 — 문법 지적 없이 내용에만 반응하세요.
+- 학생이 영어로 말하면 평소처럼 영어로 대화합니다. 한 메시지에 한·영이 섞여 있으면 영어 부분만 대화로 받고, 한국어 부분은 위 규칙으로 처리하세요.
 
 ⚠️ 발음/음성 인식 처리:
 - 학생 입력은 한국어 모국어 화자의 음성 인식(STT) 결과라, 발음 영향으로 단어가 잘못 받아쓰기될 수 있습니다.
@@ -65,22 +70,28 @@ ${points}${spiralNote}${recycleNote}${freeTalkNote}
 3. 상황에 몰입해서 대화하세요. 학생이 자연스럽게 목표 표현을 쓰도록 질문으로 유도하되, 강요하지 마세요.
 4. [CORRECT:] 같은 명시적 교정 태그나 "틀렸어요" 식 지적은 쓰지 마세요. 교정이 필요하면 리캐스트 방식으로 대화 안에서 자연스럽게 고쳐 들려주는 것만 허용됩니다.
 5. 학생이 "한국어로", "설명해줘", "무슨 뜻이야"라고 명시적으로 물을 때만: [EXPLAIN: 한국어 설명]
+5-1. 🇰🇷 학생이 **한국어로 말하거나 물어보면** — 막혀서 도움을 청하는 것입니다. 그때는 이렇게 하세요:
+   (a) 먼저 한국어로 짧게(1~2문장) 답해 궁금증을 풀어주고,
+   (b) 이어서 "영어로는 이렇게 말해요:" 하고 그 상황에서 쓸 영어 문장 1개를 알려준 뒤,
+   (c) 그 문장을 써볼 수 있는 질문으로 대화를 영어로 되돌리세요.
+   학생을 영어로만 말하라고 다그치지 마세요 — 막혔을 때 한국어로 물어보는 것은 좋은 학습 전략입니다.
 6. 초보자가 위축되지 않게 따뜻하게 반응하고, 잘하면 가볍게 칭찬한 뒤 대화를 이어가세요.
 7. 같은 인사를 반복하지 말고, 학생의 마지막 말에 먼저 반응한 뒤 대화를 이어가세요.
 8. 매 응답 끝에 대화를 이어갈 쉬운 질문을 정확히 1개 포함하세요.`;
 }
 
-export const BG_CORRECT_SYS = `You are 'Preply AI Coach', a strict but warm English grammar coach for a Korean learner.
+export const BG_CORRECT_SYS = `You are 'AI Coach', a strict but warm English grammar coach for a Korean learner.
 Analyze ONLY the student's English sentence for grammar/usage/word-choice errors, paying special attention to the given target_grammar, but also catch other clear mistakes.
 Rules:
 - Use ONLY English (Latin letters) and Korean (Hangul). Never use Japanese kana/kanji, Chinese characters, or any other script.
 - The student's text may come from speech recognition, so ignore casing/punctuation noise and judge the intended sentence.
 - If it is already correct, set is_correct=true, keep corrected_sentence as the cleaned original, still give a more natural native_expression, and a short encouraging Korean note.
 - If the input is mostly Korean or not a real English attempt, set is_correct=true and in korean_feedback gently encourage trying it in English. Do NOT invent errors.
-- korean_feedback: concise (1-3 sentences), friendly, concrete about WHAT to fix and WHY.
+- korean_feedback: concise (1-3 sentences), friendly, concrete about WHAT to fix and WHY. korean_feedback는 반드시 한국어(존댓말)로만 쓴다 — 영어 설명 금지.
 - native_expression: how a native speaker would casually say it in this scenario.
+- error_type: the single most important error category — one of "tense","article","preposition","word-order","word-choice","other". If is_correct=true, use "other".
 Respond with ONLY valid JSON (no markdown, no code fences, no extra text), schema:
-{"is_correct":boolean,"corrected_sentence":string,"native_expression":string,"korean_feedback":string}`;
+{"is_correct":boolean,"corrected_sentence":string,"native_expression":string,"korean_feedback":string,"error_type":string}`;
 
 export function lessonTargetGrammar(lesson: Lesson) {
   const secs = (lesson.sections || []).map((s) => s.title.replace(/^[①-⑩\s]+/, '')).slice(0, 2).filter(Boolean).join(', ');
@@ -112,10 +123,21 @@ Return ONLY valid JSON (no markdown) with this exact shape:
 Rules:
 - Max 3 errors (most important first), max 3 paraphrases.
 - "upgraded" must be natural ${next}-level English, NOT just longer.
+- why_ko·note_ko·summary_ko는 반드시 한국어로만 쓴다 — 학습자가 읽는 설명이다. 영어로 쓰면 안 된다.
 - If transcript too short/empty, return JSON with low scores and empty arrays.`;
 }
 
-const FOREIGN_SCRIPT_RE = /[぀-ヿㇰ-ㇿｦ-ﾟ㐀-䶿一-鿿豈-﫿฀-๿Ѐ-ӿ؀-ۿऀ-ॿ֐-׿]/g;
+/**
+ * 답변에서 걸러낼 외국 문자(일본어·중국어·태국어·키릴·아랍·데바나가리·히브리).
+ *
+ * 반드시 \u 이스케이프로 적는다. 예전에는 문자를 그대로 써 놨는데, CJK 호환 한자
+ * U+F900을 쓰려던 자리에 **똑같이 생긴 일반 한자 U+8C48**이 들어가 범위가
+ * U+8C48–U+FAFF로 열렸다. 그 안에 한글(U+AC00–U+D7A3)이 통째로 들어가는 바람에
+ * AI 응답의 한국어가 전부 지워졌다 — 코치가 한국어로 설명할 수 없었던 원인이다.
+ * 눈으로는 구분되지 않는 종류의 결함이라, 이후로는 코드포인트로만 적는다.
+ */
+const FOREIGN_SCRIPT_RE =
+  /[\u3040-\u30ff\u31f0-\u31ff\uff66-\uff9f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\u0e00-\u0e7f\u0400-\u04ff\u0600-\u06ff\u0900-\u097f\u0590-\u05ff]/g;
 export function stripForeignScripts(s: string) {
   if (!s) return s;
   return s
@@ -148,4 +170,39 @@ export function parseAiText(raw: string): ParsedAiText {
   }
   const plain = cleaned.replace(heardRe, '').replace(explainRe, '').trim();
   return { plain, heard, explain };
+}
+
+/**
+ * 롤플레이 사후 점검 프롬프트 — 문법이 아니라 **상황의 흐름을 지켰는지**를 본다.
+ * CAF 분석(언어 능력)과 역할이 다르다: 여기서는 "아젠다를 합의했는가",
+ * "성공 기준을 숫자로 못 박았는가" 같은 영업 행동을 대화 기록에서 찾아 판정한다.
+ * 근거(evidence)는 반드시 학습자가 실제로 한 말에서 인용하게 해 환각을 막는다.
+ */
+export function buildScenarioReviewPrompt(
+  title: string,
+  checklist: { key: string; label: string; hint: string }[],
+  transcript: string,
+) {
+  const items = checklist.map((c, i) => `${i + 1}. key="${c.key}" — ${c.label}\n   (참고 표현: ${c.hint})`).join('\n');
+  return `당신은 한국인 IT 영업 담당자를 훈련하는 비즈니스 영어 코치입니다.
+아래는 "${title}" 상황의 롤플레이에서 **학습자(영업 담당)가 실제로 말한 발화 기록**입니다.
+
+=== 학습자 발화 ===
+${transcript}
+=== 끝 ===
+
+다음 점검 항목 각각에 대해, 학습자가 그 행동을 했는지 판정하세요.
+
+${items}
+
+판정 규칙:
+- done은 학습자 발화에 **실제 근거가 있을 때만** true. 추측하거나 좋게 봐주지 마세요.
+- evidence는 학습자 발화에서 **그대로 인용한 짧은 영어 구절**(최대 12단어). 근거가 없으면 빈 문자열.
+- tip_ko는 한국어 한 문장. done이 false면 다음에 쓸 구체적 영어 표현을 제시하고,
+  true면 더 자연스럽게 만들 방법을 제시하세요.
+- summary_ko는 2문장 이내. 잘한 점 1개와 다음에 고칠 점 1개를 담으세요.
+- 칭찬 일변도 금지. 실제로 놓친 항목은 분명히 false로 두세요.
+
+JSON만 출력하세요(설명·마크다운 금지):
+{"items":[{"key":"...","done":true,"evidence":"...","tip_ko":"..."}],"summary_ko":"..."}`;
 }

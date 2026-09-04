@@ -1,0 +1,552 @@
+{
+  "meta": {
+    "generatedAt": "2026-08-15",
+    "periodDays": 90,
+    "sentThreads": 245,
+    "method": "지난 90일 발신 메일 245개 스레드를 상대·주제별로 클러스터링하고, 각 클러스터의 대표 스레드를 정독해 실제 상황·쟁점·숫자를 대화로 재구성",
+    "topCustomers": [
+      { "name": "여기어때", "threads": 33 },
+      { "name": "부스터스", "threads": 32 },
+      { "name": "포시에스", "threads": 20 },
+      { "name": "센트비", "threads": 19 },
+      { "name": "파스토", "threads": 19 },
+      { "name": "씨피랩스", "threads": 17 }
+    ]
+  },
+  "tracks": [
+    {
+      "id": "finops",
+      "icon": "📊",
+      "title": "비용 리뷰 & FinOps",
+      "why": "90일간 가장 자주 반복된 업무 — 여기어때·큐픽스 월례 SBR, RI/SP 16건. 매달 돌아오는 대화라 투자 대비 효과가 가장 크다.",
+      "scenarios": [
+        {
+          "id": "finops-1",
+          "title": "월간 비용 리뷰 브리핑",
+          "situation": "월례 SBR 오프닝 — 전월 비용 추이를 요약하고 조치 항목을 제안하는 자리",
+          "grounding": "여기어때 5월 SBR 회의록 (5월 $430K, 영업일 보정 실질 2.5% 감소, S3 수명주기 권고)",
+          "dialogue": {
+            "title": "월간 비용 리뷰 브리핑",
+            "lines": [
+              { "sp": "A", "en": "Thanks for joining our monthly business review. Let me walk you through last month's numbers.", "kr": "월간 비즈니스 리뷰에 참석해 주셔서 감사합니다. 지난달 수치를 차근차근 짚어드릴게요." },
+              { "sp": "B", "en": "Sure. How did the overall spend look?", "kr": "네. 전체 비용은 어땠나요?" },
+              { "sp": "A", "en": "Total spend was up slightly, but adjusting for one extra business day, it actually decreased by about two percent.", "kr": "전체 비용은 소폭 늘었지만, 영업일 하루 차이를 감안하면 실질적으로는 약 2% 감소했습니다." },
+              { "sp": "B", "en": "That's good to hear. What drove the increase on paper?", "kr": "다행이네요. 표면상 증가는 뭐 때문이었나요?" },
+              { "sp": "A", "en": "The top three drivers were the database tier, data transfer, and load balancing.", "kr": "상위 세 가지 요인은 데이터베이스, 데이터 전송, 로드밸런싱이었습니다." },
+              { "sp": "B", "en": "Anything we should act on right away?", "kr": "당장 조치할 게 있을까요?" },
+              { "sp": "A", "en": "I'd recommend setting up lifecycle policies on your storage buckets — most of the volume is sitting in the standard class.", "kr": "스토리지 버킷에 수명 주기 정책을 잡는 걸 권해드립니다 — 볼륨 대부분이 스탠다드 클래스에 그대로 있어요." },
+              { "sp": "B", "en": "How much could that save us?", "kr": "그걸로 얼마나 아낄 수 있죠?" },
+              { "sp": "A", "en": "Roughly ten percent of storage cost, based on your access patterns. I'll include the details in the report.", "kr": "접근 패턴 기준으로 스토리지 비용의 약 10%입니다. 자세한 내용은 리포트에 담아드릴게요." },
+              { "sp": "B", "en": "Perfect. Send it over after the meeting.", "kr": "좋습니다. 회의 끝나고 보내주세요." }
+            ]
+          },
+          "expressions": [
+            { "en": "Let me walk you through the numbers.", "kr": "수치를 차근차근 설명드릴게요." },
+            { "en": "adjusting for one extra business day", "kr": "영업일 하루 차이를 감안하면" },
+            { "en": "What drove the increase?", "kr": "증가의 원인이 뭐였나요?" },
+            { "en": "act on right away", "kr": "바로 조치하다" }
+          ]
+        },
+        {
+          "id": "finops-2",
+          "title": "비용 급증 원인 분석",
+          "situation": "데이터 전송 비용이 갑자기 뛴 원인을 추적해 고객에게 설명하고 대안을 제시",
+          "grounding": "여기어때 SBR — Internet-Out 20% 증가, 외부 대시보드의 S3 로그 버킷 조회가 원인",
+          "dialogue": {
+            "title": "비용 급증 원인 분석",
+            "lines": [
+              { "sp": "A", "en": "I noticed your data transfer cost jumped about nineteen percent last month.", "kr": "지난달 데이터 전송 비용이 약 19% 뛴 걸 확인했습니다." },
+              { "sp": "B", "en": "We saw that too. Do you know where it's coming from?", "kr": "저희도 봤어요. 어디서 나온 건지 아세요?" },
+              { "sp": "A", "en": "Most of it is outbound traffic from one storage bucket that holds your CDN logs.", "kr": "대부분은 CDN 로그를 담는 스토리지 버킷 하나에서 나가는 아웃바운드 트래픽입니다." },
+              { "sp": "B", "en": "Interesting. We do query those logs from an external dashboard.", "kr": "흥미롭네요. 외부 대시보드에서 그 로그를 조회하긴 합니다." },
+              { "sp": "A", "en": "That explains it. Every list call from outside goes over the public internet.", "kr": "그래서였군요. 외부에서의 조회 호출이 전부 퍼블릭 인터넷을 타고 나갑니다." },
+              { "sp": "B", "en": "Is there a cheaper way to do this?", "kr": "더 싸게 하는 방법이 있나요?" },
+              { "sp": "A", "en": "You could move the logs to the CDN provider's own storage, or query through an internal endpoint.", "kr": "로그를 CDN 업체 쪽 스토리지로 옮기거나, 내부 엔드포인트로 조회하는 방법이 있습니다." },
+              { "sp": "B", "en": "Can you put both options on paper with rough numbers?", "kr": "두 옵션을 대략적인 수치와 함께 정리해 주실 수 있나요?" },
+              { "sp": "A", "en": "Of course. I'll run the numbers and share a comparison by Friday.", "kr": "물론입니다. 수치를 뽑아서 금요일까지 비교표를 공유드리겠습니다." },
+              { "sp": "B", "en": "Thanks. This is exactly the kind of insight we expect.", "kr": "감사해요. 저희가 기대하는 게 딱 이런 인사이트입니다." }
+            ]
+          },
+          "expressions": [
+            { "en": "That explains it.", "kr": "그래서였군요. (원인이 이해됐을 때)" },
+            { "en": "run the numbers", "kr": "수치를 계산해 보다" },
+            { "en": "put both options on paper", "kr": "두 옵션을 문서로 정리하다" },
+            { "en": "Where is it coming from?", "kr": "어디서 발생한 거죠?" }
+          ]
+        },
+        {
+          "id": "finops-3",
+          "title": "RI 커버리지 제안",
+          "situation": "예약 인스턴스 사용률·커버리지를 리뷰하고 신규 약정 구매를 제안",
+          "grounding": "여기어때 SBR RI 지표(EC2 96.8%/92.5%) + 센트비 DocumentDB SP 구매 문의",
+          "dialogue": {
+            "title": "RI 커버리지 제안",
+            "lines": [
+              { "sp": "A", "en": "Your compute reservation coverage is at ninety-two percent, which is healthy.", "kr": "컴퓨팅 예약 커버리지가 92%로 건강한 수준입니다." },
+              { "sp": "B", "en": "What about the databases?", "kr": "데이터베이스 쪽은요?" },
+              { "sp": "A", "en": "Utilization is at one hundred percent, but coverage dropped three points — you scaled up some instances recently.", "kr": "사용률은 100%인데 커버리지가 3%포인트 내려갔어요 — 최근에 인스턴스를 증설하셨죠." },
+              { "sp": "B", "en": "Right, we added capacity for the new feature launch.", "kr": "맞아요, 신규 기능 출시 때문에 용량을 늘렸습니다." },
+              { "sp": "A", "en": "If that capacity is here to stay, I'd suggest covering it with a one-year reservation.", "kr": "그 용량이 계속 갈 거라면, 1년 예약으로 커버하시길 제안드립니다." },
+              { "sp": "B", "en": "How much would we save compared to on-demand?", "kr": "온디맨드 대비 얼마나 절감되나요?" },
+              { "sp": "A", "en": "About thirty-eight percent over the year. I can send a simulation with exact figures.", "kr": "연간 약 38%입니다. 정확한 수치로 시뮬레이션을 보내드릴 수 있어요." },
+              { "sp": "B", "en": "Do we pay everything upfront?", "kr": "전액 선납인가요?" },
+              { "sp": "A", "en": "You can choose no-upfront, partial, or all-upfront — the discount deepens as you pay more up front.", "kr": "선납 없음, 부분 선납, 전액 선납 중 고를 수 있고, 선납이 클수록 할인이 커집니다." },
+              { "sp": "B", "en": "Send me the simulation. We'll review it internally this week.", "kr": "시뮬레이션 보내주세요. 이번 주에 내부 검토하겠습니다." }
+            ]
+          },
+          "expressions": [
+            { "en": "here to stay", "kr": "(일시적이 아니라) 계속 유지될" },
+            { "en": "compared to on-demand", "kr": "온디맨드와 비교하면" },
+            { "en": "exact figures", "kr": "정확한 수치" },
+            { "en": "review it internally", "kr": "내부적으로 검토하다" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "deal",
+      "icon": "📝",
+      "title": "계약 & 견적",
+      "why": "제목 키워드 1위가 '계약'(34건), 견적 11건. 견적 송부 → 조건 설명 → 날인 요청이 매주 반복된다.",
+      "scenarios": [
+        {
+          "id": "deal-1",
+          "title": "견적서 조건 설명",
+          "situation": "보안관제 견적서를 보낸 뒤 계약 조건과 시작 시점 질문에 답하는 통화",
+          "grounding": "센트비 WAF 보안관제 견적 스레드 (연 1,800만원·도메인 20개·시작일 Q&A)",
+          "dialogue": {
+            "title": "견적서 조건 설명",
+            "lines": [
+              { "sp": "A", "en": "As promised on the phone, I've sent over the quote for the managed security service.", "kr": "전화로 말씀드린 대로, 보안관제 견적서를 보내드렸습니다." },
+              { "sp": "B", "en": "I saw it. The terms look the same as last year?", "kr": "봤습니다. 조건이 작년과 같은 건가요?" },
+              { "sp": "A", "en": "Correct — same rate, a twelve-month term, and twenty domains covered with five free of charge.", "kr": "맞습니다 — 같은 요율에 12개월 계약, 도메인 20개에 5개는 무상입니다." },
+              { "sp": "B", "en": "The start date says September, but our current contract ends in August.", "kr": "시작일이 9월로 돼 있는데, 지금 계약은 8월에 끝나요." },
+              { "sp": "A", "en": "Good catch. There's no gap — you can sign in August and the new term simply follows the old one.", "kr": "잘 짚으셨어요. 공백은 없습니다 — 8월에 날인하시면 새 계약이 기존 계약에 바로 이어집니다." },
+              { "sp": "B", "en": "What do you need from us to proceed?", "kr": "진행하려면 저희가 뭘 드려야 하나요?" },
+              { "sp": "A", "en": "Just the company seal on the last page of the quote, and we'll take it from there.", "kr": "견적서 마지막 장에 직인만 찍어주시면, 나머지는 저희가 진행합니다." },
+              { "sp": "B", "en": "Any price protection if we renew again next year?", "kr": "내년에 또 갱신하면 가격 보장이 있나요?" },
+              { "sp": "A", "en": "I'll add a clause holding the current rate for one more renewal cycle.", "kr": "현재 요율을 갱신 한 번 더 유지하는 조항을 넣어드리겠습니다." },
+              { "sp": "B", "en": "That works. I'll get the signature this week.", "kr": "좋습니다. 이번 주에 날인 받아둘게요." }
+            ]
+          },
+          "expressions": [
+            { "en": "As promised on the phone,", "kr": "전화로 말씀드린 대로," },
+            { "en": "Good catch.", "kr": "잘 짚으셨어요." },
+            { "en": "free of charge", "kr": "무상으로" },
+            { "en": "We'll take it from there.", "kr": "그 다음부터는 저희가 진행하겠습니다." }
+          ]
+        },
+        {
+          "id": "deal-2",
+          "title": "통합빌링 온보딩",
+          "situation": "신규 고객을 통합빌링으로 온보딩 — 마스터 계약 구조와 절차를 설명",
+          "grounding": "한국전자식권 신규 통합빌링 계약 + 포시에스 통합빌링 계약서 스레드",
+          "dialogue": {
+            "title": "통합빌링 온보딩",
+            "lines": [
+              { "sp": "A", "en": "To get you onto consolidated billing, we'll need two agreements in place.", "kr": "통합빌링으로 들어오시려면 계약 두 건이 필요합니다." },
+              { "sp": "B", "en": "Which ones exactly?", "kr": "정확히 어떤 계약들이죠?" },
+              { "sp": "A", "en": "A master service agreement first, and then the billing agreement that sits under it.", "kr": "먼저 마스터 서비스 계약, 그리고 그 아래에 붙는 빌링 계약입니다." },
+              { "sp": "B", "en": "Do we have to print and stamp everything?", "kr": "전부 출력해서 날인해야 하나요?" },
+              { "sp": "A", "en": "No — we'll send both through an e-signature platform, so it takes minutes.", "kr": "아니요 — 둘 다 전자계약으로 보내드려서 몇 분이면 끝납니다." },
+              { "sp": "B", "en": "What changes on our side after we join?", "kr": "합류하면 저희 쪽에서 뭐가 달라지나요?" },
+              { "sp": "A", "en": "You'll accept an invitation into our organization, and from then on one consolidated invoice replaces the card payments.", "kr": "저희 조직으로 초대를 수락하시면, 그때부터 카드 결제 대신 통합 청구서 하나로 정리됩니다." },
+              { "sp": "B", "en": "Will our accounts keep their existing discounts?", "kr": "기존 할인은 그대로 유지되나요?" },
+              { "sp": "A", "en": "Yes, and you gain shared savings across accounts — reservations apply organization-wide.", "kr": "네, 그리고 계정 간 공유 절감도 생깁니다 — 예약이 조직 전체에 적용되거든요." },
+              { "sp": "B", "en": "Sounds straightforward. Send the drafts and we'll review.", "kr": "간단하네요. 초안 보내주시면 검토하겠습니다." }
+            ]
+          },
+          "expressions": [
+            { "en": "in place", "kr": "(계약·체계가) 갖춰진" },
+            { "en": "It takes minutes.", "kr": "몇 분이면 끝납니다." },
+            { "en": "from then on", "kr": "그때부터는" },
+            { "en": "organization-wide", "kr": "조직 전체에 걸쳐" }
+          ]
+        },
+        {
+          "id": "deal-3",
+          "title": "분납 조건 협상",
+          "situation": "대규모 약정 구매의 분납 조건·담보·지연손해금을 사전에 확정하는 협상",
+          "grounding": "씨피랩스 EDP 분납 처리 방안 스레드 (36개월 분납·보증보험 심사·서면 확정 요청)",
+          "dialogue": {
+            "title": "분납 조건 협상",
+            "lines": [
+              { "sp": "A", "en": "About the payment terms — you asked for thirty-six-month installments.", "kr": "납부 조건 관련해서요 — 36개월 분납을 요청하셨죠." },
+              { "sp": "B", "en": "Yes. A single upfront payment of this size is hard on our cash flow.", "kr": "네. 이 규모를 한 번에 선납하는 건 저희 현금흐름에 부담입니다." },
+              { "sp": "A", "en": "Understood. We can match the installment schedule to the commitment period.", "kr": "이해합니다. 분납 일정을 약정 기간과 맞춰드릴 수 있습니다." },
+              { "sp": "B", "en": "What do you need as security?", "kr": "담보로는 뭐가 필요한가요?" },
+              { "sp": "A", "en": "Either a surety bond or a collateral arrangement — the installment terms stay the same either way.", "kr": "보증보험 또는 근저당 중 하나입니다 — 어느 쪽이든 분납 조건은 동일합니다." },
+              { "sp": "B", "en": "How long does the surety bond screening take?", "kr": "보증보험 심사는 얼마나 걸리죠?" },
+              { "sp": "A", "en": "Usually one to two weeks. Our credit team is preparing the draft agreement for the insurer now.", "kr": "보통 1~2주입니다. 저희 채권팀이 지금 보험사 제출용 합의서 초안을 준비 중입니다." },
+              { "sp": "B", "en": "And the late payment rate — can we agree on that in writing beforehand?", "kr": "지연손해금 요율도 사전에 서면으로 합의할 수 있나요?" },
+              { "sp": "A", "en": "Absolutely. I'll put the rate and the schedule into the agreement before execution.", "kr": "물론입니다. 실행 전에 요율과 일정을 합의서에 명시하겠습니다." },
+              { "sp": "B", "en": "Good. Once those are fixed, we're ready to move.", "kr": "좋습니다. 그것만 확정되면 저희는 진행할 준비가 됐습니다." }
+            ]
+          },
+          "expressions": [
+            { "en": "hard on our cash flow", "kr": "현금흐름에 부담이 되는" },
+            { "en": "either way", "kr": "어느 쪽이든" },
+            { "en": "in writing beforehand", "kr": "사전에 서면으로" },
+            { "en": "We're ready to move.", "kr": "진행할 준비가 됐습니다." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "care",
+      "icon": "🛡",
+      "title": "프로액티브 케어 & 기술 대응",
+      "why": "EKS 지원 종료 권고, RI 오구매 환불, 보안 점검 — 묻기 전에 먼저 챙기는 파트너 케어가 신뢰의 근원.",
+      "scenarios": [
+        {
+          "id": "care-1",
+          "title": "지원 종료(EOL) 업그레이드 권고",
+          "situation": "쿠버네티스 버전 지원 종료를 먼저 알리고 업그레이드 일정을 함께 잡는 통화",
+          "grounding": "파스토 EKS 1.30 Extended Support 종료 안내 스레드 (7/23 종료·자동 업그레이드 경고·고객의 완료 회신)",
+          "dialogue": {
+            "title": "지원 종료(EOL) 업그레이드 권고",
+            "lines": [
+              { "sp": "A", "en": "I'm reaching out about your Kubernetes clusters — extended support for your version ends on July twenty-third.", "kr": "쿠버네티스 클러스터 관련으로 연락드립니다 — 사용 중인 버전의 연장 지원이 7월 23일에 종료됩니다." },
+              { "sp": "B", "en": "What happens if we don't upgrade by then?", "kr": "그때까지 업그레이드 안 하면 어떻게 되나요?" },
+              { "sp": "A", "en": "Security patches stop, and the platform will auto-upgrade your clusters — on its schedule, not yours.", "kr": "보안 패치가 중단되고, 플랫폼이 클러스터를 자동 업그레이드합니다 — 여러분 일정이 아니라 플랫폼 일정으로요." },
+              { "sp": "B", "en": "That sounds risky for production.", "kr": "프로덕션에는 위험하게 들리네요." },
+              { "sp": "A", "en": "Exactly why I'm flagging it early. I've listed the affected clusters for you.", "kr": "그래서 미리 알려드리는 겁니다. 영향받는 클러스터 목록을 정리해 드렸어요." },
+              { "sp": "B", "en": "We already upgraded the DevOps cluster last weekend, actually.", "kr": "사실 DevOps 클러스터는 지난 주말에 이미 업그레이드했습니다." },
+              { "sp": "A", "en": "Great — then only the app cluster remains. Do you have a window planned?", "kr": "좋네요 — 그럼 앱 클러스터만 남았군요. 예정된 작업 시간대가 있나요?" },
+              { "sp": "B", "en": "This coming weekend, in stages.", "kr": "이번 주말에 단계적으로 하려고요." },
+              { "sp": "A", "en": "If anything comes up during the upgrade, open a case and our engineers will jump right in.", "kr": "업그레이드 중에 문제가 생기면 케이스 열어주세요. 저희 엔지니어가 바로 붙겠습니다." },
+              { "sp": "B", "en": "Appreciated. It helps that you catch these before they become a problem.", "kr": "감사해요. 문제가 되기 전에 잡아주시니 도움이 됩니다." }
+            ]
+          },
+          "expressions": [
+            { "en": "I'm reaching out about ~", "kr": "~ 관련으로 연락드립니다" },
+            { "en": "flagging it early", "kr": "미리 알려드리는" },
+            { "en": "Do you have a window planned?", "kr": "예정된 작업 시간대가 있나요?" },
+            { "en": "jump right in", "kr": "즉시 투입되다" }
+          ]
+        },
+        {
+          "id": "care-2",
+          "title": "오구매 환불 케이스",
+          "situation": "고객이 RI 수량을 잘못 구매 — 환불 절차를 안내하고 안심시키는 대화",
+          "grounding": "모젯 RI 오구매 환불 Case Open 스레드 (수량 오기입 → 환불·재구매)",
+          "dialogue": {
+            "title": "오구매 환불 케이스",
+            "lines": [
+              { "sp": "A", "en": "I got your message about the reserved instance purchase — what happened exactly?", "kr": "예약 인스턴스 구매 건 메시지 받았습니다 — 정확히 어떤 상황인가요?" },
+              { "sp": "B", "en": "Our engineer mistyped the quantity and bought eight instead of one.", "kr": "엔지니어가 수량을 잘못 입력해서 1대 대신 8대를 샀어요." },
+              { "sp": "A", "en": "Don't worry — this is recoverable. We'll open a refund case with the provider today.", "kr": "걱정 마세요 — 복구 가능한 상황입니다. 오늘 바로 환불 케이스를 열겠습니다." },
+              { "sp": "B", "en": "Will the refund be full, or do we lose something?", "kr": "환불은 전액인가요, 아니면 손해가 있나요?" },
+              { "sp": "A", "en": "Purchases reported within the same billing period are usually refunded in full.", "kr": "같은 청구 기간 안에 신고된 구매는 보통 전액 환불됩니다." },
+              { "sp": "B", "en": "How long does it take?", "kr": "얼마나 걸리나요?" },
+              { "sp": "A", "en": "Typically three to five business days once the case is accepted.", "kr": "케이스가 접수되면 보통 영업일 기준 3~5일입니다." },
+              { "sp": "B", "en": "And then we repurchase the correct quantity?", "kr": "그 다음에 맞는 수량으로 재구매하는 거죠?" },
+              { "sp": "A", "en": "Right. I'll stay on the case and confirm each step by email so nothing slips.", "kr": "맞습니다. 제가 케이스를 계속 챙기면서 단계마다 메일로 확인드릴게요. 놓치는 게 없도록요." },
+              { "sp": "B", "en": "Thanks for the quick turnaround.", "kr": "빠른 처리 감사합니다." }
+            ]
+          },
+          "expressions": [
+            { "en": "This is recoverable.", "kr": "복구 가능한 상황입니다." },
+            { "en": "refunded in full", "kr": "전액 환불되는" },
+            { "en": "I'll stay on the case.", "kr": "제가 계속 챙기겠습니다." },
+            { "en": "so nothing slips", "kr": "놓치는 게 없도록" }
+          ]
+        },
+        {
+          "id": "care-3",
+          "title": "보안 점검 제안",
+          "situation": "인증 심사를 앞둔 고객에게 무상 보안 점검을 제안하는 대화",
+          "grounding": "당근 Security Agent 기반 ISMS-P 점검 매뉴얼 + 아이아이컴바인드 Control Tower 구성 점검",
+          "dialogue": {
+            "title": "보안 점검 제안",
+            "lines": [
+              { "sp": "A", "en": "Before your certification audit, I'd like to propose a quick security posture check.", "kr": "인증 심사 전에, 간단한 보안 상태 점검을 제안드리고 싶습니다." },
+              { "sp": "B", "en": "What would it cover?", "kr": "어떤 걸 다루나요?" },
+              { "sp": "A", "en": "Account structure, guardrails, logging, and the controls the auditors usually ask about.", "kr": "계정 구조, 가드레일, 로깅, 그리고 심사관들이 주로 묻는 통제 항목들입니다." },
+              { "sp": "B", "en": "Is this a paid engagement?", "kr": "유료인가요?" },
+              { "sp": "A", "en": "The initial scan is on us — if remediation work comes out of it, we'll scope that separately.", "kr": "초기 점검은 저희가 부담합니다 — 보완 작업이 나오면 그건 별도로 범위를 잡겠습니다." },
+              { "sp": "B", "en": "How long does the scan take?", "kr": "점검은 얼마나 걸리죠?" },
+              { "sp": "A", "en": "About a week with read-only access. No changes to your environment.", "kr": "읽기 전용 권한으로 일주일 정도입니다. 환경에 변경은 없습니다." },
+              { "sp": "B", "en": "What do we get at the end?", "kr": "끝나면 뭘 받게 되나요?" },
+              { "sp": "A", "en": "A findings report ranked by risk, with a remediation roadmap you can hand straight to the auditors.", "kr": "위험도 순으로 정리된 발견 사항 리포트와, 심사관에게 바로 제출할 수 있는 보완 로드맵입니다." },
+              { "sp": "B", "en": "That would save us a lot of prep. Let's do it.", "kr": "준비 시간이 많이 절약되겠네요. 진행하죠." }
+            ]
+          },
+          "expressions": [
+            { "en": "security posture", "kr": "보안 상태·태세" },
+            { "en": "The initial scan is on us.", "kr": "초기 점검 비용은 저희가 부담합니다." },
+            { "en": "scope that separately", "kr": "별도로 범위를 잡다" },
+            { "en": "ranked by risk", "kr": "위험도 순으로 정리된" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pitch",
+      "icon": "🚀",
+      "title": "제안 & 신사업",
+      "why": "아이아이컴바인드 파트너십 제안 PT, 당근 Bedrock·PoC 크레딧, 센트비 AI 구축 — 파이프라인을 여는 대화들.",
+      "scenarios": [
+        {
+          "id": "pitch-1",
+          "title": "파트너십 제안 PT 오프닝",
+          "situation": "경쟁사 고객에게 파트너십 전환을 제안하는 PT의 도입부",
+          "grounding": "아이아이컴바인드 파트너십 제안서 스레드 (AWS 26계정·AI 전사 도입 배경, 4챕터 구성, 무중단 이관)",
+          "dialogue": {
+            "title": "파트너십 제안 PT 오프닝",
+            "lines": [
+              { "sp": "A", "en": "Thank you for making time for the proposal review. Shall I start with the big picture?", "kr": "제안 리뷰에 시간 내주셔서 감사합니다. 큰 그림부터 시작할까요?" },
+              { "sp": "B", "en": "Please. We're curious how you see our situation.", "kr": "네. 저희 상황을 어떻게 보시는지 궁금합니다." },
+              { "sp": "A", "en": "You're scaling globally across more than twenty accounts, and AI adoption is accelerating — infrastructure and governance need to grow together.", "kr": "20개 넘는 계정으로 글로벌 확장 중이시고 AI 도입도 빨라지고 있죠 — 인프라와 거버넌스가 같이 커야 하는 시점입니다." },
+              { "sp": "B", "en": "That's a fair read. What are you proposing?", "kr": "맞는 진단이네요. 뭘 제안하시는 거죠?" },
+              { "sp": "A", "en": "Not just an MSP contract — a joint team across four areas: cost, operations, cloud tech, and AI governance.", "kr": "단순 MSP 계약이 아니라, 비용·운영·클라우드 기술·AI 거버넌스 네 영역을 함께 끄는 팀입니다." },
+              { "sp": "B", "en": "The migration part worries me. We can't afford downtime.", "kr": "이관 부분이 걱정입니다. 다운타임은 감당 못 해요." },
+              { "sp": "A", "en": "Chapter one covers exactly that — a zero-downtime transition roadmap, verified step by step.", "kr": "1장이 바로 그 내용입니다 — 단계별로 검증하는 무중단 전환 로드맵이요." },
+              { "sp": "B", "en": "And commercial terms?", "kr": "상업 조건은요?" },
+              { "sp": "A", "en": "They're summarized in the last chapter, but numbers are better discussed face to face — that's why I asked for this meeting.", "kr": "마지막 장에 요약돼 있지만, 숫자는 직접 뵙고 논의하는 게 낫습니다 — 그래서 이 자리를 요청드렸어요." },
+              { "sp": "B", "en": "Fair enough. Walk us through chapter one.", "kr": "좋습니다. 1장부터 설명해 주시죠." }
+            ]
+          },
+          "expressions": [
+            { "en": "Shall I start with the big picture?", "kr": "큰 그림부터 시작할까요?" },
+            { "en": "That's a fair read.", "kr": "맞는 진단이네요." },
+            { "en": "We can't afford downtime.", "kr": "다운타임은 감당할 수 없습니다." },
+            { "en": "better discussed face to face", "kr": "직접 만나 논의하는 게 나은" }
+          ]
+        },
+        {
+          "id": "pitch-2",
+          "title": "제안 PT 일정 조율",
+          "situation": "닫혔던 PT 일정이 다시 열림 — 시간대·참석자·사전 질문을 조율",
+          "grounding": "아이아이컴바인드 PT 일정 스레드 (8/5 두 시간대 제시 → 오후 2~4시 확정, 참석 인원 안내)",
+          "dialogue": {
+            "title": "제안 PT 일정 조율",
+            "lines": [
+              { "sp": "A", "en": "Thanks for reconsidering the presentation slot — I know your schedule opened up late.", "kr": "발표 일정을 다시 검토해 주셔서 감사합니다 — 일정이 늦게 풀리신 걸로 압니다." },
+              { "sp": "B", "en": "Yes, two windows work for us: Wednesday morning or Wednesday afternoon.", "kr": "네, 수요일 오전이나 오후 두 시간대가 가능합니다." },
+              { "sp": "A", "en": "Let's take Wednesday two to four — that gives us room for Q and A.", "kr": "수요일 2시~4시로 하시죠 — 질의응답 여유가 생깁니다." },
+              { "sp": "B", "en": "Who's coming from your side?", "kr": "그쪽에서는 누가 오시나요?" },
+              { "sp": "A", "en": "Myself and our delivery lead. If anyone else joins, I'll let you know in advance.", "kr": "저와 딜리버리 리드입니다. 추가 인원이 생기면 미리 말씀드릴게요." },
+              { "sp": "B", "en": "Should we prepare anything before the session?", "kr": "저희가 미리 준비할 게 있을까요?" },
+              { "sp": "A", "en": "If questions come up while reviewing the deck, send them over — I'll address them in the presentation.", "kr": "자료 검토하시다 궁금한 게 생기면 보내주세요 — 발표에서 다뤄드리겠습니다." },
+              { "sp": "B", "en": "Will you cover pricing in this session?", "kr": "이번 세션에서 가격도 다루시나요?" },
+              { "sp": "A", "en": "Yes, at the end — and we can go deeper one on one afterward if needed.", "kr": "네, 마지막에요 — 필요하면 끝나고 별도로 더 깊게 논의할 수 있습니다." },
+              { "sp": "B", "en": "Perfect. See you Wednesday at two.", "kr": "좋습니다. 수요일 2시에 뵙죠." }
+            ]
+          },
+          "expressions": [
+            { "en": "The schedule opened up.", "kr": "일정이 풀렸어요·비었어요." },
+            { "en": "That gives us room for Q and A.", "kr": "질의응답 여유가 생깁니다." },
+            { "en": "I'll let you know in advance.", "kr": "미리 말씀드리겠습니다." },
+            { "en": "go deeper one on one", "kr": "일대일로 더 깊게 논의하다" }
+          ]
+        },
+        {
+          "id": "pitch-3",
+          "title": "AI PoC 크레딧 협의",
+          "situation": "생성형 AI 파일럿의 비용 장벽을 PoC 크레딧으로 풀어주는 대화",
+          "grounding": "당근 Bedrock·ML 플랫폼 지원 + Databricks PoC aws credit 스레드",
+          "dialogue": {
+            "title": "AI PoC 크레딧 협의",
+            "lines": [
+              { "sp": "A", "en": "You mentioned the team wants to test generative AI on the ad platform — where does that stand?", "kr": "광고 플랫폼에 생성형 AI를 테스트하고 싶다고 하셨는데, 지금 어디까지 와 있나요?" },
+              { "sp": "B", "en": "We've picked two use cases, but the compute cost for a proper test is a blocker.", "kr": "유스케이스 두 개는 골랐는데, 제대로 테스트하려니 컴퓨팅 비용이 걸림돌입니다." },
+              { "sp": "A", "en": "That's what proof-of-concept credits are for. We can apply for funding to cover the experiment.", "kr": "그럴 때 쓰라고 PoC 크레딧이 있습니다. 실험 비용을 지원받도록 신청할 수 있어요." },
+              { "sp": "B", "en": "How much support are we talking about?", "kr": "지원 규모가 어느 정도인가요?" },
+              { "sp": "A", "en": "It depends on the scope, but meaningful pilots typically get covered in full.", "kr": "범위에 따라 다르지만, 의미 있는 파일럿은 보통 전액 지원됩니다." },
+              { "sp": "B", "en": "What do you need from us for the application?", "kr": "신청하려면 저희가 뭘 드려야 하죠?" },
+              { "sp": "A", "en": "A one-page summary: the use case, expected usage, and a rough timeline. I'll draft it with you.", "kr": "한 장짜리 요약이면 됩니다: 유스케이스, 예상 사용량, 대략의 일정. 같이 초안 잡아드릴게요." },
+              { "sp": "B", "en": "If the pilot works, what's the path to production?", "kr": "파일럿이 잘 되면 프로덕션까지는 어떻게 가나요?" },
+              { "sp": "A", "en": "We bring in a solutions architect to design the production setup — that part is our job.", "kr": "프로덕션 구성은 솔루션스 아키텍트를 붙여 설계합니다 — 그건 저희 몫이에요." },
+              { "sp": "B", "en": "Alright, let's draft that one-pager this week.", "kr": "좋아요, 이번 주에 그 한 장 초안 잡아보죠." }
+            ]
+          },
+          "expressions": [
+            { "en": "Where does that stand?", "kr": "그건 지금 어디까지 진행됐나요?" },
+            { "en": "a blocker", "kr": "걸림돌" },
+            { "en": "How much are we talking about?", "kr": "규모가 어느 정도인가요?" },
+            { "en": "That part is our job.", "kr": "그 부분은 저희 몫입니다." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "billing",
+      "icon": "💳",
+      "title": "빌링 & 정산 실무",
+      "why": "빌링 15건 + 미납·환불·정산 — 민감한 돈 얘기를 부드럽고 정확하게 전하는 기술.",
+      "scenarios": [
+        {
+          "id": "billing-1",
+          "title": "미납 안내 통화",
+          "situation": "카드 한도 초과로 결제 실패 — 고객 기분 상하지 않게 상황과 선택지를 안내",
+          "grounding": "포시에스 카드미납 안내 스레드 (한도초과 3건·재시도 일정 20일/30일·계좌이체 대안)",
+          "dialogue": {
+            "title": "미납 안내 통화",
+            "lines": [
+              { "sp": "A", "en": "I'm calling about last month's payment — the card charge didn't go through.", "kr": "지난달 결제 관련으로 연락드렸습니다 — 카드 청구가 승인되지 않았어요." },
+              { "sp": "B", "en": "Oh, that's odd. Do you know why it failed?", "kr": "이상하네요. 왜 실패했는지 아세요?" },
+              { "sp": "A", "en": "It looks like a daily limit issue on the corporate card, not a problem on your account.", "kr": "법인카드 일일 한도 문제로 보입니다. 계정 문제는 아니에요." },
+              { "sp": "B", "en": "What are our options now?", "kr": "지금 어떤 방법이 있죠?" },
+              { "sp": "A", "en": "Two paths: settle by bank transfer, or we retry the card around the twentieth and again at month-end.", "kr": "두 가지입니다: 계좌이체로 정리하시거나, 20일경과 월말에 카드 재시도를 겁니다." },
+              { "sp": "B", "en": "And if we already paid this morning?", "kr": "오늘 아침에 이미 냈다면요?" },
+              { "sp": "A", "en": "Just send me the transfer receipt and I'll flag it to our billing team right away.", "kr": "이체 확인증만 보내주시면 바로 빌링팀에 전달하겠습니다." },
+              { "sp": "B", "en": "Will this affect our service in any way?", "kr": "서비스에 영향이 있나요?" },
+              { "sp": "A", "en": "Not at all — this is purely an accounting matter. I wanted you informed before any reminder goes out.", "kr": "전혀요 — 순전히 정산 문제입니다. 독촉 안내가 나가기 전에 미리 알려드리고 싶었어요." },
+              { "sp": "B", "en": "Thanks for the heads-up. I'll check with our finance team today.", "kr": "미리 알려주셔서 감사합니다. 오늘 재무팀에 확인할게요." }
+            ]
+          },
+          "expressions": [
+            { "en": "The charge didn't go through.", "kr": "결제가 승인되지 않았어요." },
+            { "en": "settle by bank transfer", "kr": "계좌이체로 정산하다" },
+            { "en": "flag it to our billing team", "kr": "빌링팀에 알리다·전달하다" },
+            { "en": "Thanks for the heads-up.", "kr": "미리 알려줘서 고마워요." }
+          ]
+        },
+        {
+          "id": "billing-2",
+          "title": "잘못된 안내 사과",
+          "situation": "이미 결제된 건에 중복 독촉이 나감 — 깔끔하게 인정하고 신뢰를 회복하는 대화",
+          "grounding": "포시에스 중복 안내 사과 메일 (한도 조정으로 기결제, 내부 공유 지연으로 중복 발송)",
+          "dialogue": {
+            "title": "잘못된 안내 사과",
+            "lines": [
+              { "sp": "A", "en": "I owe you an apology — the payment reminder you received this morning was sent in error.", "kr": "사과드릴 일이 있습니다 — 오늘 아침 받으신 결제 안내는 잘못 발송된 것입니다." },
+              { "sp": "B", "en": "I was about to ask. We already settled that invoice yesterday.", "kr": "안 그래도 물어보려던 참이었어요. 그 청구는 어제 이미 정리했습니다." },
+              { "sp": "A", "en": "You did, and it was our internal handoff that lagged — your payment was confirmed on our side.", "kr": "맞습니다. 저희 내부 전달이 늦었던 겁니다 — 결제는 저희 쪽에서 확인됐습니다." },
+              { "sp": "B", "en": "So there's nothing outstanding on our account?", "kr": "그럼 저희 계정에 미결제 건은 없는 거죠?" },
+              { "sp": "A", "en": "Nothing at all. I've double-checked every account under your company.", "kr": "전혀 없습니다. 귀사 계정 전부를 다시 확인했습니다." },
+              { "sp": "B", "en": "These mixed signals are a little concerning, to be honest.", "kr": "솔직히 이런 엇갈린 안내는 좀 걱정되네요." },
+              { "sp": "A", "en": "That's fair, and we're fixing the process so confirmations sync before any reminder goes out.", "kr": "맞는 말씀입니다. 안내가 나가기 전에 확인이 먼저 동기화되도록 프로세스를 고치고 있습니다." },
+              { "sp": "B", "en": "Okay. Mistakes happen — I appreciate the straight answer.", "kr": "알겠습니다. 실수는 있을 수 있죠 — 솔직하게 말씀해 주셔서 고마워요." },
+              { "sp": "A", "en": "Thank you for your patience. If anything looks off again, call me directly.", "kr": "양해해 주셔서 감사합니다. 또 이상해 보이는 게 있으면 저한테 바로 전화 주세요." },
+              { "sp": "B", "en": "Will do. Let's move on.", "kr": "그럴게요. 넘어가죠." }
+            ]
+          },
+          "expressions": [
+            { "en": "I owe you an apology.", "kr": "사과드릴 일이 있습니다." },
+            { "en": "sent in error", "kr": "잘못 발송된" },
+            { "en": "nothing outstanding", "kr": "미결제 건 없음" },
+            { "en": "I appreciate the straight answer.", "kr": "솔직한 답변 감사합니다." }
+          ]
+        },
+        {
+          "id": "billing-3",
+          "title": "정산 증빙 요청 대응",
+          "situation": "청구서와 콘솔 수치가 다르다는 문의 — 차이를 설명하고 감사용 증빙을 준비",
+          "grounding": "파스토 2월 정산 스레드 + 센트비 RI 질의 증적 스레드",
+          "dialogue": {
+            "title": "정산 증빙 요청 대응",
+            "lines": [
+              { "sp": "A", "en": "About the February settlement — you asked how the usage was calculated.", "kr": "2월 정산 건인데요 — 사용량이 어떻게 계산됐는지 문의주셨죠." },
+              { "sp": "B", "en": "Yes. The invoice number doesn't match what we see in the console.", "kr": "네. 청구서 숫자가 콘솔에서 보는 것과 안 맞아요." },
+              { "sp": "A", "en": "The difference comes from credits and support fees, which the console view leaves out.", "kr": "차이는 크레딧과 서포트 요금 때문입니다. 콘솔 화면에는 그게 빠져 있어요." },
+              { "sp": "B", "en": "Can you give us evidence we can file internally?", "kr": "내부 증빙으로 쓸 자료를 주실 수 있나요?" },
+              { "sp": "A", "en": "Of course. I'll export the line-item breakdown with the credit entries highlighted.", "kr": "물론입니다. 크레딧 항목을 표시한 상세 내역서를 내보내 드리겠습니다." },
+              { "sp": "B", "en": "Our auditors will also want the exchange rate basis.", "kr": "감사팀이 환율 기준도 요구할 거예요." },
+              { "sp": "A", "en": "The statement includes the applied rate and its reference date — I'll point them out.", "kr": "명세서에 적용 환율과 기준일이 들어 있습니다 — 짚어서 표시해 드릴게요." },
+              { "sp": "B", "en": "When can we have it?", "kr": "언제 받을 수 있죠?" },
+              { "sp": "A", "en": "By tomorrow morning. If the auditors need anything further, loop me in directly.", "kr": "내일 오전까지요. 감사팀이 더 필요한 게 있으면 저를 바로 참조에 넣어주세요." },
+              { "sp": "B", "en": "Great. That should close this out.", "kr": "좋습니다. 이걸로 마무리되겠네요." }
+            ]
+          },
+          "expressions": [
+            { "en": "The console view leaves out ~", "kr": "콘솔 화면에는 ~이 빠져 있다" },
+            { "en": "line-item breakdown", "kr": "항목별 상세 내역" },
+            { "en": "Loop me in.", "kr": "저를 참조에 넣어주세요·끼워주세요." },
+            { "en": "close this out", "kr": "이 건을 마무리하다" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "relations",
+      "icon": "🤝",
+      "title": "관계 & 위기 관리",
+      "why": "부스터스 프로젝트 중단, 서북 해지 — 90일간 가장 무거웠던 대화. 위기에서의 품격이 다음 기회를 만든다.",
+      "scenarios": [
+        {
+          "id": "relations-1",
+          "title": "프로젝트 중단 통보 수용",
+          "situation": "고객이 프로젝트 중단과 인력 철수를 통보 — 품위 있게 수용하고 정리를 주도",
+          "grounding": "부스터스 IT 개편 프로젝트 중단 스레드 (8/14 철수 통보와 태현님의 실제 회신)",
+          "dialogue": {
+            "title": "프로젝트 중단 통보 수용",
+            "lines": [
+              { "sp": "A", "en": "I read your email carefully. First — we take this decision with the weight it deserves.", "kr": "메일 신중히 읽었습니다. 먼저 — 이 결정을 무겁게 받아들이고 있습니다." },
+              { "sp": "B", "en": "It wasn't easy for us either. The project just hasn't moved as planned.", "kr": "저희도 쉽지 않았습니다. 프로젝트가 계획대로 진행이 안 됐어요." },
+              { "sp": "A", "en": "I'm sorry it came to this. We'll cooperate fully with the withdrawal as of today.", "kr": "이렇게까지 온 점 죄송합니다. 오늘부로 철수에 전적으로 협조하겠습니다." },
+              { "sp": "B", "en": "We'd like the accounts and materials returned by the book.", "kr": "계정과 자료는 원칙대로 반환되면 좋겠습니다." },
+              { "sp": "A", "en": "Absolutely — access revocation, data return, and security cleanup, all documented.", "kr": "물론입니다 — 접근 권한 회수, 자료 반환, 보안 정리까지 전부 문서로 남기겠습니다." },
+              { "sp": "B", "en": "What about the unbilled work in progress?", "kr": "진행 중이던 미청구 작업분은요?" },
+              { "sp": "A", "en": "We'll prepare a settlement summary and walk through it together, item by item.", "kr": "정산 요약을 준비해서 항목별로 같이 검토하겠습니다." },
+              { "sp": "B", "en": "I appreciate you taking this professionally.", "kr": "프로답게 처리해 주셔서 감사합니다." },
+              { "sp": "A", "en": "One request — when the dust settles, I'd value a retrospective. We want to learn from this.", "kr": "한 가지 부탁이 있습니다 — 상황이 정리되면 회고 자리를 가졌으면 합니다. 저희도 배우고 싶어서요." },
+              { "sp": "B", "en": "That's reasonable. Let's talk next month.", "kr": "합리적이네요. 다음 달에 얘기하죠." }
+            ]
+          },
+          "expressions": [
+            { "en": "with the weight it deserves", "kr": "그에 걸맞은 무게로 (무겁게 받아들이다)" },
+            { "en": "I'm sorry it came to this.", "kr": "이렇게까지 된 점 유감입니다." },
+            { "en": "by the book", "kr": "원칙대로" },
+            { "en": "when the dust settles", "kr": "상황이 정리되면" }
+          ]
+        },
+        {
+          "id": "relations-2",
+          "title": "리더스 모임 초청",
+          "situation": "고객 임원을 네트워킹 자리에 초청 — 영업 아닌 가치를 제시",
+          "grounding": "여기어때·부스터스 C.C.C 리더스 클럽 초청 스레드",
+          "dialogue": {
+            "title": "리더스 모임 초청",
+            "lines": [
+              { "sp": "A", "en": "We're hosting a leaders' roundtable next month — I'd love to have you there.", "kr": "다음 달에 리더스 라운드테이블을 엽니다 — 꼭 모시고 싶어요." },
+              { "sp": "B", "en": "What's the format?", "kr": "형식이 어떻게 되나요?" },
+              { "sp": "A", "en": "Twenty tech leaders, one dinner table, no sales pitch — just peers comparing notes.", "kr": "테크 리더 스무 분이 저녁 한 자리에서, 영업 없이 서로 경험을 나누는 자리입니다." },
+              { "sp": "B", "en": "Who else is coming?", "kr": "또 누가 오나요?" },
+              { "sp": "A", "en": "CTOs from commerce, fintech, and gaming — several are tackling the same platform problems you are.", "kr": "커머스·핀테크·게임 쪽 CTO들입니다 — 지금 겪고 계신 플랫폼 고민을 똑같이 하는 분들이 여럿이에요." },
+              { "sp": "B", "en": "That does sound useful. When is it?", "kr": "유용하겠네요. 언제죠?" },
+              { "sp": "A", "en": "Thursday the nineteenth, seven o'clock, in Gangnam. I'll send a calendar invite.", "kr": "19일 목요일 7시, 강남입니다. 캘린더 초대 보내드릴게요." },
+              { "sp": "B", "en": "Let me check my schedule and confirm by Friday.", "kr": "일정 확인하고 금요일까지 확답드릴게요." },
+              { "sp": "A", "en": "Of course. And if you'd like, bring your platform lead — the seats are flexible.", "kr": "물론입니다. 원하시면 플랫폼 리드도 함께 오세요 — 자리는 유동적입니다." },
+              { "sp": "B", "en": "I might do that. Thanks for thinking of us.", "kr": "그렇게 할지도요. 챙겨주셔서 고마워요." }
+            ]
+          },
+          "expressions": [
+            { "en": "I'd love to have you there.", "kr": "꼭 모시고 싶습니다." },
+            { "en": "comparing notes", "kr": "서로 경험·정보를 나누는" },
+            { "en": "confirm by Friday", "kr": "금요일까지 확답하다" },
+            { "en": "Thanks for thinking of us.", "kr": "저희를 챙겨줘서 고마워요." }
+          ]
+        },
+        {
+          "id": "relations-3",
+          "title": "윈백 재접촉",
+          "situation": "떠난 고객에게 몇 달 뒤 다시 연락 — 아픈 지점을 고쳤음을 보여주고 문을 연다",
+          "grounding": "서북 MSP 전환 면담의 후속 시나리오 (윈백 열어둠·9월 미팅 약속의 다음 장면)",
+          "dialogue": {
+            "title": "윈백 재접촉",
+            "lines": [
+              { "sp": "A", "en": "It's been a few months since the handover — I wanted to check how things are going.", "kr": "인수인계 후 몇 달이 지났네요 — 어떻게 지내시는지 궁금해서 연락드렸습니다." },
+              { "sp": "B", "en": "Honestly, the transition was bumpier than we expected.", "kr": "솔직히 전환이 생각보다 순탄치 않았어요." },
+              { "sp": "A", "en": "I'm sorry to hear that. Anything specific causing pain?", "kr": "안타깝네요. 특별히 힘든 부분이 있나요?" },
+              { "sp": "B", "en": "Response times. We used to get answers within the hour from your team.", "kr": "응답 속도요. 예전엔 그쪽 팀에서 한 시간 안에 답을 받았거든요." },
+              { "sp": "A", "en": "That's exactly what we've doubled down on since you left — we rebuilt the support rotation.", "kr": "떠나신 뒤 저희가 가장 집중해서 고친 부분이 그겁니다 — 지원 로테이션을 다시 짰어요." },
+              { "sp": "B", "en": "Is that so. What would coming back even look like?", "kr": "그래요? 돌아간다면 어떤 모습일까요?" },
+              { "sp": "A", "en": "A ninety-day transition with a dedicated engineer, and we'd honor your previous pricing.", "kr": "전담 엔지니어와 함께하는 90일 전환이고, 이전 가격 조건은 그대로 인정해 드립니다." },
+              { "sp": "B", "en": "No hard feelings about how we left?", "kr": "저희가 떠났던 것에 대해 감정은 없으신가요?" },
+              { "sp": "A", "en": "None. You made the right call with the information you had — our job is to earn the next one.", "kr": "전혀요. 그때 가진 정보로는 옳은 판단을 하신 겁니다 — 다음 판단을 얻어내는 건 저희 몫이죠." },
+              { "sp": "B", "en": "Let's have that drink and talk details.", "kr": "한잔하면서 자세히 얘기해 보죠." }
+            ]
+          },
+          "expressions": [
+            { "en": "bumpier than we expected", "kr": "예상보다 순탄치 않은" },
+            { "en": "double down on ~", "kr": "~에 더욱 집중하다" },
+            { "en": "honor your previous pricing", "kr": "이전 가격 조건을 그대로 인정하다" },
+            { "en": "No hard feelings.", "kr": "감정은 없습니다·서운함 없어요." }
+          ]
+        }
+      ]
+    }
+  ]
+}
