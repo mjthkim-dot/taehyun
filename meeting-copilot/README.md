@@ -176,6 +176,16 @@ npx tsx  meeting-copilot/tests/rag-eval.ts      # 같은 케이스, TS 러너
 node     meeting-copilot/tests/e2e.mjs          # Playwright E2E (샘플 트랜스크립트 주입)
 ```
 
+`e2e.mjs`는 mock Gemini와 게이트웨이 완화 env를 전제로 한다 — 실제 한도(무료 티어
+토큰버킷)로 띄우면 요청이 큐잉돼 Tier C 3건이 시간 초과로 실패한다(모델과 무관):
+
+```bash
+MOCK_RPM_LITE=1000 MOCK_RPM_FLASH=1000 python3 meeting-copilot/tests/mock_gemini.py &
+GEMINI_URL=http://127.0.0.1:3898 GEMINI_API_KEY=test GEMINI_TIER=paid \
+  GW_RPM=120 GW_RPM_FAST=120 GW_BURST=20 python3 meeting-copilot/server.py &
+node meeting-copilot/tests/e2e.mjs
+```
+
 `golden_routing.py`는 **면접 답변 품질의 기준선**이다. 검색·프롬프트·코퍼스를
 건드린 뒤에는 이걸 먼저 돌린다 — 통과 기준은 top3 ≥ 95%, 티어 정확도 100%.
 `GEMINI_API_KEY`가 있어야 의미검색 2단이 살아난다(없으면 top3 89%로 떨어진다).

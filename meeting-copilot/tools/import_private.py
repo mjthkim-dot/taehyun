@@ -27,6 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "backend"))
 import llm  # noqa: E402
 import rag  # noqa: E402
+import ingest  # noqa: E402
 
 IMP = ROOT / "backend" / "data" / "imported"
 
@@ -161,6 +162,13 @@ def main() -> int:
     r = st.add_chunks(chunks, embed=False)
     total = r.get("added", 0)
     print(f"✅ {total}개 청크 적재/갱신")
+    # 시드 용어집(domain/interview-corpus, 140개)은 서버가 첫 요청에서 넣는다.
+    # 임포터·골든셋은 서버를 거치지 않아, 새 체크아웃에서는 저장소가 개인 노트
+    # 55개뿐이었다(실측 2026-09-07) → BM25 문서빈도가 달라져 골든셋 2문항이
+    # 컨테이너와 다르게 라우팅됐다. 여기서 같은 함수를 불러 저장소 구성을 맞춘다.
+    seeded = ingest.ensure_seeded(st)
+    if seeded.get("seeded"):
+        print(f"📚 시드 용어집 {seeded['seeded']}개 적재 (앱과 같은 저장소 구성)")
     # 재적재는 원본 JSON이 이긴다 — 예전에 정정한 과장 주장이 그대로 되살아난다
     # (실측 2026-08-29: --replace 후 "Author of the L1-L4…" 4문구가 전부 복귀).
     # 정정은 한 번 하고 끝나는 일이 아니라서, 적재 직후 매번 다시 건다.

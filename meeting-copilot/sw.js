@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v41';  // v6.2: 읽는 사람을 위한 설계 — 프롬프터·B1 대본·interim 오프너·후속 40단어
+const SHELL = 'mc-shell-v42';  // v6.3: Gemini 3.8 Flash 전환 + 임포터 시드 적재(새 체크아웃 저장소 구성 일치)
 const ASSETS = ['/app.html', '/app.webmanifest'];
 
 self.addEventListener('install', e => {

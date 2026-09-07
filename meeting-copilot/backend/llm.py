@@ -52,7 +52,9 @@ GEMINI_URL = os.environ.get("GEMINI_URL", "https://generativelanguage.googleapis
 # 세대를 가리켜 답변이 중앙 4.8초·최대 13.3초로 튀었다(52초까지 관측). 3.6-flash는
 # 같은 품질에 중앙 1.97초·최대 2.11초로 꼬리가 없다 — 실시간 면접에는 예측 가능성이
 # 우선이라 버전을 고정한다. 폐기되면 아래 _FALLBACK_MODEL로 자동 전환한다.
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+# 3.8 flash — 2026-09-07 사용자 요청으로 3.6에서 전환. 존재 확인: models.list에 있음.
+# 세대마다 thinking 파라미터가 달라 _THINK_TRY 협상이 첫 호출에서 자동으로 맞춘다.
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
 GEMINI_FAST_MODEL = os.environ.get("GEMINI_FAST_MODEL", "gemini-3.1-flash-lite")
 # 무료 티어는 입력이 모델 개선에 사용될 수 있다(구글 약관) — 유료 결제 계정이면
 # GEMINI_TIER=paid 로 선언 (API로는 티어를 조회할 수 없어 선언 기반이다)
@@ -238,7 +240,8 @@ _THINK_TRY = [{"thinkingLevel": "minimal"}, {"thinkingBudget": 128},
 _think_cfg: dict[str, dict | None] = {}
 # 고정 버전이 폐기되면(구글은 실제로 gemini-2.5-flash를 404로 내렸다) 별칭으로 자동
 # 전환한다 — 미팅 도중 전 기능이 멈추는 것보다 조금 느린 편이 낫다.
-_FALLBACK_MODEL = {"gemini-3.6-flash": "gemini-flash-latest",
+_FALLBACK_MODEL = {"gemini-3.8-flash": "gemini-3.6-flash",     # 3.8이 사라지면 검증된 3.6으로
+                   "gemini-3.6-flash": "gemini-flash-latest",
                    "gemini-3.1-flash-lite": "gemini-flash-lite-latest"}
 _model_gone: dict[str, str] = {}
 
