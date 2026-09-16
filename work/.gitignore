@@ -1,0 +1,18 @@
+# 이 저장소는 public이다. 고객사 실데이터는 절대 커밋하지 않는다.
+# 추적하는 것: 구조(_TEMPLATE)·템플릿·설정·스크립트뿐.
+
+accounts/*
+!accounts/_TEMPLATE/
+
+pipeline/pipeline.csv
+pipeline/weekly/*
+!pipeline/weekly/_TEMPLATE.md
+
+archive/*
+!archive/.gitkeep
+
+# 산출물 바이너리
+*.pptx
+*.docx
+*.xlsx
+*.pdf

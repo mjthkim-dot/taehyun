@@ -1,0 +1,30 @@
+# 딜 스테이지 정의 — pipeline.csv 의 stage 컬럼은 이 값만 사용한다.
+# 각 스테이지의 exit_criteria 를 못 채우면 다음 단계로 못 넘어간다(추측 승급 방지).
+
+stages:
+  - id: prospect
+    label: 발굴
+    exit_criteria: "이해관계자 1인 이상 식별 + 첫 미팅 확정"
+  - id: qualify
+    label: 검증
+    exit_criteria: "Identified Pain + Economic Buyer 확인"
+  - id: propose
+    label: 제안
+    exit_criteria: "제안서/견적 전달 + 고객 피드백 수령"
+  - id: negotiate
+    label: 협상
+    exit_criteria: "가격·범위 합의 + 구매 프로세스(Paper Process) 확인"
+  - id: closing
+    label: 클로징
+    exit_criteria: "발주/계약 문서 진행 중"
+  - id: won
+    label: 수주
+  - id: lost
+    label: 실주
+
+blockers:
+  - budget_approval      # 예산 승인
+  - procurement          # 구매 프로세스
+  - partner_alignment    # 파트너 간 역할 조율
+  - technical_validation # 기술 검증(PoC)
+  - no_response          # 무응답

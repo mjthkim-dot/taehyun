@@ -1,0 +1,19 @@
+# 마크다운 섹션 → SFDC 필드 매핑.
+# 템플릿의 섹션 제목을 바꾸면 이 매핑이 깨진다. 제목은 계약이다.
+
+meeting_minutes:            # templates/meeting-minutes.md
+  "2. 고객 니즈 (발언 기반)": Description__CustomerNeeds
+  "3. 현재 단계 / 주요 이해관계자": StageName + Contacts
+  "4. 리스크 / 병목": Key_Blocker__c
+  "5. Next Action": NextStep
+  "6. SFDC 입력용 요약": Task.Description
+
+pipeline_csv:               # pipeline/pipeline.csv
+  slug: "(로컬 전용 키)"
+  account: Account.Name
+  sfdc_id: Account.Id
+  stage: Opportunity.StageName
+  amount_krw: Opportunity.Amount
+  close_date: Opportunity.CloseDate
+  next_action: Opportunity.NextStep
+  key_blocker: Opportunity.Key_Blocker__c
