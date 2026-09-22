@@ -152,6 +152,7 @@ LinkedIn 공개 채용 포스트 (2026.5, Dojin Kim) 요지 — **가장 중요�
 |---|---|---|
 | 당근마켓 월 비용 | **약 USD 2.6M** (Hyperbilling 기준) | 2026.5.18 AWS SBR |
 | 당근페이 월 비용 | **약 USD 88K** (Hyperbilling 기준) | 2026.5.18 AWS SBR |
+| **8월 총비용** | **USD 1.86M** (7월 대비 +0.6%) — **위 $2.6M와 집계 기준 상이** `[CONFIRM]` | 2026.9.15 AWS SBR |
 | 5월 특이사항 | $201.2k — 3년 All Upfront Compute Savings Plan 추정 | SBR 회의록 `[CONFIRM]` |
 | Support Plan | Enterprise | 신규 계정 통합빌링 요청 |
 | 확인된 AWS 계정 | 314695318048, 651188579251, 123801804680, 516008589093(2026.6 신규) | 내부 메일 |
@@ -170,16 +171,19 @@ LinkedIn 공개 채용 포스트 (2026.5, Dojin Kim) 요지 — **가장 중요�
 
 ### 4-3. AWS 펀드 확보 현황 — **가장 중요**
 
-**SCA GenAI Fund 3건 승인, 총 USD 750,000 (각 250K)**
+**SCA GenAI Fund 4건 승인, 총 USD 1,000,000 (각 250K)** *(2026-09-22 정정 — 4번째 건 및 집행 실적 확인)*
 
-| # | 프로젝트명 | PO Number | 상태 |
-|---|---|---|---|
-| 1 | SCA GenAI POC \| MegazoneCloud \| Daangn - **AI Data Platform Migration POC** (DW 전환) | — | 2026.7 승인, 인보이스 제출 완료 |
-| 2 | SCA GenAI POC \| MegazoneCloud \| Daangn - **AI Workload Winback Phase2** | KA-CUKWZGLH09 | 2026.9 승인, 인보이스 제출 완료 |
-| 3 | SCA GenAI POC \| MegazoneCloud \| Daangn - **Claude Platform on AWS Migration** | KA-X34LECR46R | 2026.9.17 승인, 인보이스 제출 완료 |
+| # | 프로젝트명 | PO Number | 승인 | 집행 | 잔액 |
+|---|---|---|---|---:|---:|
+| 1 | Daangn - **Expanding AI Workload** | KA-H1ERFA4921 | 2026-06 | **$112,254**<br>(07월 $86,254 / 08월 $26,000) | **$137,746** |
+| 2 | Daangn - **AI Data Platform Migration POC** (DW 전환) | `[CONFIRM]` | 2026-07 | 미적용 | $250,000 |
+| 3 | Daangn - **AI Workload Winback Phase2** | KA-CUKWZGLH09 | 2026-09 | 미적용 | $250,000 |
+| 4 | Daangn - **Claude Platform on AWS Migration** | KA-X34LECR46R | 2026-09-17 | 미적용 | $250,000 |
+| | **합계** | | | **$112,254** | **$887,746** |
 
 - Opportunity: O25059850 / O19498258
-- **현재 상태: 3건 모두 Cash 수령 절차 진행 중이며, "고객사와 논의 후 별도 적용 요청" 상태 — 즉 아직 고객에게 적용되지 않았다.**
+- 집행 계정: **324404180070**
+- **현재 상태: 4건 중 1건만 부분 집행(11.2%). 나머지 $887,746은 "고객사와 논의 후 별도 적용 요청" 상태로 미집행.**
 
 > **이게 9/29 리뷰의 핵심 액션이다.** 펀드 이름 세 개가 곧 하반기 플랜의 목차다: **① DW를 BigQuery에서 AWS로 ② 이탈한 AI 워크로드 되찾기 ③ Claude 플랫폼을 AWS 위로.** 750K를 어떤 순서로, 누구와, 언제 태울지가 정해지지 않으면 플랜은 문서로만 남는다.
 
@@ -280,7 +284,8 @@ LinkedIn 공개 채용 포스트 (2026.5, Dojin Kim) 요지 — **가장 중요�
 
 | 항목 | 내용 |
 |---|---|
-| 일시 | **2026-09-29(화)** (기존 9/18 금 → 카카오 리뷰와 슬롯 교환) |
+| 일시 | **2026-09-29(화) 15:30~17:00** (기존 9/18 금 10:30 → 카카오 리뷰와 슬롯 교환) |
+| 장소 | **과천사옥 5층 CEO 미팅룸** (Google Meet 병행) |
 | 형식 | **1·2부문 합동 단일 세션**, 발표는 부문별 개별 준비 |
 | 필수 참석 | AM, Sales Leader + **Account Plan에 언급된 실행 주체(테크/오버레이 세일즈/마케팅)** |
 | 1부문 문서 | [Account Plan — 1부문](https://docs.google.com/document/d/1Pf4GNpqXlFZiAiP5RMmQ6YW5u31DyR1J68A-mXUdwEU/edit) |
