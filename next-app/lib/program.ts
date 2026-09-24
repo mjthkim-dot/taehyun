@@ -34,6 +34,7 @@ import { getChatLogs } from './state';
 import { interviewHistory } from './interview';
 import type { Mode } from '../components/NavBar';
 import { getGraph } from './ontology/graph';
+import { wordsGradedToday } from './wordProgress';
 import { buildLearnerModel } from './ontology/mastery';
 import { recommend } from './ontology/planner';
 import type { UnitRef } from './ontology/schema';
@@ -85,7 +86,7 @@ function observedDone(key: BlockKey, spokenTarget: number): boolean {
   switch (key) {
     case 'warmup':
       // 복습 채점이 3개 이상 — 또는 오늘 복습할 카드가 아예 없으면 성립하지 않으므로 통과
-      return reviewedToday() >= 3;
+      return reviewedToday() >= 3 || wordsGradedToday() >= 10;
     case 'core':
       return sessionDoneToday();
     case 'output':
@@ -286,13 +287,23 @@ export interface TodayPlan {
   spoken: number;
 }
 
+/** 워밍업을 어디로 보낼까 — 문장 복습이 비어 있고 단어 공부를 시작했으면 단어로 */
+function wordsDueFirst(): boolean {
+  try {
+    const w = load<Record<string, unknown>>('va_words', {});
+    return Object.keys(w).length > 0 && load<unknown[]>('va_weak', []).length === 0;
+  } catch {
+    return false;
+  }
+}
+
 /** 오늘 할 4블록 — 순서가 곧 훈련 순서다(복습 → 코어 → 산출 → 실전). */
 function blocksFor(plan: ProgramWeek, minutes: number): ProgramBlock[] {
   // 약속한 시간에 맞춰 블록 분량을 비례 배분한다(15/25/40분 모두 같은 구조를 유지)
   const unit = minutes / 25;
   const m = (base: number) => Math.max(2, Math.round(base * unit));
   return [
-    { key: 'warmup', title: '워밍업 · 복습', why: '어제까지 틀린 문장을 먼저 지웁니다 — 잊기 직전에 다시 만나는 게 핵심', minutes: m(5), mode: 'review', goal: '카드 3개 이상' },
+    { key: 'warmup', title: '워밍업 · 복습', why: '잊기 직전인 문장·단어부터 다시 만납니다 — 문장 카드 3개 또는 단어 10개', minutes: m(5), mode: wordsDueFirst() ? 'words' : 'review', goal: '문장 3 · 단어 10' },
     { key: 'core', title: '코어 · 오늘의 패턴', why: '오늘의 원어민 패턴 하나를 문장으로 만들어 소리 내어 굳힙니다', minutes: m(10), mode: 'session' },
     { key: 'output', title: '산출 · 소리 내어 말하기', why: '아는 것과 말하는 것은 다릅니다 — 오늘 목표량만큼 실제로 발화합니다', minutes: m(7), mode: 'drill', goal: `${plan.spokenTarget}문장` },
     { key: 'field', title: plan.field.title, why: plan.field.why, minutes: m(3), mode: plan.field.mode, ...resolveField(plan) },

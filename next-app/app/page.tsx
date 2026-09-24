@@ -89,10 +89,12 @@ const BusinessScreen = dynamic(() => import('../components/BusinessScreen'), { s
 import MasterScreen from '../components/MasterScreen';
 const StudyScreen = dynamic(() => import('../components/StudyScreen'), { ssr: false, loading: ScreenLoading });
 const ProgramScreen = dynamic(() => import('../components/ProgramScreen'), { ssr: false, loading: ScreenLoading });
+const WordsScreen = dynamic(() => import('../components/WordsScreen'), { ssr: false, loading: ScreenLoading });
 const KnowledgeMapScreen = dynamic(() => import('../components/KnowledgeMapScreen'), { ssr: false, loading: ScreenLoading });
 import ReminderScheduler from '../components/ReminderScheduler';
 import ThemeToggle from '../components/ThemeToggle';
 import UpdatePrompt from '../components/UpdatePrompt';
+import DepthFX from '../components/DepthFX';
 import AskWidget from '../components/AskWidget';
 import Onboarding, { needsOnboarding } from '../components/Onboarding';
 import ServiceWorkerRegistrar from '../components/ServiceWorkerRegistrar';
@@ -115,6 +117,7 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
     render: (c) => <MasterScreen onSelectLesson={c.setLessonId} onNavigate={c.setMode} onStartToday={c.startTodayDrill} />,
   },
   program: { title: '12주 프로그램', render: (c) => <ProgramScreen onNavigate={c.setMode} /> },
+  words: { title: '단어', render: () => <WordsScreen /> },
   map: { title: '학습 지도', render: (c) => <LessonsGate><KnowledgeMapScreen onNavigate={c.setMode} onSelectLesson={c.setLessonId} /></LessonsGate> },
   study: { title: '레슨', render: (c) => <LessonsGate><StudyScreen lessonId={c.lessonId} onSelectLesson={c.setLessonId} /></LessonsGate> },
   drill: { title: '드릴', render: (c) => <LessonsGate><DrillScreen lessonId={c.lessonId} auto={c.autoDrill} /></LessonsGate> },
@@ -265,6 +268,7 @@ export default function Page() {
 
   return (
     <main className="app-shell">
+      <DepthFX />
       <header className="app-header">
         <div className="app-header-title">
           <span className="app-header-brand">EC</span>

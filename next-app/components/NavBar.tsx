@@ -8,6 +8,7 @@ export type Mode =
   | 'master'
   | 'program'
   | 'map'
+  | 'words'
   | 'study'
   | 'drill'
   | 'talk'
@@ -50,12 +51,13 @@ export type Mode =
 
 const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [
   { mode: 'master', icon: 'home', label: '홈' },
-  { mode: 'study', icon: 'lesson', label: '레슨' },
+  { mode: 'words', icon: 'words', label: '단어' },
   { mode: 'drill', icon: 'drill', label: '드릴' },
   { mode: 'talk', icon: 'talk', label: '회화' },
 ];
 
 const MORE_TABS: { mode: Mode; icon: string; label: string; desc: string }[] = [
+  { mode: 'study', icon: '📚', label: '레슨', desc: '회차 레슨 · CEFR 유닛' },
   { mode: 'review', icon: '📝', label: '복습', desc: '틀린 문장 간격 반복' },
   { mode: 'progress', icon: '📊', label: '진도', desc: 'CEFR · GSE 학습 현황' },
   { mode: 'map', icon: '🗺', label: '학습 지도', desc: '상황별 숙련도 · 이어서 할 회차 · 실전형' },

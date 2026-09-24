@@ -128,7 +128,7 @@ export default function ProgramCard({ onNavigate }: { onNavigate: (m: Mode) => v
   const doneCount = plan.blocks.filter((b) => b.done).length;
 
   return (
-    <div className="study-card pg-card">
+    <div className="study-card pg-card" data-tilt>
       <div className="pg-head">
         <div>
           <div className="pg-kicker">

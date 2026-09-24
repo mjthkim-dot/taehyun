@@ -9,6 +9,7 @@
  * 실전 코스 데이터(realCourse.json 등)를 여기서 import해도 홈 첫 페인트
  * 청크에는 실리지 않는다(DailyQuests와 같은 패턴).
  */
+import { todayQueue, wordStats } from '../lib/words';
 import type { Mode } from './NavBar';
 import { getEpisodes, readEpisodes } from '../lib/immersion';
 import { seenScenarios, totalMergedScenarios } from '../lib/realCourse';
@@ -54,7 +55,11 @@ function buildShortcuts(): Shortcut[] {
   const iv = interviewHistory();
   const last = iv[iv.length - 1];
 
+  const ws = wordStats();
+  const wq = todayQueue().length;
   const pool: Shortcut[] = [
+    // 단어 — 오늘 할 게 있으면 늘 맨 앞(복습이 밀리면 기억이 무너진다)
+    { mode: 'words', icon: '🗂', label: '상황별 단어', state: wq ? `오늘 ${wq}개` : `${ws.seen}/${ws.total} 학습`, hot: wq > 0 && ws.due > 0, fresh: ws.seen === 0 },
     nextEp
       ? { mode: 'immersion', icon: '📖', label: '몰입 스토리', state: `다음 ${nextEp.no}화 대기`, fresh: read.length === 0 }
       : { mode: 'immersion', icon: '📖', label: '몰입 스토리', state: '다음 화 만들기' },

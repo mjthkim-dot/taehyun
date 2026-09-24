@@ -47,7 +47,7 @@ check('스크립트 → 드릴 이동', (await page.evaluate(() => document.quer
 check('스크립트 출처 표시', (await page.evaluate(() => document.querySelector('.drill-source')?.textContent || '')).includes('가격 반론'));
 
 // 다른 레슨으로 갔다 오면 핸드오프가 남아있지 않아야 한다(1회 소비)
-await page.click('.mode-tab:has-text("레슨")');
+await page.click('.mode-tab:has-text("단어")'); // 다른 화면(주 탭)으로 이동
 await page.waitForTimeout(300);
 await page.click('.mode-tab:has-text("드릴")');
 await page.waitForSelector('.drill-screen', { timeout: 10000 });

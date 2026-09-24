@@ -98,7 +98,7 @@ await page.waitForSelector('.mission-card', { timeout: 15000 });
 const screens = [
   ['홈', null],
   ['회화', '회화'],
-  ['레슨', '레슨'],
+  ['단어', '단어'], // 주 탭이 레슨 → 단어로 바뀜(레슨은 더보기)
   ['드릴', '드릴'],
 ];
 for (const [name, tab] of screens) {

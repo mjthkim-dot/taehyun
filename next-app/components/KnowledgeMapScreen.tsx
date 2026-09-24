@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Mode } from './NavBar';
 import { lessonsNow } from '../lib/lessonData';
+import { wordStatsBySituation } from '../lib/words';
 import {
   buildLearnerModel,
   childSituations,
@@ -46,6 +47,8 @@ export default function KnowledgeMapScreen({ onNavigate, onSelectLesson }: { onN
   const g: Graph = useMemo(() => getGraph({ lessons: lessonsNow() }), []);
   const m: LearnerModel = useMemo(() => buildLearnerModel(g), [g, tick]);
   const recs: Recommendation[] = useMemo(() => recommend(g, m, { max: 3 }), [g, m]);
+  // 상황별 단어 숙련 — 같은 상황 id로 단어 팩이 그래프에 붙는다
+  const wordsBySit = useMemo(() => wordStatsBySituation(rootOf), [tick]);
   useEffect(() => {
     const onFocus = () => setTick((t) => t + 1);
     window.addEventListener('focus', onFocus);
@@ -167,6 +170,7 @@ export default function KnowledgeMapScreen({ onNavigate, onSelectLesson }: { onN
                       {rm.score}% · 회차 {rm.unitsTouched}/{rm.unitsTotal}
                       {rm.weak > 0 ? ` · 약한 표현 ${rm.weak}` : ''}
                       {rm.patternsTotal > 0 ? ` · 패턴 ${rm.patternsDone}/${rm.patternsTotal}` : ''}
+                      {wordsBySit[r.id] ? ` · 단어 ${wordsBySit[r.id].seen}/${wordsBySit[r.id].total}` : ''}
                     </span>
                   </span>
                   <span className="km-sit-arrow">{isOpen ? '▾' : '▸'}</span>
