@@ -35,6 +35,7 @@ import { interviewHistory } from './interview';
 import type { Mode } from '../components/NavBar';
 import { getGraph } from './ontology/graph';
 import { wordsGradedToday } from './wordProgress';
+import { overall } from './cefrGrowth';
 import { buildLearnerModel } from './ontology/mastery';
 import { recommend } from './ontology/planner';
 import type { UnitRef } from './ontology/schema';
@@ -320,7 +321,8 @@ function resolveField(plan: ProgramWeek): Partial<ProgramBlock> {
   try {
     const g = getGraph();
     const m = buildLearnerModel(g);
-    const [top] = recommend(g, m, { preferModes: [plan.field.mode], preferReal: plan.phase >= 2, max: 1, excludeSources: ['pattern', 'lesson', 'library'] });
+    const o = overall();
+    const [top] = recommend(g, m, { preferModes: [plan.field.mode], preferReal: plan.phase >= 2, max: 1, excludeSources: ['pattern', 'lesson', 'library'], level: { current: o.level, target: o.next } });
     if (!top) return {};
     const u = top.unit;
     return { title: `실전 · ${u.title}`, why: top.reason, mode: u.mode, unitRef: u.ref, goal: `${u.minutes}분` };

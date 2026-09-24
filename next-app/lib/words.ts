@@ -19,6 +19,7 @@ import { todayKey } from './dates';
 import { VOCAB_DOMAINS } from './domainVocab';
 import { groqKoJson, hasHangul } from './aiGuard';
 import { WORD_LOG_KEY, WORD_PROGRESS_KEY, wordLog, type WordDayLog } from './wordProgress';
+import { overall } from './cefrGrowth';
 
 export type WordLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
 
@@ -201,12 +202,34 @@ function selectedPacks(): WordPack[] {
   return sel.length ? sel : all;
 }
 
-/** 오늘 새로 배울 단어 — 고른 팩을 번갈아(상황 인터리빙), 팩 안에선 쉬운 레벨부터 */
-export function nextNewWords(n: number): Word[] {
+/** CEFR 목표 레벨(종합 다음 레벨) — 단어도 i+1로 고른다 */
+function targetWordLevel(): WordLevel {
+  try {
+    const t = overall().next as string;
+    return (LEVEL_ORDER.includes(t as WordLevel) ? t : 'C1') as WordLevel;
+  } catch {
+    return 'B1';
+  }
+}
+
+/** 목표 레벨에서의 거리 — 목표 → 한 단계 아래 → 더 아래 → 위 순서 */
+export function levelRank(lv: WordLevel, target: WordLevel): number {
+  const d = LEVEL_ORDER.indexOf(lv) - LEVEL_ORDER.indexOf(target);
+  if (d === 0) return 0;
+  if (d === -1) return 1;
+  if (d < -1) return 1 - d;
+  return 5 + d;
+}
+
+/**
+ * 오늘 새로 배울 단어 — 고른 팩을 번갈아(상황 인터리빙), 팩 안에선 **CEFR 목표 레벨
+ * 단어부터**(i+1). 너무 어려운 단어로 할당량을 채우지도, 이미 쉬운 단어만 돌지도 않게.
+ */
+export function nextNewWords(n: number, target: WordLevel = targetWordLevel()): Word[] {
   if (n <= 0) return [];
   const prog = progress();
   const lanes = selectedPacks().map((p) =>
-    p.words.filter((w) => !prog[w.id]).sort((a, b) => LEVEL_ORDER.indexOf(a.lv) - LEVEL_ORDER.indexOf(b.lv))
+    p.words.filter((w) => !prog[w.id]).sort((a, b) => levelRank(a.lv, target) - levelRank(b.lv, target))
   );
   const out: Word[] = [];
   let i = 0;

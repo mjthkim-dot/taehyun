@@ -1,16 +1,17 @@
 'use client';
 
 /** 독해 — voice-assistant/index.html 의 renderReading()/gradeReading() 포팅. AI 새 지문 생성 포함. */
+import { recordSkillResult, startLevelFor } from '../lib/cefrGrowth';
 import { useState } from 'react';
-import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/cefr';
-import { addPhrase, bumpSkill, getProfile, groqKey, markPracticedToday } from '../lib/state';
+import { CEFR_ORDER, type Cefr } from '../lib/cefr';
+import { addPhrase, groqKey, markPracticedToday } from '../lib/state';
 import { groqComplete, GroqError } from '../lib/groq';
 import { hasHangul } from '../lib/aiGuard';
 import { READING_BANK, type ReadingItem } from '../lib/contentBanks';
 import { speakText } from './SpeakButton';
 
 export default function ReadingScreen() {
-  const [level, setLevel] = useState<Cefr>(getProfile().cefr || 'A2');
+  const [level, setLevel] = useState<Cefr>(() => startLevelFor('reading'));
   const [item, setItem] = useState<ReadingItem | null>(null);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [graded, setGraded] = useState(false);
@@ -40,9 +41,7 @@ export default function ReadingScreen() {
       if (answers[i] === qq.a) correct++;
     });
     const ratio = correct / item.qs.length;
-    const band = CEFR_GSE[level];
-    const gse = Math.round(band.min + (band.max - band.min) * ratio);
-    bumpSkill('reading', gse);
+    recordSkillResult('reading', level, ratio * 100, 'reading');
     markPracticedToday();
     setGraded(true);
   }

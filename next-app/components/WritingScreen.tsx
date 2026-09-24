@@ -1,9 +1,10 @@
 'use client';
 
 /** 작문 — voice-assistant/index.html 의 renderWriting()/gradeWriting() 포팅. */
+import { recordSkillResult, startLevelFor } from '../lib/cefrGrowth';
 import { useState } from 'react';
-import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/cefr';
-import { bumpSkill, getProfile, groqKey, markPracticedToday } from '../lib/state';
+import { CEFR_ORDER, type Cefr } from '../lib/cefr';
+import { groqKey, markPracticedToday } from '../lib/state';
 import { GroqError } from '../lib/groq';
 import { AI_FAIL_KO, groqKoJson, hasHangul } from '../lib/aiGuard';
 import { WRITE_PROMPTS } from '../lib/contentBanks';
@@ -20,7 +21,7 @@ interface Feedback {
 }
 
 export default function WritingScreen() {
-  const [level, setLevel] = useState<Cefr>(getProfile().cefr || 'A2');
+  const [level, setLevel] = useState<Cefr>(() => startLevelFor('writing'));
   const [promptIdx, setPromptIdx] = useState(0);
   const [text, setText] = useState('');
   const [feedback, setFeedback] = useState<Feedback | null>(null);
@@ -81,9 +82,7 @@ JSON으로 답하라: {"cefr":"추정 CEFR (예: B1)","score":0-100 숫자,"summ
       // score가 "85/100" 같은 문자열로 와도 NaN이 스킬 저장소로 흘러가지 않게 한다
       const rawScore = Number(String(d.score ?? '').replace(/[^\d.]/g, ''));
       const score = Number.isFinite(rawScore) && rawScore > 0 ? Math.min(rawScore, 100) : 60;
-      const band = CEFR_GSE[level];
-      const gse = Math.round(band.min + (band.max - band.min) * Math.min(1, score / 100));
-      bumpSkill('writing', gse);
+      recordSkillResult('writing', level, score, 'writing');
       markPracticedToday();
     } catch (e) {
       setError(e instanceof GroqError ? e.message : AI_FAIL_KO);

@@ -4,6 +4,7 @@
  * CEFR 배치고사 — voice-assistant/index.html 의 renderPlacement()/gradePlacement() 포팅.
  * 18문항(A1~C2 각 3문항) 객관식으로 레벨을 추정하고 프로필/스킬 시작점을 설정한다.
  */
+import { syncCefr } from '../lib/cefrGrowth';
 import { useState } from 'react';
 import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/cefr';
 import { getProfile, getSkillStats, saveProfile, scaffoldFor, SKILLS, store } from '../lib/state';
@@ -78,6 +79,7 @@ export default function PlacementScreen({ onDone }: { onDone?: () => void }) {
     });
     store('va_skill_stats', stats);
     store('va_placed', { cefr: passed, gse, ts: Date.now() });
+    syncCefr(); // 배치 결과가 4기능의 출발점(사전값)이 된다
 
     setResult({ cefr: passed, gse, correct: totalCorrect });
   }

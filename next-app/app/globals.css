@@ -9627,3 +9627,377 @@ body::after {
     backdrop-filter: none;
   }
 }
+
+/* ════════════ CEFR (cf-*) — 홈의 주인공 ════════════ */
+.cf-hero {
+  border: 1px solid var(--lit-rim);
+}
+.cf-hero-q {
+  font-size: 1.15rem;
+  margin: 6px 0 8px;
+}
+.cf-hero-p {
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+.cf-hero-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+/* 3D 레벨 배지 — 두께(립)와 윗면 하이라이트를 가진 메달 */
+.cf-badge {
+  flex: none;
+  width: 92px;
+  height: 92px;
+  border-radius: 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--grad-primary);
+  color: var(--on-primary);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.3), inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 6px 0 var(--lip-primary), 0 22px 34px -14px rgba(0, 0, 0, 0.55);
+  transform: perspective(500px) rotateX(10deg) rotateY(-8deg);
+  margin-bottom: 6px;
+}
+.cf-badge-lv {
+  font-size: 2.3rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.cf-badge-name {
+  font-size: 0.7rem;
+  font-weight: 800;
+  opacity: 0.85;
+  margin-top: 3px;
+}
+.cf-hero-body {
+  flex: 1;
+  min-width: 0;
+}
+.cf-hero-goal {
+  font-size: 1.2rem;
+  font-weight: 800;
+  margin: 3px 0 2px;
+}
+.cf-hero-goal b {
+  color: var(--primary-dk);
+}
+.cf-bar {
+  display: block;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface2);
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  margin: 6px 0;
+}
+.cf-bar.thin {
+  height: 7px;
+  flex: 1;
+  margin: 0;
+}
+.cf-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.3);
+  transition: width 0.8s var(--spring);
+}
+.cf-hero-line {
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+.cf-skills {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+.cf-skill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 4px 9px;
+  border-radius: 16px;
+  background: var(--surface2);
+  box-shadow: inset 0 0 0 1px var(--lit-rim);
+}
+.cf-skill.weak {
+  box-shadow: inset 0 0 0 1.5px var(--yellow);
+}
+.cf-skill-ic {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.cf-skill-ic.big {
+  font-size: 1.5rem;
+}
+.cf-skill-name {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.cf-skill-lv {
+  font-size: 1rem;
+  font-weight: 900;
+}
+.cf-skill-bar {
+  display: block;
+  width: 70%;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.cf-skill-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+}
+.cf-cta {
+  width: 100%;
+  margin-top: 16px;
+  padding: 13px 16px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  text-align: left;
+}
+.cf-cta-main {
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+.cf-cta-sub {
+  font-size: 0.72rem;
+  font-weight: 700;
+  opacity: 0.85;
+}
+.cf-more {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  margin-top: 6px;
+  background: none;
+  border: none;
+  color: var(--primary-dk);
+  font-weight: 800;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.cf-rule {
+  font-size: 0.68rem;
+  line-height: 1.55;
+  text-align: center;
+}
+.cf-promo {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--primary-soft);
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 700;
+  animation: wd-pop 0.6s var(--spring);
+}
+.cf-trend {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 90px;
+  margin-top: 16px;
+}
+.cf-trend-col {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+}
+.cf-trend-bar {
+  width: 100%;
+  border-radius: 7px 7px 3px 3px;
+  background: linear-gradient(180deg, var(--primary), var(--primary-soft));
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.3);
+}
+.cf-trend-lbl {
+  font-size: 0.58rem;
+  color: var(--text-muted);
+}
+.cf-skill-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cf-skill-title {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.9rem;
+}
+.cf-skill-title .muted {
+  font-size: 0.72rem;
+}
+.cf-lv-chip {
+  font-weight: 900;
+  font-size: 1rem;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: var(--grad-primary);
+  color: var(--on-primary);
+  box-shadow: 0 3px 0 var(--lip-primary);
+}
+.cf-lv-chip.sm {
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  border-radius: 8px;
+  box-shadow: 0 2px 0 var(--lip-primary);
+}
+.cf-pips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+.cf-pip {
+  width: 22px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface2);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+.cf-pip.on {
+  background: var(--primary);
+}
+.cf-pip.half {
+  background: linear-gradient(90deg, var(--primary) 50%, var(--surface2) 50%);
+}
+.cf-pip-txt {
+  font-size: 0.72rem;
+  margin-left: 4px;
+}
+.cf-try {
+  width: 100%;
+  margin-top: 12px;
+}
+.cf-levels {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.cf-lv-tab {
+  min-height: 42px;
+  border-radius: 12px;
+  border: 1.5px solid var(--lit-rim);
+  background: linear-gradient(180deg, var(--surface-hi), var(--surface-lo));
+  color: var(--text);
+  font-weight: 900;
+  box-shadow: 0 3px 0 var(--lip-neutral);
+  cursor: pointer;
+}
+.cf-lv-tab.cur {
+  border-color: var(--primary);
+}
+.cf-lv-tab.on {
+  background: var(--primary);
+  color: var(--on-primary);
+  box-shadow: 0 3px 0 var(--lip-primary);
+}
+.cf-lv-sum {
+  font-size: 0.82rem;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+.cf-cando-group {
+  margin-top: 12px;
+}
+.cf-cando-sk {
+  font-size: 0.78rem;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.cf-cando {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 10px;
+  margin-bottom: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--lit-rim);
+  background: var(--surface2);
+  color: var(--text);
+  cursor: pointer;
+}
+.cf-cando-box {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border-strong);
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  color: var(--on-primary);
+}
+.cf-cando.on .cf-cando-box {
+  background: var(--primary);
+  border-color: transparent;
+}
+.cf-cando-body {
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.cf-cando-ex {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.cf-cando-tag {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-dk);
+}
+.cf-cando-tag.self {
+  background: var(--surface);
+  color: var(--text-muted);
+}
+.cf-fine {
+  font-size: 0.7rem;
+  line-height: 1.55;
+  margin-top: 8px;
+}
+.cf-vocab-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 0.74rem;
+}
+.cf-hist {
+  list-style: none;
+  font-size: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cf-badge {
+    transform: none;
+  }
+}

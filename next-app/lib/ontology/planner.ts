@@ -30,6 +30,8 @@ export interface PlanOptions {
   situation?: string;
   /** 이 출처는 제외 */
   excludeSources?: Unit['source'][];
+  /** 학습자 CEFR(현재·목표) — 목표 레벨 유닛을 앞세우고 두 단계 이상 위는 미룬다 */
+  level?: { current: string; target: string };
   max?: number;
 }
 
@@ -109,6 +111,13 @@ export function recommend(g: Graph, m: LearnerModel, opts: PlanOptions = {}): Re
     if (opts.preferReal && r.unit.real) r.score += 15;
     if (opts.preferModes?.includes(r.unit.mode)) r.score += 25;
     if (!prereqMet(r.unit, m)) r.score -= 30;
+    if (opts.level) {
+      const order = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+      const d = order.indexOf(r.unit.level) - order.indexOf(opts.level.target);
+      if (r.unit.level === opts.level.target) r.score += 12;
+      else if (r.unit.level === opts.level.current) r.score += 6;
+      else if (d >= 2) r.score -= 20;
+    }
   }
   list.sort((a, b) => b.score - a.score);
   // 같은 트랙이 상위를 독점하지 않게 — 트랙당 최대 2

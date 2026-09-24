@@ -9,10 +9,11 @@
  * AI 발음 코칭은 사용자가 직접 눌렀을 때만 1회 호출되는 옵트인 기능 — 평소 흐름에서는
  * Groq API를 전혀 쓰지 않는다(무료 한도 보호).
  */
+import { recordSkillResult } from '../lib/cefrGrowth';
 import { useEffect, useMemo, useState } from 'react';
-import { CEFR_GSE, cefrOf } from '../lib/cefr';
+import { cefrOf } from '../lib/cefr';
 import { lessonsNow } from '../lib/lessonData';
-import { addWeakItem, bumpSkill, buildTodayQueue, gradeWeakItem, groqKey, markPracticedToday, takeDrillQueue, type DrillItem, type FlashGrade } from '../lib/state';
+import { addWeakItem, buildTodayQueue, gradeWeakItem, groqKey, markPracticedToday, takeDrillQueue, type DrillItem, type FlashGrade } from '../lib/state';
 import { groqComplete, GroqError } from '../lib/groq';
 import { HANGUL_RE } from '../lib/aiGuard';
 import { useLessonStore } from '../store/useLessonStore';
@@ -138,9 +139,8 @@ export default function DrillScreen({ lessonId, auto = false }: { lessonId: numb
       const recorded = next.filter((s) => typeof s === 'number');
       const avg = recorded.length ? Math.round(recorded.reduce((a, b) => a + b, 0) / recorded.length) : 0;
       const cefr = cefrOf(lesson);
-      const band = CEFR_GSE[cefr];
-      const gse = Math.round(band.min + (band.max - band.min) * (avg / 100));
-      bumpSkill('speaking', gse);
+      // 따라 읽기 발음 점수 — 연습 기록으로만(레벨 입증에는 쓰지 않는다)
+      recordSkillResult('speaking', cefr, avg, 'drill');
       markPracticedToday();
       setFinished(true);
     } else {

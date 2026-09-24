@@ -9,6 +9,7 @@ export type Mode =
   | 'program'
   | 'map'
   | 'words'
+  | 'cefr'
   | 'study'
   | 'drill'
   | 'talk'
@@ -57,6 +58,7 @@ const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [
 ];
 
 const MORE_TABS: { mode: Mode; icon: string; label: string; desc: string }[] = [
+  { mode: 'cefr', icon: '🎯', label: 'CEFR 리포트', desc: '듣기·읽기·말하기·쓰기 레벨 · Can-do · 승급 조건' },
   { mode: 'study', icon: '📚', label: '레슨', desc: '회차 레슨 · CEFR 유닛' },
   { mode: 'review', icon: '📝', label: '복습', desc: '틀린 문장 간격 반복' },
   { mode: 'progress', icon: '📊', label: '진도', desc: 'CEFR · GSE 학습 현황' },

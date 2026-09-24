@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Mode } from './NavBar';
 import { lessonsNow } from '../lib/lessonData';
 import { wordStatsBySituation } from '../lib/words';
+import { overall as cefrOverall } from '../lib/cefrGrowth';
 import {
   buildLearnerModel,
   childSituations,
@@ -46,7 +47,10 @@ export default function KnowledgeMapScreen({ onNavigate, onSelectLesson }: { onN
   const [tick, setTick] = useState(0);
   const g: Graph = useMemo(() => getGraph({ lessons: lessonsNow() }), []);
   const m: LearnerModel = useMemo(() => buildLearnerModel(g), [g, tick]);
-  const recs: Recommendation[] = useMemo(() => recommend(g, m, { max: 3 }), [g, m]);
+  const recs: Recommendation[] = useMemo(() => {
+    const o = cefrOverall();
+    return recommend(g, m, { max: 3, level: { current: o.level, target: o.next } });
+  }, [g, m]);
   // 상황별 단어 숙련 — 같은 상황 id로 단어 팩이 그래프에 붙는다
   const wordsBySit = useMemo(() => wordStatsBySituation(rootOf), [tick]);
   useEffect(() => {

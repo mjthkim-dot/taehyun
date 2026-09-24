@@ -32,6 +32,11 @@ import { loadStories } from '../lib/storyData';
 import { weeklyTestDue } from '../lib/weeklyTest';
 import { programState, PROGRAM_EVENT } from '../lib/program';
 // 12주 프로그램 — 홈의 첫 카드. 서약 폼과 오늘 4블록을 모두 품어 무겁기에 지연 청크로.
+// CEFR 히어로 — 홈의 주인공(레벨·다음 레벨 조건). 첫 화면이라 자리표시자로 CLS를 막는다.
+const CefrHero = dynamic(() => import('./CefrHero'), {
+  ssr: false,
+  loading: () => <div className="study-card cf-hero" style={{ minHeight: 260 }} aria-hidden="true" />,
+});
 const ProgramCard = dynamic(() => import('./ProgramCard'), {
   ssr: false,
   loading: () => <div className="pg-card" style={{ minHeight: 200 }} aria-hidden="true" />,
@@ -205,7 +210,7 @@ export default function MasterScreen({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="home-hero-title">{APP_NAME_KO}</div>
           <div className="home-hero-sub">
-            {APP_TAGLINE_KO} · CEFR <b>{prof.cefr}</b> (GSE {prof.gse})
+            {APP_TAGLINE_KO}
           </div>
         </div>
       </div>
@@ -220,6 +225,9 @@ export default function MasterScreen({
           발화가 즉시 반영돼, 목표에 닿는 순간 이 자리에서 점화된다. */}
       {/* 12주 프로그램이 홈의 주인공 — 오늘 무엇을 할지 앱이 정해준다.
           프로그램을 돌리는 중이면 세션 CTA는 카드 안 '코어' 블록과 중복이라 감춘다. */}
+      {/* CEFR 성장이 앱의 메인 축 — 레벨과 다음 레벨 조건이 맨 위, 12주 프로그램은 그 수단 */}
+      <CefrHero onNavigate={onNavigate} onSelectLesson={onSelectLesson} />
+
       <ProgramCard onNavigate={onNavigate} />
 
       {/* 코스 중심 홈 — 고민 없이 누르는 오늘의 한 버튼이 맨 위 */}

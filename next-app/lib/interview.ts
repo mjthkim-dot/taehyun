@@ -12,6 +12,7 @@
  * 드릴로 핸드오프해 입에 붙인다. 시도 이력(va_interview_history)으로
  * 점수 추이를 본다.
  */
+import { recordSkillResult } from './cefrGrowth';
 import { load, store } from './state';
 import { groqKoJson, hasHangul } from './aiGuard';
 import { recordMistake, sanitizeMistakeType } from './transfer';
@@ -372,5 +373,7 @@ export async function evaluateInterview(role: string, steps: InterviewStep[], co
   // 점수 이력
   const hist = [...interviewHistory(), { date: new Date().toISOString(), role, score: picked.score }].slice(-HISTORY_MAX);
   store(HISTORY_KEY, hist);
+  // 영어 면접은 B2 과제(구조화된 논증·즉석 질의응답), JD 심층 라운드는 C1 과제
+  recordSkillResult('speaking', /Workato .*Enterprise|심층|EAE/i.test(role) ? 'C1' : 'B2', picked.score, 'interview');
   return picked;
 }

@@ -1,9 +1,10 @@
 'use client';
 
 /** 청해(딕테이션) — voice-assistant/index.html 의 renderListening()/checkListen() 포팅. */
+import { recordSkillResult, startLevelFor } from '../lib/cefrGrowth';
 import { useState } from 'react';
-import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/cefr';
-import { addWeakItem, bumpSkill, getProfile, markPracticedToday } from '../lib/state';
+import { CEFR_ORDER, type Cefr } from '../lib/cefr';
+import { addWeakItem, markPracticedToday } from '../lib/state';
 import { LISTEN_BANK } from '../lib/contentBanks';
 import { speakText } from './SpeakButton';
 import { useSlowRate } from './SpeechRate';
@@ -41,7 +42,8 @@ interface Queue {
 
 export default function ListeningScreen() {
   const slowListenRate = useSlowRate();
-  const [level, setLevel] = useState<Cefr>(getProfile().cefr || 'A2');
+  // 시작 레벨은 i+1(이 기능의 다음 레벨) — 입증하려면 한 단계 위를 풀어야 한다
+  const [level, setLevel] = useState<Cefr>(() => startLevelFor('listening'));
   const [queue, setQueue] = useState<Queue | null>(null);
   const [guess, setGuess] = useState('');
   const [result, setResult] = useState<{ acc: number; colored: { w: string; ok: boolean }[]; sent: string } | null>(null);
@@ -76,9 +78,8 @@ export default function ListeningScreen() {
     setGuess('');
     if (nextIdx >= queue.sentences.length) {
       const avg = Math.round(queue.scoreSum / queue.sentences.length);
-      const band = CEFR_GSE[level];
-      const gse = Math.round(band.min + (band.max - band.min) * (avg / 100));
-      bumpSkill('listening', gse);
+      // 점수를 레벨 구간에 끼워 GSE로 바꾸지 않는다(C2를 0점 맞아도 C2가 되던 결함) — 증거로 남긴다
+      recordSkillResult('listening', level, avg, 'listening');
       markPracticedToday();
       setDone(avg);
       setQueue(null);

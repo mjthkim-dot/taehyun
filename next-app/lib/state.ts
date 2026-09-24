@@ -92,25 +92,8 @@ export function getSkillStats(): SkillStats {
   return init;
 }
 
-export function bumpSkill(skill: SkillKey, sessionGse: number) {
-  const stats = getSkillStats();
-  const cur = stats[skill] || { gse: 10, sessions: 0 };
-  const alpha = 0.3;
-  cur.gse = Math.round(cur.gse * (1 - alpha) + sessionGse * alpha);
-  cur.sessions += 1;
-  stats[skill] = cur;
-  store('va_skill_stats', stats);
-
-  const prof = getProfile();
-  const avg = Math.round(SKILLS.reduce((a, sk) => a + (stats[sk.key]?.gse || 10), 0) / SKILLS.length);
-  if (avg > prof.gse) {
-    prof.gse = avg;
-    prof.cefr = gseToCefr(avg);
-    prof.scaffolding = scaffoldFor(prof.cefr);
-    saveProfile(prof);
-  }
-  return cur;
-}
+/* bumpSkill(레벨 구간 환산 + 오르기만 하는 래칫)은 lib/cefrGrowth.ts의
+ * 증거 기반 recordSkillResult로 대체됐다(2026-09 진단 참조). */
 
 export const DAILY_GOAL = 20;
 

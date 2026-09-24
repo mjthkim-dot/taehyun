@@ -7,11 +7,12 @@
  * 브라우저 내장 Web Speech로 물러난다.
  * 🎲 새 주제 생성·🔧 음성진단·미션 체크리스트는 관련 데이터가 아직 없어 이번 단계에서는 제외했다.
  */
+import { recordSkillResult } from '../lib/cefrGrowth';
 import { useEffect, useRef, useState } from 'react';
 import { CEFR_NEXT, cefrOf } from '../lib/cefr';
 import { lessonsNow } from '../lib/lessonData';
 import type { Lesson } from '../lib/lessons';
-import { groqKey, saveGroqKey, markPracticedToday, addPhrase, bumpSkill, load, store, saveChatLog, bumpSpoken } from '../lib/state';
+import { groqKey, saveGroqKey, markPracticedToday, addPhrase, load, store, saveChatLog, bumpSpoken } from '../lib/state';
 import { groqStream, groqComplete, validateGroqKey, GroqError } from '../lib/groq';
 import { groqKoJson, hasHangul } from '../lib/aiGuard';
 import { buildSystemPrompt, BG_CORRECT_SYS, lessonTargetGrammar, buildCafPrompt, buildScenarioReviewPrompt, parseAiText } from '../lib/talkPrompts';
@@ -817,7 +818,8 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
       const band = { A1: [10, 22], A2: [22, 36], B1: [36, 52], B2: [52, 64], C1: [64, 76], C2: [76, 90] }[cefr];
       const avg = (result.complexity + result.accuracy + result.fluency) / 3;
       const sessionGse = Math.round(band[0] + (avg / 10) * (band[1] - band[0]));
-      bumpSkill('speaking', sessionGse);
+      // 자유 발화 CAF 평가 = 말하기 레벨의 증거(0~10 → 0~100)
+      recordSkillResult('speaking', cefr as import('../lib/cefr').Cefr, avg * 10, 'talk');
       const sessions = load<{ date: string; lessonId: number; cefr: string; caf: unknown; wpm: number | null; gse: number }[]>('va_sessions', []);
       sessions.push({ date: new Date().toISOString(), lessonId: lesson.id, cefr, caf: { complexity: result.complexity, accuracy: result.accuracy, fluency: result.fluency }, wpm: result.metrics.wpm, gse: sessionGse });
       store('va_sessions', sessions.slice(-50));

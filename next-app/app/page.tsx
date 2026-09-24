@@ -89,6 +89,7 @@ const BusinessScreen = dynamic(() => import('../components/BusinessScreen'), { s
 import MasterScreen from '../components/MasterScreen';
 const StudyScreen = dynamic(() => import('../components/StudyScreen'), { ssr: false, loading: ScreenLoading });
 const ProgramScreen = dynamic(() => import('../components/ProgramScreen'), { ssr: false, loading: ScreenLoading });
+const CefrScreen = dynamic(() => import('../components/CefrScreen'), { ssr: false, loading: ScreenLoading });
 const WordsScreen = dynamic(() => import('../components/WordsScreen'), { ssr: false, loading: ScreenLoading });
 const KnowledgeMapScreen = dynamic(() => import('../components/KnowledgeMapScreen'), { ssr: false, loading: ScreenLoading });
 import ReminderScheduler from '../components/ReminderScheduler';
@@ -118,6 +119,7 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
   },
   program: { title: '12주 프로그램', render: (c) => <ProgramScreen onNavigate={c.setMode} /> },
   words: { title: '단어', render: () => <WordsScreen /> },
+  cefr: { title: 'CEFR 리포트', render: (c) => <CefrScreen onNavigate={c.setMode} onSelectLesson={c.setLessonId} /> },
   map: { title: '학습 지도', render: (c) => <LessonsGate><KnowledgeMapScreen onNavigate={c.setMode} onSelectLesson={c.setLessonId} /></LessonsGate> },
   study: { title: '레슨', render: (c) => <LessonsGate><StudyScreen lessonId={c.lessonId} onSelectLesson={c.setLessonId} /></LessonsGate> },
   drill: { title: '드릴', render: (c) => <LessonsGate><DrillScreen lessonId={c.lessonId} auto={c.autoDrill} /></LessonsGate> },
