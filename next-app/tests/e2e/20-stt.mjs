@@ -153,7 +153,7 @@ await preview.close();
 const mobileCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 const mob = await mobileCtx.newPage();
 mob.on('pageerror', (e) => console.log('  [pageerror]', e.message));
-await mob.addInitScript(() => localStorage.setItem('va_onboarded', 'true'));
+await mob.addInitScript(() => { localStorage.setItem('va_onboarded', 'true'); localStorage.setItem('va_mode', JSON.stringify('full')); });
 await mob.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ valid: true }) }));
 await mob.route('**/app/api/groq', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{}' } }] }) }));
 await mob.route('**/app/api/stt', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: 'Mobile whisper works.' }) }));

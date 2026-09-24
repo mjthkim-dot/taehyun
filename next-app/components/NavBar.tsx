@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Icon, { type IconName } from './Icon';
 import { haptic } from '../lib/haptics';
+import { FOCUS_EVENT, isFocusMode, setFocusMode } from '../lib/focus';
 
 export type Mode =
   | 'master'
@@ -93,9 +94,23 @@ const MORE_GROUPS: { title: string; items: { mode: Mode; icon: string; label: st
 ];
 const MORE_TABS = MORE_GROUPS.flatMap((g) => g.items);
 
+/** 집중 모드의 더보기 — 내 성장만. 나머지는 '모든 기능 보기'로 */
+const FOCUS_GROUPS = [{ title: '내 성장', items: MORE_GROUPS[0].items.slice(0, 2) }];
+/** 집중 모드의 하단 탭 — 드릴을 뺀 4개(홈·단어·회화·더보기) */
+const FOCUS_TABS: Mode[] = ['master', 'words', 'talk'];
+
 export default function NavBar({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreActive = MORE_TABS.some((t) => t.mode === mode);
+  const [focus, setFocus] = useState(false);
+  useEffect(() => {
+    const sync = () => setFocus(isFocusMode());
+    sync();
+    window.addEventListener(FOCUS_EVENT, sync);
+    return () => window.removeEventListener(FOCUS_EVENT, sync);
+  }, []);
+  const groups = focus ? FOCUS_GROUPS : MORE_GROUPS;
+  const tabs = focus ? PRIMARY_TABS.filter((t) => FOCUS_TABS.includes(t.mode)) : PRIMARY_TABS;
 
   return (
     <>
@@ -103,7 +118,7 @@ export default function NavBar({ mode, onChange }: { mode: Mode; onChange: (m: M
         <div className="more-sheet-overlay" onClick={() => setMoreOpen(false)}>
           <div className="more-sheet" onClick={(e) => e.stopPropagation()}>
             <div className="more-sheet-handle" />
-            {MORE_GROUPS.map((g) => (
+            {groups.map((g) => (
               <section key={g.title} className="more-group">
                 <h3 className="more-group-title">{g.title}</h3>
                 <div className="feat-grid">
@@ -124,12 +139,36 @@ export default function NavBar({ mode, onChange }: { mode: Mode; onChange: (m: M
                 </div>
               </section>
             ))}
+            {focus ? (
+              <button
+                type="button"
+                className="btn ghost more-mode"
+                onClick={() => {
+                  setFocusMode(false);
+                  setMoreOpen(false);
+                }}
+              >
+                모든 기능 보기 — 집중 모드 끄기
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn ghost more-mode"
+                onClick={() => {
+                  setFocusMode(true);
+                  setMoreOpen(false);
+                  onChange('master');
+                }}
+              >
+                집중 모드 켜기 — 꼭 필요한 것만
+              </button>
+            )}
           </div>
         </div>
       )}
 
       <nav className="mode-tabs">
-        {PRIMARY_TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.mode}
             className={`mode-tab${mode === t.mode ? ' active' : ''}`}

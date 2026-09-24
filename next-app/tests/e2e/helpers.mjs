@@ -40,7 +40,12 @@ export async function launch() {
   const orig = browser.newPage.bind(browser);
   browser.newPage = async (opts) => {
     const page = await orig(opts);
-    await page.addInitScript(() => localStorage.setItem('va_onboarded', 'true'));
+    await page.addInitScript(() => {
+      localStorage.setItem('va_onboarded', 'true');
+      // 기존 기능 테스트는 '모든 기능' 모드에서 돈다. 집중 모드(신규 사용자 기본값)는
+      // 75-focus가 별도 컨텍스트로 검증한다. 테스트가 직접 정했으면 건드리지 않는다.
+      if (!localStorage.getItem('va_mode')) localStorage.setItem('va_mode', JSON.stringify('full'));
+    });
     return page;
   };
   return browser;

@@ -29,6 +29,9 @@ import { pickTodayPattern, sessionDoneToday } from '../lib/session';
 import { loadStories } from '../lib/storyData';
 import { weeklyTestDue } from '../lib/weeklyTest';
 import { programState, PROGRAM_EVENT } from '../lib/program';
+import { isFocusMode, setFocusMode, FOCUS_EVENT } from '../lib/focus';
+import FocusGuide from './FocusGuide';
+import { isPlaced } from '../lib/state';
 // 12주 프로그램 — 홈의 첫 카드. 서약 폼과 오늘 4블록을 모두 품어 무겁기에 지연 청크로.
 // CEFR 히어로 — 홈의 주인공(레벨·다음 레벨 조건). 첫 화면이라 자리표시자로 CLS를 막는다.
 const CefrHero = dynamic(() => import('./CefrHero'), {
@@ -113,6 +116,7 @@ export default function MasterScreen({
     // 프로그램을 시작/초기화하면 홈 구성이 바뀐다(세션 CTA 노출 여부) — 즉시 반영
     const onProg = () => setTick((t) => t + 1);
     window.addEventListener(PROGRAM_EVENT, onProg);
+    window.addEventListener(FOCUS_EVENT, onProg);
     setFrozenFilled(consumeFreezesForGaps().length);
     setReady(true);
     const k = groqKey();
@@ -130,7 +134,10 @@ export default function MasterScreen({
         }
       });
     }
-    return () => window.removeEventListener(PROGRAM_EVENT, onProg);
+    return () => {
+      window.removeEventListener(PROGRAM_EVENT, onProg);
+      window.removeEventListener(FOCUS_EVENT, onProg);
+    };
   }, []);
   if (!ready) {
     // SSR/하이드레이션 전 첫 페인트 — null을 돌려주면 JS가 다 내려와 실행될 때까지
@@ -166,11 +173,14 @@ export default function MasterScreen({
     onNavigate('study');
   }
 
+  const focus = isFocusMode();
+  const prog = programState();
+  const guide = { placed: isPlaced(), started: !!prog, firstLessonDone: !!prog && prog.days.length > 0 };
   const now = new Date();
   const dateLine = `${now.getMonth() + 1}월 ${now.getDate()}일 ${'일월화수목금토'[now.getDay()]}요일`;
 
   return (
-    <div className="study-screen home-v4">
+    <div className={`study-screen home-v4${focus ? " focus" : ""}`}>
       <header className="home-hero">
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="home-hero-sub">{dateLine}</div>
@@ -206,6 +216,28 @@ export default function MasterScreen({
         </div>
       )}
 
+      {focus ? (
+        <>
+          <FocusGuide state={guide} onNavigate={onNavigate} />
+          {guide.placed && <CefrHero onNavigate={onNavigate} onSelectLesson={onSelectLesson} />}
+          {guide.placed && <ProgramCard onNavigate={onNavigate} />}
+          {guide.started && (
+            <>
+              <h2 className="hm-sec">오늘 기록</h2>
+              <StreakFlame refreshKey={tick} />
+            </>
+          )}
+          <div className="fg-foot">
+            <p className="muted">
+              집중 모드 — 매일 <b>오늘의 레슨</b> 하나만 하면 됩니다. 단어 복습도 레슨 안에 들어 있어요.
+            </p>
+            <button type="button" className="btn ghost fg-all" onClick={() => setFocusMode(false)}>
+              모든 기능 보기
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
       {/* ① 목표 — 내 CEFR 레벨 */}
       <CefrHero onNavigate={onNavigate} onSelectLesson={onSelectLesson} />
 
@@ -238,7 +270,12 @@ export default function MasterScreen({
         <button className="btn ghost" onClick={() => onNavigate('features')}>
           전체 학습 도구
         </button>
+        <button className="btn ghost" onClick={() => setFocusMode(true)}>
+          집중 모드로 돌아가기
+        </button>
       </div>
+        </>
+      )}
     </div>
   );
 }

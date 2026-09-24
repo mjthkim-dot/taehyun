@@ -40,7 +40,7 @@ const browser = await launch();
 const ctx = await browser.newContext();
 const page = await ctx.newPage();
 page.on('pageerror', (e) => console.log('  [pageerror]', e.message));
-await page.addInitScript(() => localStorage.setItem('va_onboarded', 'true'));
+await page.addInitScript(() => { localStorage.setItem('va_onboarded', 'true'); localStorage.setItem('va_mode', JSON.stringify('full')); });
 await page.goto(`${BASE}/app`);
 await page.waitForSelector('.mission-card', { timeout: 15000 });
 
