@@ -5,6 +5,7 @@
  * 한 뒤 단어 수·WPM·패턴 사용을 돌려준다. 지난주 기록과 나란히 보여 "내가
  * 늘고 있는가"를 스스로 확인하는 리추얼이다.
  */
+import { todayKey } from '../lib/dates';
 import { useEffect, useRef, useState } from 'react';
 import type { Mode } from './NavBar';
 import { patternsForTest, recordWeeklyTest, lastWeeklyTest, type WeeklyTestResult } from '../lib/weeklyTest';
@@ -56,7 +57,7 @@ export default function WeeklyTestScreen({ onNavigate }: { onNavigate: (m: Mode)
       const seconds = Math.round((res.durationMs ?? TEST_MS) / 1000);
       const wpm = seconds > 0 ? Math.round((words / seconds) * 60) : 0;
       const used = detectPatternUse(res.text, patterns.map((p) => p.key));
-      const record: WeeklyTestResult = { date: new Date().toISOString().slice(0, 10), seconds, words, wpm, used };
+      const record: WeeklyTestResult = { date: todayKey(), seconds, words, wpm, used };
       recordWeeklyTest(record);
       markPracticedToday();
       bumpSpoken();

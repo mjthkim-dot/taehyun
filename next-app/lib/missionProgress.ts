@@ -6,6 +6,7 @@
  * 완주해야 "오늘 미션 완료"가 활성화된다. 날짜+미션 단위로 저장돼
  * 자정이 지나면 자연히 리셋된다.
  */
+import { todayKey } from './dates';
 import { load, store } from './state';
 
 export type Stage = 'listen' | 'speak' | 'recall';
@@ -24,10 +25,7 @@ interface ProgressData {
 
 const KEY = 'va_mission_progress';
 
-function todayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+const todayStr = () => todayKey();
 
 function loadRaw(missionKey: string): ProgressData {
   const v = load<ProgressData | null>(KEY, null);

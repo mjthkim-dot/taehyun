@@ -14,6 +14,7 @@
  * 지표(시간·속도·채움말·멈춤)는 기기에서 계산해 키가 없어도 나오고, 구조 판단과
  * 코칭만 AI에 맡긴다.
  */
+import { todayKey } from '../lib/dates';
 import { useEffect, useRef, useState } from 'react';
 import {
   PITCH_TOPICS,
@@ -126,7 +127,7 @@ export default function PitchScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
       markPracticedToday();
       if (hasKey) void runCoach(res.text, m);
       // 코칭 없는 회차는 covered를 비워 둔다 — 0으로 저장하면 가짜 퇴보 추세가 된다
-      else savePitchRun({ id: `p-${Date.now()}`, date: new Date().toISOString().slice(0, 10), topicKey: topic.key, topicLabel: topic.label, transcript: res.text, metrics: m, covered: null, total: topic.outline.length });
+      else savePitchRun({ id: `p-${Date.now()}`, date: todayKey(), topicKey: topic.key, topicLabel: topic.label, transcript: res.text, metrics: m, covered: null, total: topic.outline.length });
     } catch (e) {
       stopRef.current = null;
       setTranscribing(false);
@@ -150,7 +151,7 @@ export default function PitchScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
       setCoach(c);
       savePitchRun({
         id: `p-${Date.now()}`,
-        date: new Date().toISOString().slice(0, 10),
+        date: todayKey(),
         topicKey: topic.key,
         topicLabel: topic.label,
         transcript: text,
@@ -162,7 +163,7 @@ export default function PitchScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
       // 코칭이 실패해도 지표는 이미 화면에 있다 — 여기서 무너뜨리지 않는다.
       // covered는 비워 둔다: 실패를 "구조 0칸"으로 저장하면 다음 회차에 가짜 퇴보로 보인다.
       setErr('AI 코칭을 받지 못했어요. 아래 지표는 그대로 유효합니다.');
-      savePitchRun({ id: `p-${Date.now()}`, date: new Date().toISOString().slice(0, 10), topicKey: topic.key, topicLabel: topic.label, transcript: text, metrics: m, covered: null, total: topic.outline.length });
+      savePitchRun({ id: `p-${Date.now()}`, date: todayKey(), topicKey: topic.key, topicLabel: topic.label, transcript: text, metrics: m, covered: null, total: topic.outline.length });
     } finally {
       setCoachBusy(false);
     }

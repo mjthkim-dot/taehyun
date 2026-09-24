@@ -17,15 +17,14 @@
  * 마일스톤(3·7·14·30·50·100·200·365일)은 하루 한 번만 축하한다 — 매번 뜨면
  * 축하가 아니라 소음이다.
  */
+import { dateKey } from './dates';
 import { load, store, calcStreak, spokenToday, dailyGoal } from './state';
 
 export const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100, 200, 365] as const;
 
 const CELEBRATED_KEY = 'va_streak_celebrated'; // 마지막으로 축하한 마일스톤 값
 
-function dstr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+const dstr = (d: Date) => dateKey(d);
 
 export type FlameLevel = 'off' | 'ember' | 'lit';
 

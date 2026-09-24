@@ -50,6 +50,7 @@ export default function FeaturesScreen({ onNavigate }: { onNavigate: (mode: Mode
           sub: placed ? '진단 완료 · 다시 보기' : '18문항 · 아직 안 봄',
           action: { kind: 'nav', mode: 'placement' },
         },
+        { icon: '🗺', label: '학습 지도', sub: '상황별 숙련도 · 회차 연속 · 실전형', action: { kind: 'nav', mode: 'map' } },
       ],
     },
     {

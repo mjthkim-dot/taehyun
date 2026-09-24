@@ -8,6 +8,7 @@
  * 교정은 va_mistakes로 들어가 돌발 모드·실전 콘텐츠 생성에 재사용되고,
  * 모범 답변은 드릴로 핸드오프한다 — "면접 준비"가 앱의 훈련 루프에 합류한다.
  */
+import { takeUnitHandoff } from '../lib/ontology/handoff';
 import { useEffect, useRef, useState } from 'react';
 import type { Mode } from './NavBar';
 import {
@@ -48,7 +49,12 @@ type Phase = 'setup' | 'running' | 'evaluating' | 'report';
 export default function InterviewScreen({ onNavigate }: { onNavigate: (m: Mode) => void }) {
   const [phase, setPhase] = useState<Phase>('setup');
   // 기본 선택은 임박한 라운드(월요일 HR 미팅) — 끝나면 심층 프리셋으로 바꿔 쓰면 된다
-  const [role, setRole] = useState<string>(WORKATO_HR_ROLE);
+  const [role, setRole] = useState<string>(() => {
+    const h = takeUnitHandoff('interview');
+    if (h?.key === 'workato') return WORKATO_ROLE;
+    if (h?.key === 'general') return ROLE_PRESETS[0];
+    return WORKATO_HR_ROLE;
+  });
   const [customRole, setCustomRole] = useState('');
   const [showAnswers, setShowAnswers] = useState(false);
   const [starting, setStarting] = useState(false);

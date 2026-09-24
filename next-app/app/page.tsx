@@ -89,6 +89,7 @@ const BusinessScreen = dynamic(() => import('../components/BusinessScreen'), { s
 import MasterScreen from '../components/MasterScreen';
 const StudyScreen = dynamic(() => import('../components/StudyScreen'), { ssr: false, loading: ScreenLoading });
 const ProgramScreen = dynamic(() => import('../components/ProgramScreen'), { ssr: false, loading: ScreenLoading });
+const KnowledgeMapScreen = dynamic(() => import('../components/KnowledgeMapScreen'), { ssr: false, loading: ScreenLoading });
 import ReminderScheduler from '../components/ReminderScheduler';
 import ThemeToggle from '../components/ThemeToggle';
 import UpdatePrompt from '../components/UpdatePrompt';
@@ -114,6 +115,7 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
     render: (c) => <MasterScreen onSelectLesson={c.setLessonId} onNavigate={c.setMode} onStartToday={c.startTodayDrill} />,
   },
   program: { title: '12주 프로그램', render: (c) => <ProgramScreen onNavigate={c.setMode} /> },
+  map: { title: '학습 지도', render: (c) => <LessonsGate><KnowledgeMapScreen onNavigate={c.setMode} onSelectLesson={c.setLessonId} /></LessonsGate> },
   study: { title: '레슨', render: (c) => <LessonsGate><StudyScreen lessonId={c.lessonId} onSelectLesson={c.setLessonId} /></LessonsGate> },
   drill: { title: '드릴', render: (c) => <LessonsGate><DrillScreen lessonId={c.lessonId} auto={c.autoDrill} /></LessonsGate> },
   talk: { title: '회화', render: (c) => <LessonsGate><TalkScreen lessonId={c.lessonId} /></LessonsGate> },

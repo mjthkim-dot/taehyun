@@ -6,6 +6,7 @@
  * 읽음 처리 + 단어장 SRS 등록 → "다음 화 만들기"로 이야기가 계속된다.
  * 난이도 배지는 성숙도 단계와 연동 — 승급하면 다음 화부터 올라간다.
  */
+import { takeUnitHandoff } from '../lib/ontology/handoff';
 import { useEffect, useRef, useState } from 'react';
 import {
   completeEpisode,
@@ -42,6 +43,8 @@ export default function ImmersionScreen() {
 
   useEffect(() => {
     refresh();
+    const h = takeUnitHandoff('story');
+    if (h) setOpen(Number(h.key));
     return () => {
       stopRef.current?.();
       stopSpeaking();

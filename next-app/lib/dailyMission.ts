@@ -7,6 +7,7 @@
  * 날짜 기준으로 매일 하나씩 돌려서 보여준다(매일 새로움 + 항상 관련 있음). 정적
  * 데이터라 키·네트워크 없이도 즉시 동작한다. 완료는 날짜로 기록해 하루 1회 판정.
  */
+import { dateKey } from './dates';
 import { load, store } from './state';
 import { groqKoJson, hasHangul } from './aiGuard';
 
@@ -632,10 +633,7 @@ const DONE_KEY = 'va_mission_done'; // 마지막으로 완료한 날짜(YYYY-MM-
 const OFFSET_KEY = 'va_mission_offset'; // 사용자가 "다른 상황"으로 넘긴 오프셋
 
 function todayStr(d = new Date()): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return dateKey(d);
 }
 
 /** 에폭 기준 '오늘'의 일련번호 — 날짜가 바뀌면 자동으로 다른 미션이 뜬다. */
@@ -781,6 +779,17 @@ export function takeMissionTalkContext(): MissionTalkCtx | null {
   return v && v.title ? v : null;
 }
 
-export function markMissionDone() {
+const DONE_KEYS = 'va_mission_done_keys';
+
+/** 완주한 미션 key 목록(영구, 최대 200) — 학습 지도가 "이 상황은 해봤다"를 아는 근거 */
+export function doneMissionKeys(): string[] {
+  return load<string[]>(DONE_KEYS, []);
+}
+
+export function markMissionDone(missionKey?: string) {
   store(DONE_KEY, todayStr());
+  if (missionKey) {
+    const keys = doneMissionKeys();
+    if (!keys.includes(missionKey)) store(DONE_KEYS, [...keys, missionKey].slice(-200));
+  }
 }

@@ -6,6 +6,7 @@
  * "지난 세션 기억"으로 주입한다. 최근 교정 2건도 함께 — 튜터가 같은 실수를
  * 이어서 봐줄 수 있게. 전부 로컬(localStorage), AI 추가 호출 없음.
  */
+import { todayKey } from './dates';
 import { load, store } from './state';
 import { getMistakes } from './transfer';
 
@@ -26,7 +27,7 @@ export function saveTutorSnapshot(history: { role: string; content: string }[]) 
     .slice(-MAX_LINES)
     .map((h) => `${h.role === 'user' ? 'U' : 'A'}: ${h.content.slice(0, MAX_LINE_CHARS)}`);
   if (!lines.length) return;
-  store(KEY, { date: new Date().toISOString().slice(0, 10), lines } satisfies TutorMemory);
+  store(KEY, { date: todayKey(), lines } satisfies TutorMemory);
 }
 
 /** 시스템 프롬프트에 붙일 기억 블록 — 기억이 없으면 빈 문자열. */

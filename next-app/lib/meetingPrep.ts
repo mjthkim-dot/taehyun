@@ -19,6 +19,7 @@
  * 저장은 기기에만 한다 — 고객사·안건은 업무 정보라 서버로 보내지 않는다(AI 호출에
  * 필요한 최소한만 프롬프트로 나간다는 점은 화면에 그대로 밝힌다).
  */
+import { todayKey } from './dates';
 import { groqKoJson, hasHangul } from './aiGuard';
 import { load, store } from './state';
 
@@ -83,10 +84,7 @@ export function pendingRetros(): MeetingPrep[] {
   return getMeetings().filter((m) => !m.done);
 }
 
-function today(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+const today = () => todayKey();
 
 const PREP_SYSTEM = [
   'You are an English coach for a Korean cloud/IT sales professional preparing for a real customer meeting.',

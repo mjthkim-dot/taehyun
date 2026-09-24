@@ -9,7 +9,8 @@
  * 각 시나리오엔 근거 스레드(grounding)가 붙는다 — "이건 지난달 실제로 있었던
  * 대화"라는 사실이 훈련 동기의 핵심이다.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { takeUnitHandoff } from '../lib/ontology/handoff';
 import type { Mode } from './NavBar';
 import {
   getCourseMeta,
@@ -37,6 +38,18 @@ export default function CourseScreen({ onNavigate }: { onNavigate: (m: Mode) => 
 
   const total = totalMergedScenarios();
   const done = seen.filter((id) => tracks.some((t) => t.scenarios.some((s) => s.id === id))).length;
+
+  // 학습 지도·프로그램에서 특정 시나리오를 지목해 들어오면 그 트랙을 펼치고 바로 연다
+  useEffect(() => {
+    const h = takeUnitHandoff('course');
+    if (!h) return;
+    const t = tracks.find((x) => x.scenarios.some((s) => s.id === h.key));
+    const s = t?.scenarios.find((x) => x.id === h.key);
+    if (!t || !s) return;
+    setOpenTrack(t.id);
+    handleOpen(s);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function doRefresh() {
     if (refreshing) return;

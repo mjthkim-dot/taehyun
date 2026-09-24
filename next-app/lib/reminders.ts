@@ -9,6 +9,7 @@
  *
  * 하루 한 번만, 그리고 실제로 복습할 카드가 있을 때만 알림을 보낸다.
  */
+import { dateKey } from './dates';
 import { dueWeak, load, store } from './state';
 import { isMissionDoneToday } from './dailyMission';
 
@@ -76,13 +77,7 @@ export function reminderBody(count: number, missionDone: boolean): string {
   return `복습할 카드 ${count}개가 기다리고 있어요. 지금 복습하고 연속 학습을 이어가세요!`;
 }
 
-function todayKey(now: Date): string {
-  // 로컬 타임존 기준 날짜 — 사용자가 보는 시계와 일치해야 하루 1회 판정이 맞다.
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
+const todayKey = (now: Date) => dateKey(now);
 
 /**
  * 지금 알림을 보낼지 결정하는 순수 함수 — 부수효과 없이 테스트 가능.

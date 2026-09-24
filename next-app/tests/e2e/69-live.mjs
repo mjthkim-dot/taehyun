@@ -68,7 +68,8 @@ check('전환 멘트가 낭독된다', await page.evaluate(() => (window.__spoke
 /* ② 침묵 → 자동 제출 → 자동으로 다음 질문 + 재청취 (클릭 0회) */
 await page.waitForFunction(() => document.body.innerText.includes('질문 2/5'), null, { timeout: 30000 });
 check('버튼 없이 자동 제출되고 다음 질문으로 흐른다', true);
-check('반응이 다음 질문 앞에 낭독된다', await page.evaluate(() => (window.__spoken || []).some((t) => t.includes('Great, thank you.'))));
+await page.waitForFunction(() => (window.__spoken || []).some((t) => t.includes('Great, thank you.')), null, { timeout: 15000 }); // TTS는 Groq 폴백 뒤 비동기
+check('반응이 다음 질문 앞에 낭독된다', true);
 await page.waitForFunction(() => document.body.innerText.includes('듣고 있어요'), null, { timeout: 15000 });
 check('다음 질문에서도 자동 청취가 이어진다', true);
 

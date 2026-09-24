@@ -8,6 +8,7 @@
  * 같은 상황으로 AI와 롤플레이. 마지막 단계가 핵심이라, 읽고 끝나지 않는다.
  */
 import { useState } from 'react';
+import { takeUnitHandoff } from '../lib/ontology/handoff';
 import { SALES_SCENARIOS, type SalesScenario } from '../lib/salesScenarios';
 import { setTalkContext } from '../lib/dailyMission';
 import { addPhrase, setDrillQueue } from '../lib/state';
@@ -17,7 +18,8 @@ import ContextAsk from './ContextAsk';
 import type { Mode } from './NavBar';
 
 export default function ScriptsScreen({ onNavigate }: { onNavigate: (m: Mode) => void }) {
-  const [openKey, setOpenKey] = useState<string | null>(null);
+  // 핸드오프로 들어오면 그 스크립트를 처음부터 펼친 상태로 시작한다
+  const [openKey, setOpenKey] = useState<string | null>(() => takeUnitHandoff('script')?.key ?? null);
   const [showDialogue, setShowDialogue] = useState(false);
   const [saved, setSaved] = useState<string[]>([]);
 

@@ -5,6 +5,8 @@
  * 복습 워밍업 → 패턴 스토리(장면으로 배우기) → 말하기 2단 → 실전 리콜이
  * 자동으로 이어진다. 무엇을 할지 고르는 화면이 없다는 것이 이 화면의 존재 이유.
  */
+import { todayKey } from '../lib/dates';
+import { takeUnitHandoff } from '../lib/ontology/handoff';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Mode } from './NavBar';
 import { computeMaturity } from '../lib/maturity';
@@ -40,7 +42,7 @@ export default function SessionScreen({ onNavigate }: { onNavigate: (m: Mode) =>
   // 오늘의 재료는 마운트 시 한 번 확정한다 — 도중에 바뀌면 길이 흔들린다
   const [setup] = useState(() => {
     const mx = computeMaturity();
-    const picked = pickTodayPattern(mx.stage.n);
+    const picked = pickTodayPattern(mx.stage.n, takeUnitHandoff('pattern')?.key);
     // 통합 복습 큐 — 문장 SRS(최대 2) + 지난 패턴 실전 리콜(최대 1).
     // 리콜은 오늘의 새 패턴과 겹치지 않게 뺀다(같은 걸 두 번 배우게 되지 않도록).
     const due = dueReviews(2, 1);
@@ -110,7 +112,7 @@ export default function SessionScreen({ onNavigate }: { onNavigate: (m: Mode) =>
     if (stepIdx >= setup.steps.length - 1) {
       // 완주 — 패턴 정착 + 사다리 완주로 기록(자동 승급의 재료)
       if (setup.picked && !setup.picked.isReview) markPatternDone(setup.picked.pattern.key);
-      if (setup.picked) markLadderDone(`session:${setup.picked.pattern.key}:${new Date().toISOString().slice(0, 10)}`);
+      if (setup.picked) markLadderDone(`session:${setup.picked.pattern.key}:${todayKey()}`);
       markSessionDone();
       markPracticedToday();
       setFinished(true);

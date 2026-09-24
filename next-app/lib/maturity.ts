@@ -13,6 +13,7 @@
  * 단계는 내려가지 않는다(va_maturity에 고정) — 컨디션 나쁜 주간이 성장 기록을
  * 깎아 먹으면 동기가 죽는다.
  */
+import { todayKey } from './dates';
 import { load, store } from './state';
 import { getProfile } from './state';
 import type { WeakItem } from './state';
@@ -197,7 +198,7 @@ export function computeMaturity(): MaturityState {
     promoted = true;
   }
   if (promoted || !stored) {
-    store(STAGE_KEY, { stage: stageN, reachedAt: new Date().toISOString().slice(0, 10) } satisfies StoredMaturity);
+    store(STAGE_KEY, { stage: stageN, reachedAt: todayKey() } satisfies StoredMaturity);
   }
 
   const stage = STAGES[stageN - 1];

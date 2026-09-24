@@ -10,6 +10,7 @@
  * 퀘스트: 오늘 할 일 3개(미션 완주 · 문장 20개 연습 · 복습 5개)를 기존
  * 데이터로 계산만 한다 — 새 인프라 없음. 달성 시 XP 적립, 주간 XP 그래프.
  */
+import { dateKey } from './dates';
 import { load, store, dueWeak, spokenToday, DAILY_GOAL } from './state';
 import { isMissionDoneToday } from './dailyMission';
 
@@ -23,9 +24,7 @@ const MISSION_DAYS_KEY = 'va_mission_days'; // 미션을 완료한 날짜들
 const XP_KEY = 'va_xp'; // Record<YYYY-MM-DD, number>
 const AWARD_KEY = 'va_quests_awarded'; // { date, ids: string[] }
 
-function dstr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+const dstr = (d: Date) => dateKey(d);
 
 interface FreezeState {
   count: number;

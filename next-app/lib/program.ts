@@ -26,12 +26,17 @@
  * 원어민과 실제 통화)도 있으므로 수동 체크를 항상 함께 둔다 — 앱이 사용자의
  * 학습을 부정하지 않게.
  */
+import { todayKey as localToday, daysBetween } from './dates';
 import { load, store, spokenToday, groqKey } from './state';
 import { sessionDoneToday } from './session';
 import { isMissionDoneToday } from './dailyMission';
 import { getChatLogs } from './state';
 import { interviewHistory } from './interview';
 import type { Mode } from '../components/NavBar';
+import { getGraph } from './ontology/graph';
+import { buildLearnerModel } from './ontology/mastery';
+import { recommend } from './ontology/planner';
+import type { UnitRef } from './ontology/schema';
 
 const KEY = 'va_program';
 
@@ -50,20 +55,9 @@ export const DAYS_PER_WEEK = 5;
 export const TOTAL_WEEKS = 12;
 export const TOTAL_DAYS = DAYS_PER_WEEK * TOTAL_WEEKS; // 60 훈련일
 
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
-}
+const todayKey = () => localToday();
 
-/**
- * 두 날짜(YYYY-MM-DD) 사이의 달력일 차이.
- * ms 차이를 반올림하면 오후에 시작한 날이 곧바로 '2일째'가 된다 — 날짜만 비교한다.
- */
-function daysBetween(fromDate: string, toDate: string): number {
-  const a = Date.parse(`${fromDate}T00:00:00Z`);
-  const b = Date.parse(`${toDate}T00:00:00Z`);
-  if (Number.isNaN(a) || Number.isNaN(b)) return 0;
-  return Math.round((b - a) / 86400000);
-}
+
 
 /* ────────────────────────── 블록 ────────────────────────── */
 
@@ -80,6 +74,10 @@ export interface ProgramBlock {
   mode: Mode;
   /** 오늘 이 블록의 정량 목표(있으면 카드에 표시) */
   goal?: string;
+  /** 온톨로지가 고른 구체 유닛 — 있으면 화면이 그 항목을 바로 펼친다 */
+  unitRef?: UnitRef;
+  /** 플래너의 추천 이유(한 줄) */
+  reason?: string;
 }
 
 /** 오늘 이 블록이 끝났다고 볼 수 있는 흔적이 있는가(관찰 기반 자동 체크). */
@@ -297,8 +295,27 @@ function blocksFor(plan: ProgramWeek, minutes: number): ProgramBlock[] {
     { key: 'warmup', title: '워밍업 · 복습', why: '어제까지 틀린 문장을 먼저 지웁니다 — 잊기 직전에 다시 만나는 게 핵심', minutes: m(5), mode: 'review', goal: '카드 3개 이상' },
     { key: 'core', title: '코어 · 오늘의 패턴', why: '오늘의 원어민 패턴 하나를 문장으로 만들어 소리 내어 굳힙니다', minutes: m(10), mode: 'session' },
     { key: 'output', title: '산출 · 소리 내어 말하기', why: '아는 것과 말하는 것은 다릅니다 — 오늘 목표량만큼 실제로 발화합니다', minutes: m(7), mode: 'drill', goal: `${plan.spokenTarget}문장` },
-    { key: 'field', title: plan.field.title, why: plan.field.why, minutes: m(3), mode: plan.field.mode },
+    { key: 'field', title: plan.field.title, why: plan.field.why, minutes: m(3), mode: plan.field.mode, ...resolveField(plan) },
   ];
+}
+
+/**
+ * 실전 블록의 "무엇을" — 온톨로지 플래너가 고른다.
+ * 주차의 실전 화면(쉐도잉/코스/회의/면접 …)으로 가는 유닛을 앞세우되, 시작한
+ * 트랙의 다음 회차·같은 상황의 다른 출처·약한 상황이 그보다 급하면 그쪽을 준다.
+ * 2·3단계는 실전형(실제 메일·경력·JD 근거) 우선. 그래프에 맞는 게 없으면 화면만 연다.
+ */
+function resolveField(plan: ProgramWeek): Partial<ProgramBlock> {
+  try {
+    const g = getGraph();
+    const m = buildLearnerModel(g);
+    const [top] = recommend(g, m, { preferModes: [plan.field.mode], preferReal: plan.phase >= 2, max: 1, excludeSources: ['pattern', 'lesson', 'library'] });
+    if (!top) return {};
+    const u = top.unit;
+    return { title: `실전 · ${u.title}`, why: top.reason, mode: u.mode, unitRef: u.ref, goal: `${u.minutes}분` };
+  } catch {
+    return {};
+  }
 }
 
 export function todayPlan(): TodayPlan | null {
@@ -407,7 +424,7 @@ export function programNudge(): { tone: 'good' | 'back' | 'start'; text: string 
       text: s.why ? `${gap}일 쉬었습니다. 시작할 때 이렇게 적으셨어요 — “${s.why}”` : `${gap}일 쉬었습니다. 오늘 한 블록만 해도 다시 이어집니다.`,
     };
   if (st.recentDensity >= 8) return { tone: 'good', text: `최근 2주에 ${st.recentDensity}일 훈련 — 이 속도면 ${st.projectedWeeks}주 뒤 완주입니다.` };
-  return { tone: 'good', text: `Day ${st.completed}/${TOTAL_DAYS} · 남은 ${st.remaining}일, 지금 속도로 약 ${st.projectedWeeks}주.` };
+  return { tone: 'good', text: `완료 ${st.completed}/${TOTAL_DAYS}일 · 남은 ${st.remaining}일, 지금 속도로 약 ${st.projectedWeeks}주.` };
 }
 
 /** AI 키 없이도 프로그램은 돌아가지만, 회화·면접 블록은 반쪽이 된다 — 화면이 정직하게 알린다. */

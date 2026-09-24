@@ -6,7 +6,8 @@
  * 여기서는 B(면접관·리크루터) 역할을 AI가 읽고 내(A) 대사를 말하는 연습이
  * 핵심이다 — 역할 연습 탭에서 A를 고르면 그대로 모의 인터뷰가 된다.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { takeUnitHandoff } from '../lib/ontology/handoff';
 import type { Mode } from './NavBar';
 import { getCareerTracks, openCareerScenario, seenCareer, totalCareerScenarios } from '../lib/careerPack';
 import type { CourseScenario } from '../lib/realCourse';
@@ -22,6 +23,17 @@ export default function CareerScreen({ onNavigate }: { onNavigate: (m: Mode) => 
 
   const total = totalCareerScenarios();
   const done = seen.filter((id) => tracks.some((t) => t.scenarios.some((s) => s.id === id))).length;
+
+  useEffect(() => {
+    const h = takeUnitHandoff('career');
+    if (!h) return;
+    const t = tracks.find((x) => x.scenarios.some((s) => s.id === h.key));
+    const s = t?.scenarios.find((x) => x.id === h.key);
+    if (!t || !s) return;
+    setOpenTrack(t.id);
+    handleOpen(s);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleOpen(s: CourseScenario) {
     if (openSc === s.id) {

@@ -8510,3 +8510,211 @@ body,
   color: var(--accent, #34c77b);
   padding-top: 1px;
 }
+
+/* ── 학습 지도 (km-*) — 온톨로지 그래프 화면 ── */
+.km-overall {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 4px;
+}
+.km-overall b {
+  font-size: 1.7rem;
+  font-weight: 800;
+}
+.km-bar {
+  display: block;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.08));
+  overflow: hidden;
+  margin: 6px 0;
+}
+.km-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent, #34c77b);
+}
+.km-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+}
+.km-stats > div {
+  text-align: center;
+  padding: 8px 4px;
+  border-radius: 10px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.05));
+}
+.km-stats b {
+  display: block;
+  font-size: 0.86rem;
+}
+.km-stats span {
+  display: block;
+  font-size: 0.64rem;
+  margin-top: 2px;
+}
+.km-recs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.km-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 18px 0 10px;
+}
+.km-tab {
+  flex: 1;
+  padding: 9px 6px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border, rgba(255, 255, 255, 0.14));
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.km-tab.on {
+  border-color: var(--accent, #34c77b);
+  color: var(--accent, #34c77b);
+  background: var(--accent-soft, rgba(52, 199, 123, 0.12));
+}
+.km-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.km-sit-head,
+.km-track-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+}
+.km-track-head {
+  cursor: default;
+  margin-bottom: 8px;
+}
+.km-sit-icon {
+  flex: none;
+  font-size: 1.3rem;
+  line-height: 1.2;
+}
+.km-sit-body {
+  flex: 1;
+  min-width: 0;
+}
+.km-sit-name {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.km-sit-meta {
+  display: block;
+  font-size: 0.68rem;
+}
+.km-sit-arrow {
+  flex: none;
+  color: var(--muted);
+  padding-top: 2px;
+}
+.km-sit-kids {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.km-kid-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.74rem;
+  font-weight: 700;
+  margin: 4px 2px 6px;
+}
+.km-unit {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: 11px;
+  padding: 9px 10px;
+  margin-top: 6px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.05));
+  color: inherit;
+  cursor: pointer;
+}
+.km-unit.done {
+  opacity: 0.72;
+}
+.km-unit-src {
+  flex: none;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft, rgba(52, 199, 123, 0.16));
+  color: var(--accent, #34c77b);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+.km-unit-body {
+  flex: 1;
+  min-width: 0;
+}
+.km-unit-title {
+  display: block;
+  font-size: 0.83rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.km-unit-why {
+  display: block;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--muted);
+  margin-top: 2px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.km-unit-meta {
+  display: block;
+  font-size: 0.66rem;
+  margin-top: 3px;
+}
+.km-unit-go {
+  flex: none;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent, #34c77b);
+  padding-top: 3px;
+}
+.km-track {
+  margin-bottom: 8px;
+}
+.km-track-done {
+  font-size: 0.74rem;
+  margin: 6px 0 0;
+}
+.km-real {
+  margin-bottom: 4px;
+}
+.km-grounding {
+  font-size: 0.68rem;
+  line-height: 1.5;
+  padding: 0 4px;
+  margin-top: -1px;
+}

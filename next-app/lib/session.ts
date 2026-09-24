@@ -9,6 +9,7 @@
  * 우선). 세션을 완주하면 패턴 정착 + 사다리 완주로 기록돼 자동 승급의 재료가
  * 된다. 콘텐츠는 전부 정적(patternStories) — AI 없이도 매일 완주 가능하다.
  */
+import { todayKey } from './dates';
 import { load, store, dueWeak } from './state';
 import { donePatterns, STAGE_PATTERNS, type NativePattern } from './maturity';
 import { storiesNow } from './storyData';
@@ -16,10 +17,7 @@ import type { PatternStory } from './patternStories';
 
 const DONE_KEY = 'va_session_last';
 
-function todayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+const todayStr = () => todayKey();
 
 export function sessionDoneToday(): boolean {
   return load<string>(DONE_KEY, '') === todayStr();
@@ -35,11 +33,18 @@ export function markSessionDone() {
  *  "I'd like..."가 떠 "맨날 똑같다"는 정확한 불만을 만들었다. 정착 못 해도
  *  내일은 다른 패턴을 만나고, 못 끝낸 패턴은 로테이션이 다시 데려온다.
  *  전부 정착했으면 같은 방식으로 복습을 돌린다. */
-export function pickTodayPattern(stageN: number): { pattern: NativePattern; story: PatternStory; isReview: boolean } | null {
+export function pickTodayPattern(stageN: number, forceKey?: string | null): { pattern: NativePattern; story: PatternStory; isReview: boolean } | null {
   const stories = storiesNow();
   const patterns = STAGE_PATTERNS[stageN] || [];
   if (!patterns.length) return null;
   const done = donePatterns();
+  // 학습 지도·프로그램이 특정 패턴을 지목했으면 로테이션보다 우선(어느 단계든)
+  if (forceKey) {
+    for (const list of Object.values(STAGE_PATTERNS)) {
+      const hit = list.find((p) => p.key === forceKey);
+      if (hit && stories[hit.key]) return { pattern: hit, story: stories[hit.key], isReview: done.includes(hit.key) };
+    }
+  }
   const daySeed = Number(todayStr().replace(/-/g, ''));
   const fresh = patterns.filter((p) => !done.includes(p.key) && stories[p.key]);
   if (fresh.length) {

@@ -19,8 +19,10 @@ import {
   todayPlan,
   TOTAL_DAYS,
   uncheckBlock,
+  type TodayBlock,
   type TodayPlan,
 } from '../lib/program';
+import { setUnitHandoff } from '../lib/ontology/handoff';
 
 const MINUTE_CHOICES = [
   { value: 15, label: '15분', desc: '바쁜 시즌에도 지킬 수 있는 최소선' },
@@ -118,6 +120,11 @@ export default function ProgramCard({ onNavigate }: { onNavigate: (m: Mode) => v
 
   const nudge = programNudge();
   const next = plan.blocks.find((b) => !b.done);
+  // 온톨로지가 고른 유닛이 있으면 핸드오프로 넘겨 화면이 그 항목을 바로 펼친다
+  const go = (b: TodayBlock) => {
+    if (b.unitRef) setUnitHandoff(b.unitRef);
+    onNavigate(b.mode);
+  };
   const doneCount = plan.blocks.filter((b) => b.done).length;
 
   return (
@@ -152,7 +159,7 @@ export default function ProgramCard({ onNavigate }: { onNavigate: (m: Mode) => v
         </div>
       ) : next ? (
         <>
-          <button type="button" className="pg-next" onClick={() => onNavigate(next.mode)}>
+          <button type="button" className="pg-next" onClick={() => go(next)}>
             <span className="pg-next-label">
               다음 {doneCount > 0 && <em>({doneCount}/4 완료)</em>}
             </span>
@@ -196,7 +203,7 @@ export default function ProgramCard({ onNavigate }: { onNavigate: (m: Mode) => v
               >
                 {b.done ? '✓' : ''}
               </button>
-              <button type="button" className="pg-block-main" onClick={() => onNavigate(b.mode)}>
+              <button type="button" className="pg-block-main" onClick={() => go(b)}>
                 <span className="pg-block-title">
                   {b.title} <em className="muted">{b.minutes}분</em>
                   {b.auto && <span className="pg-auto">자동 확인</span>}

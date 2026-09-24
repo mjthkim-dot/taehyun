@@ -6,9 +6,11 @@
  * 3개 표현을 완주해야 '오늘 미션 완료'가 열린다. 표현을 탭하면 딥카드(뉘앙스·변형·
  * 흔한 실수·응답 페어·확인 문제)가 펼쳐져 한 표현을 6층 깊이로 소화한다.
  */
+import { takeUnitHandoff } from '../lib/ontology/handoff';
 import { useEffect, useRef, useState } from 'react';
 import {
   getTodayMission,
+  BUSINESS_MISSIONS,
   nextMission,
   isMissionDoneToday,
   markMissionDone,
@@ -38,7 +40,12 @@ function micSupported(): boolean {
 
 export default function DailyMissionCard({ onNavigate, onProgress }: { onNavigate: (m: Mode) => void; onProgress?: () => void }) {
   // 오늘 AI로 만든 미션이 있으면 그걸 이어서, 없으면 날짜 순환 미션을 쓴다.
-  const [mission, setMission] = useState<BusinessMission>(() => getCustomMissionToday() ?? getTodayMission());
+  const [mission, setMission] = useState<BusinessMission>(() => {
+    // 학습 지도에서 특정 미션을 지목했으면 오늘 로테이션보다 그것을 우선한다
+    const h = takeUnitHandoff('mission');
+    const picked = h ? BUSINESS_MISSIONS.find((m) => m.key === h.key) : null;
+    return picked ?? getCustomMissionToday() ?? getTodayMission();
+  });
   const [done, setDone] = useState(() => isMissionDoneToday());
   const [openPhrase, setOpenPhrase] = useState<number | null>(null);
   const [saved, setSaved] = useState<Record<string, boolean>>({});
@@ -115,7 +122,7 @@ export default function DailyMissionCard({ onNavigate, onProgress }: { onNavigat
 
   function complete() {
     if (!canComplete) return;
-    markMissionDone();
+    markMissionDone(mission.key);
     markPracticedToday();
     setDone(true);
     // 미션 완료일 기록 — 3일마다 스트릭 프리즈 1개 적립(최대 2개).

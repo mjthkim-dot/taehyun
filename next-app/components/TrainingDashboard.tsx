@@ -8,6 +8,7 @@
  * 원칙: 개시 지연은 절대 기준 없이 본인 추이만(기기 편차). 데이터가 없으면
  * 채근하지 않고 "쌓이면 보인다"고 안내한다.
  */
+import { dateKey } from '../lib/dates';
 import { useEffect, useState } from 'react';
 import type { Mode } from './NavBar';
 import { attemptStats, latencyGoal, type DayStat, type LatencyGoal } from '../lib/reviewEngine';
@@ -85,7 +86,7 @@ export default function TrainingDashboard({ onNavigate, variant = 'hero' }: { on
     setMTypes(mistakeTypeCounts().slice(0, 3));
     setTests(getWeeklyTests().slice(-6));
     // 발음 축 상위 3 — 최근 14일
-    const since = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+    const since = dateKey(new Date(Date.now() - 14 * 86400000));
     const agg = new Map<string, number>();
     for (const r of getPronLapses()) {
       if (r.date < since) continue;

@@ -4,6 +4,7 @@
  */
 // lessons.ts가 아니라 cefr.ts에서 가져온다 — lessons.ts는 371KB짜리 JSON을 정적
 // import하므로, 여기서 부르면 상태를 읽는 모든 화면이 전 레슨 본문을 안고 시작한다.
+import { todayKey as localToday, dateKey } from './dates';
 import { CEFR_GSE, CEFR_ORDER, gseMid, gseToCefr, scaffoldFor, type Cefr } from './cefr';
 
 /** 저장 실패(용량 초과)를 앱에 알리는 신호 — 조용히 데이터를 잃지 않기 위해. */
@@ -119,9 +120,8 @@ export function dailyGoal(): number {
   return typeof v === 'number' && v > 0 ? v : DAILY_GOAL;
 }
 
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
-}
+// 날짜 키는 lib/dates.ts 단일 정의를 쓴다(리뷰 F1: UTC/로컬 분열 해소)
+const todayKey = () => localToday();
 
 export function markPracticedToday() {
   const days = load<string[]>('va_days', []);
@@ -162,7 +162,7 @@ export function spokenHistory(days = 14): { date: string; count: number }[] {
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const key = dateKey(d);
     out.push({ date: key, count: log[key] || 0 });
   }
   return out;
@@ -180,7 +180,7 @@ export function weeklyCounts() {
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
+    const key = dateKey(d);
     out.push({ label: days[d.getDay()], count: counts[key] || 0, today: i === 0 });
   }
   return out;
@@ -190,8 +190,8 @@ export function calcStreak() {
   const days = new Set(load<string[]>('va_days', []));
   let streak = 0;
   const d = new Date();
-  if (!days.has(d.toISOString().slice(0, 10))) d.setDate(d.getDate() - 1);
-  while (days.has(d.toISOString().slice(0, 10))) {
+  if (!days.has(dateKey(d))) d.setDate(d.getDate() - 1);
+  while (days.has(dateKey(d))) {
     streak++;
     d.setDate(d.getDate() - 1);
   }
@@ -471,7 +471,7 @@ export function getPronLapses(): PronLapse[] {
 /** 오늘 날짜에 축별로 1씩 누적. 같은 날 같은 축은 한 줄로 합친다. */
 export function addPronLapses(keys: string[]) {
   if (!keys.length) return;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayKey();
   const rows = getPronLapses();
   for (const key of keys) {
     const hit = rows.find((r) => r.key === key && r.date === today);
@@ -485,7 +485,7 @@ export function addPronLapses(keys: string[]) {
 export function topPronLapses(days = 7, max = 3): { key: string; count: number }[] {
   const since = new Date();
   since.setDate(since.getDate() - (days - 1));
-  const from = since.toISOString().slice(0, 10);
+  const from = dateKey(since);
   const tally: Record<string, number> = {};
   for (const r of getPronLapses()) {
     if (r.date < from) continue;
