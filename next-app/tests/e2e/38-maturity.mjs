@@ -27,6 +27,8 @@ await seedKey(page);
 // 1단계 승급 조건(GSE 32·사다리 2·뼈대 패턴 4)을 넘는 증거를 심는다 → 자동 승급 기대
 await page.addInitScript(() => {
   localStorage.setItem('va_profile', JSON.stringify({ cefr: 'B1', gse: 38, scaffolding: 1 }));
+  // CEFR 엔진이 프로필을 증거에서 다시 계산한다 — B1 출발점은 배치고사로 준다
+  localStorage.setItem('va_placed', JSON.stringify({ cefr: 'B1', gse: 38, ts: Date.now() }));
   localStorage.setItem('va_ladder_done', JSON.stringify(['s1', 's2', 's3', 's4']));
   localStorage.setItem('va_maturity_patterns', JSON.stringify(['id-like', 'could-you', 'get-back', 'that-works']));
 });
@@ -34,10 +36,13 @@ await page.addInitScript(() => {
 await page.goto(`${BASE}/app`);
 await page.waitForSelector('.mission-card', { timeout: 15000 });
 
-/* ── ③ 홈 성장 카드 ── */
-await page.waitForSelector('.growth-card', { timeout: 8000 });
+/* ── ③ 성장 카드 — CEFR 리포트 안의 보조 지표(홈은 CEFR 한 축) ── */
+await page.click('.mode-tab:has-text("더보기")');
+await page.waitForSelector('.more-sheet .feat-card', { timeout: 8000 });
+await page.click('.more-sheet .feat-card:has-text("CEFR 리포트")');
+await page.waitForSelector('.growth-card', { timeout: 15000 });
 const homeCard = await page.evaluate(() => document.querySelector('.growth-card')?.innerText || '');
-check('홈 카드가 자동 승급된 성숙도 2를 보여준다', homeCard.includes('성숙도 2'), homeCard.replace(/\n/g, ' '));
+check('성장 카드가 자동 승급된 성숙도 2를 보여준다', homeCard.includes('성숙도 2'), homeCard.replace(/\n/g, ' '));
 
 /* ── ① 자동 승급 + ② 고정·축하 ── */
 const storedStage = await page.evaluate(() => JSON.parse(localStorage.getItem('va_maturity') || '{}').stage);

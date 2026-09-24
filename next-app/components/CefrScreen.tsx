@@ -8,6 +8,7 @@
  *   ④ 어휘 폭: 레벨별 마스터 단어 수(CEFR 어휘 범위 척도의 보조 지표)
  *   ⑤ 승급 기록, 배치고사 다시 보기
  */
+import GrowthCard from './GrowthCard';
 import { useMemo, useState } from 'react';
 import type { Mode } from './NavBar';
 import { CEFR_ORDER, type Cefr } from '../lib/cefr';
@@ -158,6 +159,9 @@ export default function CefrScreen({ onNavigate, onSelectLesson }: { onNavigate:
         ))}
         <p className="muted cf-fine">입증됨 = 해당 기능이 이 레벨을 과제 점수로 입증. 자기평가는 체크해도 레벨을 올리지 않아요(정직한 기록).</p>
       </div>
+
+      <div className="pg-sec-h">원어민 표현 단계</div>
+      <GrowthCard onNavigate={onNavigate} />
 
       <div className="pg-sec-h">어휘 폭 — 레벨별 마스터 단어</div>
       <div className="study-card cf-vocab">

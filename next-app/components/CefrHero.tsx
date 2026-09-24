@@ -13,7 +13,6 @@ import { LEVEL_SUMMARY } from '../lib/cefrDescriptors';
 import {
   nextActions,
   overall,
-  PASSES_NEEDED,
   setLevelPreset,
   SKILL_LABEL,
   syncCefr,
@@ -48,12 +47,10 @@ export default function CefrHero({ onNavigate, onSelectLesson }: { onNavigate: (
     return (
       <div className="study-card cf-hero" data-tilt>
         <div className="pg-kicker">CEFR 레벨</div>
-        <h2 className="cf-hero-q">내 영어는 지금 어느 레벨일까요?</h2>
-        <p className="muted cf-hero-p">
-          국제 표준 CEFR(A1~C2)로 출발점을 잡으면, 앱의 모든 연습이 다음 레벨을 입증하는 과제로 바뀝니다.
-        </p>
+        <h2 className="cf-hero-q">먼저 내 레벨을 확인하세요</h2>
+        <p className="muted cf-hero-p">국제 표준 CEFR(A1~C2) 기준 · 18문항 · 약 5분</p>
         <button type="button" className="btn primary cf-cta" onClick={() => onNavigate('placement')}>
-          5분 레벨 진단 시작 →
+          5분 레벨 진단 시작
         </button>
       </div>
     );
@@ -75,7 +72,7 @@ export default function CefrHero({ onNavigate, onSelectLesson }: { onNavigate: (
           <span className="cf-badge-name">{LEVEL_SUMMARY[o.level].name}</span>
         </div>
         <div className="cf-hero-body">
-          <div className="pg-kicker">CEFR · GSE {o.gse}</div>
+          <div className="pg-kicker">내 레벨 · CEFR</div>
           <div className="cf-hero-goal">
             {o.level === 'C2' ? '최상급 도달' : (
               <>
@@ -86,7 +83,6 @@ export default function CefrHero({ onNavigate, onSelectLesson }: { onNavigate: (
           <div className="cf-bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
             <span style={{ width: `${pct}%` }} />
           </div>
-          <div className="cf-hero-line muted">{LEVEL_SUMMARY[o.level].line}</div>
         </div>
       </div>
 
@@ -104,19 +100,15 @@ export default function CefrHero({ onNavigate, onSelectLesson }: { onNavigate: (
       </div>
 
       {top && (
-        <button type="button" className="btn primary cf-cta" onClick={() => goAction(top, onNavigate, onSelectLesson)}>
-          <span className="cf-cta-main">{top.title}</span>
-          <span className="cf-cta-sub">
-            {top.detail} · {o.skillsAtNext}/3 기능 도달
-          </span>
+        // 홈의 주 행동은 '오늘의 레슨' 하나 — 레벨 과제는 보조 버튼으로 둔다
+        <button type="button" className="btn cf-cta" onClick={() => goAction(top, onNavigate, onSelectLesson)}>
+          <span className="cf-cta-main">다음 레벨 과제 · {top.title.replace(/^\S+\s/, '').replace(/\(.*\)/, '').trim()}</span>
+          <span className="cf-cta-sub">{top.detail}</span>
         </button>
       )}
       <button type="button" className="cf-more" onClick={() => onNavigate('cefr')}>
-        CEFR 리포트 · Can-do 체크리스트 →
+        레벨 리포트 보기
       </button>
-      <p className="cf-rule muted">
-        레벨은 증거로만 오릅니다 — 한 단계 위 과제에서 70점 이상 {PASSES_NEEDED}회를 4기능 중 3개가 채우면 승급.
-      </p>
     </div>
   );
 }

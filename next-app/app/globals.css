@@ -10001,3 +10001,236 @@ body::after {
     transform: none;
   }
 }
+
+/* ════════════ HOME v4 — "오늘의 학습" 구조 (v1.25.0) ════════════
+   Speak·Ringle의 짜임새: 목표(레벨) → 오늘의 레슨(주 행동 1개) → 기록 → 실전 → 코스.
+   섹션마다 같은 크기·같은 간격의 제목을 두어 화면의 뼈대가 먼저 읽히게 한다. */
+.home-v4 .home-hero {
+  display: flex;
+  align-items: flex-end;
+  padding: 4px 4px 14px;
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+.home-v4 .home-hero-sub,
+.study-screen .home-hero .home-hero-sub {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0;
+}
+.home-v4 .home-hero-title,
+.study-screen .home-hero .home-hero-title {
+  font-size: 1.65rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  margin-top: 2px;
+}
+.hm-sec,
+.hs-title.hm-sec {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin: 26px 4px 10px;
+  text-transform: none;
+}
+.hm-lcp {
+  font-size: 1.02rem;
+  line-height: 1.8;
+  padding: 6px 4px 0;
+  color: var(--text-muted);
+}
+.hm-free {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.hm-free .btn.ghost {
+  width: 100%;
+}
+
+/* 오늘의 레슨 카드 */
+.pg-lesson-title {
+  font-size: 1.22rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+  margin: 4px 0 4px;
+}
+.pg-meta {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+.pg-steps {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: 16px 0 14px;
+  padding: 0;
+  counter-reset: none;
+}
+.pg-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+/* 스텝 사이 연결선 */
+.pg-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 15px;
+  left: calc(50% + 18px);
+  right: calc(-50% + 18px);
+  height: 2px;
+  border-radius: 2px;
+  background: var(--surface2);
+}
+.pg-step.done:not(:last-child)::after {
+  background: var(--primary);
+}
+.pg-step-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 900;
+  background: var(--surface2);
+  color: var(--text-muted);
+  box-shadow: inset 0 0 0 1.5px var(--lit-rim);
+}
+.pg-step.now .pg-step-dot {
+  background: var(--surface-hi);
+  color: var(--primary-dk);
+  box-shadow: inset 0 0 0 2px var(--primary), 0 0 0 4px var(--primary-soft);
+}
+.pg-step.done .pg-step-dot {
+  background: var(--primary);
+  color: var(--on-primary);
+  box-shadow: 0 2px 0 var(--lip-primary);
+}
+.pg-step-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.3;
+}
+.pg-step.now .pg-step-name,
+.pg-step.done .pg-step-name {
+  color: var(--text);
+}
+.pg-pledge .pg-title {
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+.pg-mins {
+  flex-direction: row;
+}
+.pg-min {
+  flex: 1;
+  text-align: center;
+}
+
+/* CEFR 카드 — 목표 표시는 조용하게(주 행동은 레슨 카드) */
+.cf-hero .cf-cta {
+  margin-top: 14px;
+}
+.cf-hero .cf-cta .cf-cta-sub {
+  color: var(--text-muted);
+}
+
+/* 더보기 — 목적별 그룹 */
+.more-group + .more-group {
+  margin-top: 14px;
+}
+.more-group-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  margin: 4px 4px 8px;
+}
+.more-group .feat-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.more-group .feat-card .sub {
+  font-size: 0.66rem;
+  line-height: 1.4;
+}
+
+/* 홈에서는 레벨 카드를 압축 — 첫 화면에 '오늘의 레슨' 시작 버튼까지 보이게 */
+.home-v4 .cf-hero {
+  padding: 14px 16px;
+}
+.home-v4 .cf-hero-row {
+  gap: 12px;
+}
+.home-v4 .cf-badge {
+  width: 58px;
+  height: 58px;
+  border-radius: 17px;
+  margin-bottom: 4px;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.3), 0 4px 0 var(--lip-primary), 0 12px 20px -10px rgba(0, 0, 0, 0.5);
+}
+.home-v4 .cf-badge-lv {
+  font-size: 1.45rem;
+}
+.home-v4 .cf-badge-name {
+  font-size: 0.6rem;
+  margin-top: 1px;
+}
+.home-v4 .cf-hero-goal {
+  font-size: 1rem;
+}
+.home-v4 .cf-bar {
+  height: 7px;
+  margin: 4px 0 0;
+}
+.home-v4 .cf-skills {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 12px;
+}
+.home-v4 .cf-skill {
+  flex-direction: row;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 2px;
+  border-radius: 11px;
+}
+.home-v4 .cf-skill-ic,
+.home-v4 .cf-skill-bar {
+  display: none;
+}
+.home-v4 .cf-skill-name {
+  font-size: 0.68rem;
+}
+.home-v4 .cf-skill-lv {
+  font-size: 0.8rem;
+}
+.home-v4 .cf-hero .cf-cta {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 13px;
+}
+.home-v4 .cf-cta-main {
+  font-size: 0.8rem;
+}
+.home-v4 .cf-cta-sub {
+  font-size: 0.66rem;
+}
+.home-v4 .cf-more {
+  min-height: 36px;
+  margin-top: 2px;
+  font-size: 0.74rem;
+}
+.home-v4 .pg-card {
+  margin-top: 2px;
+}

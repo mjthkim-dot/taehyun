@@ -66,9 +66,9 @@ check('연결 완료 안내', await full.evaluate(() => !!document.querySelector
 // 목표를 40으로 바꾸고 진단 없이 시작
 await full.click('.onb-goal:has-text("집중")');
 await full.click('.onb-skip'); // 진단 없이 바로 시작
-await full.waitForSelector('.stat-hero', { timeout: 10000 });
+await full.waitForSelector('.streak-fuel-label', { timeout: 15000 });
 check('선택한 목표가 저장됨', (await full.evaluate(() => JSON.parse(localStorage.getItem('va_daily_goal') || '0'))) === 40);
-check('홈 지표에 목표 반영', (await full.evaluate(() => document.querySelector('.stat-hero-num span')?.textContent || '')).includes('40'));
+check('홈 지표에 목표 반영', (await full.evaluate(() => document.querySelector('.streak-fuel-label')?.textContent || '')).includes('/40'));
 
 /* ── 레벨 진단으로 이어가기 ── */
 const place = await browser.newPage();

@@ -97,7 +97,7 @@ export default function HomeShortcuts({ onNavigate }: { onNavigate: (m: Mode) =>
   const items = buildShortcuts();
   return (
     <div className="hs-wrap">
-      <div className="hs-title">이어서 하기</div>
+      <h2 className="hs-title hm-sec">이어서 하기</h2>
       <div className="hs-row" role="list">
         {items.map((s) => (
           <button

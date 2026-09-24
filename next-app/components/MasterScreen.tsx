@@ -5,8 +5,7 @@
  * 배치고사/숙제 도우미/암기 카드/표현장은 아직 next-app에 없어 기능(features) 탭으로 이동시킨다.
  */
 import { useEffect, useState } from 'react';
-import { APP_NAME_KO, APP_TAGLINE_KO } from '../lib/brand';
-import { getProfile, calcStreak, todayCount, spokenToday, dueWeak, groqKey, isPlaced, getPhrases, DAILY_GOAL, dailyGoal, SERVER_GROQ_SENTINEL, hasServerGroqKey, clearGroqKey } from '../lib/state';
+import { calcStreak, dueWeak, groqKey, SERVER_GROQ_SENTINEL, hasServerGroqKey, clearGroqKey } from '../lib/state';
 import { validateGroqKey } from '../lib/groq';
 const DailyMissionCard = dynamic(() => import('./DailyMissionCard'), {
   ssr: false,
@@ -16,7 +15,6 @@ const DailyMissionCard = dynamic(() => import('./DailyMissionCard'), {
 import dynamic from 'next/dynamic';
 // 뷰포트 아래(스크롤 후) 컴포넌트는 하이드레이션 임계 경로에서 뺀다 —
 // 홈 첫 페인트~상호작용 사이 시간(LCP)을 줄이는 Lighthouse 대응.
-const DailyQuests = dynamic(() => import('./DailyQuests'), { ssr: false });
 // 이어서 하기 — 기능 그리드에 묻힌 핵심 기능을 진행 상태와 함께 홈에 노출.
 // 코스 데이터(JSON)를 끌고 오므로 반드시 지연 청크로(홈 첫 페인트 보호).
 const HomeShortcuts = dynamic(() => import('./HomeShortcuts'), {
@@ -26,7 +24,7 @@ const HomeShortcuts = dynamic(() => import('./HomeShortcuts'), {
 import { consumeFreezesForGaps, getFreezeCount } from '../lib/habits';
 const CurriculumPath = dynamic(() => import('./CurriculumPath'), { ssr: false });
 import StreakFlame from './StreakFlame';
-import { computeMaturity, type MaturityState } from '../lib/maturity';
+import { computeMaturity } from '../lib/maturity';
 import { pickTodayPattern, sessionDoneToday } from '../lib/session';
 import { loadStories } from '../lib/storyData';
 import { weeklyTestDue } from '../lib/weeklyTest';
@@ -91,26 +89,6 @@ function SessionCta({ onNavigate }: { onNavigate: (m: Mode) => void }) {
   );
 }
 
-/** 홈의 컴팩트 성장 카드 — 성숙도 단계와 다음 승급 진행도를 한 줄로. 탭하면 성장 화면. */
-function GrowthCard({ onNavigate }: { onNavigate: (m: Mode) => void }) {
-  const [mx, setMx] = useState<MaturityState | null>(null);
-  useEffect(() => setMx(computeMaturity()), []);
-  if (!mx) return null;
-  const pct = Math.round(mx.progress * 100);
-  return (
-    <button type="button" className="growth-card" onClick={() => onNavigate('growth')}>
-      <span className="growth-stage">{mx.stage.n}</span>
-      <span className="growth-body">
-        <span className="growth-name">
-          성숙도 {mx.stage.n} · {mx.stage.name}
-          <i className="growth-motto">“{mx.stage.motto}”</i>
-        </span>
-        <span className="growth-bar"><i style={{ width: `${pct}%` }} /></span>
-      </span>
-      <span className="growth-pct">{mx.stage.next ? `${pct}%` : 'MAX'}</span>
-    </button>
-  );
-}
 
 export default function MasterScreen({
   onSelectLesson,
@@ -161,18 +139,16 @@ export default function MasterScreen({
     // 클래스는 실제 홈 히어로와 동일 — 마운트 후 교체돼도 레이아웃이 튀지 않는다.
     return (
       <div className="study-screen">
-        <div className="home-hero">
+        <header className="home-hero">
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="home-hero-title">{APP_NAME_KO}</div>
-            <div className="home-hero-sub">{APP_TAGLINE_KO}</div>
+            <div className="home-hero-sub">&nbsp;</div>
+            <div className="home-hero-title">오늘의 학습</div>
           </div>
-        </div>
-        {/* LCP 앵커 — 이후 어떤 요소(온보딩 카드 포함)보다 커야 LCP가 첫 페인트에 고정된다 */}
-        <p style={{ fontSize: '1.08rem', lineHeight: 1.85, padding: '6px 4px 0', color: 'var(--text)' }}>
-          읽고 끝나는 영어가 아니라, 소리 내어 말하는 연습을 매일 이어가는 훈련 앱입니다.
-          오늘 세션으로 하루 10분 훈련하고, 원어민 사다리로 표현을 다듬고, AI 롤플레이로
-          실전 감각을 붙입니다. 진옥 선생님 수업 노트가 자동으로 복습 카드가 되어
-          배운 것이 잊히기 전에 돌아옵니다.
+        </header>
+        {/* LCP 앵커 — 첫 페인트에 의미 있는 큰 텍스트를 고정한다(Lighthouse) */}
+        <p className="hm-lcp">
+          CEFR 레벨을 기준으로, 매일 한 레슨씩 — 복습하고, 핵심 표현을 익히고, 소리 내어 말하고,
+          실제 업무 상황에 써봅니다. 오늘의 레슨을 불러오고 있어요.
         </p>
       </div>
     );
@@ -181,193 +157,88 @@ export default function MasterScreen({
 
   // 프로그램 진행 중이면 홈의 주도권은 프로그램 카드에 있다(중복 CTA 억제)
   const onProgram = !!programState();
-  const prof = getProfile();
   const streak = calcStreak();
-  const done = todayCount();
-  const spoken = spokenToday();
   const dueCount = dueWeak().length;
-  const phraseCount = getPhrases().length;
   // 스픽 벤치마크: '공부 횟수'가 아니라 '소리 내어 말한 문장 수'를 오늘의 1급 지표로.
-  const goal = dailyGoal();
-  const goalPct = Math.min(spoken / goal, 1);
-  const goalReached = spoken >= goal;
-  const R = 26;
-  const C = 2 * Math.PI * R;
-  const off = C * (1 - goalPct);
 
   function goToUnit(lessonId: number) {
     onSelectLesson(lessonId);
     onNavigate('study');
   }
 
+  const now = new Date();
+  const dateLine = `${now.getMonth() + 1}월 ${now.getDate()}일 ${'일월화수목금토'[now.getDay()]}요일`;
+
   return (
-    <div className="study-screen">
-      <div className="home-hero">
-        <div className="home-hero-avatar">EC</div>
-        {/* 히어로에서 스트릭 배지를 뺐다 — 헤더(🔥n)와 아래 목표 카드에 이미 두 번
-            나오는데, 좁은 화면에서 이 박스가 제목 폭을 잡아먹어 "AI 스|피킹"처럼
-            어절이 잘리는 원인이었다. 제목은 브랜드명만, 부제에 한 줄로 모은다. */}
+    <div className="study-screen home-v4">
+      <header className="home-hero">
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="home-hero-title">{APP_NAME_KO}</div>
-          <div className="home-hero-sub">
-            {APP_TAGLINE_KO}
-          </div>
+          <div className="home-hero-sub">{dateLine}</div>
+          <div className="home-hero-title">오늘의 학습</div>
         </div>
-      </div>
+      </header>
 
-      {frozenFilled > 0 && (
-        <div className="freeze-note">
-          ❄️ 스트릭 프리즈가 {frozenFilled}일을 지켜줬어요 — 연속 {streak}일이 그대로 이어집니다. (남은 프리즈 {freeze})
-        </div>
-      )}
-
-      {/* 불꽃 히어로 — 발화가 불을 붙인다(스픽 벤치마크). tick으로 미션·연습의
-          발화가 즉시 반영돼, 목표에 닿는 순간 이 자리에서 점화된다. */}
-      {/* 12주 프로그램이 홈의 주인공 — 오늘 무엇을 할지 앱이 정해준다.
-          프로그램을 돌리는 중이면 세션 CTA는 카드 안 '코어' 블록과 중복이라 감춘다. */}
-      {/* CEFR 성장이 앱의 메인 축 — 레벨과 다음 레벨 조건이 맨 위, 12주 프로그램은 그 수단 */}
-      <CefrHero onNavigate={onNavigate} onSelectLesson={onSelectLesson} />
-
-      <ProgramCard onNavigate={onNavigate} />
-
-      {/* 코스 중심 홈 — 고민 없이 누르는 오늘의 한 버튼이 맨 위 */}
-      {!onProgram && <SessionCta onNavigate={onNavigate} />}
-
-      {/* 주간 측정 리추얼 — 7일에 한 번만 등장 */}
-      <WeeklyTestBanner onNavigate={onNavigate} />
-
-      <StreakFlame refreshKey={tick} />
-
-      {/* 성숙도 커리큘럼 — 원어민스러움 단계와 자동 승급 진행도 */}
-      <GrowthCard onNavigate={onNavigate} />
-
-      {/* 오늘 할 딱 한 가지 — 앱을 열면 바로 이걸 하면 된다 */}
-      <DailyMissionCard onNavigate={onNavigate} onProgress={() => setTick((t) => t + 1)} />
-
-      {/* 이어서 하기 — 묻혀 있던 도구들이 진행 상태를 들고 홈에 나온다 */}
-      <HomeShortcuts onNavigate={onNavigate} />
-
-      {/* 데일리 퀘스트 — 오늘 할 일 3개와 XP */}
-      <DailyQuests refreshKey={tick} />
-
-      {/* 오늘의 지표 — 화면의 시각적 앵커. 링은 얇게, 숫자는 크게(스튜디오 타이포) */}
-      <div className={`stat-hero${goalReached ? ' reached' : ''}`}>
-        <div className="stat-hero-ring">
-          <svg width="72" height="72" viewBox="0 0 64 64">
-            <circle cx="32" cy="32" r={R} fill="none" stroke="var(--surface2)" strokeWidth="4" />
-            <circle
-              cx="32"
-              cy="32"
-              r={R}
-              fill="none"
-              stroke={goalReached ? 'var(--green)' : 'var(--primary)'}
-              strokeWidth="4"
-              strokeLinecap="round"
-              strokeDasharray={C.toFixed(1)}
-              strokeDashoffset={off.toFixed(1)}
-              transform="rotate(-90 32 32)"
-              style={{ transition: 'stroke-dashoffset 0.5s' }}
-            />
-            {/* 링 안 숫자는 뺐다 — 옆의 큰 숫자와 중복이라 링은 순수 그래픽으로 둔다 */}
-            {goalReached && (
-              <text x="32" y="38" textAnchor="middle" fontSize="20" fontWeight="800" fill="var(--green)">
-                ✓
-              </text>
-            )}
-          </svg>
-        </div>
-        <div className="stat-hero-body">
-          <div className="stat-hero-label">{goalReached ? '오늘 목표 달성' : '오늘 말한 문장'}</div>
-          <div className="stat-hero-num">
-            <b>{spoken}</b>
-            <span>/ {goal}</span>
-          </div>
-          <div className="stat-hero-sub">
-            연습 {done}회 · 🔥 {streak}일 연속{freeze > 0 ? ` · ❄️ ${freeze}` : ''}
-          </div>
-        </div>
-      </div>
-
-      {streak > 0 && done === 0 && (
-        <div className="notice warn">
-          <div className="notice-ic">🔥</div>
-          <div className="notice-body">
-            <div className="notice-title">{streak}일 연속 학습이 오늘 끊길 수 있어요</div>
-            <div className="notice-desc">단 1문장만 연습해도 스트릭이 이어집니다.</div>
-          </div>
-          <button className="btn ghost-accent compact notice-action" onClick={() => onNavigate('drill')}>
-            시작
-          </button>
-        </div>
-      )}
-
-      {keyHealed && (
-        <div className="freeze-note">
-          이 기기에 저장돼 있던 만료된 Groq 키를 정리했어요 — 이제 서버에 등록된 키로 AI 회화·음성이 동작합니다.
-        </div>
-      )}
-
+      {/* 시스템 상태 — 있을 때만, 맨 위에 짧게 */}
       {keyInvalid && (
         <div className="notice danger block">
-          <div className="notice-title">등록된 Groq 키가 더 이상 유효하지 않아요</div>
-          <div className="notice-desc">
-            키가 만료되거나 폐기되면 AI 회화·음성이 조용히 실패합니다. console.groq.com에서 새 키를 발급한 뒤 기능 탭 → AI 키 등록에서 다시 등록해 주세요.
-          </div>
+          <div className="notice-title">AI 키가 만료됐어요</div>
+          <div className="notice-desc">새 키를 등록하면 AI 회화·음성이 다시 켜집니다.</div>
           <button className="btn ghost-accent compact" style={{ marginTop: 11 }} onClick={() => onNavigate('apikey')}>
-            새 키 등록하러 가기 →
+            키 다시 등록
           </button>
         </div>
       )}
-
       {!groqKey() && (
         <div className="notice danger">
-          <div className="notice-ic">🔑</div>
           <div className="notice-body">
-            <div className="notice-title">AI 강사 연결이 필요해요</div>
-            <div className="notice-desc">무료 Groq 키를 등록하면 AI 회화·번역·피드백이 모두 켜집니다.</div>
+            <div className="notice-title">AI 튜터 연결이 필요해요</div>
+            <div className="notice-desc">무료 키 하나로 AI 회화·피드백이 켜집니다.</div>
           </div>
           <button className="btn ghost-accent compact notice-action" onClick={() => onNavigate('apikey')}>
-            키 등록
+            연결
           </button>
         </div>
       )}
-
-      {!isPlaced() && (
-        <div className="notice accent block">
-          <div className="notice-title">먼저 내 레벨을 진단해 보세요</div>
-          <div className="notice-desc">18문항 배치고사로 A1~C2 레벨을 파악하고, 말하기·듣기·읽기·쓰기 시작점을 자동으로 맞춥니다.</div>
-          <button className="btn ghost-accent compact" style={{ marginTop: 11 }} onClick={() => onNavigate('features')}>
-            배치고사 보러 가기 →
-          </button>
+      {keyHealed && <div className="freeze-note">만료된 기기 키를 정리하고 서버 키로 전환했어요.</div>}
+      {frozenFilled > 0 && (
+        <div className="freeze-note">
+          ❄️ 스트릭 프리즈가 {frozenFilled}일을 지켜줬어요 — 연속 {streak}일 유지 (남은 프리즈 {freeze})
         </div>
       )}
 
-      {/* 화면의 유일한 채워진 CTA — 나머지 보조 행동은 모두 ghost로 내린다 */}
-      <div style={{ marginBottom: 14 }}>
-        <button className="start-drill-btn" onClick={onStartToday}>
-          오늘의 훈련 시작{dueCount ? ` — 복습 ${Math.min(dueCount, 5)}문항 포함` : ' (랜덤 10문항)'}
-        </button>
-        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-          <button className="btn ghost" style={{ flex: 1 }} onClick={() => onNavigate('features')}>
-            숙제 도우미
-          </button>
-          <button className="btn ghost" style={{ flex: 1 }} onClick={() => onNavigate('features')}>
-            암기 카드{dueCount ? ` (${dueCount})` : ''}
-          </button>
-        </div>
-        <button className="btn ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => onNavigate('features')}>
-          4대 영역 훈련 (듣기·읽기·쓰기·어휘) →
-        </button>
-        <button className="btn ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => onNavigate('features')}>
-          내 표현장 ({phraseCount})
-        </button>
-      </div>
+      {/* ① 목표 — 내 CEFR 레벨 */}
+      <CefrHero onNavigate={onNavigate} onSelectLesson={onSelectLesson} />
 
-      <div style={{ fontSize: '0.82rem', fontWeight: 800, margin: '2px 2px 8px', color: 'var(--text-muted)' }}>
-        학습 경로 — 다음 한 걸음이 항상 보이게
-      </div>
+      {/* ② 오늘의 레슨 — 화면의 주 행동 */}
+      <ProgramCard onNavigate={onNavigate} />
+      {!onProgram && <SessionCta onNavigate={onNavigate} />}
+      <WeeklyTestBanner onNavigate={onNavigate} />
 
+      {/* ③ 오늘 기록 — 발화·스트릭 한 곳에 */}
+      <h2 className="hm-sec">오늘 기록</h2>
+      <StreakFlame refreshKey={tick} />
+
+      {/* ④ 오늘의 실전 상황(카드가 자체 제목을 가진다) */}
+      <h2 className="hm-sec">실전 상황</h2>
+      <DailyMissionCard onNavigate={onNavigate} onProgress={() => setTick((t) => t + 1)} />
+
+      {/* ⑤ 이어서 하기 */}
+      <HomeShortcuts onNavigate={onNavigate} />
+
+      {/* ⑥ 레벨별 레슨 코스 */}
+      <h2 className="hm-sec">레벨별 레슨</h2>
       <CurriculumPath onSelectUnit={goToUnit} />
+
+      {/* ⑦ 자유 연습 */}
+      <h2 className="hm-sec">자유 연습</h2>
+      <div className="hm-free">
+        <button className="start-drill-btn" onClick={onStartToday}>
+          빠른 드릴 {dueCount ? `· 복습 ${Math.min(dueCount, 5)}문항 포함` : '· 10문항'}
+        </button>
+        <button className="btn ghost" onClick={() => onNavigate('features')}>
+          전체 학습 도구
+        </button>
+      </div>
     </div>
   );
 }

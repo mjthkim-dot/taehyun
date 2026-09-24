@@ -5,6 +5,7 @@
  * cafDashboardHtml() / weeklyReportHtml() 포팅. 미션 관련 통계는
  * MISSIONS 데이터가 아직 이전되지 않아 이번 단계에서는 제외했다.
  */
+import DailyQuests from './DailyQuests';
 import { useEffect, useState } from 'react';
 import { lessonLabel, gseToCefr } from '../lib/cefr';
 import { lessonsNow } from '../lib/lessonData';
@@ -68,6 +69,8 @@ export default function ProgressScreen({ onNavigate, onSelectLesson }: { onNavig
 
   return (
     <div className="study-screen">
+      {/* 오늘의 퀘스트·XP — 홈에서 옮겨 왔다(홈은 레슨 하나에 집중) */}
+      <DailyQuests />
       {/* 훈련 대시보드 — "늘고 있나"가 이 화면의 첫 질문이므로 맨 위.
           시도 로그 기반의 정확도·입 트임 추이와 약점·실전 사용 */}
       <TrainingDashboard onNavigate={onNavigate ?? (() => {})} />

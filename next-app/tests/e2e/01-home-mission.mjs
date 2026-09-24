@@ -98,12 +98,17 @@ await page.click('.mission-complete');
 await page.waitForTimeout(300);
 check('완료 배너', !!(await page.evaluate(() => document.querySelector('.mission-done-banner'))));
 // 발화 카운터(스픽식): 빌드업 발화들이 '오늘 말한 문장'으로 집계돼 링에 반영
-const ringSpoken = await page.evaluate(() => parseInt(document.querySelector('.stat-hero-num b')?.textContent || '0', 10));
+// 오늘 기록은 스트릭 카드 한 곳에 — '오늘 발화 n/목표문장'
+const ringSpoken = await page.evaluate(() => parseInt((document.querySelector('.streak-fuel-label')?.textContent || '').match(/오늘 발화 (\d+)/)?.[1] || '-1', 10));
 const storedSpoken = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem('va_spoken') || '{}'); return v.count || 0; });
 check('발화 집계 3문장 이상', storedSpoken >= 3, `spoken=${storedSpoken}`);
 check('오늘의 지표 숫자 = 발화 수', ringSpoken === storedSpoken, `표시=${ringSpoken} spoken=${storedSpoken}`);
 
-// ── 데일리 퀘스트: 3종 렌더 + 미션 완주 반영 + XP 적립 ──
+// ── 데일리 퀘스트: 진도 화면으로 옮겨졌다(홈은 레슨에 집중) ──
+await page.click('.mode-tab:has-text("더보기")');
+await page.waitForSelector('.more-sheet .feat-card', { timeout: 8000 });
+await page.click('.more-sheet .feat-card:has-text("진도")');
+await page.waitForSelector('.quest-row', { timeout: 15000 });
 check('퀘스트 3종 렌더', (await page.evaluate(() => document.querySelectorAll('.quest-row').length)) === 3);
 const missionQuestDone = await page.evaluate(() => {
   const rows = Array.from(document.querySelectorAll('.quest-row'));
@@ -114,7 +119,9 @@ check('미션 완주 퀘스트 달성 반영', missionQuestDone);
 const xpTxt = await page.evaluate(() => document.querySelector('.quests-xp')?.textContent || '');
 check('XP 적립 표시(+50 이상)', /\+\d+ XP/.test(xpTxt) && parseInt(xpTxt.replace(/\D/g, ''), 10) >= 50, xpTxt);
 
-// ── 학습 경로(Path): 노드 렌더 + current 강조 + 탭하면 레슨으로 이동 ──
+// ── 학습 경로(Path): 홈의 '레벨별 레슨' — 노드 렌더 + current 강조 + 탭하면 레슨으로 ──
+await page.click('.mode-tab:has-text("홈")');
+await page.waitForSelector('.path-node', { timeout: 15000 });
 check('경로 노드 48개(전 유닛)', (await page.evaluate(() => document.querySelectorAll('.path-node').length)) === 48);
 check('current 노드는 정확히 1개', (await page.evaluate(() => document.querySelectorAll('.path-node.current').length)) === 1);
 await page.locator('.path-node.current').click();

@@ -57,20 +57,41 @@ const PRIMARY_TABS: { mode: Mode; icon: IconName; label: string }[] = [
   { mode: 'talk', icon: 'talk', label: '회화' },
 ];
 
-const MORE_TABS: { mode: Mode; icon: string; label: string; desc: string }[] = [
-  { mode: 'cefr', icon: '🎯', label: 'CEFR 리포트', desc: '듣기·읽기·말하기·쓰기 레벨 · Can-do · 승급 조건' },
-  { mode: 'study', icon: '📚', label: '레슨', desc: '회차 레슨 · CEFR 유닛' },
-  { mode: 'review', icon: '📝', label: '복습', desc: '틀린 문장 간격 반복' },
-  { mode: 'progress', icon: '📊', label: '진도', desc: 'CEFR · GSE 학습 현황' },
-  { mode: 'map', icon: '🗺', label: '학습 지도', desc: '상황별 숙련도 · 이어서 할 회차 · 실전형' },
-  // 자주 쓰는 실전 화면 직행 — 기능 화면 경유(3탭 ~2.2초)를 1탭으로 줄인다(성능 실측 근거)
-  { mode: 'course', icon: '📬', label: '실전 코스', desc: '내 메일 90일 분석 — 6트랙 대화' },
-  { mode: 'interview', icon: '🎤', label: '면접', desc: 'AI 면접관 시뮬레이션 · Workato 프리셋' },
-  { mode: 'video', icon: '🎬', label: '영상', desc: '레슨 영상으로 듣기 연습' },
-  { mode: 'business', icon: '💼', label: '비즈니스', desc: '내 챗으로 회의록 학습 · 비즈니스 회화' },
-  { mode: 'features', icon: '🧰', label: '기능', desc: '전체 학습 도구 모음' },
-  { mode: 'feedback', icon: '💬', label: '피드백', desc: '거슬린 것 바로 기록 → 복사해서 개선 요청' },
+/** 더보기 — 목적별 4그룹. 평면 나열(11개)은 무엇이 어디 있는지 알기 어려웠다. */
+const MORE_GROUPS: { title: string; items: { mode: Mode; icon: string; label: string; desc: string }[] }[] = [
+  {
+    title: '내 성장',
+    items: [
+      { mode: 'cefr', icon: '🎯', label: 'CEFR 리포트', desc: '레벨 · 할 수 있는 일 · 승급 조건' },
+      { mode: 'progress', icon: '📊', label: '진도', desc: '학습량 · 퀘스트 · 주간 리포트' },
+      { mode: 'map', icon: '🗺', label: '학습 지도', desc: '상황별 숙련도 · 다음 추천' },
+    ],
+  },
+  {
+    title: '학습',
+    items: [
+      { mode: 'study', icon: '📚', label: '레슨', desc: '회차별 · CEFR 레벨별' },
+      { mode: 'review', icon: '📝', label: '복습', desc: '틀린 문장 다시 보기' },
+      { mode: 'video', icon: '🎬', label: '영상', desc: '영상으로 듣기' },
+    ],
+  },
+  {
+    title: '실전',
+    items: [
+      { mode: 'course', icon: '📬', label: '실전 코스', desc: '내 메일 기반 업무 대화' },
+      { mode: 'interview', icon: '🎤', label: '면접', desc: 'AI 면접관 시뮬레이션' },
+      { mode: 'business', icon: '💼', label: '비즈니스', desc: '회의록 · 비즈니스 회화' },
+    ],
+  },
+  {
+    title: '그 밖에',
+    items: [
+      { mode: 'features', icon: '🧰', label: '기능', desc: '전체 학습 도구' },
+      { mode: 'feedback', icon: '💬', label: '피드백', desc: '개선 요청 남기기' },
+    ],
+  },
 ];
+const MORE_TABS = MORE_GROUPS.flatMap((g) => g.items);
 
 export default function NavBar({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
   const [moreOpen, setMoreOpen] = useState(false);
@@ -82,22 +103,27 @@ export default function NavBar({ mode, onChange }: { mode: Mode; onChange: (m: M
         <div className="more-sheet-overlay" onClick={() => setMoreOpen(false)}>
           <div className="more-sheet" onClick={(e) => e.stopPropagation()}>
             <div className="more-sheet-handle" />
-            <div className="feat-grid">
-              {MORE_TABS.map((t) => (
-                <button
-                  key={t.mode}
-                  className="feat-card"
-                  onClick={() => {
-                    onChange(t.mode);
-                    setMoreOpen(false);
-                  }}
-                >
-                  <div className="ic">{t.icon}</div>
-                  <div className="lbl">{t.label}</div>
-                  <div className="sub">{t.desc}</div>
-                </button>
-              ))}
-            </div>
+            {MORE_GROUPS.map((g) => (
+              <section key={g.title} className="more-group">
+                <h3 className="more-group-title">{g.title}</h3>
+                <div className="feat-grid">
+                  {g.items.map((t) => (
+                    <button
+                      key={t.mode}
+                      className="feat-card"
+                      onClick={() => {
+                        onChange(t.mode);
+                        setMoreOpen(false);
+                      }}
+                    >
+                      <div className="ic">{t.icon}</div>
+                      <div className="lbl">{t.label}</div>
+                      <div className="sub">{t.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ))}
           </div>
         </div>
       )}

@@ -1,23 +1,24 @@
 'use client';
 
 /**
- * 홈의 첫 카드 — 12주 프로그램의 "오늘".
+ * 오늘의 레슨 — 홈의 중심 카드.
  *
- * 이 카드가 존재하는 이유: 홈에 좋은 기능이 너무 많아서 매일 무엇을 할지 고르는
- * 일 자체가 부담이었다. 그래서 이 카드는 선택지를 주지 않는다. 오늘 채워야 할
- * 4블록을 순서대로 보여주고, 다음에 할 것 하나를 크게 띄운다. 나머지는 아래에
- * 접혀 있다 — 고르는 게 아니라 따라가는 화면.
+ * Speak·Ringle처럼 학습을 "코스 › 유닛 › 레슨"으로 보여준다. 12주 프로그램의 주차가
+ * 유닛, 그 주의 훈련일이 레슨이다. 오늘 할 4단계(복습 → 핵심 표현 → 말하기 → 실전)를
+ * 한 줄 스텝으로 보여주고, 누를 버튼은 하나만 둔다. 설명 문구는 최소화한다.
  */
 import { useCallback, useEffect, useState } from 'react';
 import type { Mode } from './NavBar';
 import {
   checkOffBlock,
+  DAYS_PER_WEEK,
   programNudge,
   programState,
   startProgram,
   syncProgramDay,
   todayPlan,
   TOTAL_DAYS,
+  TOTAL_WEEKS,
   uncheckBlock,
   type TodayBlock,
   type TodayPlan,
@@ -25,42 +26,41 @@ import {
 import { setUnitHandoff } from '../lib/ontology/handoff';
 
 const MINUTE_CHOICES = [
-  { value: 15, label: '15분', desc: '바쁜 시즌에도 지킬 수 있는 최소선' },
-  { value: 25, label: '25분', desc: '권장 — 4블록이 제 분량으로 돕니다' },
-  { value: 40, label: '40분', desc: '속도를 내고 싶을 때' },
+  { value: 15, label: '15분', desc: '가볍게' },
+  { value: 25, label: '25분', desc: '권장' },
+  { value: 40, label: '40분', desc: '집중' },
 ];
 
-/** 시작 전 — 서약을 받는다. "왜"를 본인 말로 남기는 것이 이 프로그램의 유일한 강제. */
-function Pledge({ onStart }: { onStart: () => void }) {
+/** 시작 전 — 하루 시간과 목표 한 줄만 받는다 */
+function StartCourse({ onStart }: { onStart: () => void }) {
   const [why, setWhy] = useState('');
   const [minutes, setMinutes] = useState(25);
   return (
-    <div className="study-card pg-card pg-pledge">
-      <div className="pg-kicker">12주 트레이닝 프로그램</div>
-      <h2 className="pg-title">기능을 고르는 대신, 프로그램을 따라갑니다</h2>
-      <p className="pg-lede">
-        하루 4블록(복습 → 패턴 → 발화 → 실전)을 12주간 반복합니다. 주 5일, 총 60일.
-        무엇을 할지는 앱이 정하고, <b>하셔야 할 일은 시작 버튼을 누르는 것뿐</b>입니다.
-      </p>
+    <section className="study-card pg-card pg-pledge" aria-label="12주 코스 시작">
+      <div className="pg-kicker">12주 코스</div>
+      <h2 className="pg-title">매일 한 레슨, 12주 완성</h2>
+      <p className="pg-lede">복습 → 핵심 표현 → 말하기 → 실전. 레슨 순서는 앱이 정합니다.</p>
 
-      <div className="pg-sec">왜 영어를 제대로 하려고 하시나요?</div>
-      <p className="muted pg-hint">
-        흔들리는 날 이 문장을 다시 보여드립니다. 남에게 보일 글이 아니니 솔직하게 적으세요.
-      </p>
+      <label className="pg-sec" htmlFor="pg-why">
+        목표 한 줄
+      </label>
       <textarea
+        id="pg-why"
         className="text-input pg-why"
-        rows={3}
-        placeholder="예) 외국계 세일즈로 옮기고 싶다. 영어 때문에 기회를 놓치는 게 분하다."
+        rows={2}
+        placeholder="예) 외국계 세일즈로 이직하기"
         value={why}
         onChange={(e) => setWhy(e.target.value)}
       />
 
-      <div className="pg-sec">하루에 낼 수 있는 시간</div>
-      <div className="pg-mins">
+      <div className="pg-sec">하루 학습 시간</div>
+      <div className="pg-mins" role="radiogroup">
         {MINUTE_CHOICES.map((m) => (
           <button
             key={m.value}
             type="button"
+            role="radio"
+            aria-checked={minutes === m.value}
             className={`pg-min${minutes === m.value ? ' on' : ''}`}
             onClick={() => setMinutes(m.value)}
           >
@@ -79,13 +79,9 @@ function Pledge({ onStart }: { onStart: () => void }) {
           onStart();
         }}
       >
-        {why.trim() ? 'Day 1 시작하기 →' : '먼저 이유를 적어주세요'}
+        코스 시작하기
       </button>
-      <p className="muted pg-fine">
-        약속을 못 지킨 날이 있어도 프로그램은 밀리지 않습니다 — 진도는 날짜가 아니라
-        <b> 실제로 훈련을 마친 날</b>로만 셉니다.
-      </p>
-    </div>
+    </section>
   );
 }
 
@@ -98,13 +94,12 @@ export default function ProgramCard({ onNavigate }: { onNavigate: (m: Mode) => v
     const s = programState();
     setStarted(!!s);
     if (!s) return;
-    syncProgramDay(); // 4블록이 다 찼으면 조용히 오늘을 훈련일로 확정
+    syncProgramDay();
     setPlan(todayPlan());
   }, []);
 
   useEffect(() => {
     refresh();
-    // 다른 화면에서 훈련하고 홈으로 돌아오면 즉시 반영되어야 한다
     const onFocus = () => refresh();
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onFocus);
@@ -115,63 +110,64 @@ export default function ProgramCard({ onNavigate }: { onNavigate: (m: Mode) => v
   }, [refresh]);
 
   if (started === null) return <div className="pg-card" style={{ minHeight: 180 }} aria-hidden="true" />;
-  if (!started) return <Pledge onStart={refresh} />;
+  if (!started) return <StartCourse onStart={refresh} />;
   if (!plan) return null;
 
   const nudge = programNudge();
   const next = plan.blocks.find((b) => !b.done);
-  // 온톨로지가 고른 유닛이 있으면 핸드오프로 넘겨 화면이 그 항목을 바로 펼친다
+  const doneCount = plan.blocks.filter((b) => b.done).length;
+  const totalMin = plan.blocks.reduce((a, b) => a + b.minutes, 0);
   const go = (b: TodayBlock) => {
     if (b.unitRef) setUnitHandoff(b.unitRef);
     onNavigate(b.mode);
   };
-  const doneCount = plan.blocks.filter((b) => b.done).length;
 
   return (
-    <div className="study-card pg-card" data-tilt>
+    <section className="study-card pg-card" data-tilt aria-label="오늘의 레슨">
       <div className="pg-head">
         <div>
           <div className="pg-kicker">
-            {plan.phase.n}단계 · {plan.phase.name} <span className="muted">({plan.plan.week}주차)</span>
-          </div>
-          <div className="pg-day">
-            Day {plan.day}
-            <span className="muted"> / {TOTAL_DAYS}</span>
+            Unit {plan.week}/{TOTAL_WEEKS} · Lesson {plan.dayInWeek}/{DAYS_PER_WEEK}
             {plan.isCheckpoint && <span className="pg-badge">측정일</span>}
           </div>
+          <h2 className="pg-lesson-title">{plan.plan.focus}</h2>
+          <div className="pg-meta">
+            {plan.phase.n}단계 {plan.phase.name} · 약 {totalMin}분 · Day {plan.day}/{TOTAL_DAYS}
+          </div>
         </div>
-        <button type="button" className="mini-btn pg-more" onClick={() => onNavigate('program')}>
-          로드맵
+        <button type="button" className="mini-btn pg-more" onClick={() => onNavigate('program')} aria-label="코스 전체 보기">
+          코스
         </button>
       </div>
 
-      <div className="pg-bar" role="progressbar" aria-valuenow={plan.completed} aria-valuemin={0} aria-valuemax={TOTAL_DAYS}>
-        <span style={{ width: `${Math.round((plan.completed / TOTAL_DAYS) * 100)}%` }} />
-      </div>
-      <div className="pg-focus">🎯 이번 주 — {plan.plan.focus}</div>
+      {/* 오늘의 4단계 — 한눈에 보이는 스텝 */}
+      <ol className="pg-steps" aria-label={`오늘 ${doneCount}/4 완료`}>
+        {plan.blocks.map((b, i) => (
+          <li key={b.key} className={`pg-step${b.done ? ' done' : ''}${next?.key === b.key ? ' now' : ''}`}>
+            <span className="pg-step-dot">{b.done ? '✓' : i + 1}</span>
+            <span className="pg-step-name">{b.key === 'field' ? '실전' : b.title}</span>
+          </li>
+        ))}
+      </ol>
 
       {plan.recorded ? (
         <div className="pg-done">
-          <b>오늘 훈련 완료</b>
-          <p className="muted">
-            Day {plan.day} 채웠습니다. 내일 이 자리에서 Day {Math.min(TOTAL_DAYS, plan.day + 1)}이 열려요.
-          </p>
+          <b>오늘 레슨 완료</b>
+          <p className="muted">내일 Lesson {plan.dayInWeek === DAYS_PER_WEEK ? 1 : plan.dayInWeek + 1}이 열립니다.</p>
         </div>
       ) : next ? (
         <>
           <button type="button" className="pg-next" onClick={() => go(next)}>
-            <span className="pg-next-label">
-              다음 {doneCount > 0 && <em>({doneCount}/4 완료)</em>}
-            </span>
+            <span className="pg-next-label">{doneCount === 0 ? '레슨 시작' : `이어서 · ${doneCount}/4`}</span>
             <span className="pg-next-title">{next.title}</span>
             <span className="pg-next-why">{next.why}</span>
             <span className="pg-next-go">
-              {next.minutes}분{next.goal ? ` · 목표 ${next.goal}` : ''} · 시작하기 →
+              {next.minutes}분{next.goal ? ` · ${next.goal}` : ''} →
             </span>
           </button>
           {next.key === 'output' && (
             <div className="pg-meter">
-              오늘 발화 {plan.spoken} / {plan.spokenTarget}문장
+              오늘 {plan.spoken}/{plan.spokenTarget}문장
               <span className="pg-meter-bar">
                 <span style={{ width: `${Math.min(100, Math.round((plan.spoken / plan.spokenTarget) * 100))}%` }} />
               </span>
@@ -180,8 +176,8 @@ export default function ProgramCard({ onNavigate }: { onNavigate: (m: Mode) => v
         </>
       ) : null}
 
-      <button type="button" className="pg-toggle" onClick={() => setOpen((v) => !v)}>
-        {open ? '오늘 4블록 접기' : `오늘 4블록 보기 (${doneCount}/4)`}
+      <button type="button" className="pg-toggle" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        {open ? '단계 접기' : '단계별 보기'}
       </button>
 
       {open && (
@@ -193,13 +189,12 @@ export default function ProgramCard({ onNavigate }: { onNavigate: (m: Mode) => v
                 className="pg-check"
                 aria-label={b.done ? `${b.title} 완료 해제` : `${b.title} 완료로 표시`}
                 onClick={() => {
-                  // 자동으로 잡힌 완료는 되돌리지 않는다 — 사실을 지울 수는 없다
                   if (b.auto) return;
                   b.done ? uncheckBlock(b.key) : checkOffBlock(b.key);
                   refresh();
                 }}
                 disabled={b.auto}
-                title={b.auto ? '학습 기록으로 자동 확인된 항목입니다' : '직접 완료로 표시'}
+                title={b.auto ? '학습 기록으로 자동 확인됨' : '직접 완료로 표시'}
               >
                 {b.done ? '✓' : ''}
               </button>
@@ -215,7 +210,7 @@ export default function ProgramCard({ onNavigate }: { onNavigate: (m: Mode) => v
         </ul>
       )}
 
-      {nudge && <p className={`pg-nudge ${nudge.tone}`}>{nudge.text}</p>}
-    </div>
+      {nudge && nudge.tone === 'back' && <p className="pg-nudge back">{nudge.text}</p>}
+    </section>
   );
 }
