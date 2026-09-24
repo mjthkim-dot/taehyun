@@ -4,7 +4,7 @@
  * 오늘의 레슨 — 홈의 중심 카드.
  *
  * Speak·Ringle처럼 학습을 "코스 › 유닛 › 레슨"으로 보여준다. 12주 프로그램의 주차가
- * 유닛, 그 주의 훈련일이 레슨이다. 오늘 할 4단계(복습 → 핵심 표현 → 말하기 → 실전)를
+ * 유닛, 그 주의 훈련일이 레슨이다. 오늘 할 4단계(복습 → 문법 → 말하기 → 실전)를
  * 한 줄 스텝으로 보여주고, 누를 버튼은 하나만 둔다. 설명 문구는 최소화한다.
  */
 import { useCallback, useEffect, useState } from 'react';
@@ -39,7 +39,7 @@ function StartCourse({ onStart }: { onStart: () => void }) {
     <section className="study-card pg-card pg-pledge" aria-label="12주 코스 시작">
       <div className="pg-kicker">12주 코스</div>
       <h2 className="pg-title">매일 한 레슨, 12주 완성</h2>
-      <p className="pg-lede">복습 → 핵심 표현 → 말하기 → 실전. 레슨 순서는 앱이 정합니다.</p>
+      <p className="pg-lede">복습 → 문법 → 말하기 → 실전. 레슨 순서는 앱이 정합니다.</p>
 
       <label className="pg-sec" htmlFor="pg-why">
         목표 한 줄

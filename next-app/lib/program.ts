@@ -36,6 +36,8 @@ import type { Mode } from '../components/NavBar';
 import { getGraph } from './ontology/graph';
 import { wordsGradedToday } from './wordProgress';
 import { overall } from './cefrGrowth';
+import type { Cefr } from './cefr';
+import { grammarDoneToday, pickTodayGrammar } from './grammar';
 import { buildLearnerModel } from './ontology/mastery';
 import { recommend } from './ontology/planner';
 import type { UnitRef } from './ontology/schema';
@@ -89,7 +91,8 @@ function observedDone(key: BlockKey, spokenTarget: number): boolean {
       // 복습 채점이 3개 이상 — 또는 오늘 복습할 카드가 아예 없으면 성립하지 않으므로 통과
       return reviewedToday() >= 3 || wordsGradedToday() >= 10;
     case 'core':
-      return sessionDoneToday();
+      // 문법 시뮬레이션이 레슨의 2단계 — 예전 패턴 세션 완주도 인정한다
+      return grammarDoneToday() || sessionDoneToday();
     case 'output':
       return spokenToday() >= spokenTarget;
     case 'field':
@@ -288,6 +291,26 @@ export interface TodayPlan {
   spoken: number;
 }
 
+/** 2단계 — 오늘의 문법 시뮬레이션(현재 CEFR 레벨의 미완 유닛) */
+function coreBlock(minutes: number): ProgramBlock {
+  let lv: Cefr = 'A2';
+  try {
+    lv = overall().level;
+  } catch {
+    /* 기본 A2 */
+  }
+  const u = pickTodayGrammar(lv);
+  return {
+    key: 'core',
+    title: '문법',
+    why: `${u.level} ${u.title}`,
+    minutes,
+    mode: 'grammar',
+    unitRef: { source: 'grammar', key: u.id },
+    goal: '사고 → 판단 → 조립 → 실전',
+  };
+}
+
 /** 워밍업을 어디로 보낼까 — 문장 복습이 비어 있고 단어 공부를 시작했으면 단어로 */
 function wordsDueFirst(): boolean {
   try {
@@ -305,7 +328,7 @@ function blocksFor(plan: ProgramWeek, minutes: number): ProgramBlock[] {
   const m = (base: number) => Math.max(2, Math.round(base * unit));
   return [
     { key: 'warmup', title: '복습', why: '잊기 직전인 문장과 단어를 다시 봅니다', minutes: m(5), mode: wordsDueFirst() ? 'words' : 'review', goal: '문장 3개 또는 단어 10개' },
-    { key: 'core', title: '핵심 표현', why: '오늘의 원어민 표현 하나를 익힙니다', minutes: m(10), mode: 'session' },
+    coreBlock(m(10)),
     { key: 'output', title: '말하기', why: '오늘 목표량만큼 소리 내어 말합니다', minutes: m(7), mode: 'drill', goal: `${plan.spokenTarget}문장` },
     { key: 'field', title: plan.field.title, why: plan.field.why, minutes: m(3), mode: plan.field.mode, ...resolveField(plan) },
   ];

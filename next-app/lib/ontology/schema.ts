@@ -154,7 +154,7 @@ export const PATTERN_FUNCTIONS: Record<string, string[]> = {
 
 /* ────────────── 노드 ────────────── */
 
-export type UnitSource = 'course' | 'career' | 'mission' | 'script' | 'pattern' | 'story' | 'interview' | 'lesson' | 'library';
+export type UnitSource = 'course' | 'career' | 'mission' | 'script' | 'pattern' | 'story' | 'interview' | 'lesson' | 'library' | 'grammar';
 
 /** 화면이 이 유닛을 바로 열 수 있게 넘기는 참조 */
 export interface UnitRef {

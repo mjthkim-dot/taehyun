@@ -154,7 +154,7 @@ export default function MasterScreen({
         </header>
         {/* LCP 앵커 — 첫 페인트에 의미 있는 큰 텍스트를 고정한다(Lighthouse) */}
         <p className="hm-lcp">
-          CEFR 레벨을 기준으로, 매일 한 레슨씩 — 복습하고, 핵심 표현을 익히고, 소리 내어 말하고,
+          CEFR 레벨을 기준으로, 매일 한 레슨씩 — 복습하고, 문법을 실전 상황에서 익히고, 소리 내어 말하고,
           실제 업무 상황에 써봅니다. 오늘의 레슨을 불러오고 있어요.
         </p>
       </div>
@@ -229,7 +229,7 @@ export default function MasterScreen({
           )}
           <div className="fg-foot">
             <p className="muted">
-              집중 모드 — 매일 <b>오늘의 레슨</b> 하나만 하면 됩니다. 단어 복습도 레슨 안에 들어 있어요.
+              집중 모드 — 매일 <b>오늘의 레슨</b> 하나만 하면 됩니다. 단어 복습과 문법 시뮬레이션이 레슨 안에 들어 있어요.
             </p>
             <button type="button" className="btn ghost fg-all" onClick={() => setFocusMode(false)}>
               모든 기능 보기

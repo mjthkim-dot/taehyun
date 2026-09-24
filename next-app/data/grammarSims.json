@@ -1,0 +1,545 @@
+{
+  "version": 1,
+  "units": [
+    {
+      "id": "a1-be", "level": "A1", "title": "be동사 — 나를 소개하기", "point": "am / is / are",
+      "sit": "career/self-intro",
+      "scene": "처음 만난 고객사 담당자와 인사하는 자리. 이름·회사·역할을 말해야 한다.",
+      "think": {
+        "q": "영어 문장은 왜 '주어 + 동사'가 꼭 있어야 할까?",
+        "ko": "한국어는 '저 태현이에요'처럼 동사 없이도 말이 된다.",
+        "en": "영어는 '누가(주어) + 어떻다/무엇이다(동사)'가 뼈대다. '~이다'를 표현하는 동사가 be — I에는 am, 한 명/한 개(he, she, it)에는 is, 여럿·you에는 are.",
+        "rule": "I am · He/She/It is · We/You/They are",
+        "ex": [["I am Taehyun from MZC.", "저는 MZC의 태현입니다."], ["Our office is in Seoul.", "저희 사무실은 서울에 있어요."]]
+      },
+      "checks": [
+        { "q": "I ___ an account manager.", "opts": ["am", "is", "are"], "a": 0, "why": "주어가 I면 항상 am." },
+        { "q": "Our team ___ very small.", "opts": ["am", "is", "are"], "a": 1, "why": "our team은 '한 팀' — 하나로 보면 is." },
+        { "q": "___ you the IT manager?", "opts": ["Am", "Is", "Are"], "a": 2, "why": "you에는 are. 질문은 be동사를 맨 앞으로." }
+      ],
+      "builds": [
+        { "kr": "저는 클라우드 영업을 담당하고 있어요(클라우드 영업 담당자예요).", "a": "I am a cloud sales manager", "extra": ["is"] },
+        { "kr": "그분이 저희 엔지니어예요.", "a": "She is our engineer", "extra": ["are"] }
+      ],
+      "sim": {
+        "who": "고객사 IT 팀장 (Ms. Lee)",
+        "turns": [
+          { "them": "Hi, nice to meet you. Are you Taehyun?", "kr": "안녕하세요, 반가워요. 태현 님이세요?", "task": "choose", "opts": ["Yes, I am.", "Yes, I is.", "Yes, I are."], "a": 0, "why": "I 뒤에는 am. 짧은 대답도 Yes, I am." },
+          { "them": "Great. What is your role at MZC?", "kr": "좋아요. MZC에서 어떤 역할이세요?", "task": "build", "a": "I am an account manager", "extra": ["is"], "why": "주어(I) + be(am) + 무엇(an account manager)." },
+          { "them": "And who is this?", "kr": "이분은 누구시죠?", "task": "choose", "opts": ["He is our cloud architect.", "He are our cloud architect.", "He am our cloud architect."], "a": 0, "why": "한 사람(he)에는 is." },
+          { "them": "Tell me a little about your team.", "kr": "팀 소개를 조금 해 주세요.", "task": "free", "prompt": "팀이 어디에 있고 몇 명인지 be동사로 두 문장 말해 보세요.", "model": "Our team is in Seoul. We are five people.", "focus": "be verb agreement (am/is/are)" }
+        ]
+      }
+    },
+    {
+      "id": "a1-present", "level": "A1", "title": "현재 시제 — 우리 서비스 설명하기", "point": "동사원형 / 3인칭 -s",
+      "sit": "proposal/pitch",
+      "scene": "고객에게 우리 회사가 평소에 하는 일을 설명한다. 매번 반복되는 일·사실은 현재 시제.",
+      "think": {
+        "q": "'늘 하는 일'을 말할 때 동사 끝에 왜 -s가 붙을까?",
+        "ko": "한국어는 '저는 지원해요 / 그녀는 지원해요' — 주어가 달라도 동사 모양이 같다.",
+        "en": "영어 현재 시제는 주어가 he/she/it(한 명·한 개)일 때만 동사에 -s를 붙여 '그 한 명이 한다'를 표시한다. I/you/we/they는 원형.",
+        "rule": "I/We/They support · He/She/It supports · 부정: don't / doesn't + 원형",
+        "ex": [["We manage cloud costs for our clients.", "저희는 고객의 클라우드 비용을 관리합니다."], ["Our engineer checks the system every day.", "저희 엔지니어가 매일 시스템을 점검합니다."]]
+      },
+      "checks": [
+        { "q": "Our company ___ AWS and Azure.", "opts": ["support", "supports", "supporting"], "a": 1, "why": "our company = it → supports." },
+        { "q": "We ___ 24/7 monitoring.", "opts": ["provide", "provides", "providing"], "a": 0, "why": "we는 원형." },
+        { "q": "The tool ___ need extra setup.", "opts": ["don't", "doesn't", "isn't"], "a": 1, "why": "it 주어의 부정은 doesn't + 원형(need)." }
+      ],
+      "builds": [
+        { "kr": "그녀는 매주 비용 리포트를 보내요.", "a": "She sends a cost report every week", "extra": ["send"] },
+        { "kr": "저희는 계약서를 직접 관리하지 않아요.", "a": "We don't manage the contract directly", "extra": ["doesn't"] }
+      ],
+      "sim": {
+        "who": "스타트업 CTO (Mr. Park)",
+        "turns": [
+          { "them": "So what does MZC do exactly?", "kr": "그래서 MZC는 정확히 뭘 하나요?", "task": "choose", "opts": ["We help companies move to the cloud.", "We helps companies move to the cloud.", "We helping companies move to the cloud."], "a": 0, "why": "we는 원형 help." },
+          { "them": "Who takes care of billing?", "kr": "빌링은 누가 챙기죠?", "task": "build", "a": "My colleague handles billing every month", "extra": ["handle"], "why": "my colleague = 한 명 → handles." },
+          { "them": "Does your team work on weekends?", "kr": "팀이 주말에도 일하나요?", "task": "choose", "opts": ["No, it doesn't, but our on-call engineer does.", "No, it don't, but our on-call engineer do.", "No, it isn't, but our on-call engineer is."], "a": 0, "why": "does로 물으면 doesn't/does로 답한다." },
+          { "them": "What does your monthly report include?", "kr": "월간 리포트에는 뭐가 들어가나요?", "task": "free", "prompt": "리포트가 무엇을 보여주는지 현재 시제로 한두 문장.", "model": "It shows your monthly spend and it lists the top five services.", "focus": "present simple with third-person -s" }
+        ]
+      }
+    },
+    {
+      "id": "a1-articles", "level": "A1", "title": "a / the — 처음 말하는 것과 이미 아는 것", "point": "관사 a/an · the",
+      "sit": "comms/scheduling",
+      "scene": "회의실을 예약하고 동료에게 알려준다. 처음 꺼내는 것과 둘 다 아는 것을 구분해야 한다.",
+      "think": {
+        "q": "왜 'meeting room' 앞에 a를 쓰기도 하고 the를 쓰기도 할까?",
+        "ko": "한국어엔 관사가 없어 '회의실 잡았어요'로 충분하다.",
+        "en": "영어는 명사를 말할 때 듣는 사람이 '어느 것'인지 아는지를 표시한다. 처음 꺼내는 하나 → a/an, 서로 이미 아는 그것 → the.",
+        "rule": "처음·아무거나 하나: a/an · 서로 아는 특정한 것: the · 모음 소리 앞: an",
+        "ex": [["I booked a meeting room.", "회의실을 하나 예약했어요."], ["The meeting room is on the 5th floor.", "(그) 회의실은 5층이에요."]]
+      },
+      "checks": [
+        { "q": "Can I send you ___ email later?", "opts": ["a", "an", "the"], "a": 1, "why": "처음 말하는 하나 + email은 모음 소리 → an." },
+        { "q": "Thanks for ___ quote you sent yesterday.", "opts": ["a", "an", "the"], "a": 2, "why": "'어제 보낸' 그 견적 — 서로 아는 특정한 것 → the." },
+        { "q": "We need ___ new server.", "opts": ["a", "an", "the"], "a": 0, "why": "아직 정해지지 않은 서버 하나 → a." }
+      ],
+      "builds": [
+        { "kr": "(그) 데모는 3시에 시작해요.", "a": "The demo starts at three", "extra": ["A"] },
+        { "kr": "저는 질문이 하나 있어요.", "a": "I have a question", "extra": ["the"] }
+      ],
+      "sim": {
+        "who": "같은 팀 동료 (Jina)",
+        "turns": [
+          { "them": "Did you get a room for the client meeting?", "kr": "고객 미팅 방 잡았어요?", "task": "choose", "opts": ["Yes, I booked a room on the 5th floor.", "Yes, I booked the room on a 5th floor.", "Yes, I booked room on 5th floor."], "a": 0, "why": "처음 말하는 방 → a room, 층은 특정 → the 5th floor." },
+          { "them": "Great. Is the projector working?", "kr": "좋아요. 프로젝터는 되나요?", "task": "build", "a": "The projector is fine", "extra": ["A"], "why": "방금 말한 그 프로젝터 → The." },
+          { "them": "Do we need anything else?", "kr": "더 필요한 거 있어요?", "task": "choose", "opts": ["We need an adapter for my laptop.", "We need a adapter for my laptop.", "We need the adapter for a my laptop."], "a": 0, "why": "adapter는 모음 소리 → an." },
+          { "them": "Anything to prepare for the client?", "kr": "고객용으로 준비할 게 있나요?", "task": "free", "prompt": "a와 the를 한 번씩 써서 준비물을 말해 보세요.", "model": "I will print a short agenda. The client likes paper copies.", "focus": "articles a/an vs the" }
+        ]
+      }
+    },
+    {
+      "id": "a2-past", "level": "A2", "title": "과거 시제 — 지난주 장애 보고", "point": "과거형 -ed / 불규칙",
+      "sit": "support/incident",
+      "scene": "지난주 금요일에 끝난 장애를 고객에게 시간 순서대로 설명한다.",
+      "think": {
+        "q": "이미 끝난 일을 말할 때 영어는 무엇을 바꿀까?",
+        "ko": "한국어는 '-었/았-'을 붙인다: 멈췄다, 복구했다.",
+        "en": "영어는 동사 자체를 과거형으로 바꾼다. 대부분 -ed, 자주 쓰는 동사는 불규칙(go→went, find→found). 질문·부정은 did/didn't + 원형.",
+        "rule": "stopped · restarted · found · went · 부정: didn't + 원형 · 질문: Did ... + 원형?",
+        "ex": [["The server stopped at 3 p.m. on Friday.", "서버가 금요일 오후 3시에 멈췄어요."], ["We found the cause two hours later.", "두 시간 뒤에 원인을 찾았어요."]]
+      },
+      "checks": [
+        { "q": "Our engineer ___ the system at 5 p.m.", "opts": ["restart", "restarted", "restarts"], "a": 1, "why": "이미 끝난 일 → 과거형 restarted." },
+        { "q": "We ___ any data.", "opts": ["didn't lose", "didn't lost", "not lost"], "a": 0, "why": "didn't 뒤에는 원형(lose)." },
+        { "q": "___ the alert go to your team?", "opts": ["Do", "Did", "Was"], "a": 1, "why": "과거 질문은 Did + 원형(go)." }
+      ],
+      "builds": [
+        { "kr": "저희가 오후 5시에 서비스를 복구했어요.", "a": "We fixed the service at five", "extra": ["fix"] },
+        { "kr": "고객 데이터는 영향을 받지 않았어요.", "a": "The customer data didn't change", "extra": ["changed"] }
+      ],
+      "sim": {
+        "who": "고객사 운영 매니저 (Mr. Choi)",
+        "turns": [
+          { "them": "What happened last Friday?", "kr": "지난 금요일에 무슨 일이 있었죠?", "task": "choose", "opts": ["The database went down at 3 p.m.", "The database goes down at 3 p.m.", "The database go down at 3 p.m."], "a": 0, "why": "끝난 일 → go의 과거 went." },
+          { "them": "When did you find the cause?", "kr": "원인은 언제 찾았어요?", "task": "build", "a": "We found it two hours later", "extra": ["find"], "why": "find의 과거는 found(불규칙)." },
+          { "them": "Did you lose any data?", "kr": "데이터 손실이 있었나요?", "task": "choose", "opts": ["No, we didn't lose any data.", "No, we didn't lost any data.", "No, we don't lost any data."], "a": 0, "why": "didn't + 원형 lose." },
+          { "them": "What did your team do after that?", "kr": "그 후에 팀은 뭘 했나요?", "task": "free", "prompt": "그 다음 한 조치 두 가지를 과거 시제로.", "model": "We added more monitoring and we tested the backup system.", "focus": "past simple (regular and irregular)" }
+        ]
+      }
+    },
+    {
+      "id": "a2-future", "level": "A2", "title": "will vs be going to — 약속과 계획", "point": "will / be going to",
+      "sit": "comms/followup",
+      "scene": "미팅 끝에 '지금 결정한 약속'과 '이미 정해둔 계획'을 구분해 말한다.",
+      "think": {
+        "q": "둘 다 '~할 거예요'인데 영어는 왜 두 가지일까?",
+        "ko": "한국어는 '보낼게요 / 보낼 예정이에요'를 대충 섞어 쓴다.",
+        "en": "will = 말하는 지금 정한 약속·제안(I'll send it). be going to = 이미 정해 둔 계획(We're going to migrate next month).",
+        "rule": "즉석 결정·약속: I'll + 원형 · 이미 정한 계획: be going to + 원형",
+        "ex": [["I'll send you the slides today.", "오늘 슬라이드 보내드릴게요.(지금 약속)"], ["We're going to launch the pilot in May.", "5월에 파일럿을 시작할 예정이에요.(정해진 계획)"]]
+      },
+      "checks": [
+        { "q": "A: The file is too big. B: No problem, I ___ share a link.", "opts": ["'ll", "'m going to", "am"], "a": 0, "why": "방금 문제를 듣고 정한 해결 → will." },
+        { "q": "We ___ move to the new office next month. It's all planned.", "opts": ["will", "are going to", "go"], "a": 1, "why": "'이미 다 계획됨' → be going to." },
+        { "q": "I ___ call you back in ten minutes.", "opts": ["'ll", "going to", "calling"], "a": 0, "why": "즉석 약속 → I'll." }
+      ],
+      "builds": [
+        { "kr": "(지금 약속) 제가 내일 확인해 드릴게요.", "a": "I will check it tomorrow", "extra": ["checked"] },
+        { "kr": "(계획) 저희는 다음 주에 데이터를 옮길 예정이에요.", "a": "We are going to move the data next week", "extra": ["will"] }
+      ],
+      "sim": {
+        "who": "고객사 구매 담당 (Ms. Han)",
+        "turns": [
+          { "them": "Can you send the updated quote?", "kr": "수정 견적 보내주실 수 있나요?", "task": "choose", "opts": ["Sure, I'll send it this afternoon.", "Sure, I'm sending it this afternoon yesterday.", "Sure, I send it this afternoon."], "a": 0, "why": "요청을 듣고 바로 하는 약속 → I'll." },
+          { "them": "What's the plan for the migration?", "kr": "마이그레이션 계획은 어떻게 되나요?", "task": "build", "a": "We are going to start in June", "extra": ["will"], "why": "이미 세운 계획 → be going to." },
+          { "them": "Our CFO has questions about pricing.", "kr": "CFO가 가격에 질문이 있어요.", "task": "choose", "opts": ["I'll prepare a short cost summary for her.", "I'm going prepare a short cost summary for her.", "I prepare a short cost summary for her tomorrow ago."], "a": 0, "why": "방금 들은 문제에 대한 즉석 제안 → I'll + 원형." },
+          { "them": "So what are the next steps?", "kr": "그럼 다음 단계는요?", "task": "free", "prompt": "정해진 계획(be going to) 하나와 지금 하는 약속(will) 하나.", "model": "We are going to run a pilot next month, and I'll send you the schedule tomorrow.", "focus": "will vs be going to" }
+        ]
+      }
+    },
+    {
+      "id": "a2-comparative", "level": "A2", "title": "비교급·최상급 — 요금제 비교", "point": "-er than / more ~ than / the most",
+      "sit": "deal/pricing",
+      "scene": "고객에게 두 요금제를 비교해 설명하고 가장 알맞은 것을 추천한다.",
+      "think": {
+        "q": "'더 싸다'를 영어는 어떻게 만들까?",
+        "ko": "한국어는 '더'만 붙이면 된다: 더 싸다, 더 안정적이다.",
+        "en": "짧은 형용사는 끝에 -er(cheaper), 긴 형용사는 앞에 more(more stable). 비교 대상은 than. 셋 이상 중 1등은 the -est / the most.",
+        "rule": "cheap→cheaper→the cheapest · stable→more stable→the most stable · good→better→the best",
+        "ex": [["Plan B is cheaper than Plan A.", "B 요금제가 A보다 싸요."], ["This is the most flexible option.", "이게 가장 유연한 옵션이에요."]]
+      },
+      "checks": [
+        { "q": "The Seoul region is ___ than the US region for you.", "opts": ["fast", "faster", "more fast"], "a": 1, "why": "짧은 형용사 fast → faster." },
+        { "q": "Reserved instances are ___ than on-demand.", "opts": ["more cheap", "cheaper", "cheapest"], "a": 1, "why": "cheap은 짧다 → cheaper." },
+        { "q": "This is ___ secure option we have.", "opts": ["the most", "more", "most the"], "a": 0, "why": "여러 개 중 1등, 긴 형용사 → the most secure." }
+      ],
+      "builds": [
+        { "kr": "이 요금제가 저것보다 더 유연해요.", "a": "This plan is more flexible than that one", "extra": ["flexibler"] },
+        { "kr": "이게 가장 좋은 선택이에요.", "a": "This is the best choice", "extra": ["goodest"] }
+      ],
+      "sim": {
+        "who": "고객사 재무 담당 (Mr. Kang)",
+        "turns": [
+          { "them": "What's the difference between the two plans?", "kr": "두 요금제 차이가 뭐죠?", "task": "choose", "opts": ["Plan B is cheaper, but Plan A is more flexible.", "Plan B is more cheap, but Plan A is flexibler.", "Plan B is cheapest than Plan A."], "a": 0, "why": "cheaper(짧음), more flexible(김)." },
+          { "them": "Which one is better for us?", "kr": "저희한테 어느 게 나아요?", "task": "build", "a": "Plan B is better for your budget", "extra": ["gooder"], "why": "good의 비교급은 better(불규칙)." },
+          { "them": "Is there anything even cheaper?", "kr": "더 싼 것도 있나요?", "task": "choose", "opts": ["The three-year plan is the cheapest option.", "The three-year plan is the most cheap option.", "The three-year plan is cheaper option."], "a": 0, "why": "셋 이상 중 1등 → the cheapest." },
+          { "them": "So what do you recommend?", "kr": "그래서 추천은요?", "task": "free", "prompt": "비교급 하나(than)와 최상급 하나로 추천 이유를 말해 보세요.", "model": "The one-year plan is safer than the three-year plan, and it is the most flexible option for you.", "focus": "comparatives and superlatives" }
+        ]
+      }
+    },
+    {
+      "id": "a2-modals", "level": "A2", "title": "can / could — 정중하게 요청하기", "point": "Can/Could you ...? · I can",
+      "sit": "meeting/discussion",
+      "scene": "고객에게 자료를 부탁하고, 우리가 할 수 있는 것을 말한다. 거절도 정중하게.",
+      "think": {
+        "q": "왜 원어민은 '보내 주세요'를 'Could you send ...?'라고 물을까?",
+        "ko": "한국어는 '-해 주세요'로 공손함을 만든다.",
+        "en": "영어의 공손함은 명령문이 아니라 질문 + could에서 나온다. could는 can보다 한 걸음 물러선 말투. 뒤에는 항상 동사원형.",
+        "rule": "Could you + 원형 ...? (공손한 요청) · I can / can't + 원형 (능력·가능)",
+        "ex": [["Could you share last month's invoice?", "지난달 청구서를 공유해 주실 수 있을까요?"], ["We can set it up in two days.", "이틀 안에 설정해 드릴 수 있어요."]]
+      },
+      "checks": [
+        { "q": "Could you ___ me the login details?", "opts": ["send", "sent", "sending"], "a": 0, "why": "could 뒤는 원형." },
+        { "q": "(고객에게 공손하게) ___ you check the budget with your CFO?", "opts": ["Could", "Must", "Do"], "a": 0, "why": "공손한 요청 → Could you ...?" },
+        { "q": "Sorry, we ___ change the price this quarter.", "opts": ["can't", "can't to", "don't can"], "a": 0, "why": "can't + 원형. to 없음." }
+      ],
+      "builds": [
+        { "kr": "회의 일정을 옮겨 주실 수 있을까요?", "a": "Could you move the meeting", "extra": ["moved"] },
+        { "kr": "저희가 무료로 교육을 제공할 수 있어요.", "a": "We can provide free training", "extra": ["to"] }
+      ],
+      "sim": {
+        "who": "고객사 개발 리드 (Ms. Yoon)",
+        "turns": [
+          { "them": "We want to start the PoC soon.", "kr": "PoC를 곧 시작하고 싶어요.", "task": "choose", "opts": ["Great. Could you share your architecture diagram?", "Great. Share me your architecture diagram.", "Great. Could you shared your architecture diagram?"], "a": 0, "why": "공손한 요청 Could you + 원형." },
+          { "them": "How fast can you set up the environment?", "kr": "환경을 얼마나 빨리 설정할 수 있어요?", "task": "build", "a": "We can set it up this week", "extra": ["to"], "why": "can + 원형(set up), to 없음." },
+          { "them": "Can you give us a 50% discount?", "kr": "50% 할인 가능해요?", "task": "choose", "opts": ["I'm afraid we can't, but we can offer free support.", "No, we don't can, but we can to offer free support.", "No. Not possible."], "a": 0, "why": "I'm afraid로 완충 + can't / can + 원형." },
+          { "them": "Anything else you need from us?", "kr": "저희한테 더 필요한 게 있나요?", "task": "free", "prompt": "Could you로 공손하게 두 가지를 부탁해 보세요.", "model": "Could you send us your current bill, and could you invite your security team to the next call?", "focus": "polite requests with could" }
+        ]
+      }
+    },
+    {
+      "id": "b1-perfect", "level": "B1", "title": "현재완료 — '지금까지' 이어진 일", "point": "have/has + p.p. · since/for",
+      "sit": "support/incident",
+      "scene": "장애가 아직 계속되는 중. 언제부터였는지, 지금까지 무엇을 했는지 보고한다.",
+      "think": {
+        "q": "'어제 멈췄다'와 '어제부터 멈춰 있다'는 영어로 어떻게 다를까?",
+        "ko": "한국어는 둘 다 과거처럼 말하고 '-부터'로 구분한다.",
+        "en": "과거형은 끝난 일(stopped yesterday). 현재완료(have p.p.)는 과거에 시작해 '지금도' 영향이 있는 일. since + 시작 시점, for + 기간.",
+        "rule": "It has been down since 9 a.m. · We have tried three fixes so far · 끝난 시점(yesterday, at 3)과는 과거형",
+        "ex": [["The API has been slow since this morning.", "오늘 아침부터 API가 느려요(지금도)."], ["We have already contacted AWS support.", "AWS 지원팀에 이미 연락했어요."]]
+      },
+      "checks": [
+        { "q": "The service ___ unstable since Monday.", "opts": ["was", "has been", "is"], "a": 1, "why": "since Monday(월요일부터 지금까지) → has been." },
+        { "q": "We ___ the root cause yesterday at 5 p.m.", "opts": ["have found", "found", "has found"], "a": 1, "why": "끝난 시점(yesterday at 5) → 과거형." },
+        { "q": "I've worked with this client ___ three years.", "opts": ["since", "for", "during"], "a": 1, "why": "기간(three years) → for." }
+      ],
+      "builds": [
+        { "kr": "저희는 지금까지 두 가지 해결책을 시도했어요.", "a": "We have tried two fixes so far", "extra": ["try", "has"] },
+        { "kr": "이 문제는 지난주부터 있었어요.", "a": "This issue has existed since last week", "extra": ["for"] }
+      ],
+      "sim": {
+        "who": "고객사 CTO (Mr. Lim) — 화가 난 상태",
+        "turns": [
+          { "them": "How long has the system been down?", "kr": "시스템이 얼마나 오래 다운돼 있었죠?", "task": "choose", "opts": ["It has been down since 9 a.m.", "It was down since 9 a.m.", "It is down for 9 a.m."], "a": 0, "why": "9시부터 지금까지 → has been + since." },
+          { "them": "What have you done so far?", "kr": "지금까지 뭘 했나요?", "task": "build", "a": "We have restarted all the servers", "extra": ["restart", "has"], "why": "so far → 현재완료 have + p.p." },
+          { "them": "When did you tell the vendor?", "kr": "벤더에는 언제 알렸어요?", "task": "choose", "opts": ["We told them at 9:30.", "We have told them at 9:30.", "We have tell them at 9:30."], "a": 0, "why": "정확한 과거 시점(at 9:30) → 과거형 told." },
+          { "them": "Has this happened before?", "kr": "전에도 이런 적 있나요?", "task": "free", "prompt": "경험(현재완료) 한 문장 + 끝난 과거 한 문장으로 답해 보세요.", "model": "It has happened once before. We fixed it in about an hour last year.", "focus": "present perfect vs past simple" }
+        ]
+      }
+    },
+    {
+      "id": "b1-conditional1", "level": "B1", "title": "1조건문 — 협상에서 조건 걸기", "point": "If + 현재, will + 원형",
+      "sit": "deal/negotiation",
+      "scene": "월말 계약 협상. '이번 달에 서명하면 ~해 드릴게요'처럼 실제로 가능한 조건을 제시한다.",
+      "think": {
+        "q": "'이번 달에 계약하시면'은 미래인데 왜 영어는 현재형(sign)을 쓸까?",
+        "ko": "한국어는 '-하시면'으로 시제를 따로 안 드러낸다.",
+        "en": "영어는 if절 안에서는 미래도 현재형으로 쓰고, 결과 쪽에만 will을 둔다. 조건(현재) → 결과(will). 현실적으로 일어날 수 있는 조건.",
+        "rule": "If you sign this month, we will add free training. (If절에 will 금지)",
+        "ex": [["If you commit for a year, we'll lower the rate.", "1년 약정하시면 요율을 낮춰 드릴게요."], ["If the pilot goes well, we'll expand it.", "파일럿이 잘 되면 확대할 거예요."]]
+      },
+      "checks": [
+        { "q": "If you ___ the contract today, we'll start next week.", "opts": ["sign", "will sign", "signed"], "a": 0, "why": "if절은 현재형(미래 의미여도)." },
+        { "q": "If the budget is approved, we ___ the project in May.", "opts": ["start", "will start", "started"], "a": 1, "why": "결과 쪽에 will + 원형." },
+        { "q": "We'll give you a discount if you ___ for two years.", "opts": ["commit", "will commit", "committed"], "a": 0, "why": "순서가 바뀌어도 if절은 현재형." }
+      ],
+      "builds": [
+        { "kr": "3년 약정하시면 20% 절감돼요.", "a": "If you commit for three years you will save twenty percent", "extra": ["will commit"] },
+        { "kr": "승인이 나면 바로 알려 드릴게요.", "a": "I will tell you if it gets approved", "extra": ["will get"] }
+      ],
+      "sim": {
+        "who": "고객사 구매 총괄 (Ms. Jung)",
+        "turns": [
+          { "them": "Your price is still too high for us.", "kr": "가격이 아직 높아요.", "task": "choose", "opts": ["If you sign this month, we'll include free training.", "If you will sign this month, we include free training.", "If you signed this month, we'll include free training."], "a": 0, "why": "If + 현재(sign), 결과 will." },
+          { "them": "What if we need more time?", "kr": "시간이 더 필요하면요?", "task": "build", "a": "If you need more time we will extend the offer", "extra": ["will need"], "why": "if절 현재 need, 결과 will extend." },
+          { "them": "Will you lower the price if we commit for two years?", "kr": "2년 약정하면 가격 낮춰 주나요?", "task": "choose", "opts": ["Yes, if you commit for two years, we'll lower it by 10%.", "Yes, if you will commit for two years, we lower it by 10%.", "Yes, if you committed for two years, we lowered it by 10%."], "a": 0, "why": "현실적인 조건 → 1조건문." },
+          { "them": "Okay, give me your best offer.", "kr": "좋아요, 최선의 제안을 주세요.", "task": "free", "prompt": "If ~, we will ~ 로 조건 두 개를 걸어 제안해 보세요.", "model": "If you sign by Friday, we will add a month of free support, and if you commit for two years, we will lower the rate by ten percent.", "focus": "first conditional (if + present, will + base)" }
+        ]
+      }
+    },
+    {
+      "id": "b1-relative", "level": "B1", "title": "관계대명사 — 제품을 한 문장으로 설명", "point": "that / which / who",
+      "sit": "meeting/demo",
+      "scene": "데모 중에 기능과 사람을 '~하는 무엇/누구'로 풀어서 설명한다.",
+      "think": {
+        "q": "'비용을 모니터링하는 도구'를 영어는 어떤 순서로 말할까?",
+        "ko": "한국어는 꾸미는 말이 앞에 온다: [비용을 모니터링하는] 도구.",
+        "en": "영어는 명사를 먼저 말하고 뒤에서 설명을 붙인다: a tool [that monitors costs]. 사물은 that/which, 사람은 who/that.",
+        "rule": "명사 + that/which(사물) · who(사람) + 동사...",
+        "ex": [["We use a tool that monitors your cloud costs.", "클라우드 비용을 모니터링하는 도구를 씁니다."], ["She's the engineer who built the dashboard.", "그분이 대시보드를 만든 엔지니어예요."]]
+      },
+      "checks": [
+        { "q": "This is the feature ___ sends daily alerts.", "opts": ["who", "that", "what"], "a": 1, "why": "사물(feature) → that." },
+        { "q": "I'll introduce you to the manager ___ handles billing.", "opts": ["which", "who", "where"], "a": 1, "why": "사람(manager) → who." },
+        { "q": "The report ___ you asked for is ready.", "opts": ["that", "who", "it"], "a": 0, "why": "사물 + 목적어 자리 → that (생략도 가능)." }
+      ],
+      "builds": [
+        { "kr": "저희는 비용을 줄여 주는 서비스를 제공해요.", "a": "We offer a service that reduces costs", "extra": ["who"] },
+        { "kr": "그분이 계약을 담당하는 사람이에요.", "a": "He is the person who manages the contract", "extra": ["which"] }
+      ],
+      "sim": {
+        "who": "고객사 인프라 팀장 (Mr. Seo)",
+        "turns": [
+          { "them": "What is this dashboard?", "kr": "이 대시보드는 뭐예요?", "task": "choose", "opts": ["It's a dashboard that shows your daily spend.", "It's a dashboard who shows your daily spend.", "It's a dashboard shows that your daily spend."], "a": 0, "why": "사물 + that + 동사." },
+          { "them": "Who can I contact for billing questions?", "kr": "빌링 문의는 누구한테 해요?", "task": "build", "a": "You can contact Jina who manages billing", "extra": ["which"], "why": "사람 + who." },
+          { "them": "Is this the report we discussed last week?", "kr": "이게 지난주에 얘기한 리포트예요?", "task": "choose", "opts": ["Yes, it's the report that we discussed.", "Yes, it's the report who we discussed.", "Yes, it's the report we discussed it."], "a": 0, "why": "that + 주어 + 동사(목적어 자리는 비운다)." },
+          { "them": "What makes your service different?", "kr": "서비스가 뭐가 다르죠?", "task": "free", "prompt": "that 또는 who를 넣은 문장 두 개로 차별점을 설명해 보세요.", "model": "We have a tool that finds idle servers, and a team who reviews your bill every month.", "focus": "relative clauses (that/which/who)" }
+        ]
+      }
+    },
+    {
+      "id": "b1-passive", "level": "B1", "title": "수동태 — '누가'보다 '무엇이'가 중요할 때", "point": "be + p.p.",
+      "sit": "finops/billing",
+      "scene": "청구·처리 상황을 보고한다. 누가 했는지보다 일이 처리됐다는 사실이 중요하다.",
+      "think": {
+        "q": "'청구서가 발송됐어요'에서 주어는 사람일까, 청구서일까?",
+        "ko": "한국어는 주어를 자주 생략한다: '(누가) 어제 보냈어요'.",
+        "en": "영어는 주어를 생략할 수 없다. 행위자가 중요하지 않으면 대상을 주어로 세우고 be + p.p.로 말한다.",
+        "rule": "The invoice was sent yesterday. · The issue is being fixed now. · The credit will be applied next month.",
+        "ex": [["Your refund was processed on Monday.", "환불은 월요일에 처리됐어요."], ["The report is generated every morning.", "리포트는 매일 아침 생성돼요."]]
+      },
+      "checks": [
+        { "q": "The invoice ___ yesterday.", "opts": ["sent", "was sent", "was send"], "a": 1, "why": "청구서는 '보내진' 것 → was sent." },
+        { "q": "Your account ___ every month.", "opts": ["is reviewed", "reviews", "is review"], "a": 0, "why": "반복되는 일 + 수동 → is reviewed." },
+        { "q": "The credit ___ to your next bill.", "opts": ["will apply", "will be applied", "will applied"], "a": 1, "why": "미래 수동 → will be + p.p." }
+      ],
+      "builds": [
+        { "kr": "요금은 매달 1일에 청구돼요.", "a": "The fee is charged on the first of every month", "extra": ["charges"] },
+        { "kr": "문제는 오늘 아침에 해결됐어요.", "a": "The problem was solved this morning", "extra": ["solve"] }
+      ],
+      "sim": {
+        "who": "고객사 회계 담당 (Ms. Oh)",
+        "turns": [
+          { "them": "I haven't received the invoice.", "kr": "청구서를 못 받았어요.", "task": "choose", "opts": ["It was sent to your old email address.", "It sent to your old email address.", "It was send to your old email address."], "a": 0, "why": "was + p.p.(sent)." },
+          { "them": "Why is this month's bill so high?", "kr": "이번 달 청구액이 왜 높죠?", "task": "build", "a": "Extra storage was added last week", "extra": ["adds"], "why": "누가 추가했는지보다 추가된 사실 → was added." },
+          { "them": "Will the overcharge be refunded?", "kr": "초과 청구분은 환불되나요?", "task": "choose", "opts": ["Yes, it will be refunded next month.", "Yes, it will refunded next month.", "Yes, it refunds next month."], "a": 0, "why": "will be + p.p." },
+          { "them": "How is the data protected?", "kr": "데이터는 어떻게 보호되나요?", "task": "free", "prompt": "수동태 두 문장으로 보호 방식을 설명해 보세요.", "model": "All data is encrypted, and backups are stored in a separate region.", "focus": "passive voice" }
+        ]
+      }
+    },
+    {
+      "id": "b2-conditional23", "level": "B2", "title": "2·3조건문 — 가정과 회고", "point": "If + 과거 → would · If + had p.p. → would have p.p.",
+      "sit": "deal/negotiation",
+      "scene": "지금 사실이 아닌 가정으로 협상하고(2조건문), 지난 장애를 회고한다(3조건문).",
+      "think": {
+        "q": "'예산이 더 있다면' — 실제로는 없는데 왜 과거형(had)을 쓸까?",
+        "ko": "한국어는 '-다면'으로 현실/비현실을 잘 구분하지 않는다.",
+        "en": "영어는 시제를 한 칸 과거로 밀어 '현실과 거리가 있다'를 표시한다. 지금의 비현실 → If + 과거, would + 원형. 과거의 비현실(이미 지나간 일) → If + had p.p., would have p.p.",
+        "rule": "If we had more budget, we would expand. · If we had set alerts, we would have caught it.",
+        "ex": [["If we were your only vendor, we would give you a better rate.", "저희가 유일한 벤더라면 더 좋은 요율을 드릴 텐데요."], ["If we had tested the backup, we would have recovered faster.", "백업을 테스트했더라면 더 빨리 복구했을 거예요."]]
+      },
+      "checks": [
+        { "q": "If we ___ more engineers, we would finish sooner. (실제로는 없다)", "opts": ["have", "had", "will have"], "a": 1, "why": "지금의 비현실 → if + 과거." },
+        { "q": "If you had called us earlier, we ___ the issue.", "opts": ["would fix", "would have fixed", "will fix"], "a": 1, "why": "지나간 일의 가정 → would have p.p." },
+        { "q": "If I ___ you, I would choose the one-year plan.", "opts": ["am", "were", "will be"], "a": 1, "why": "비현실 가정의 be → were." }
+      ],
+      "builds": [
+        { "kr": "시간이 더 있다면 전부 옮길 텐데요.", "a": "If we had more time we would migrate everything", "extra": ["will"] },
+        { "kr": "알림을 설정했더라면 문제를 잡았을 거예요.", "a": "If we had set alerts we would have caught the problem", "extra": ["caught would"] }
+      ],
+      "sim": {
+        "who": "고객사 CFO (Mr. Hwang)",
+        "turns": [
+          { "them": "Could you do this for half the price?", "kr": "반값에 가능할까요?", "task": "choose", "opts": ["If we cut the price that much, we would have to remove support.", "If we will cut the price that much, we have to remove support.", "If we cut the price that much, we will had to remove support."], "a": 0, "why": "비현실 가정 → if + 과거, would + 원형." },
+          { "them": "Last quarter's outage cost us a lot.", "kr": "지난 분기 장애로 손해가 컸어요.", "task": "build", "a": "If we had set up alerts we would have caught it early", "extra": ["would catch"], "why": "지난 일 가정 → had p.p. / would have p.p." },
+          { "them": "What would you do in my position?", "kr": "제 입장이라면 어떻게 하시겠어요?", "task": "choose", "opts": ["If I were you, I would start with a small pilot.", "If I am you, I will start with a small pilot.", "If I was you, I would started with a small pilot."], "a": 0, "why": "If I were you, I would + 원형." },
+          { "them": "Why should we trust you this time?", "kr": "이번엔 왜 믿어야 하죠?", "task": "free", "prompt": "3조건문으로 과거 반성 한 문장 + 1조건문으로 앞으로의 약속 한 문장.", "model": "If we had monitored the database, we would have prevented the outage. If you renew, we will add 24/7 monitoring.", "focus": "second/third vs first conditional" }
+        ]
+      }
+    },
+    {
+      "id": "b2-reported", "level": "B2", "title": "간접화법 — 회의 결과를 전달하기", "point": "said (that) + 시제 한 칸 뒤로",
+      "sit": "meeting/closing",
+      "scene": "고객 미팅에서 들은 말을 내부 팀에게 정확히 전달한다.",
+      "think": {
+        "q": "고객이 'We will decide by Friday'라고 했다. 팀에게 전할 때 왜 will이 would가 될까?",
+        "ko": "한국어는 '금요일까지 결정한대요'로 원래 말을 거의 그대로 옮긴다.",
+        "en": "영어는 '말한 시점(과거)'에 맞춰 전하는 문장의 시제를 한 칸 뒤로 옮긴다: will→would, is→was, can→could. 질문은 asked if/whether + 평서문 어순.",
+        "rule": "She said (that) they would decide by Friday. · He asked if we could lower the price.",
+        "ex": [["The CTO said they were happy with the pilot.", "CTO가 파일럿에 만족한다고 했어요."], ["She asked whether we could start in May.", "5월에 시작할 수 있는지 물었어요."]]
+      },
+      "checks": [
+        { "q": "\"We need more time.\" → She said they ___ more time.", "opts": ["need", "needed", "will need"], "a": 1, "why": "현재 → 과거로 한 칸." },
+        { "q": "\"Can you send the quote?\" → He asked if we ___ the quote.", "opts": ["can send", "could send", "sent"], "a": 1, "why": "can → could." },
+        { "q": "He asked ___ the price included support.", "opts": ["if", "that", "what"], "a": 0, "why": "예/아니오 질문 전달 → asked if." }
+      ],
+      "builds": [
+        { "kr": "그분이 금요일까지 결정하겠다고 했어요.", "a": "She said they would decide by Friday", "extra": ["will"] },
+        { "kr": "CTO가 저희가 5월에 시작할 수 있는지 물었어요.", "a": "The CTO asked if we could start in May", "extra": ["can"] }
+      ],
+      "sim": {
+        "who": "우리 팀 매니저 (Daniel) — 회의 결과 보고",
+        "turns": [
+          { "them": "So what did the client say about the budget?", "kr": "고객이 예산에 대해 뭐래요?", "task": "choose", "opts": ["She said the budget was already approved.", "She said the budget is already approve.", "She said me the budget was already approved."], "a": 0, "why": "said + 과거(was approved). said 뒤에 me 없음(told me는 가능)." },
+          { "them": "Did they ask anything about security?", "kr": "보안 관련해서 뭐 물어봤어요?", "task": "build", "a": "They asked if we had ISMS certification", "extra": ["do we have"], "why": "asked if + 평서문 어순 + 시제 한 칸 뒤." },
+          { "them": "When will they decide?", "kr": "언제 결정한대요?", "task": "choose", "opts": ["He told me they would decide next week.", "He said me they will decide next week.", "He told they would decided next week."], "a": 0, "why": "told + 사람 + (that) + would 원형." },
+          { "them": "Anything else I should know?", "kr": "더 알아야 할 거 있어요?", "task": "free", "prompt": "고객이 한 말 두 가지를 said / asked if 로 전달해 보세요.", "model": "The CFO said they wanted a three-year option, and she asked if we could include training.", "focus": "reported speech (backshift, asked if)" }
+        ]
+      }
+    },
+    {
+      "id": "b2-indirect", "level": "B2", "title": "간접의문문 — 임원에게 정중하게 묻기", "point": "Could you tell me + 의문사 + 주어 + 동사",
+      "sit": "proposal/exec-brief",
+      "scene": "고객사 임원에게 민감한 질문(예산·일정·결정권자)을 정중하게 던진다.",
+      "think": {
+        "q": "'When does the contract end?'를 부드럽게 바꾸면 왜 어순이 변할까?",
+        "ko": "한국어는 '계약이 언제 끝나는지 여쭤봐도 될까요?' — 어순이 그대로다.",
+        "en": "질문을 다른 문장 안에 넣으면 더 이상 질문 어순이 아니다: Could you tell me [when the contract ends]? — 의문사 + 주어 + 동사(do/does 없음).",
+        "rule": "Do you know who makes the final decision? · I was wondering when you plan to launch.",
+        "ex": [["Could you tell me when the current contract ends?", "현재 계약이 언제 끝나는지 알려 주실 수 있을까요?"], ["Do you know who approves the budget?", "예산은 누가 승인하는지 아세요?"]]
+      },
+      "checks": [
+        { "q": "Could you tell me when ___?", "opts": ["does the contract end", "the contract ends", "ends the contract"], "a": 1, "why": "안에 들어간 질문은 주어+동사 어순." },
+        { "q": "Do you know who ___ the final decision?", "opts": ["makes", "does make", "make"], "a": 0, "why": "who가 주어 → who makes." },
+        { "q": "I was wondering ___ you have a budget for this.", "opts": ["if", "that", "do"], "a": 0, "why": "예/아니오 질문을 넣을 땐 if/whether." }
+      ],
+      "builds": [
+        { "kr": "누가 최종 결정을 하시는지 여쭤봐도 될까요?", "a": "Could you tell me who makes the final decision", "extra": ["does"] },
+        { "kr": "언제 출시하실 계획인지 궁금했어요.", "a": "I was wondering when you plan to launch", "extra": ["do"] }
+      ],
+      "sim": {
+        "who": "고객사 COO (Ms. Baek)",
+        "turns": [
+          { "them": "We're interested, but it's early days.", "kr": "관심은 있지만 아직 초기예요.", "task": "choose", "opts": ["Could you tell me when you plan to decide?", "Could you tell me when do you plan to decide?", "Could you tell me when plan you to decide?"], "a": 0, "why": "의문사 + 주어 + 동사." },
+          { "them": "The budget isn't fully set yet.", "kr": "예산은 아직 확정 전이에요.", "task": "build", "a": "Do you know who approves the budget", "extra": ["does"], "why": "who가 주어일 땐 who + 동사." },
+          { "them": "We might go with another vendor.", "kr": "다른 벤더로 갈 수도 있어요.", "task": "choose", "opts": ["I was wondering what matters most to you in this decision.", "I was wondering what does matter most to you.", "I was wondering what matters most to you in this decision?"], "a": 0, "why": "평서문 속 질문 — 물음표 없이, 주어+동사." },
+          { "them": "Any other questions?", "kr": "다른 질문 있나요?", "task": "free", "prompt": "Could you tell me / Do you know 로 정중한 질문 두 개.", "model": "Could you tell me how many users you have now, and do you know when your current contract ends?", "focus": "indirect questions (embedded word order)" }
+        ]
+      }
+    },
+    {
+      "id": "b2-perfectcont", "level": "B2", "title": "현재완료진행 — 계속해 온 노력 강조", "point": "have been + -ing",
+      "sit": "meeting/status",
+      "scene": "진행 상황 보고. '몇 주째 계속 하고 있다'는 과정과 노력을 보여준다.",
+      "think": {
+        "q": "'3주째 테스트하고 있어요'는 have tested일까, have been testing일까?",
+        "ko": "한국어 '-하고 있어요'는 지속·진행을 다 덮는다.",
+        "en": "have + p.p.는 결과(몇 개를 끝냈다), have been + -ing는 지금까지 계속되는 과정(얼마나 오래 해왔다). 기간(for/since)과 잘 어울린다.",
+        "rule": "We've been testing it for three weeks. (과정) · We've tested 20 cases. (결과·개수)",
+        "ex": [["Our team has been working on the migration since March.", "3월부터 계속 마이그레이션 작업을 하고 있어요."], ["We've migrated 12 of 20 services.", "20개 중 12개를 옮겼어요."]]
+      },
+      "checks": [
+        { "q": "We ___ the new dashboard for two weeks.", "opts": ["have been testing", "are testing since", "tested for now"], "a": 0, "why": "기간 동안 계속 → have been -ing." },
+        { "q": "So far we ___ 30 bugs.", "opts": ["have been fixing", "have fixed", "fix"], "a": 1, "why": "완료한 개수(결과) → have fixed." },
+        { "q": "How long ___ you been working with AWS?", "opts": ["have", "did", "are"], "a": 0, "why": "How long have you been -ing?" }
+      ],
+      "builds": [
+        { "kr": "1월부터 비용 최적화를 계속 하고 있어요.", "a": "We have been optimizing costs since January", "extra": ["for"] },
+        { "kr": "지금까지 서버 15대를 옮겼어요.", "a": "We have moved fifteen servers so far", "extra": ["been"] }
+      ],
+      "sim": {
+        "who": "고객사 PM (Mr. Ahn) — 주간 진행 회의",
+        "turns": [
+          { "them": "How is the migration going?", "kr": "마이그레이션 어떻게 되고 있어요?", "task": "choose", "opts": ["We've been moving the databases all week.", "We are moving the databases since Monday.", "We've been move the databases all week."], "a": 0, "why": "이번 주 내내 계속 → have been -ing." },
+          { "them": "How many services are done?", "kr": "서비스 몇 개가 끝났어요?", "task": "build", "a": "We have completed eight services", "extra": ["been"], "why": "완료 개수 → have + p.p." },
+          { "them": "Why is it taking so long?", "kr": "왜 이렇게 오래 걸려요?", "task": "choose", "opts": ["We've been waiting for security approval since Tuesday.", "We wait for security approval since Tuesday.", "We've waited for security approval since Tuesday ago."], "a": 0, "why": "화요일부터 계속 기다리는 중 → have been waiting." },
+          { "them": "Give me a quick summary.", "kr": "짧게 요약해 주세요.", "task": "free", "prompt": "계속해 온 것(have been -ing) 하나 + 끝낸 결과(have p.p.) 하나.", "model": "We have been testing the new setup for two weeks, and we have fixed most of the issues.", "focus": "present perfect continuous vs present perfect" }
+        ]
+      }
+    },
+    {
+      "id": "c1-hedging", "level": "C1", "title": "헤징 — 단정하지 않고 설득하기", "point": "might / could / seem / tend to",
+      "sit": "relations/disagree",
+      "scene": "고객의 계획에 동의하지 않지만 관계를 해치지 않고 대안을 제시한다.",
+      "think": {
+        "q": "원어민은 반대할 때 왜 'You're wrong' 대신 'It might be worth ...'라고 할까?",
+        "ko": "한국어는 '~인 것 같아요', '~하면 어떨까요'로 완곡하게 말한다.",
+        "en": "영어도 같다 — 단정 대신 가능성 조동사(might, could), 인상 동사(seem, appear), 경향(tend to), 수량 완충(a bit, somewhat)으로 '제안'의 틀을 만든다. 말하는 사람의 확신 정도를 조절하는 문법.",
+        "rule": "It might be worth -ing · It seems (that) ... · That could be a risk · tend to + 원형",
+        "ex": [["It might be worth testing this with a smaller workload first.", "먼저 작은 워크로드로 테스트해 보는 것도 좋을 것 같아요."], ["That approach seems a bit risky for a production system.", "그 방식은 운영 시스템에는 조금 위험해 보여요."]]
+      },
+      "checks": [
+        { "q": "(부드럽게 반대) That plan ___ a little ambitious for Q1.", "opts": ["is definitely", "seems", "must be"], "a": 1, "why": "단정 대신 인상 동사 seems." },
+        { "q": "It might be worth ___ a pilot first.", "opts": ["run", "running", "to run"], "a": 1, "why": "be worth + -ing." },
+        { "q": "Large migrations ___ take longer than planned.", "opts": ["tend to", "are tend to", "tends"], "a": 0, "why": "일반적 경향 → tend to + 원형." }
+      ],
+      "builds": [
+        { "kr": "먼저 비용을 검토해 보는 게 좋을 수도 있어요.", "a": "It might be worth reviewing the costs first", "extra": ["review"] },
+        { "kr": "그 일정은 조금 빠듯해 보여요.", "a": "The timeline seems a bit tight", "extra": ["is definitely"] }
+      ],
+      "sim": {
+        "who": "고객사 CIO (Mr. Nam) — 무리한 일정을 고집",
+        "turns": [
+          { "them": "We want to move everything in one month.", "kr": "한 달 안에 전부 옮기고 싶어요.", "task": "choose", "opts": ["That seems quite ambitious. It might be worth phasing it.", "That is impossible. You are wrong.", "That must be definitely too fast."], "a": 0, "why": "seems + might be worth -ing로 완곡하게." },
+          { "them": "Our team is very experienced.", "kr": "저희 팀은 경험이 많아요.", "task": "build", "a": "Even experienced teams tend to need more time", "extra": ["tends"], "why": "일반론으로 완충 → tend to." },
+          { "them": "So you think we'll fail?", "kr": "그럼 실패할 거라는 거예요?", "task": "choose", "opts": ["Not at all. I'd just suggest that a two-phase plan could reduce the risk.", "Yes, I think you will fail.", "I suggest you to reduce the risk."], "a": 0, "why": "I'd suggest that + could로 제안 틀." },
+          { "them": "What would you propose?", "kr": "그럼 무엇을 제안하세요?", "task": "free", "prompt": "might/could/seem 중 두 개 이상을 써서 대안을 제안해 보세요.", "model": "It might be worth moving the non-critical systems first. That could give your team time to learn the tools, and it seems safer for your customers.", "focus": "hedging (might, could, seem, tend to)" }
+        ]
+      }
+    },
+    {
+      "id": "c1-emphasis", "level": "C1", "title": "강조 구문 — 핵심을 앞으로", "point": "What ~ is · It is ~ that · Not only did ~",
+      "sit": "proposal/exec-brief",
+      "scene": "임원 보고에서 한 문장으로 핵심을 꽂는다. 무엇을 강조하느냐에 따라 문장 구조를 바꾼다.",
+      "think": {
+        "q": "'가장 중요한 건 속도예요'를 영어는 왜 What으로 시작할까?",
+        "ko": "한국어는 '~는 건 ~예요'로 강조한다.",
+        "en": "영어는 문장 뼈대를 바꿔 강조한다. What + 주어 + 동사 + is + 강조 대상 / It is + 강조 대상 + that ... / 부정어를 앞에 두면 도치(Not only did we ...).",
+        "rule": "What matters most is speed. · It was the monitoring that saved us. · Not only did we cut costs, but we also ...",
+        "ex": [["What your team needs is visibility, not more tools.", "팀에 필요한 건 도구가 아니라 가시성이에요."], ["Not only did we reduce costs, but we also improved uptime.", "비용을 줄였을 뿐 아니라 가용성도 높였어요."]]
+      },
+      "checks": [
+        { "q": "___ we need is a clear owner.", "opts": ["That", "What", "Which"], "a": 1, "why": "What + 주어 + 동사가 주어 덩어리." },
+        { "q": "It was the security team ___ found the issue.", "opts": ["that", "what", "which it"], "a": 0, "why": "It is/was ~ that 강조." },
+        { "q": "Not only ___ costs, but we also saved time.", "opts": ["we cut", "did we cut", "we did cut"], "a": 1, "why": "부정어가 앞으로 → 도치 did we cut." }
+      ],
+      "builds": [
+        { "kr": "저희가 제안하는 건 단계적 전환이에요.", "a": "What we propose is a phased transition", "extra": ["That"] },
+        { "kr": "장애를 막은 건 바로 자동 백업이었어요.", "a": "It was the automatic backup that prevented the outage", "extra": ["what"] }
+      ],
+      "sim": {
+        "who": "고객사 CEO (Ms. Shin) — 5분 보고",
+        "turns": [
+          { "them": "Give me the one thing I should remember.", "kr": "하나만 기억하라면 뭐죠?", "task": "choose", "opts": ["What you'll get is a 30% cost reduction within six months.", "That you'll get is a 30% cost reduction.", "What will you get is a 30% cost reduction."], "a": 0, "why": "What + 주어 + 동사 + is." },
+          { "them": "Why did the last project succeed?", "kr": "지난 프로젝트는 왜 성공했죠?", "task": "build", "a": "It was the weekly review that made the difference", "extra": ["what"], "why": "It was ~ that 강조." },
+          { "them": "What did we actually gain?", "kr": "실제로 얻은 게 뭐죠?", "task": "choose", "opts": ["Not only did we cut costs, but we also improved security.", "Not only we cut costs, but we also improved security.", "Not only did we cut costs, but also we improved security did."], "a": 0, "why": "Not only did + 주어 + 원형." },
+          { "them": "Why should I choose you?", "kr": "왜 당신들을 택해야 하죠?", "task": "free", "prompt": "What ~ is 와 It is ~ that 중 하나 이상으로 핵심을 말해 보세요.", "model": "What sets us apart is our monthly FinOps review. It is that discipline that keeps your costs down.", "focus": "cleft sentences and inversion for emphasis" }
+        ]
+      }
+    },
+    {
+      "id": "c1-participle", "level": "C1", "title": "분사구문 — 보고서 문장을 압축하기", "point": "Having p.p. / -ing, 주절",
+      "sit": "support/escalation",
+      "scene": "사후 분석(포스트모템) 보고서를 쓴다. 원인·조치를 짧고 매끄럽게 이어야 한다.",
+      "think": {
+        "q": "'로그를 검토한 후 우리는 원인을 찾았다'를 영어는 어떻게 한 덩어리로 줄일까?",
+        "ko": "한국어는 '-한 후', '-하면서'로 절을 이어 붙인다.",
+        "en": "두 절의 주어가 같으면 앞 절을 분사로 줄인다. 동시·이유 → -ing, 먼저 끝난 일 → Having + p.p. 주절의 주어가 분사의 행위자여야 한다(dangling 금지).",
+        "rule": "Having reviewed the logs, we identified the root cause. · Working with AWS, we restored the service in an hour.",
+        "ex": [["Having analyzed the bill, we found three idle databases.", "청구서를 분석한 뒤 유휴 DB 3개를 찾았습니다."], ["Using reserved instances, the client saved 30%.", "예약 인스턴스를 활용해 고객은 30%를 절감했습니다."]]
+      },
+      "checks": [
+        { "q": "___ the logs, we found the error.", "opts": ["Having checked", "Checked", "Have checked"], "a": 0, "why": "먼저 끝난 일 → Having + p.p." },
+        { "q": "___ closely with the vendor, we fixed it in two hours.", "opts": ["Worked", "Working", "To working"], "a": 1, "why": "동시 진행 → -ing." },
+        { "q": "Having reviewed the plan, ___", "opts": ["the budget was approved.", "the CFO approved the budget.", "it was approved by budget."], "a": 1, "why": "검토한 사람 = 주절의 주어(the CFO)." }
+      ],
+      "builds": [
+        { "kr": "설정을 바꾼 뒤, 저희는 지연 시간을 절반으로 줄였습니다.", "a": "Having changed the settings we cut latency in half", "extra": ["Changed"] },
+        { "kr": "자동 알림을 사용해 팀이 문제를 더 빨리 잡았습니다.", "a": "Using automatic alerts the team caught the issue faster", "extra": ["Used"] }
+      ],
+      "sim": {
+        "who": "우리 회사 임원 (Director Kim) — 포스트모템 리뷰",
+        "turns": [
+          { "them": "How did you find the root cause?", "kr": "근본 원인은 어떻게 찾았죠?", "task": "choose", "opts": ["Having reviewed the access logs, we found a misconfigured rule.", "Reviewed the access logs, we found a misconfigured rule.", "Having reviewed the access logs, a misconfigured rule was found by it."], "a": 0, "why": "Having p.p. + 같은 주어(we)." },
+          { "them": "How did you restore service so quickly?", "kr": "어떻게 그렇게 빨리 복구했죠?", "task": "build", "a": "Working with the vendor we restored it in an hour", "extra": ["Worked"], "why": "동시에 하며 → -ing." },
+          { "them": "What will prevent a repeat?", "kr": "재발은 무엇으로 막죠?", "task": "choose", "opts": ["Having added automated checks, we can now catch this in minutes.", "Added automated checks, we can now catch this in minutes.", "Having add automated checks, we can now catch this."], "a": 0, "why": "Having + p.p.(added)." },
+          { "them": "Summarize it in two sentences for the client.", "kr": "고객용으로 두 문장 요약해 주세요.", "task": "free", "prompt": "분사구문(Having p.p. 또는 -ing)을 넣어 두 문장으로 요약하세요.", "model": "Having identified a faulty rule, we fixed it within an hour. Using new automated checks, we will now detect similar issues in minutes.", "focus": "participle clauses (having p.p., -ing) with matching subject" }
+        ]
+      }
+    }
+  ]
+}

@@ -35,7 +35,7 @@ const tabs = await page.$$eval('.mode-tab', (bs) => bs.map((b) => b.textContent.
 check('하단 탭 4개: 홈·단어·회화·더보기', tabs.join(',') === '홈,단어,회화,더보기', tabs.join(','));
 await page.click('.mode-tab:has-text("더보기")');
 await page.waitForSelector('.more-sheet', { timeout: 5000 });
-check('더보기엔 내 성장 2개 + 모든 기능 버튼', (await page.locator('.more-sheet .feat-card').count()) === 2 && (await page.locator('.more-mode').count()) === 1);
+check('더보기엔 내 성장 2개 + 문법 시뮬레이션 + 모든 기능 버튼', (await page.locator('.more-sheet .feat-card').count()) === 3 && (await page.locator('.more-sheet .feat-card:has-text("문법 시뮬레이션")').count()) === 1 && (await page.locator('.more-mode').count()) === 1);
 await page.click('.more-sheet-overlay', { position: { x: 10, y: 10 } });
 
 /* ③ 진단 완료(시드) */

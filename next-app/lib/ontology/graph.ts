@@ -17,6 +17,7 @@ import { SALES_SCENARIOS } from '../salesScenarios';
 import { getEpisodes, SERIES_TITLE } from '../immersion';
 import { WORKATO_QUESTIONS, WORKATO_HR_QUESTIONS } from '../workatoPrep';
 import { DEFAULT_QUESTIONS } from '../interview';
+import { GRAMMAR_UNITS, GRAMMAR_LEVELS } from '../grammar';
 import type { LessonData } from '../lessonData';
 import type { Lesson } from '../lessons';
 import { detectPatterns } from './patternDetect';
@@ -276,6 +277,29 @@ function addInterviews(b: Builder) {
   );
 }
 
+/** 문법 시뮬레이션 — 레벨이 트랙(회차), 유닛은 그 문법이 필요한 실전 상황에 붙는다 */
+function addGrammar(b: Builder) {
+  for (const lv of GRAMMAR_LEVELS) {
+    const units = GRAMMAR_UNITS.filter((u) => u.level === lv);
+    if (!units.length) continue;
+    const tr = b.track({ id: `grammar:${lv}`, name: `${lv} 문법`, icon: '🧠', source: 'grammar', kind: '회차', desc: '문법 사고 × 실전 시뮬레이션' });
+    units.forEach((u, i) => {
+      b.unit(
+        {
+          id: `grammar:${u.id}`, source: 'grammar', title: u.title, subtitle: u.point, situations: [u.sit],
+          level: u.level, track: tr.id, real: false, mode: 'grammar', ref: { source: 'grammar', key: u.id }, minutes: 8,
+          requires: i > 0 ? [`grammar:${units[i - 1].id}`] : undefined,
+          lines: [
+            ...u.think.ex.map(([en, kr]) => ({ en, kr })),
+            ...u.sim.turns.map((t) => ({ en: t.them, kr: t.kr })),
+          ],
+        },
+        tr
+      );
+    });
+  }
+}
+
 function addLessons(b: Builder, data: LessonData) {
   // 회차 레슨(Preply 수업) — 날짜 순 회차
   const cls = b.track({ id: 'preply', name: '회차 레슨', icon: '🎓', source: 'lesson', kind: '회차', desc: '진옥 선생님 수업 회차' });
@@ -369,6 +393,7 @@ export function buildGraph(opts: BuildOptions = {}): Graph {
   addScripts(b);
   addStories(b);
   addInterviews(b);
+  addGrammar(b);
   if (opts.lessons) addLessons(b, opts.lessons);
   const g = finalize(b);
   g.hasLessons = !!opts.lessons;
@@ -408,5 +433,5 @@ export function invalidateGraph() {
 }
 
 export function sourceLabel(s: UnitSource): string {
-  return { course: '실전 코스', career: '커리어', mission: '미션', script: '스크립트', pattern: '패턴', story: '스토리', interview: '면접', lesson: '레슨', library: '생활 회화' }[s];
+  return { course: '실전 코스', career: '커리어', mission: '미션', script: '스크립트', pattern: '패턴', story: '스토리', interview: '면접', lesson: '레슨', library: '생활 회화', grammar: '문법' }[s];
 }

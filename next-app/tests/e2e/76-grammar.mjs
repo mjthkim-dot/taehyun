@@ -1,0 +1,103 @@
+/**
+ * 문법 시뮬레이션 — 레벨별 문법 사고를 실전 상황으로:
+ *   ① 오늘의 레슨 2단계가 '문법' → 누르면 그 유닛이 바로 열린다(핸드오프)
+ *   ② 사고: 한국어식 vs 영어식 사고 + 규칙 + 예문
+ *   ③ 판단 3문항(틀리면 이유) → ④ 조립 2문항(오답 조각 포함) → ⑤ 실전 4턴(상대 역할)
+ *   ⑥ 자유 작문 AI 채점(모킹) → 결과 점수·틀린 이유 → 진행 저장, 레슨 2단계 자동 완료
+ *   ⑦ 허브: 레벨 탭·유닛 목록·점수
+ */
+import { BASE, check, finish, launch, seedKey } from './helpers.mjs';
+
+const browser = await launch();
+const page = await browser.newPage();
+page.on('pageerror', (e) => console.log('  [pageerror]', e.message));
+await page.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"valid":true}' }));
+await page.route('**/app/api/tts*', (r) => r.fulfill({ status: 404, contentType: 'application/json', body: '{}' }));
+await page.route('**/app/api/groq', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: JSON.stringify({ ok: true, corrected: 'The database went down at 3 p.m., and we restarted it at 5.', why: '과거 시제를 정확히 썼어요. went는 go의 불규칙 과거형입니다.' }) } }] }) }));
+await seedKey(page);
+await page.addInitScript(() => {
+  if (!localStorage.getItem('va_placed')) localStorage.setItem('va_placed', JSON.stringify({ cefr: 'A2', gse: 30, ts: Date.now() }));
+  if (!localStorage.getItem('va_program')) localStorage.setItem('va_program', JSON.stringify({ startedAt: new Date().toISOString().slice(0, 10), why: 't', minutes: 25, days: [], manual: {} }));
+});
+await page.goto(`${BASE}/app`);
+
+/* ① 레슨 2단계 */
+await page.waitForSelector('.pg-steps', { timeout: 15000 });
+check('레슨 2단계 이름이 문법', await page.evaluate(() => [...document.querySelectorAll('.pg-step-name')].map((e) => e.textContent)[1] === '문법'));
+await page.click('.pg-toggle');
+await page.click('.pg-block-main:has-text("문법")');
+await page.waitForSelector('.gm-think', { timeout: 15000 });
+check('A2 학습자의 오늘 문법 = 과거 시제(현재 레벨 첫 유닛)', await page.evaluate(() => document.querySelector('.gm-unit-title')?.textContent.includes('과거 시제')));
+
+/* ② 사고 */
+const th = await page.evaluate(() => document.querySelector('.gm-think')?.innerText || '');
+check('한국어식 vs 영어식 사고가 나란히', th.includes('한국어식 사고') && th.includes('영어식 사고'));
+check('규칙과 예문 2개', (await page.locator('.gm-rule').count()) === 1 && (await page.locator('.gm-ex').count()) === 2);
+check('상황이 먼저 제시된다', await page.evaluate(() => document.querySelector('.gm-scene')?.textContent.includes('장애')));
+await page.click('button:has-text("판단 연습")');
+
+/* ③ 판단 — 첫 문제는 일부러 틀린다 */
+await page.waitForSelector('.gm-opt', { timeout: 5000 });
+const opts = await page.$$eval('.gm-opt', (b) => b.map((x) => x.textContent));
+const wrongIdx = opts.findIndex((o) => o !== 'restarted');
+await page.locator('.gm-opt').nth(wrongIdx).click();
+check('틀리면 이유가 나온다', await page.evaluate(() => document.querySelector('.gm-why')?.textContent.includes('과거형')));
+await page.click('.gm-go');
+async function pickRight() {
+  // 정답은 클릭 후 .right로 드러난다 — 다음 문제부턴 첫 보기를 누르고 결과대로 진행
+  await page.locator('.gm-opt').first().click();
+  await page.click('.gm-go');
+}
+await pickRight();
+await pickRight();
+
+/* ④ 조립 — 정답 단어를 순서대로 */
+async function buildAnswer(answer) {
+  await page.waitForSelector('.gm-pool', { timeout: 5000 });
+  for (const w of answer.split(' ')) {
+    await page.locator('.gm-pool .gm-tok:not([disabled])', { hasText: new RegExp(`^${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }).first().click();
+  }
+  await page.click('.gm-go:has-text("확인")');
+}
+await buildAnswer('We fixed the service at five');
+check('조립 정답이면 초록 슬롯', (await page.locator('.gm-slot.ok').count()) === 1);
+await page.click('.gm-go:has-text("다음")');
+await buildAnswer("The customer data didn't change");
+await page.click('.gm-go:has-text("다음")');
+
+/* ⑤ 실전 */
+await page.waitForSelector('.gm-bubble', { timeout: 5000 });
+check('상대 역할의 말풍선 + 번역', await page.evaluate(() => document.querySelector('.gm-bubble-en')?.textContent.includes('last Friday') && !!document.querySelector('.gm-bubble-kr')));
+check('상대가 명시된다', await page.evaluate(() => document.querySelector('.gm-count')?.textContent.includes('운영 매니저')));
+await pickRight();
+await buildAnswer('We found it two hours later');
+await page.click('.gm-go:has-text("다음")');
+await pickRight();
+
+/* ⑥ 자유 작문 */
+await page.waitForSelector('.gm-free-input', { timeout: 5000 });
+await page.fill('.gm-free-input', 'We added more monitoring and we tested the backup.');
+await page.click('.gm-go:has-text("AI 채점")');
+await page.waitForSelector('.gm-why.ok', { timeout: 10000 });
+check('AI가 목표 문법 관점으로 채점', await page.evaluate(() => document.querySelector('.gm-why')?.textContent.includes('과거 시제')));
+await page.click('.gm-go:has-text("결과 보기")');
+await page.waitForSelector('.gm-result', { timeout: 5000 });
+const score = await page.evaluate(() => Number(document.querySelector('.gm-score')?.textContent));
+check('결과 점수 표시(1문제 일부러 틀림 → 100 미만)', score > 0 && score < 100, String(score));
+check('틀린 이유 목록', (await page.locator('.gm-miss li').count()) >= 1);
+check('진행 저장', await page.evaluate(() => !!JSON.parse(localStorage.getItem('va_grammar') || '{}')['a2-past']));
+
+/* ⑦ 허브 */
+await page.click('.gm-go:has-text("문법 목록으로")');
+await page.waitForSelector('.gm-units', { timeout: 5000 });
+check('레벨 탭 5개(A1~C1)', (await page.locator('.gm-lv').count()) === 5);
+check('기본 탭 = 현재 레벨 A2', await page.evaluate(() => document.querySelector('.gm-lv.on')?.textContent.startsWith('A2')));
+check('과거 시제에 점수 표시', await page.evaluate(() => /\d+점/.test(document.querySelector('.gm-unit')?.textContent || '')));
+
+/* 레슨 2단계 자동 완료 */
+await page.click('.mode-tab:has-text("홈")');
+await page.waitForSelector('.pg-steps', { timeout: 15000 });
+check('레슨 문법 단계가 자동 완료', await page.evaluate(() => document.querySelectorAll('.pg-step')[1]?.classList.contains('done')));
+
+await browser.close();
+finish();

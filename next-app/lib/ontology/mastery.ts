@@ -19,6 +19,7 @@ import { seenCareer } from '../careerPack';
 import { getProgress, isMastered as missionPhraseMastered } from '../missionProgress';
 import { BUSINESS_MISSIONS, doneMissionKeys } from '../dailyMission';
 import { readEpisodes } from '../immersion';
+import { grammarProgress } from '../grammar';
 import { interviewHistory } from '../interview';
 import { WORKATO_ROLE, WORKATO_HR_ROLE } from '../workatoPrep';
 import type { Graph, Unit } from './schema';
@@ -129,6 +130,8 @@ function unitTouched(u: Unit, ctx: { course: Set<string>; career: Set<string>; r
     case 'lesson':
     case 'library':
       return ctx.lessonIds.has(Number(u.ref.key)) || ctx.hw.has(Number(u.ref.key));
+    case 'grammar':
+      return !!grammarProgress()[u.ref.key];
     case 'script':
       return false; // 스크립트는 열람 기록이 없다 — 표현 점수로만 반영
   }

@@ -16,7 +16,7 @@ export interface GuideState {
 const STEPS = [
   { key: 'placed', title: '레벨 진단', desc: '18문항 · 5분 · 한 번만', cta: '레벨 진단 시작', mode: 'placement' as Mode },
   { key: 'started', title: '12주 코스 시작', desc: '목표 한 줄과 하루 학습 시간', cta: '아래에서 코스 시작', mode: null },
-  { key: 'firstLessonDone', title: '첫 레슨 완료', desc: '복습 → 핵심 표현 → 말하기 → 실전', cta: '아래 오늘의 레슨으로', mode: null },
+  { key: 'firstLessonDone', title: '첫 레슨 완료', desc: '복습 → 문법 → 말하기 → 실전', cta: '아래 오늘의 레슨으로', mode: null },
 ] as const;
 
 export function guideDone(s: GuideState): boolean {

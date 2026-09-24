@@ -60,7 +60,7 @@ check('자동 확인된 블록은 체크를 되돌릴 수 없다', await page.ev
 }));
 
 /* ⑤⑥ 나머지 3블록 수동 체크 → 훈련일 확정 */
-for (const name of ['복습', '핵심 표현', '실전']) {
+for (const name of ['복습', '문법', '실전']) {
   await page.evaluate((n) => {
     const li = [...document.querySelectorAll('.pg-block')].find((e) => (e.querySelector('.pg-block-title')?.textContent || '').startsWith(n));
     li?.querySelector('.pg-check')?.click();
