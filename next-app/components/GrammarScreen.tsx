@@ -3,10 +3,11 @@
 /**
  * 문법 시뮬레이션 화면 — 허브(레벨별 유닛) + 유닛 플레이어(사고 → 판단 → 조립 → 실전 → 결과).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { speakText, stopSpeaking } from './SpeakButton';
 import { haptic } from '../lib/haptics';
-import { groqKey } from '../lib/state';
+import { bumpSpoken, groqKey } from '../lib/state';
+import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
 import { overall } from '../lib/cefrGrowth';
 import { takeUnitHandoff } from '../lib/ontology/handoff';
 import type { Cefr } from '../lib/cefr';
@@ -140,64 +141,135 @@ function Choice({ opts, a, why, seed, onDone }: { opts: string[]; a: number; why
   );
 }
 
-/** 자유 작문 */
-function FreeTurn({ unit, turn, onDone }: { unit: GrammarUnit; turn: Extract<GTurn, { task: 'free' }>; onDone: (ok: boolean) => void }) {
-  const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
+/** 실전 마지막 턴 — 말로 답한다(타이핑 없음). 마이크 → 받아쓰기 → AI가 목표 문법으로 채점 */
+function SpeakTurn({ unit, turn, onDone }: { unit: GrammarUnit; turn: Extract<GTurn, { task: 'free' }>; onDone: (ok: boolean) => void }) {
+  const [state, setState] = useState<'idle' | 'listening' | 'transcribing' | 'grading' | 'graded' | 'self'>('idle');
+  const [heard, setHeard] = useState('');
+  const [partial, setPartial] = useState('');
   const [grade, setGrade] = useState<FreeGrade | null>(null);
-  const [selfMode, setSelfMode] = useState(false);
+  const [err, setErr] = useState('');
+  const stopRef = useRef<(() => void) | null>(null);
+  const canVoice = whisperAvailable();
   const hasKey = !!groqKey();
+
+  useEffect(() => () => stopRef.current?.(), []);
+
+  async function listen() {
+    setErr('');
+    setHeard('');
+    setPartial('');
+    setGrade(null);
+    setState('listening');
+    try {
+      const { text } = await recordAndTranscribe({
+        prompt: turn.model,
+        language: 'en',
+        silenceMs: 2500,
+        maxMs: 45000,
+        onPartial: (t) => setPartial(t),
+        onState: (st) => {
+          if (st === 'transcribing') setState('transcribing');
+        },
+        registerStop: (fn) => {
+          stopRef.current = fn;
+        },
+      });
+      stopRef.current = null;
+      const t = (text || '').trim();
+      if (!t) {
+        setErr('소리가 잡히지 않았어요. 마이크를 누르고 다시 말해 보세요.');
+        setState('idle');
+        return;
+      }
+      bumpSpoken();
+      setHeard(t);
+      if (!hasKey) {
+        setState('self');
+        return;
+      }
+      setState('grading');
+      const g = await gradeFree(unit, turn, t);
+      if (g) {
+        setGrade(g);
+        setState('graded');
+      } else setState('self');
+    } catch {
+      stopRef.current = null;
+      setErr('마이크를 사용할 수 없어요. 모범 답안을 듣고 따라 말해 보세요.');
+      setState('self');
+    }
+  }
+
   return (
     <div className="gm-free">
-      <div className="gm-task">✍️ {turn.prompt}</div>
-      <textarea className="text-input gm-free-input" rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="영어로 답해 보세요" disabled={!!grade || selfMode} />
-      {!grade && !selfMode && (
-        <button
-          type="button"
-          className="btn primary gm-go"
-          disabled={!text.trim() || busy}
-          onClick={async () => {
-            if (!hasKey) {
-              setSelfMode(true);
-              return;
-            }
-            setBusy(true);
-            try {
-              const g = await gradeFree(unit, turn, text);
-              if (g) setGrade(g);
-              else setSelfMode(true);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {busy ? 'AI 코치가 문법을 보는 중…' : hasKey ? 'AI 채점' : '모범 답안과 비교'}
-        </button>
+      <div className="gm-task">🎙 {turn.prompt}</div>
+
+      {heard && (
+        <div className="gm-heard">
+          <span className="gm-heard-lbl">내가 한 말</span>
+          {heard}
+        </div>
       )}
-      {grade && (
+
+      {(state === 'idle' || state === 'listening' || state === 'transcribing') && canVoice && (
+        <div className="gm-mic-wrap">
+          <button
+            type="button"
+            className={`gm-mic${state === 'listening' ? ' on' : ''}`}
+            disabled={state === 'transcribing'}
+            aria-label={state === 'listening' ? '말하기 끝내기' : '말로 답하기'}
+            onClick={() => (state === 'listening' ? stopRef.current?.() : void listen())}
+          >
+            {state === 'listening' ? '⏹' : '🎙'}
+          </button>
+          <div className="gm-mic-lbl">
+            {state === 'listening' ? '듣고 있어요 — 다 말하면 누르거나 잠시 멈추세요' : state === 'transcribing' ? '받아 적는 중…' : '눌러서 영어로 말하기'}
+          </div>
+          {state === 'listening' && partial && <div className="gm-partial">{partial}</div>}
+          <button type="button" className="gm-hint" onClick={() => say(turn.model)}>
+            🔊 막히면 모범 답안 듣기
+          </button>
+        </div>
+      )}
+
+      {state === 'grading' && <p className="muted gm-mic-lbl">AI 코치가 문법을 보는 중…</p>}
+      {err && <p className="gm-err">{err}</p>}
+
+      {state === 'graded' && grade && (
         <>
           <div className={`gm-why${grade.ok ? ' ok' : ''}`}>
             {grade.ok ? '목표 문법을 잘 썼어요 — ' : '조금만 고쳐 볼까요 — '}
             {grade.why}
-            <span className="gm-model">다듬은 문장: {grade.corrected}</span>
+            <button type="button" className="gm-model gm-model-say" onClick={() => say(grade.corrected)}>
+              🔊 다듬은 문장: {grade.corrected}
+            </button>
           </div>
-          <button type="button" className="btn primary gm-go" onClick={() => onDone(grade.ok)}>
-            결과 보기
-          </button>
+          <div className="gm-self">
+            <button type="button" className="btn" onClick={() => void listen()}>
+              다시 말하기
+            </button>
+            <button type="button" className="btn primary" onClick={() => onDone(grade.ok)}>
+              결과 보기
+            </button>
+          </div>
         </>
       )}
-      {selfMode && (
+
+      {(state === 'self' || (!canVoice && state === 'idle')) && (
         <>
           <div className="gm-why">
-            모범 답안: <b>{turn.model}</b>
-            <span className="gm-model">목표 문법({unit.point})을 썼는지 스스로 확인해 보세요.</span>
+            모범 답안을 듣고 소리 내어 따라 말해 보세요.
+            <button type="button" className="gm-model gm-model-say" onClick={() => say(turn.model)}>
+              🔊 {turn.model}
+            </button>
+            <span className="gm-model">목표 문법: {unit.point}</span>
           </div>
           <div className="gm-self">
             <button type="button" className="btn" onClick={() => onDone(false)}>
-              다르게 썼어요
+              아직 어려워요
             </button>
             <button type="button" className="btn primary" onClick={() => onDone(true)}>
-              목표 문법을 썼어요
+              목표 문법으로 말했어요
             </button>
           </div>
         </>
@@ -371,7 +443,7 @@ function Player({ unit, onExit }: { unit: GrammarUnit; onExit: () => void }) {
               />
             </>
           )}
-          {turn.task === 'free' && <FreeTurn unit={unit} turn={turn} onDone={(g) => finish(g, '실전 자유 작문', `모범: ${turn.model}`)} />}
+          {turn.task === 'free' && <SpeakTurn unit={unit} turn={turn} onDone={(g) => finish(g, '실전 말하기', `모범: ${turn.model}`)} />}
         </div>
       )}
 

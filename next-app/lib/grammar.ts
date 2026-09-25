@@ -171,7 +171,7 @@ export async function gradeFree(unit: GrammarUnit, turn: Extract<GTurn, { task: 
   if (!groqKey() || !answer.trim()) return null;
   const sys = `너는 한국인 비즈니스 영어 학습자의 문법 코치다. 목표 문법: ${turn.focus} (${unit.point}).
 상황: ${unit.scene} 상대의 말: "${turn.them}" 과제: ${turn.prompt}
-학습자 답을 평가하라. 목표 문법을 올바르게 썼고 상황에 맞으면 ok=true. 사소한 철자는 봐준다.
+학습자가 **말로 한 답**(음성 받아쓰기)을 평가하라. 대소문자·구두점·사소한 인식 오류는 무시하고, 목표 문법을 올바르게 썼고 상황에 맞으면 ok=true.
 JSON만: {"ok": true|false, "corrected": "자연스럽게 고친 영어 문장(맞았으면 다듬은 버전)", "why": "한국어 1~2문장 — 목표 문법 관점에서 무엇이 맞고/틀렸는지"}`;
   return groqKoJson<FreeGrade>(
     [

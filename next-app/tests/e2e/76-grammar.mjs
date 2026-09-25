@@ -8,6 +8,17 @@
  */
 import { BASE, check, finish, launch, seedKey } from './helpers.mjs';
 
+// 마이크 스텁 — 500ms 동안 소리가 있다가 조용해진다(침묵 감지로 자동 종료)
+const MIC_STUB = () => {
+  navigator.mediaDevices = navigator.mediaDevices || {};
+  navigator.mediaDevices.getUserMedia = async () => ({ getTracks: () => [{ stop() {} }] });
+  class FA { constructor() { this.fftSize = 1024; this.t0 = Date.now(); } getFloatTimeDomainData(b) { const l = Date.now() - this.t0 < 500; for (let i = 0; i < b.length; i++) b[i] = l ? 0.5 : 0; } }
+  class FC { constructor() { this.state = 'running'; } createAnalyser() { return new FA(); } createMediaStreamSource() { return { connect() {} }; } resume() { return Promise.resolve(); } close() { return Promise.resolve(); } }
+  window.AudioContext = FC;
+  class FR { constructor() { this.mimeType = 'audio/webm'; } static isTypeSupported() { return true; } start() { setTimeout(() => this.ondataavailable?.({ data: new Blob([new Uint8Array(4096)], { type: 'audio/webm' }) }), 20); } stop() { setTimeout(() => this.onstop?.(), 20); } }
+  window.MediaRecorder = FR;
+};
+
 const browser = await launch();
 const page = await browser.newPage();
 page.on('pageerror', (e) => console.log('  [pageerror]', e.message));
@@ -15,6 +26,8 @@ await page.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, con
 await page.route('**/app/api/tts*', (r) => r.fulfill({ status: 404, contentType: 'application/json', body: '{}' }));
 await page.route('**/app/api/groq', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: JSON.stringify({ ok: true, corrected: 'The database went down at 3 p.m., and we restarted it at 5.', why: '과거 시제를 정확히 썼어요. went는 go의 불규칙 과거형입니다.' }) } }] }) }));
 await seedKey(page);
+await page.addInitScript(MIC_STUB);
+await page.route('**/app/api/stt', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: 'We added more monitoring and we tested the backup.' }) }));
 await page.addInitScript(() => {
   if (!localStorage.getItem('va_placed')) localStorage.setItem('va_placed', JSON.stringify({ cefr: 'A2', gse: 30, ts: Date.now() }));
   if (!localStorage.getItem('va_program')) localStorage.setItem('va_program', JSON.stringify({ startedAt: new Date().toISOString().slice(0, 10), why: 't', minutes: 25, days: [], manual: {} }));
@@ -74,13 +87,18 @@ await buildAnswer('We found it two hours later');
 await page.click('.gm-go:has-text("다음")');
 await pickRight();
 
-/* ⑥ 자유 작문 */
-await page.waitForSelector('.gm-free-input', { timeout: 5000 });
-await page.fill('.gm-free-input', 'We added more monitoring and we tested the backup.');
-await page.click('.gm-go:has-text("AI 채점")');
+/* ⑥ 말하기(타이핑 없음) */
+await page.waitForSelector('.gm-mic', { timeout: 5000 });
+check('텍스트 입력칸이 없다', (await page.locator('.gm-free textarea, .gm-free input').count()) === 0);
+check('모범 답안 듣기 힌트가 있다', (await page.locator('.gm-hint').count()) === 1);
+await page.click('.gm-mic');
+await page.waitForSelector('.gm-heard', { timeout: 15000 });
+check('말한 문장이 받아쓰기로 보인다', await page.evaluate(() => document.querySelector('.gm-heard')?.textContent.includes('We added more monitoring')));
 await page.waitForSelector('.gm-why.ok', { timeout: 10000 });
 check('AI가 목표 문법 관점으로 채점', await page.evaluate(() => document.querySelector('.gm-why')?.textContent.includes('과거 시제')));
-await page.click('.gm-go:has-text("결과 보기")');
+check('다시 말하기 선택지', (await page.locator('.gm-self button:has-text("다시 말하기")').count()) === 1);
+check('말한 문장이 오늘 발화 수로 집계', await page.evaluate(() => (JSON.parse(localStorage.getItem('va_spoken') || '{}').count || 0) >= 1));
+await page.click('.gm-self button:has-text("결과 보기")');
 await page.waitForSelector('.gm-result', { timeout: 5000 });
 const score = await page.evaluate(() => Number(document.querySelector('.gm-score')?.textContent));
 check('결과 점수 표시(1문제 일부러 틀림 → 100 미만)', score > 0 && score < 100, String(score));

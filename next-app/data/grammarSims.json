@@ -537,7 +537,7 @@
           { "them": "How did you find the root cause?", "kr": "근본 원인은 어떻게 찾았죠?", "task": "choose", "opts": ["Having reviewed the access logs, we found a misconfigured rule.", "Reviewed the access logs, we found a misconfigured rule.", "Having reviewed the access logs, a misconfigured rule was found by it."], "a": 0, "why": "Having p.p. + 같은 주어(we)." },
           { "them": "How did you restore service so quickly?", "kr": "어떻게 그렇게 빨리 복구했죠?", "task": "build", "a": "Working with the vendor we restored it in an hour", "extra": ["Worked"], "why": "동시에 하며 → -ing." },
           { "them": "What will prevent a repeat?", "kr": "재발은 무엇으로 막죠?", "task": "choose", "opts": ["Having added automated checks, we can now catch this in minutes.", "Added automated checks, we can now catch this in minutes.", "Having add automated checks, we can now catch this."], "a": 0, "why": "Having + p.p.(added)." },
-          { "them": "Summarize it in two sentences for the client.", "kr": "고객용으로 두 문장 요약해 주세요.", "task": "free", "prompt": "분사구문(Having p.p. 또는 -ing)을 넣어 두 문장으로 요약하세요.", "model": "Having identified a faulty rule, we fixed it within an hour. Using new automated checks, we will now detect similar issues in minutes.", "focus": "participle clauses (having p.p., -ing) with matching subject" }
+          { "them": "Summarize it in two sentences for the client.", "kr": "고객용으로 두 문장 요약해 주세요.", "task": "free", "prompt": "분사구문(Having p.p. 또는 -ing)을 넣어 두 문장으로 요약해 말해 보세요.", "model": "Having identified a faulty rule, we fixed it within an hour. Using new automated checks, we will now detect similar issues in minutes.", "focus": "participle clauses (having p.p., -ing) with matching subject" }
         ]
       }
     }
