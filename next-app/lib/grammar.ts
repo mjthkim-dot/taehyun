@@ -102,9 +102,21 @@ export function pickTodayGrammar(current: Cefr): GrammarUnit {
   const prog = grammarProgress();
   const ci = Math.max(0, GRAMMAR_LEVELS.indexOf(current === 'C2' ? 'C1' : current));
   const order = [...GRAMMAR_LEVELS.slice(ci), ...GRAMMAR_LEVELS.slice(0, ci).reverse()];
-  for (const lv of order) {
-    const next = unitsAt(lv).find((u) => (prog[u.id]?.best ?? 0) < MASTER_SCORE);
-    if (next) return next;
+  // 어제·오늘 이미 한 미완 유닛은 다른 미완 유닛이 있으면 하루 쉬게 한다
+  // (못 넘으면 매일 같은 유닛만 뜨던 문제 — 간격을 두고 다시 만난다)
+  const today = todayKey();
+  const y = new Date();
+  y.setDate(y.getDate() - 1);
+  const yesterday = todayKey(y);
+  const rested = (u: GrammarUnit) => {
+    const at = prog[u.id]?.at;
+    return at !== today && at !== yesterday;
+  };
+  for (const pass of [true, false]) {
+    for (const lv of order) {
+      const next = unitsAt(lv).find((u) => (prog[u.id]?.best ?? 0) < MASTER_SCORE && (!pass || rested(u)));
+      if (next) return next;
+    }
   }
   return GRAMMAR_UNITS.slice().sort((a, b) => (prog[a.id]?.best ?? 0) - (prog[b.id]?.best ?? 0))[0];
 }

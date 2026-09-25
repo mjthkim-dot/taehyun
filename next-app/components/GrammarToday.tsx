@@ -47,8 +47,8 @@ export function GrammarTodayCard({ onNavigate }: { onNavigate: (m: Mode) => void
 const SEEN_KEY = 'va_seen_whatsnew';
 /** 이 버전에서 알릴 것 — 버전이 바뀌면 다시 한 번 뜬다 */
 const WHATS_NEW = {
-  title: '새로 생긴 것 — 문법 시뮬레이션',
-  body: 'A1~C1 레벨별 문법 18개를 실제 업무 상황(장애 보고·협상·임원 보고…)에서 연습해요. 오늘의 레슨 2단계에 들어갔고, 아래 “오늘의 문법”이나 더보기에서도 바로 열 수 있어요.',
+  title: '이제 매번 다른 수업이에요',
+  body: '같은 문법이라도 두 번째부터는 AI가 새 상황(호텔 체크인, 가격 협상, 임원 보고…)과 새 문제로 만들어요. 못 끝낸 문법은 하루 쉬었다가 다시 나오고, 레슨 제목도 매일 그날 배울 내용으로 바뀌어요.',
 };
 
 export function WhatsNew({ onNavigate }: { onNavigate: (m: Mode) => void }) {

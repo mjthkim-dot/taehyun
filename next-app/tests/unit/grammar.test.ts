@@ -68,8 +68,12 @@ describe('진행 · 오늘의 문법', () => {
     recordGrammar('a2-past', 90);
     expect(pickTodayGrammar('A2').id).toBe('a2-future');
   });
-  test('80점 미만이면 다시 권한다', () => {
+  test('80점 미만 유닛은 하루 쉬고(다른 미완 유닛 먼저) 나중에 다시 권한다', () => {
     recordGrammar('a2-past', 60);
+    expect(pickTodayGrammar('A2').id).toBe('a2-future');
+    // 모든 미완 유닛이 쉬는 중이면 다시 첫 미완으로
+    for (const u of unitsAt('A2').slice(1)) recordGrammar(u.id, 50);
+    for (const lv of ['B1', 'B2', 'C1', 'A1'] as const) for (const u of unitsAt(lv)) recordGrammar(u.id, 50);
     expect(pickTodayGrammar('A2').id).toBe('a2-past');
   });
   test('현재 레벨을 다 끝내면 다음 레벨', () => {
@@ -101,5 +105,53 @@ describe('레슨·온톨로지 연결', () => {
     const g = buildGraph();
     expect(g.units.filter((u) => u.source === 'grammar').length).toBe(18);
     expect(g.trackById['grammar:B1']).toBeTruthy();
+  });
+});
+
+describe('변형 생성 — 같은 문법, 새 상황', async () => {
+  const { validateVariant, nextScene, applyVariant, SCENE_POOL } = await import('../../lib/grammarGen');
+  const good = {
+    scene: '호텔 체크인 문제를 프런트에 설명한다.',
+    ex: [['I booked a room last week.', '지난주에 방을 예약했어요.'], ['The system lost my booking.', '시스템이 예약을 잃어버렸어요.']],
+    checks: [0, 1, 2].map((i) => ({ q: `I ___ it yesterday (${i}).`, opts: ['booked', 'book', 'booking'], a: 0, why: '어제 = 끝난 일 → 과거형.' })),
+    builds: [
+      { kr: '어제 예약했어요.', a: 'I booked it yesterday.', extra: ['book'] },
+      { kr: '확인 메일을 받았어요.', a: 'I got a confirmation email', extra: ['get'] },
+    ],
+    sim: {
+      who: '호텔 프런트 직원',
+      turns: [
+        { them: 'When did you book?', kr: '언제 예약하셨어요?', task: 'choose', opts: ['I booked it on Monday.', 'I book it on Monday.', 'I booking it on Monday.'], a: 0, why: '과거 시점 → 과거형.' },
+        { them: 'Did you get an email?', kr: '메일 받으셨어요?', task: 'build', a: 'Yes I got it last night', extra: ['get'], why: 'get의 과거 got.' },
+        { them: 'Did you pay already?', kr: '결제하셨어요?', task: 'choose', opts: ['Yes, I paid online.', 'Yes, I pay online.', 'Yes, I paying online.'], a: 0, why: 'pay의 과거 paid.' },
+        { them: 'What happened?', kr: '무슨 일이죠?', task: 'free', prompt: '무슨 일이 있었는지 과거 시제로 말해 보세요.', model: 'I booked a room, but the system lost it.', focus: 'past simple' },
+      ],
+    },
+  };
+  test('올바른 변형은 통과(마침표 제거)', () => {
+    const v = validateVariant(good)!;
+    expect(v).not.toBeNull();
+    expect(v.builds[0].a).toBe('I booked it yesterday');
+  });
+  test('오답 조각이 정답에 있으면 거부', () => {
+    expect(validateVariant({ ...good, builds: [{ ...good.builds[0], extra: ['booked'] }, good.builds[1]] })).toBeNull();
+  });
+  test('보기 정답 인덱스가 틀리면 거부', () => {
+    expect(validateVariant({ ...good, checks: [{ ...good.checks[0], a: 5 }, good.checks[1], good.checks[2]] })).toBeNull();
+  });
+  test('턴 구성이 다르면 거부(4턴: 고르기·조립·고르기·말하기)', () => {
+    expect(validateVariant({ ...good, sim: { ...good.sim, turns: good.sim.turns.slice(0, 3) } })).toBeNull();
+  });
+  test('상황은 회차마다 바뀐다', () => {
+    const a = nextScene('a2-past', 1, 20260925);
+    const b = nextScene('a2-past', 2, 20260925);
+    expect(a).not.toBe(b);
+    expect(SCENE_POOL.length).toBeGreaterThanOrEqual(30);
+  });
+  test('변형을 입혀도 사고 단계의 규칙은 원본 유지', () => {
+    const u = GRAMMAR_UNITS.find((x) => x.id === 'a2-past')!;
+    const w = applyVariant(u, validateVariant(good));
+    expect(w.scene).toContain('호텔');
+    expect(w.think.rule).toBe(u.think.rule);
   });
 });

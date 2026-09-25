@@ -117,6 +117,8 @@ export default function ProgramCard({ onNavigate }: { onNavigate: (m: Mode) => v
   const next = plan.blocks.find((b) => !b.done);
   const doneCount = plan.blocks.filter((b) => b.done).length;
   const totalMin = plan.blocks.reduce((a, b) => a + b.minutes, 0);
+  const coreBlock = plan.blocks.find((b) => b.key === 'core');
+  const todayTitle = coreBlock ? coreBlock.why.replace(/^\S+\s/, '') : plan.plan.focus;
   const go = (b: TodayBlock) => {
     if (b.unitRef) setUnitHandoff(b.unitRef);
     onNavigate(b.mode);
@@ -130,9 +132,13 @@ export default function ProgramCard({ onNavigate }: { onNavigate: (m: Mode) => v
             Unit {plan.week}/{TOTAL_WEEKS} · Lesson {plan.dayInWeek}/{DAYS_PER_WEEK}
             {plan.isCheckpoint && <span className="pg-badge">측정일</span>}
           </div>
-          <h2 className="pg-lesson-title">{plan.plan.focus}</h2>
+          {/* 제목은 '오늘'의 내용 — 주차 테마는 5일 내내 같아서 매일 같은 수업처럼 보였다 */}
+          <h2 className="pg-lesson-title">{todayTitle}</h2>
           <div className="pg-meta">
-            {plan.phase.n}단계 {plan.phase.name} · 약 {totalMin}분 · Day {plan.day}/{TOTAL_DAYS}
+            이번 주: {plan.plan.focus} · 약 {totalMin}분
+          </div>
+          <div className="pg-meta">
+            {plan.phase.n}단계 {plan.phase.name} · Day {plan.day}/{TOTAL_DAYS}
           </div>
         </div>
         <button type="button" className="mini-btn pg-more" onClick={() => onNavigate('program')} aria-label="코스 전체 보기">

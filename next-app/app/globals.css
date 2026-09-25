@@ -10847,3 +10847,37 @@ body::after {
 @media (prefers-reduced-motion: reduce) {
   .gm-mic.on { animation: none; }
 }
+.gm-fresh {
+  margin-left: 6px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+}
+.gm-go-2 {
+  margin-top: 8px;
+}
+.gm-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 20px;
+  text-align: center;
+}
+.gm-loading-dot {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 4px solid var(--surface2);
+  border-top-color: var(--primary);
+  animation: gm-spin 0.9s linear infinite;
+}
+@keyframes gm-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gm-loading-dot { animation: none; }
+}

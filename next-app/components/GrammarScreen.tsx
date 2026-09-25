@@ -28,6 +28,7 @@ import {
   type GrammarUnit,
   type GTurn,
 } from '../lib/grammar';
+import { applyVariant, generateVariant } from '../lib/grammarGen';
 
 type Phase = 'think' | 'check' | 'build' | 'sim' | 'result';
 const PHASES: { key: Phase; label: string }[] = [
@@ -278,7 +279,7 @@ function SpeakTurn({ unit, turn, onDone }: { unit: GrammarUnit; turn: Extract<GT
   );
 }
 
-function Player({ unit, onExit }: { unit: GrammarUnit; onExit: () => void }) {
+function Player({ unit, onExit, onAgain, fresh }: { unit: GrammarUnit; onExit: () => void; onAgain: () => void; fresh: boolean }) {
   const [phase, setPhase] = useState<Phase>('think');
   const [i, setI] = useState(0);
   const [ok, setOk] = useState(0);
@@ -325,6 +326,7 @@ function Player({ unit, onExit }: { unit: GrammarUnit; onExit: () => void }) {
       </div>
       <div className="gm-unit-kicker">
         {unit.level} · {unit.point}
+        {fresh && <span className="gm-fresh">새 상황</span>}
       </div>
       <h2 className="gm-unit-title">{unit.title}</h2>
 
@@ -465,13 +467,54 @@ function Player({ unit, onExit }: { unit: GrammarUnit; onExit: () => void }) {
               </ul>
             )}
           </div>
-          <button type="button" className="btn primary gm-go" onClick={onExit}>
+          <button type="button" className="btn primary gm-go" onClick={onAgain}>
+            같은 문법, 새 상황으로 한 번 더
+          </button>
+          <button type="button" className="btn gm-go gm-go-2" onClick={onExit}>
             문법 목록으로
           </button>
         </div>
       )}
     </div>
   );
+}
+
+/**
+ * 플레이어 로더 — 처음엔 다듬어진 원본 문항, 두 번째부터는 같은 문법을 **새 상황·새 문항**으로
+ * AI가 만든다(실패·오프라인이면 원본). "매번 똑같은 수업" 방지.
+ */
+function PlayerLoader({ unit, forceFresh, onExit }: { unit: GrammarUnit; forceFresh: boolean; onExit: () => void }) {
+  const [round, setRound] = useState(0);
+  const [ready, setReady] = useState<{ u: GrammarUnit; fresh: boolean } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setReady(null);
+    const attempts = grammarProgress()[unit.id]?.n ?? 0;
+    const wantFresh = forceFresh || round > 0 || attempts > 0;
+    if (!wantFresh || !groqKey()) {
+      setReady({ u: unit, fresh: false });
+      return;
+    }
+    void generateVariant(unit, attempts + round).then((v) => {
+      if (!alive) return;
+      setReady({ u: applyVariant(unit, v), fresh: !!v });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [unit, round, forceFresh]);
+  if (!ready) {
+    return (
+      <div className="screen gm-screen">
+        <div className="study-card gm-loading" role="status">
+          <div className="gm-loading-dot" aria-hidden="true" />
+          <b>{unit.title}</b>
+          <span className="muted">같은 문법을 새로운 상황으로 만드는 중…</span>
+        </div>
+      </div>
+    );
+  }
+  return <Player key={`${unit.id}-${round}`} unit={ready.u} fresh={ready.fresh} onExit={onExit} onAgain={() => setRound((r) => r + 1)} />;
 }
 
 export default function GrammarScreen() {
@@ -486,7 +529,7 @@ export default function GrammarScreen() {
   const stats = useMemo(() => grammarStats(), [tick, playing]);
   const today = useMemo(() => pickTodayGrammar(cur), [cur, tick, playing]);
 
-  if (playing) return <Player unit={playing} onExit={() => { setPlaying(null); setTick((t) => t + 1); }} />;
+  if (playing) return <PlayerLoader unit={playing} forceFresh={false} onExit={() => { setPlaying(null); setTick((t) => t + 1); }} />;
 
   return (
     <div className="screen gm-screen">

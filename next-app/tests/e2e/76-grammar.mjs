@@ -24,7 +24,39 @@ const page = await browser.newPage();
 page.on('pageerror', (e) => console.log('  [pageerror]', e.message));
 await page.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"valid":true}' }));
 await page.route('**/app/api/tts*', (r) => r.fulfill({ status: 404, contentType: 'application/json', body: '{}' }));
-await page.route('**/app/api/groq', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: JSON.stringify({ ok: true, corrected: 'The database went down at 3 p.m., and we restarted it at 5.', why: '과거 시제를 정확히 썼어요. went는 go의 불규칙 과거형입니다.' }) } }] }) }));
+const VARIANT = {
+  scene: '출장 중 호텔 체크인 문제를 프런트에 설명한다.',
+  ex: [['I booked a room last week.', '지난주에 방을 예약했어요.'], ['The system lost my booking.', '시스템이 예약을 잃어버렸어요.']],
+  checks: [
+    { q: 'I ___ the room on Monday.', opts: ['booked', 'book', 'booking'], a: 0, why: '월요일 = 끝난 일 → 과거형.' },
+    { q: 'They ___ my card yesterday.', opts: ['charge', 'charged', 'charging'], a: 1, why: '어제 → 과거형 charged.' },
+    { q: 'I ___ an email last night.', opts: ['get', 'getting', 'got'], a: 2, why: 'get의 과거 got.' },
+  ],
+  builds: [
+    { kr: '저는 월요일에 예약했어요.', a: 'I booked it on Monday', extra: ['book'] },
+    { kr: '확인 메일을 받았어요.', a: 'I got a confirmation email', extra: ['get'] },
+  ],
+  sim: {
+    who: '호텔 프런트 직원',
+    turns: [
+      { them: 'When did you make the booking?', kr: '언제 예약하셨어요?', task: 'choose', opts: ['I made it last Monday.', 'I make it last Monday.', 'I making it last Monday.'], a: 0, why: 'make의 과거 made.' },
+      { them: 'Did you receive a confirmation?', kr: '확인 메일 받으셨어요?', task: 'build', a: 'Yes I got it last night', extra: ['get'], why: 'get의 과거 got.' },
+      { them: 'Did you pay already?', kr: '결제하셨어요?', task: 'choose', opts: ['Yes, I paid online.', 'Yes, I pay online.', 'Yes, I paying online.'], a: 0, why: 'pay의 과거 paid.' },
+      { them: 'So what happened?', kr: '그래서 무슨 일이죠?', task: 'free', prompt: '무슨 일이 있었는지 과거 시제로 두 문장 말해 보세요.', model: 'I booked a room, but the system lost my booking.', focus: 'past simple' },
+    ],
+  },
+};
+let genCalls = 0;
+await page.route('**/app/api/groq', (route) => {
+  const body = JSON.parse(route.request().postData() || '{}');
+  const sys = String(body.messages?.[0]?.content || '');
+  let content;
+  if (sys.includes('문법 교재 작가')) {
+    genCalls++;
+    content = JSON.stringify(VARIANT);
+  } else content = JSON.stringify({ ok: true, corrected: 'The database went down at 3 p.m., and we restarted it at 5.', why: '과거 시제를 정확히 썼어요. went는 go의 불규칙 과거형입니다.' });
+  return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content } }] }) });
+});
 await seedKey(page);
 await page.addInitScript(MIC_STUB);
 await page.route('**/app/api/stt', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: 'We added more monitoring and we tested the backup.' }) }));
@@ -105,8 +137,22 @@ check('결과 점수 표시(1문제 일부러 틀림 → 100 미만)', score > 0
 check('틀린 이유 목록', (await page.locator('.gm-miss li').count()) >= 1);
 check('진행 저장', await page.evaluate(() => !!JSON.parse(localStorage.getItem('va_grammar') || '{}')['a2-past']));
 
-/* ⑦ 허브 */
-await page.click('.gm-go:has-text("문법 목록으로")');
+/* ⑦ 같은 문법, 새 상황 — 두 번째부터는 AI가 새로 만든다 */
+check('첫 회차는 다듬어진 원본(생성 호출 0)', genCalls === 0);
+await page.click('.gm-go:has-text("새 상황으로 한 번 더")');
+await page.waitForSelector('.gm-think', { timeout: 15000 });
+check('두 번째 회차는 새 상황이 생성된다', genCalls === 1 && (await page.evaluate(() => document.querySelector('.gm-scene')?.textContent.includes('호텔'))));
+check('새 상황 배지', (await page.locator('.gm-fresh').count()) === 1);
+check('문법 설명(규칙)은 그대로', await page.evaluate(() => document.querySelector('.gm-rule')?.textContent.includes('stopped')));
+await page.click('button:has-text("판단 연습")');
+await page.waitForSelector('.gm-prompt', { timeout: 5000 });
+check('판단 문제가 새 문항', await page.evaluate(() => document.querySelector('.gm-prompt')?.textContent.includes('on Monday')));
+await page.click('.gm-top .mini-btn');
+
+/* ⑧ 허브 */
+await page.waitForSelector('.gm-units', { timeout: 5000 }).catch(async () => {
+  await page.click('.gm-go:has-text("문법 목록으로")');
+});
 await page.waitForSelector('.gm-units', { timeout: 5000 });
 check('레벨 탭 5개(A1~C1)', (await page.locator('.gm-lv').count()) === 5);
 check('기본 탭 = 현재 레벨 A2', await page.evaluate(() => document.querySelector('.gm-lv.on')?.textContent.startsWith('A2')));

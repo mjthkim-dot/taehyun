@@ -32,7 +32,8 @@ const RATE_LIMIT_PER_MIN = 30;
 /** 대화 메시지 배열 최대 길이·전체 문자수 — 정상 사용(시스템+최근 8턴)의 여유 상한. */
 const MAX_MESSAGES = 24;
 const MAX_TOTAL_CHARS = 16000;
-const MAX_TOKENS_CAP = 1200;
+// 문법 변형 생성(상황+문항 11개 JSON)은 추론 모델에서 1200으론 잘린다 — 2000까지 허용
+const MAX_TOKENS_CAP = 2000;
 
 export async function GET() {
   return Response.json({ hasServerKey: !!process.env.GROQ_API_KEY, model: resolvedModel || MODEL_CHAIN[0] });
