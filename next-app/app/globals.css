@@ -10703,3 +10703,58 @@ body::after {
 .gm-miss b {
   margin-right: 6px;
 }
+
+/* 오늘의 문법 카드 · 업데이트 안내 */
+.gm-today-title {
+  font-size: 1.1rem;
+  font-weight: 900;
+  margin: 4px 0 6px;
+  letter-spacing: -0.02em;
+}
+.gm-today-scene {
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.gm-today-steps {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--primary-dk);
+  margin-top: 8px;
+}
+.gm-today-go {
+  width: 100%;
+  margin-top: 12px;
+}
+.wn-card {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--primary-soft);
+  border: 1.5px solid var(--primary);
+}
+.wn-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+.wn-badge {
+  font-size: 0.66rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+}
+.wn-card p {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  margin: 8px 0 10px;
+}
+.wn-actions {
+  display: flex;
+  gap: 8px;
+}
+.wn-actions .btn {
+  flex: 1;
+}

@@ -31,6 +31,7 @@ import { weeklyTestDue } from '../lib/weeklyTest';
 import { programState, PROGRAM_EVENT } from '../lib/program';
 import { isFocusMode, setFocusMode, FOCUS_EVENT } from '../lib/focus';
 import FocusGuide from './FocusGuide';
+import { GrammarTodayCard, WhatsNew } from './GrammarToday';
 import { isPlaced } from '../lib/state';
 // 12주 프로그램 — 홈의 첫 카드. 서약 폼과 오늘 4블록을 모두 품어 무겁기에 지연 청크로.
 // CEFR 히어로 — 홈의 주인공(레벨·다음 레벨 조건). 첫 화면이라 자리표시자로 CLS를 막는다.
@@ -216,11 +217,14 @@ export default function MasterScreen({
         </div>
       )}
 
+      <WhatsNew onNavigate={onNavigate} />
+
       {focus ? (
         <>
           <FocusGuide state={guide} onNavigate={onNavigate} />
           {guide.placed && <CefrHero onNavigate={onNavigate} onSelectLesson={onSelectLesson} />}
           {guide.placed && <ProgramCard onNavigate={onNavigate} />}
+          {guide.placed && !guide.started && <GrammarTodayCard onNavigate={onNavigate} />}
           {guide.started && (
             <>
               <h2 className="hm-sec">오늘 기록</h2>
@@ -245,6 +249,10 @@ export default function MasterScreen({
       <ProgramCard onNavigate={onNavigate} />
       {!onProgram && <SessionCta onNavigate={onNavigate} />}
       <WeeklyTestBanner onNavigate={onNavigate} />
+
+      {/* 오늘의 문법 — 새 콘텐츠를 홈에서 바로 */}
+      <h2 className="hm-sec">오늘의 문법</h2>
+      <GrammarTodayCard onNavigate={onNavigate} />
 
       {/* ③ 오늘 기록 — 발화·스트릭 한 곳에 */}
       <h2 className="hm-sec">오늘 기록</h2>

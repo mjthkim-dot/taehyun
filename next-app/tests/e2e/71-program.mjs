@@ -32,10 +32,10 @@ await page.waitForSelector('.pg-next', { timeout: 8000 });
 const t1 = await page.evaluate(() => document.body.innerText);
 check('Day 1 / 60으로 시작한다', t1.includes('Day 1') && t1.includes('60'));
 check('1단계·1주차가 표시된다', t1.includes('1단계') && t1.includes('입이 트인다'));
-check('다음 할 것은 복습 하나만 크게', await page.evaluate(() => document.querySelector('.pg-next-title')?.textContent === '복습'));
+check('복습할 게 없는 신규 사용자는 1단계를 통과하고 문법 시뮬레이션이 주 버튼', await page.evaluate(() => document.querySelector('.pg-next-title')?.textContent === '문법 시뮬레이션'));
 check('오늘의 4단계 스텝이 보인다', (await page.locator('.pg-step').count()) === 4 && (await page.locator('.pg-step.now').count()) === 1);
 check('유닛·레슨으로 표시된다', await page.evaluate(() => /Unit 1\/12 · Lesson 1\/5/.test(document.querySelector('.pg-card .pg-kicker')?.textContent || '')));
-check('40분을 고르면 블록 분량이 커진다', await page.evaluate(() => /8분/.test(document.querySelector('.pg-next-go')?.textContent || '')));
+check('40분을 고르면 블록 분량이 커진다(문법 10분 → 16분)', await page.evaluate(() => /16분/.test(document.querySelector('.pg-next-go')?.textContent || '')));
 check('서약이 localStorage에 남는다', await page.evaluate(() => JSON.parse(localStorage.getItem('va_program')).why.includes('외국계')));
 
 /* ③ 중복 CTA 억제 */

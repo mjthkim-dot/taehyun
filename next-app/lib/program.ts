@@ -88,8 +88,10 @@ export interface ProgramBlock {
 function observedDone(key: BlockKey, spokenTarget: number): boolean {
   switch (key) {
     case 'warmup':
-      // 복습 채점이 3개 이상 — 또는 오늘 복습할 카드가 아예 없으면 성립하지 않으므로 통과
-      return reviewedToday() >= 3 || wordsGradedToday() >= 10;
+      // 복습 채점 3개 이상 · 단어 10개 이상 · 또는 오늘 복습할 카드가 아예 없으면 통과.
+      // (예전엔 주석만 있고 마지막 조건이 빠져, 복습할 게 없는 신규 사용자는 1단계에서
+      //  영원히 멈춰 2단계 문법이 주 버튼으로 올라오지 않았다)
+      return reviewedToday() >= 3 || wordsGradedToday() >= 10 || nothingToReview();
     case 'core':
       // 문법 시뮬레이션이 레슨의 2단계 — 예전 패턴 세션 완주도 인정한다
       return grammarDoneToday() || sessionDoneToday();
@@ -99,6 +101,14 @@ function observedDone(key: BlockKey, spokenTarget: number): boolean {
       // 실전 블록은 화면이 주차마다 달라 신호를 넓게 본다 — 오늘의 회화/면접/미션 중 하나
       return chattedToday() || interviewedToday() || isMissionDoneToday();
   }
+}
+
+/** 오늘 복습할 것이 없는가 — 문장 SRS·단어 SRS 모두 기한 도래 0 */
+export function nothingToReview(now = Date.now()): boolean {
+  const weak = load<{ en?: string; due?: number }[]>('va_weak', []).filter((w) => w.en && (w.due == null || w.due <= now));
+  if (weak.length) return false;
+  const words = load<Record<string, { d: number }>>('va_words', {});
+  return !Object.values(words).some((w) => w && w.d <= now);
 }
 
 /** 오늘 복습으로 채점한 카드 수 — gradeWeakItem이 va_review_today에 쌓는다. */
@@ -327,7 +337,7 @@ function blocksFor(plan: ProgramWeek, minutes: number): ProgramBlock[] {
   const unit = minutes / 25;
   const m = (base: number) => Math.max(2, Math.round(base * unit));
   return [
-    { key: 'warmup', title: '복습', why: '잊기 직전인 문장과 단어를 다시 봅니다', minutes: m(5), mode: wordsDueFirst() ? 'words' : 'review', goal: '문장 3개 또는 단어 10개' },
+    { key: 'warmup', title: '복습', why: nothingToReview() ? '오늘은 복습할 카드가 없어요 — 바로 다음 단계로' : '잊기 직전인 문장과 단어를 다시 봅니다', minutes: m(5), mode: wordsDueFirst() ? 'words' : 'review', goal: '문장 3개 또는 단어 10개' },
     coreBlock(m(10)),
     { key: 'output', title: '말하기', why: '오늘 목표량만큼 소리 내어 말합니다', minutes: m(7), mode: 'drill', goal: `${plan.spokenTarget}문장` },
     { key: 'field', title: plan.field.title, why: plan.field.why, minutes: m(3), mode: plan.field.mode, ...resolveField(plan) },

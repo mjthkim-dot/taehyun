@@ -159,7 +159,7 @@ export default function ProgramCard({ onNavigate }: { onNavigate: (m: Mode) => v
         <>
           <button type="button" className="pg-next" onClick={() => go(next)}>
             <span className="pg-next-label">{doneCount === 0 ? '레슨 시작' : `이어서 · ${doneCount}/4`}</span>
-            <span className="pg-next-title">{next.title}</span>
+            <span className="pg-next-title">{next.key === 'core' ? '문법 시뮬레이션' : next.title}</span>
             <span className="pg-next-why">{next.why}</span>
             <span className="pg-next-go">
               {next.minutes}분{next.goal ? ` · ${next.goal}` : ''} →
