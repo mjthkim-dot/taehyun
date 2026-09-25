@@ -8,9 +8,20 @@
  */
 import { groqKey, SERVER_GROQ_SENTINEL } from './state';
 
-export const GROQ_MODEL = 'llama-3.3-70b-versatile';
+// 참고용 — 실제 모델은 서버 프록시(app/api/groq)가 폴백 체인으로 결정한다.
+// llama-3.3-70b-versatile은 2026-08-16 서비스 종료(Groq 공지).
+export const GROQ_MODEL = 'openai/gpt-oss-120b';
 
 export class GroqError extends Error {}
+
+// 연결 자체가 멈추면(예: 응답 헤더가 영원히 안 옴) fetch가 끝없이 대기한다 —
+// 그러면 await 중인 handleSend가 finally까지 못 가서 isProcessingRef가 true로
+// 고착돼, 그 뒤로는 마이크·타이핑·칩 어떤 입력도 조용히 무시된다("첫 문장만
+// 알아듣고 그 뒤로 반응이 없다"의 원인). TTS 쪽과 동일하게 타임아웃을 둔다.
+const GROQ_CONNECT_TIMEOUT_MS = 20000;
+// 스트리밍 중 한 청크도 안 오는 시간이 이보다 길면(서버가 응답을 멈춘 경우)
+// 같은 이유로 포기하고 에러를 던져 finally가 돌게 한다.
+const GROQ_STREAM_IDLE_MS = 15000;
 
 async function groqFetch(
   messages: { role: string; content: string }[],
@@ -19,6 +30,8 @@ async function groqFetch(
   const key = groqKey();
   if (!key) throw new GroqError('NO_GROQ_KEY');
   const localKey = key === SERVER_GROQ_SENTINEL ? undefined : key;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GROQ_CONNECT_TIMEOUT_MS);
   const resp = await fetch('/app/api/groq', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -30,9 +43,12 @@ async function groqFetch(
       json: opts.json ?? false,
       key: localKey,
     }),
-  }).catch((err) => {
-    throw new GroqError(`NETWORK: ${err.message || err}`);
-  });
+    signal: controller.signal,
+  })
+    .catch((err) => {
+      throw new GroqError(`NETWORK: ${err.message || err}`);
+    })
+    .finally(() => clearTimeout(timer));
   if (!resp.ok) {
     let detail = `HTTP ${resp.status}`;
     try {
@@ -55,25 +71,62 @@ export async function* groqStream(
   const reader = resp.body!.getReader();
   const dec = new TextDecoder();
   let buf = '';
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop() ?? '';
-    for (const line of lines) {
-      const t = line.trim();
-      if (!t.startsWith('data:')) continue;
-      const data = t.slice(5).trim();
-      if (data === '[DONE]') return;
+  try {
+    while (true) {
+      let timedOut = false;
+      const timer = setTimeout(() => {
+        timedOut = true;
+        reader.cancel().catch(() => {});
+      }, GROQ_STREAM_IDLE_MS);
+      let value: Uint8Array | undefined;
+      let done: boolean;
       try {
-        const o = JSON.parse(data);
-        const d = o.choices?.[0]?.delta?.content;
-        if (d) yield d;
-      } catch {
-        /* ignore partial chunk */
+        ({ value, done } = await reader.read());
+      } catch (err) {
+        if (timedOut) throw new GroqError('응답이 멈췄어요. 다시 시도해주세요.');
+        throw err;
+      } finally {
+        clearTimeout(timer);
+      }
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() ?? '';
+      for (const line of lines) {
+        const t = line.trim();
+        if (!t.startsWith('data:')) continue;
+        const data = t.slice(5).trim();
+        if (data === '[DONE]') return;
+        try {
+          const o = JSON.parse(data);
+          const d = o.choices?.[0]?.delta?.content;
+          if (d) yield d;
+        } catch {
+          /* ignore partial chunk */
+        }
       }
     }
+  } finally {
+    reader.cancel().catch(() => {});
+  }
+}
+
+/**
+ * 키 유효성 검증 — 등록 시·앱 시작 시 호출해 "무효 키의 조용한 실패"를 막는다.
+ * true 유효 / false 무효(401·403) / null 판단 불가(네트워크 등 — 경고하지 말 것).
+ */
+export async function validateGroqKey(key?: string): Promise<boolean | null> {
+  try {
+    const resp = await fetch('/app/api/groq/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: key || undefined }),
+    });
+    if (!resp.ok) return null;
+    const j = await resp.json();
+    return j.valid === true ? true : j.valid === false ? false : null;
+  } catch {
+    return null;
   }
 }
 

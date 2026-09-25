@@ -1,0 +1,64 @@
+# 프렌즈 잉글리시(friends-app) → GitHub Pages 배포 (클래식 gh-pages 브랜치 방식).
+#
+# actions/deploy-pages(워크플로 방식)는 Pages 사이트를 처음 "개설"할 때 저장소 관리
+# 권한이 필요해 기본 GITHUB_TOKEN으로는 실패한다(Resource not accessible by
+# integration). 반면 gh-pages 브랜치는 contents:write 만으로 발행할 수 있고,
+# 공개 저장소는 gh-pages 브랜치가 생기면 Pages가 자동 활성화된다.
+#
+# 접속 URL: https://mjthkim-dot.github.io/taehyun/
+name: Deploy friends-app to Pages
+
+on:
+  push:
+    branches:
+      - main
+      - claude/friends-english-learning-app-cbw2xm
+    paths:
+      - 'friends-app/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: friends-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: friends-app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (basePath /taehyun — Pages 하위 경로)
+        run: npm run build
+        env:
+          BASE_PATH: /taehyun
+
+      - name: Publish out/ to gh-pages branch
+        run: |
+          cd out
+          # 클래식 Pages는 Jekyll을 돌린다 — _next/ 같은 언더스코어 디렉터리가
+          # 통째로 무시되므로 .nojekyll로 반드시 꺼야 한다.
+          touch .nojekyll
+          git init -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "deploy: friends-app ${GITHUB_SHA::7}"
+          git push --force \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" \
+            gh-pages

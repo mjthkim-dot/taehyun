@@ -6,20 +6,15 @@
  * TTS(말하기) 연동은 다음 단계 작업 — 지금은 콘텐츠 표시 + 레슨 선택에 집중한다.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ALL_LESSONS,
-  LESSONS,
-  MASTER_LESSONS,
-  SCENARIO_LIBRARY,
-  lessonLabel,
-  cefrOf,
-  scaffoldFor,
-  type Lesson,
-  type Dialogue,
-} from '../lib/lessons';
+import { lessonLabel, cefrOf, scaffoldFor } from '../lib/cefr';
+import { lessonsNow } from '../lib/lessonData';
+import type { Lesson, Dialogue } from '../lib/lessons';
 import Note from './Note';
+import ContextAsk from './ContextAsk';
 import SpeakButton, { stopSpeaking } from './SpeakButton';
-import { playDialogueAudio } from './DialoguePractice';
+import { playDialogueAudio } from '../lib/dialogueAudio';
+import { PinIcon, CheckIcon } from './icons';
+import DialogueVariantPicker from './DialogueVariantPicker';
 import { addPhrase } from '../lib/state';
 
 interface StudyScreenProps {
@@ -28,8 +23,11 @@ interface StudyScreenProps {
 }
 
 export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenProps) {
+  // LessonsGate 아래에서만 렌더되므로 동기 접근이 안전하다
+  const { ALL_LESSONS, LESSONS } = lessonsNow();
   const lesson = useMemo(
     () => ALL_LESSONS.find((l) => l.id === lessonId) ?? LESSONS[LESSONS.length - 1],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [lessonId]
   );
 
@@ -42,23 +40,23 @@ export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenPro
 
       {scaffold < 1 && (
         <div className="scaffold-note">
-          🪜 <b>스캐폴딩 {scaffoldPct}%</b> — CEFR {cefrOf(lesson)} 단계라 한글 번역 의존을 줄여
+          <b>스캐폴딩 {scaffoldPct}%</b> — CEFR {cefrOf(lesson)} 단계라 한글 번역 의존을 줄여
           스스로 의미를 잡는 훈련입니다.
         </div>
       )}
 
       {lesson.preview && (
         <div className="study-card preview-card">
-          <h3>🔮 선행학습 — 다음 수업 미리 준비하기</h3>
+          <h3>선행학습 — 다음 수업 미리 준비하기</h3>
           <p className="muted">
-            아직 PREPLY에서 배우지 않은 내용입니다. 표준 A2 커리큘럼에서 지금 진도의 바로 다음
+            아직 수업에서 배우지 않은 내용입니다. 표준 A2 커리큘럼에서 지금 진도의 바로 다음
             단계예요. 미리 익혀두면 실제 수업에서 훨씬 빠르게 흡수됩니다.
           </p>
         </div>
       )}
       {!lesson.preview && lesson.master && (
         <div className="study-card master-card">
-          <h3>🗺 마스터 코스 — CEFR {lesson.master}</h3>
+          <h3>마스터 코스 — CEFR {lesson.master}</h3>
           <p className="muted">
             ① 핵심 포인트와 예문을 소리 내어 익히고 → ② 드릴에서 입에 붙인 뒤 → ③ 회화에서
             AI 코치와 실전 연습하세요.
@@ -69,7 +67,11 @@ export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenPro
       {(lesson.sections ?? []).map((sec, i) => (
         <div className="study-card" key={i}>
           <h3>{sec.title}</h3>
-          {sec.intro && <div className="sec-intro">{sec.intro}</div>}
+          {sec.intro && (
+            <div className="sec-intro">
+              <Note text={sec.intro} />
+            </div>
+          )}
           {sec.points.map((p, j) => (
             <div className="point" key={j}>
               <div className="en">{p.en}</div>
@@ -81,12 +83,22 @@ export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenPro
               )}
             </div>
           ))}
+          {/* 읽다가 생긴 의문을 그 자리에서 — 이 단락 전체가 문맥으로 넘어간다 */}
+          <ContextAsk
+            ctx={{
+              title: sec.title,
+              lessonTitle: lesson.title,
+              body: [sec.intro || '', ...sec.points.map((p) => `${p.en}${p.kr ? ` (${p.kr})` : ''}\n${p.note || ''}`)]
+                .filter(Boolean)
+                .join('\n\n'),
+            }}
+          />
         </div>
       ))}
 
       {!!lesson.examples?.length && (
         <div className="study-card">
-          <h3>예문 — 🔊 듣고 따라 말하기</h3>
+          <h3>예문 — 듣고 따라 말하기</h3>
           {lesson.examples.map((e, i) => (
             <div className="example-row" key={i}>
               <div className="txt">
@@ -99,22 +111,26 @@ export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenPro
         </div>
       )}
 
-      {lesson.dialogue && <DialogueCard dialogue={lesson.dialogue} />}
+      {lesson.dialogue && <DialogueCard dialogue={lesson.dialogue} lessonId={lesson.id} />}
 
       {lesson.freeTalk && (
         <div className="study-card freetalk-card">
-          <h3>🗣 진옥쌤과 프리토킹 — 내 이야기로 말하기</h3>
-          {lesson.freeTalk.intro && <div className="sec-intro">{lesson.freeTalk.intro}</div>}
+          <h3>프리토킹 — 내 이야기로 말하기</h3>
+          {lesson.freeTalk.intro && (
+            <div className="sec-intro">
+              <Note text={lesson.freeTalk.intro} />
+            </div>
+          )}
           {lesson.freeTalk.topics.map((t, i) => (
             <div className="point" key={i}>
-              <div className="topic-label">🗣 {t.topic}</div>
+              <div className="topic-label">{t.topic}</div>
               <div className="kr strong">{t.kr}</div>
               <div className="en">
                 {t.en} <SpeakButton text={t.en} /> <SpeakButton text={t.en} slow /> <SaveBtn en={t.en} kr={t.kr} />
               </div>
               {t.tip && (
                 <div className="note">
-                  💡 <Note text={t.tip} />
+                  <Note text={t.tip} />
                 </div>
               )}
             </div>
@@ -124,7 +140,7 @@ export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenPro
 
       {lesson.homework && (
         <div className="hw-box">
-          📌 <b>{lesson.preview ? '예습 과제' : '숙제'}</b>
+          <b>{lesson.preview ? '예습 과제' : '숙제'}</b>
           <br />
           {lesson.homework}
         </div>
@@ -133,12 +149,16 @@ export default function StudyScreen({ lessonId, onSelectLesson }: StudyScreenPro
   );
 }
 
-/** 레슨 화면의 대화문 카드 — 줄별 듣기에 더해 화자별 목소리로 전체를 순차 재생한다. */
-function DialogueCard({ dialogue }: { dialogue: Dialogue }) {
+/** 레슨 화면의 대화문 카드 — 줄별 듣기 + 화자별 목소리 전체 재생 + 🎲 새 대화 생성. */
+function DialogueCard({ dialogue: original, lessonId }: { dialogue: Dialogue; lessonId: number }) {
   const [slow, setSlow] = useState(false);
   const [playingIdx, setPlayingIdx] = useState<number | null>(null);
   const stopRef = useRef<(() => void) | null>(null);
   const playing = playingIdx !== null;
+
+  // 활성 대화 — 원본 또는 🎲로 생성한 변형. 레슨이 바뀌면 원본으로 리셋.
+  const [dialogue, setDialogue] = useState<Dialogue>(original);
+  useEffect(() => setDialogue(original), [original]);
 
   // 연속재생(반복) — ref로 두어 재생 중에 켜고 꺼도 즉시 반영된다.
   const [loop, setLoop] = useState(false);
@@ -164,13 +184,21 @@ function DialogueCard({ dialogue }: { dialogue: Dialogue }) {
 
   return (
     <div className="study-card">
-      <h3>💬 실전 대화문 — {dialogue.title}</h3>
+      <h3>실전 대화문 — {dialogue.title}</h3>
+      <DialogueVariantPicker
+        lessonId={lessonId}
+        original={original}
+        onChange={(d) => {
+          stopAll();
+          setDialogue(d);
+        }}
+      />
       <div style={{ display: 'flex', gap: 8, margin: '4px 0 12px' }}>
         <button className="btn primary" style={{ flex: 1 }} onClick={playing ? stopAll : playAll}>
-          {playing ? `⏹ 멈추기 (${(playingIdx ?? 0) + 1}/${dialogue.lines.length})` : '▶ 전체 음성 재생'}
+          {playing ? `멈추기 (${(playingIdx ?? 0) + 1}/${dialogue.lines.length})` : '전체 음성 재생'}
         </button>
         <button className="btn" style={{ flex: '0 0 auto' }} onClick={() => setSlow((v) => !v)}>
-          {slow ? '🐢 천천히' : '🔊 보통 속도'}
+          {slow ? '천천히 0.7×' : '보통 속도'}
         </button>
         <button
           className={loop ? 'btn primary' : 'btn'}
@@ -178,14 +206,14 @@ function DialogueCard({ dialogue }: { dialogue: Dialogue }) {
           onClick={() => setLoop((v) => !v)}
           title="끝까지 재생 후 처음부터 자동 반복"
         >
-          {loop ? '🔁 반복 켜짐' : '🔁 반복'}
+          {loop ? '반복 켜짐' : '반복'}
         </button>
       </div>
       {dialogue.lines.map((ln, i) => (
         <div
           className="example-row"
           key={i}
-          style={playingIdx === i ? { background: 'rgba(255,90,54,0.12)', borderRadius: 8 } : undefined}
+          style={playingIdx === i ? { background: 'var(--primary-soft)', borderRadius: 8 } : undefined}
         >
           <div className="txt">
             <div className="en">
@@ -212,7 +240,7 @@ function SaveBtn({ en, kr }: { en: string; kr: string }) {
         setSaved(true);
       }}
     >
-      {saved ? '✅' : '📌'}
+      {saved ? <CheckIcon /> : <PinIcon />}
     </button>
   );
 }
@@ -224,6 +252,7 @@ function LessonPicker({
   selectedId: number;
   onSelect: (id: number) => void;
 }) {
+  const { LESSONS, MASTER_LESSONS, SCENARIO_LIBRARY } = lessonsNow();
   return (
     <select
       className="lesson-picker"
@@ -256,5 +285,6 @@ function LessonPicker({
 }
 
 export function defaultLesson(): Lesson {
+  const { LESSONS } = lessonsNow();
   return LESSONS.filter((l) => !l.preview).slice(-1)[0] ?? LESSONS[0];
 }

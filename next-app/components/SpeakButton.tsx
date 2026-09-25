@@ -14,7 +14,7 @@
  * 합성 결과(blob URL)는 캐싱해 다시듣기·반복 재생 시 추가 호출/지연이 없게 한다.
  * 키가 없거나 합성에 실패하면 브라우저 내장 음성으로 폴백한다.
  */
-import { groqKey, SERVER_GROQ_SENTINEL } from '../lib/state';
+import { speechRate, groqKey, SERVER_GROQ_SENTINEL } from '../lib/state';
 
 /** AI 내레이터 기본 보이스(Orpheus). */
 export const GROQ_TTS_VOICE = 'austin';
@@ -22,10 +22,24 @@ export const GROQ_TTS_VOICE = 'austin';
 export const SPEAKER_GROQ_VOICE: Record<string, string> = { A: 'hannah', B: 'daniel' };
 
 /**
- * Orpheus는 약간 빠르게 말하는 편이라, 살짝 늦춰 재생하면(음높이 유지) 더 또박또박
- * 사람이 말하듯 들린다. React 전 버전에서 검증된 값.
+ * 예전에는 여기서 0.84배속을 **항상** 곱했다. "또박또박 들린다"는 의도였지만, 결과적으로
+ * 느리게 듣기를 누르지 않아도 늘 느렸고 원어민 리듬(연음·강세)을 들을 기회가 없었다.
+ * 이제 기본은 자연 속도(1.0)이고, 사용자가 고른 값을 따른다.
  */
-const GROQ_TTS_RATE = 0.84;
+function baseRate(): number {
+  try {
+    return speechRate();
+  } catch {
+    return 1; // SSR·저장소 접근 불가
+  }
+}
+
+/** 한글이 섞여 있으면 한국어로 읽어야 한다 — 영어 목소리로는 뭉개지거나 아예 안 읽힌다. */
+const HANGUL_RE = /[\uac00-\ud7a3\u3131-\u318e]/;
+
+export function isKorean(text: string): boolean {
+  return HANGUL_RE.test(String(text || ''));
+}
 
 /**
  * 문장의 어조를 Orpheus 보컬 디렉션 태그로 변환한다 — 모델이 pitch/rate 흉내가 아니라
@@ -76,7 +90,7 @@ function activateMediaSession() {
     if (typeof MediaMetadata !== 'undefined' && !ms.metadata) {
       ms.metadata = new MediaMetadata({
         title: 'AI 영어 회화',
-        artist: 'Preply 영어 코치',
+        artist: '내 영어 코치',
         album: '회화 연습',
       });
     }
@@ -110,14 +124,23 @@ function markMediaPaused() {
   }
 }
 
-/** 반드시 사용자 제스처(클릭) 안에서 동기적으로 호출 — iOS 오디오 재생을 언락한다. */
+/** 오디오 언락 상태 — 한 번 성공하면 이후 primeAudio는 no-op. */
+let audioUnlocked = false;
+
+/** 반드시 사용자 제스처(클릭) 안에서 동기적으로 호출 — iOS 오디오 재생을 언락한다.
+ * 이미 언락됐으면 아무것도 안 한다 — 예전엔 매 제스처마다 play()를 다시 걸어
+ * 직전 TTS 소리가 '유령처럼' 다시 재생되는 버그가 있었다. */
 export function primeAudio() {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || audioUnlocked) return;
   try {
     const a = audioEl();
     if (!a.src) a.src = SILENT_WAV;
     const p = a.play();
-    if (p && typeof p.catch === 'function') p.catch(() => {});
+    if (p && typeof p.then === 'function') {
+      p.then(() => {
+        audioUnlocked = true;
+      }).catch(() => {});
+    }
   } catch {
     /* ignore */
   }
@@ -150,6 +173,27 @@ function pickVoice(lang: string): SpeechSynthesisVoice | undefined {
   return voiceCache.find((v) => v.lang === lang) || voiceCache.find((v) => v.lang.startsWith(prefix));
 }
 
+/**
+ * 품질 순으로 정렬한 영어 음성 목록 — 대화문 폴백 재생(dialogueAudio)이 화자
+ * A/B에 서로 다른 목소리를 고를 때 쓴다. 예전엔 getVoices()의 **첫 두 개**를
+ * 그대로 썼는데, 많은 기기에서 첫 항목이 가장 로봇 같은 구형 음성이라
+ * "원어민 대화에서 기계음이 난다"의 원인이 됐다. 이름에 Natural/Neural/
+ * Online/Google/Premium이 붙은 신형 음성을 앞세운다.
+ */
+export function rankedEnVoices(): SpeechSynthesisVoice[] {
+  const en = voiceCache.filter((v) => v.lang.toLowerCase().startsWith('en'));
+  const score = (v: SpeechSynthesisVoice) => {
+    const exact = PREFERRED_VOICE_NAMES.indexOf(v.name);
+    if (exact >= 0) return 100 - exact;
+    if (/natural|neural|online/i.test(v.name)) return 50;
+    if (/google|premium|enhanced|siri/i.test(v.name)) return 40;
+    if (/samantha|aria|jenny|ava|zoe/i.test(v.name)) return 30;
+    if (v.lang === 'en-US') return 10;
+    return 0;
+  };
+  return [...en].sort((a, b) => score(b) - score(a));
+}
+
 function speakWithBrowser(text: string, lang: string, rate: number, onend?: () => void) {
   if (typeof window === 'undefined' || !window.speechSynthesis) return;
   const synth = window.speechSynthesis;
@@ -160,6 +204,11 @@ function speakWithBrowser(text: string, lang: string, rate: number, onend?: () =
     const voice = pickVoice(lang);
     if (voice) u.voice = voice;
     if (onend) u.onend = onend;
+    try {
+      synth.resume(); // Chrome: cancel() 후 paused에 갇히면 speak()가 무음이 된다
+    } catch {
+      /* ignore */
+    }
     synth.speak(u);
   };
   // iOS/WebKit 버그: cancel() 직후 같은 틱에서 speak()하면 새 발화까지 같이 지워져
@@ -177,10 +226,13 @@ function speakWithBrowser(text: string, lang: string, rate: number, onend?: () =
 const ttsCache = new Map<string, string>(); // `${voice}:${text}` -> objectURL
 const ttsInflight = new Map<string, Promise<string | null>>(); // 진행 중인 요청(중복 합치기)
 
-// 네트워크가 느리거나 응답이 없을 때 무한정 멈춰 있지 않도록 — 이 시간 안에 응답이
-// 없으면 포기하고 브라우저 음성으로 폴백한다(전체 재생이 "1번째 줄에서 멈춘 것처럼"
-// 보이는 또 다른 원인이었다 — fetch에 타임아웃이 없어 응답이 없으면 영원히 대기했음).
-const TTS_TIMEOUT_MS = 8000;
+// 타임아웃을 두 단계로 분리한다:
+// - 헤더(응답 시작)까지 8초 — 서버가 죽었는지 판단.
+// - 본문(오디오 전체) 다운로드는 30초 — Orpheus WAV(48kHz)는 문장당 수백 KB~1MB라
+//   모바일 회선에선 8초로 부족했고, 다 받는 중에 abort돼 무음 폴백으로 떨어졌다
+//   ("소리가 안 난다"의 실제 원인 후보).
+const TTS_HEADER_TIMEOUT_MS = 8000;
+const TTS_BODY_TIMEOUT_MS = 30000;
 
 /**
  * Groq에서 음성을 받아 objectURL을 돌려준다(캐시). 실패·타임아웃 시 null.
@@ -205,7 +257,7 @@ export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE, opts?: 
   const input = tag ? `${tag} ${text}` : text;
   const job = (async (): Promise<string | null> => {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TTS_TIMEOUT_MS);
+    let timer = setTimeout(() => controller.abort(), TTS_HEADER_TIMEOUT_MS);
     try {
       const resp = await fetch('/app/api/tts', {
         method: 'POST',
@@ -213,6 +265,9 @@ export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE, opts?: 
         body: JSON.stringify({ text: input, voice, key: key === SERVER_GROQ_SENTINEL ? undefined : key }),
         signal: controller.signal,
       });
+      // 헤더가 도착했으면 본문 다운로드용 긴 타이머로 교체
+      clearTimeout(timer);
+      timer = setTimeout(() => controller.abort(), TTS_BODY_TIMEOUT_MS);
       if (!resp.ok) return null;
       const blob = await resp.blob();
       // 빈/손상 응답(예: rate-limit 직전의 잘린 본문)을 캐싱하면 재생 시 onended가 오지
@@ -249,7 +304,7 @@ export function playUrl(url: string, rate: number, onended?: () => void): Promis
   type PitchAudio = HTMLAudioElement & { mozPreservesPitch?: boolean; webkitPreservesPitch?: boolean };
   const pa = a as PitchAudio;
   try { pa.preservesPitch = true; pa.mozPreservesPitch = true; pa.webkitPreservesPitch = true; } catch { /* ignore */ }
-  a.playbackRate = GROQ_TTS_RATE * rate;
+  a.playbackRate = baseRate() * rate;
   // onended뿐 아니라 onerror에서도 다음으로 진행 — 한 줄의 오디오가 깨졌어도
   // 그 줄에서 영영 멈추지 않게 한다(한 번만 호출되도록 핸들러를 즉시 해제).
   const finish = () => { a.onended = null; a.onerror = null; markMediaPaused(); };
@@ -262,29 +317,118 @@ export function playUrl(url: string, rate: number, onended?: () => void): Promis
     a.onerror = finish;
   }
   const p = a.play();
+  if (p && typeof p.then === 'function') p.then(() => { audioUnlocked = true; }).catch(() => {});
   // 잠금화면에서도 계속 재생되도록 "재생 중" 미디어 세션을 활성화한다.
   activateMediaSession();
   return p && typeof p.then === 'function' ? p : Promise.resolve();
 }
 
 /**
- * 한 문장 재생. voice: Groq 보이스 이름(대화문 화자별로 다르게 줄 때).
- * 키가 있으면 Groq 신경망 음성, 없거나 실패하면 브라우저 음성.
+ * Groq Orpheus는 요청당 입력이 200자로 제한된다 — 이를 넘는 텍스트는 문장 →
+ * 쉼표 → 공백 순으로 잘라 순차 재생한다. 그동안 200자를 넘는 요청은 조용히
+ * 400으로 실패해 브라우저 폴백(기기에 따라 무음)으로 떨어졌다 — "음성이 안
+ * 나온다"의 핵심 원인.
  */
+const TTS_MAX_CHARS = 180; // 감정 태그([cheerful] 등) 여유분 포함 200자 안쪽
+
+export function splitForTTS(text: string, max = TTS_MAX_CHARS): string[] {
+  const sentences = String(text).split(/(?<=[.!?])\s+/).filter(Boolean);
+  const out: string[] = [];
+  for (const s of sentences) {
+    if (s.length <= max) {
+      out.push(s);
+      continue;
+    }
+    let rest = s;
+    while (rest.length > max) {
+      let cut = rest.lastIndexOf(', ', max);
+      if (cut < 40) cut = rest.lastIndexOf(' ', max);
+      if (cut < 40) cut = max;
+      out.push(rest.slice(0, cut + 1).trim());
+      rest = rest.slice(cut + 1).replace(/^[,\s]+/, '');
+    }
+    if (rest) out.push(rest);
+  }
+  return out.length ? out : [String(text)];
+}
+
+/**
+ * 텍스트 재생. voice: Groq 보이스 이름(대화문 화자별로 다르게 줄 때).
+ * 키가 있으면 Groq 신경망 음성, 없거나 실패하면 브라우저 음성.
+ * 긴 텍스트는 자동으로 조각내 순차 재생하고(다음 조각은 미리 받아 끊김 최소화),
+ * onend는 마지막 조각이 끝난 뒤 한 번만 호출된다.
+ */
+/**
+ * 한국어와 영어가 섞인 글을 스크립트별로 잘라 각각 제 목소리로 읽는다.
+ *
+ * 코치가 "막혔을 때 한국어로" 답하면 한 문단 안에 두 언어가 함께 온다
+ * ("~라는 뜻이에요. 영어로는 이렇게 말해요: Could you clarify that?").
+ * 통째로 한 목소리에 넘기면 한쪽이 반드시 뭉개진다 — 한국어 목소리로 영어를 읽으면
+ * 알파벳을 하나씩 읽어버리고, 영어 목소리로 한글을 읽으면 대개 아무 소리도 안 난다.
+ */
+function splitByScript(text: string): { text: string; ko: boolean }[] {
+  const parts = String(text)
+    .split(/(?<=[.!?。？！:])\s+|\n+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const out: { text: string; ko: boolean }[] = [];
+  for (const p of parts) {
+    const ko = isKorean(p);
+    const last = out[out.length - 1];
+    if (last && last.ko === ko) last.text += ' ' + p;
+    else out.push({ text: p, ko });
+  }
+  return out;
+}
+
 export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => void, voice?: string, opts?: { tagless?: boolean }) {
   primeAudio(); // 제스처 안에서 동기 언락
-  if (!lang.startsWith('en') || !groqKey()) {
-    speakWithBrowser(text, lang, rate, onend);
+  // 한국어는 Orpheus(영어 전용)로 보내면 안 된다 — 호출부가 기본값 'en-US'를 그대로
+  // 넘기는 곳이 많아, 텍스트를 보고 직접 판단한다. 그래야 한국어 뜻·설명도 들린다.
+  if (isKorean(text)) {
+    const segs = splitByScript(text);
+    // 한국어만 있으면 그대로, 섞여 있으면 조각마다 언어를 바꿔가며 이어서 읽는다
+    if (segs.length <= 1) {
+      speakWithBrowser(text, 'ko-KR', baseRate() * rate, onend);
+      return;
+    }
+    let i = 0;
+    const step = () => {
+      if (i >= segs.length) {
+        onend?.();
+        return;
+      }
+      const seg = segs[i++];
+      if (seg.ko) speakWithBrowser(seg.text, 'ko-KR', baseRate() * rate, step);
+      else speakText(seg.text, lang, rate, step, voice, opts);
+    };
+    step();
     return;
   }
-  // 한 번 합성한 음성을 재생 단계에서 rate로 조절(음높이 유지) — 느리게 들어도 자연스럽다.
-  fetchGroqTTS(text, voice || GROQ_TTS_VOICE, opts).then((url) => {
-    if (url) {
-      playUrl(url, rate, onend).catch(() => speakWithBrowser(text, lang, rate, onend));
-    } else {
-      speakWithBrowser(text, lang, rate, onend);
+  if (!lang.startsWith('en') || !groqKey()) {
+    speakWithBrowser(text, lang, baseRate() * rate, onend);
+    return;
+  }
+  const chunks = splitForTTS(text);
+  const v = voice || GROQ_TTS_VOICE;
+  let i = 0;
+  const step = () => {
+    if (i >= chunks.length) {
+      onend?.();
+      return;
     }
-  });
+    const idx = i++;
+    if (idx + 1 < chunks.length) fetchGroqTTS(chunks[idx + 1], v, opts).catch(() => {});
+    // 한 번 합성한 음성을 재생 단계에서 rate로 조절(음높이 유지) — 느리게 들어도 자연스럽다.
+    fetchGroqTTS(chunks[idx], v, opts).then((url) => {
+      if (url) {
+        playUrl(url, rate, step).catch(() => speakWithBrowser(chunks[idx], lang, baseRate() * rate, step));
+      } else {
+        speakWithBrowser(chunks[idx], lang, baseRate() * rate, step);
+      }
+    });
+  };
+  step();
 }
 
 /** 진행 중인 모든 음성(Groq 오디오 + 브라우저 합성)을 멈춘다. */
@@ -294,10 +438,20 @@ export function stopSpeaking() {
   markMediaPaused();
 }
 
+import { SpeakerIcon } from './icons';
+import { rateLabel, useSlowRate } from './SpeechRate';
+
 export default function SpeakButton({ text, lang = 'en-US', slow = false }: { text: string; lang?: string; slow?: boolean }) {
+  // 느리게 듣기 배속은 사용자가 고른 값을 따른다(기본 0.6배속)
+  const rate = useSlowRate();
   return (
-    <button type="button" className="speak-mini" onClick={() => speakText(text, lang, slow ? 0.6 : 1)} title={slow ? '0.6배속 느리게' : '듣기'}>
-      {slow ? '🐢' : '🔊'}
+    <button
+      type="button"
+      className="speak-mini"
+      onClick={() => speakText(text, lang, slow ? rate : 1)}
+      title={slow ? `${rateLabel(rate)} 느리게` : '듣기'}
+    >
+      {slow ? <span className="speak-mini-slow">{rateLabel(rate)}</span> : <SpeakerIcon />}
     </button>
   );
 }

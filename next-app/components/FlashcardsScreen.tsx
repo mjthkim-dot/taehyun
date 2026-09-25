@@ -15,7 +15,8 @@ import {
   type WeakItem,
   type FlashGrade,
 } from '../lib/state';
-import { groqComplete, GroqError } from '../lib/groq';
+import { GroqError } from '../lib/groq';
+import { AI_FAIL_KO, groqKoJson, hasHangul } from '../lib/aiGuard';
 import { speakText } from './SpeakButton';
 
 type Scope = 'due' | 'all';
@@ -90,19 +91,26 @@ export default function FlashcardsScreen({ onExit }: { onExit: () => void }) {
   async function showExample(card: WeakItem) {
     setExampleLoading(true);
     try {
-      const sys = `You help a Korean learner memorize an English expression. Output ONLY JSON.`;
-      const user = `Expression: "${card.en}" (Korean meaning: "${card.kr || ''}").
-Return JSON: {"example":"one short natural English example sentence using it","exampleKr":"its Korean translation","tip":"a short Korean memory tip or association to remember it"}`;
-      const raw = await groqComplete([{ role: 'system', content: sys }, { role: 'user', content: user }], {
-        json: true,
-        maxTokens: 320,
-        temperature: 0.6,
-      });
-      const d = JSON.parse(raw);
-      setExample(JSON.stringify(d));
+      // 암기팁·번역은 학습자가 읽는 한국어 — 영어로 오면 groqKoJson이 한 번 다시 묻는다
+      const sys = `너는 한국인 학습자의 영어 표현 암기를 돕는 코치다. exampleKr과 tip은 반드시 한국어로 쓴다. Output ONLY JSON.`;
+      const user = `표현: "${card.en}" (한국어 뜻: "${card.kr || ''}").
+JSON으로 답하라: {"example":"이 표현을 쓴 짧고 자연스러운 영어 예문 1개","exampleKr":"그 예문의 한국어 번역","tip":"기억에 남게 도와줄 한국어 암기팁 한 줄"}`;
+      const d = await groqKoJson<{ example: string; exampleKr?: string; tip?: string }>(
+        [{ role: 'system', content: sys }, { role: 'user', content: user }],
+        { maxTokens: 320, temperature: 0.6 },
+        (data) => {
+          const o = data as { example?: unknown; exampleKr?: unknown; tip?: unknown } | null;
+          if (!o || typeof o.example !== 'string' || !o.example.trim()) return null;
+          // 팁·번역이 있는데 한국어가 아니면 응답을 버린다(드릴 코칭과 같은 사고 방지)
+          if (o.tip && !hasHangul(o.tip)) return null;
+          if (o.exampleKr && !hasHangul(o.exampleKr)) return null;
+          return { example: o.example.trim(), exampleKr: String(o.exampleKr || '').trim(), tip: String(o.tip || '').trim() };
+        }
+      );
+      setExample(JSON.stringify(d ?? { error: AI_FAIL_KO }));
     } catch (e) {
       setExample(
-        JSON.stringify({ error: e instanceof GroqError ? e.message : '예문 생성 실패: ' + String(e) })
+        JSON.stringify({ error: e instanceof GroqError ? e.message : AI_FAIL_KO })
       );
     } finally {
       setExampleLoading(false);
@@ -275,7 +283,8 @@ Return JSON: {"example":"one short natural English example sentence using it","e
               )}
               {exampleData?.error && <p style={{ fontSize: '0.78rem', color: 'var(--red)' }}>{exampleData.error}</p>}
             </div>
-            {!example && !exampleLoading && (
+            {/* 실패했을 때도 버튼을 남긴다 — 예전에는 에러 후 재시도 길이 없는 막다른 상태였다 */}
+            {(!example || exampleData?.error) && !exampleLoading && (
               <button className="btn" style={{ width: '100%', marginTop: 8 }} onClick={() => showExample(card)}>
                 💡 예문 · 암기팁 보기
               </button>

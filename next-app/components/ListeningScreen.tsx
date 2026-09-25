@@ -1,11 +1,13 @@
 'use client';
 
 /** 청해(딕테이션) — voice-assistant/index.html 의 renderListening()/checkListen() 포팅. */
+import { recordSkillResult, startLevelFor } from '../lib/cefrGrowth';
 import { useState } from 'react';
-import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/lessons';
-import { addWeakItem, bumpSkill, getProfile, markPracticedToday } from '../lib/state';
+import { CEFR_ORDER, type Cefr } from '../lib/cefr';
+import { addWeakItem, markPracticedToday } from '../lib/state';
 import { LISTEN_BANK } from '../lib/contentBanks';
 import { speakText } from './SpeakButton';
+import { useSlowRate } from './SpeechRate';
 
 function shuffled<T>(arr: T[]): T[] {
   const a = arr.slice();
@@ -39,7 +41,9 @@ interface Queue {
 }
 
 export default function ListeningScreen() {
-  const [level, setLevel] = useState<Cefr>(getProfile().cefr || 'A2');
+  const slowListenRate = useSlowRate();
+  // 시작 레벨은 i+1(이 기능의 다음 레벨) — 입증하려면 한 단계 위를 풀어야 한다
+  const [level, setLevel] = useState<Cefr>(() => startLevelFor('listening'));
   const [queue, setQueue] = useState<Queue | null>(null);
   const [guess, setGuess] = useState('');
   const [result, setResult] = useState<{ acc: number; colored: { w: string; ok: boolean }[]; sent: string } | null>(null);
@@ -74,9 +78,8 @@ export default function ListeningScreen() {
     setGuess('');
     if (nextIdx >= queue.sentences.length) {
       const avg = Math.round(queue.scoreSum / queue.sentences.length);
-      const band = CEFR_GSE[level];
-      const gse = Math.round(band.min + (band.max - band.min) * (avg / 100));
-      bumpSkill('listening', gse);
+      // 점수를 레벨 구간에 끼워 GSE로 바꾸지 않는다(C2를 0점 맞아도 C2가 되던 결함) — 증거로 남긴다
+      recordSkillResult('listening', level, avg, 'listening');
       markPracticedToday();
       setDone(avg);
       setQueue(null);
@@ -123,7 +126,7 @@ export default function ListeningScreen() {
                 cursor: 'pointer',
                 border: `1px solid ${c === level ? 'var(--primary)' : 'var(--border)'}`,
                 background: c === level ? 'var(--primary)' : 'var(--surface)',
-                color: c === level ? '#fff' : 'var(--text-muted)',
+                color: c === level ? 'var(--on-primary)' : 'var(--text-muted)',
               }}
             >
               {c}
@@ -142,7 +145,7 @@ export default function ListeningScreen() {
               <button className="btn primary" style={{ flex: 1 }} onClick={() => speakText(queue.sentences[queue.idx], 'en-US')}>
                 🔊 다시 듣기
               </button>
-              <button className="btn" style={{ flex: '0 0 auto' }} onClick={() => speakText(queue.sentences[queue.idx], 'en-US', 0.6)}>
+              <button className="btn" style={{ flex: '0 0 auto' }} onClick={() => speakText(queue.sentences[queue.idx], 'en-US', slowListenRate)}>
                 🐢 느리게
               </button>
             </div>

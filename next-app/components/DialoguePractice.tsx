@@ -10,161 +10,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dialogue } from '../lib/lessons';
 import { computeAccuracy, type WordDiff } from '../store/useLessonStore';
-import { addWeakItem, groqKey, markPracticedToday } from '../lib/state';
+import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
+import { diagnose, type PronIssue } from '../lib/pronunciation';
+import { useSlowRate } from './SpeechRate';
+import VoiceCompare from './MyVoice';
+import { addPronLapses, addWeakItem, groqKey, markPracticedToday, bumpSpoken } from '../lib/state';
 import { speakText, stopSpeaking, primeAudio, fetchGroqTTS, playUrl, SPEAKER_GROQ_VOICE, GROQ_TTS_VOICE } from './SpeakButton';
+import DialogueVariantPicker from './DialogueVariantPicker';
+import { playDialogueAudio, voiceFor } from '../lib/dialogueAudio';
 
 const ROLEPLAY_PASS = 60; // 이 점수 미만이면 SRS 복습 항목으로 등록
-
-function voiceFor(sp: string) {
-  return SPEAKER_GROQ_VOICE[sp] || GROQ_TTS_VOICE;
-}
-
-interface StopRef {
-  stopped: boolean;
-  cleanup?: () => void;
-}
-
-/** 폴백: 브라우저 speechSynthesis 큐로 fromIdx부터 끝까지 한 번에 등록해 재생한다. */
-function playViaBrowserQueue(
-  dialogue: Dialogue,
-  rate: number,
-  onLineStart: ((i: number) => void) | undefined,
-  onDone: (() => void) | undefined,
-  fromIdx: number,
-  ref: StopRef,
-  shouldLoop?: () => boolean
-) {
-  if (typeof window === 'undefined' || !window.speechSynthesis) {
-    onDone?.();
-    return;
-  }
-  const synth = window.speechSynthesis;
-  const wasActive = synth.speaking || synth.pending;
-  if (wasActive) synth.cancel();
-
-  const last = dialogue.lines.length - 1;
-  // Chrome/모바일에서 한 발화가 ~15초를 넘기면 합성기가 조용히 멈추는 버그 방지.
-  const keepAlive = setInterval(() => {
-    if (ref.stopped || !synth.speaking) return;
-    synth.resume();
-  }, 10000);
-  ref.cleanup = () => clearInterval(keepAlive);
-
-  // 한 줄이 끝난 뒤(onend) 다음 줄을 큐에 넣는다 — 여러 발화를 한꺼번에 speak()하면
-  // Chrome/Safari가 첫 줄만 말하고 나머지를 조용히 버려 "1번째 줄에서 멈춘 것처럼"
-  // 보이는 버그가 있다. 한 번에 하나씩만 큐에 넣어 이 버그를 피한다.
-  const speakOne = (i: number) => {
-    if (ref.stopped) return;
-    if (i > last) {
-      // 연속재생: 끝까지 읽었으면 잠시 쉬었다가 처음부터 다시(keepAlive는 유지).
-      if (shouldLoop?.() && !ref.stopped) {
-        const t = setTimeout(() => { if (!ref.stopped) speakOne(0); }, 800);
-        ref.cleanup = () => { clearInterval(keepAlive); clearTimeout(t); };
-        return;
-      }
-      clearInterval(keepAlive);
-      onDone?.();
-      return;
-    }
-    const enVoices = synth.getVoices().filter((v) => v.lang.toLowerCase().startsWith('en'));
-    const voiceA = enVoices[0];
-    const voiceB = enVoices[1] || enVoices[0];
-    const line = dialogue.lines[i];
-    const u = new SpeechSynthesisUtterance(line.en);
-    u.lang = 'en-US';
-    u.rate = rate;
-    const v = line.sp === 'A' ? voiceA : voiceB;
-    if (v) u.voice = v;
-    u.onstart = () => { if (!ref.stopped) onLineStart?.(i); };
-    u.onend = () => speakOne(i + 1);
-    u.onerror = () => speakOne(i + 1);
-    synth.speak(u);
-  };
-  // iOS/WebKit 버그: cancel() 직후 같은 틱에서 speak()를 큐에 넣으면 새로 넣은
-  // 발화까지 같이 지워져 아무 소리도 안 날 수 있다. 취소 효과가 반영될 시간을 준다.
-  if (wasActive) setTimeout(() => speakOne(fromIdx), 60);
-  else speakOne(fromIdx);
-}
-
-/**
- * 대화문 전체를 순차 재생한다 — 듣기 탭과 숙제/레슨 화면의 "전체 재생" 버튼에서 재사용한다.
- * 반환값은 재생을 중단하는 함수.
- *
- * Groq 키가 있으면 화자별 신경망 음성(실제 사람에 가까운 목소리)으로 한 줄씩 재생하고
- * 다음 줄을 미리 받아 끊김을 줄인다. 클릭 순간 primeAudio()로 오디오를 언락하므로 iOS에서도
- * 비동기 재생이 막히지 않는다. 키가 없거나 합성에 실패하면 브라우저 음성 큐로 폴백한다.
- */
-export function playDialogueAudio(
-  dialogue: Dialogue,
-  rate = 1,
-  onLineStart?: (i: number) => void,
-  onDone?: () => void,
-  shouldLoop?: () => boolean
-): () => void {
-  if (typeof window === 'undefined' || !dialogue.lines.length) {
-    onDone?.();
-    return () => {};
-  }
-  primeAudio(); // 사용자 제스처 안에서 동기 언락
-  const ref: StopRef = { stopped: false };
-  const stop = () => {
-    ref.stopped = true;
-    ref.cleanup?.();
-    stopSpeaking();
-  };
-
-  if (!groqKey()) {
-    playViaBrowserQueue(dialogue, rate, onLineStart, onDone, 0, ref, shouldLoop);
-    return stop;
-  }
-
-  const last = dialogue.lines.length - 1;
-  const playFrom = async (i: number) => {
-    if (ref.stopped) return;
-    if (i > last) {
-      // 연속재생: 끝까지 재생했으면 잠시 쉬었다가 처음부터 다시.
-      if (shouldLoop?.() && !ref.stopped) {
-        const t = setTimeout(() => { if (!ref.stopped) playFrom(0); }, 800);
-        ref.cleanup = () => clearTimeout(t);
-        return;
-      }
-      onDone?.();
-      return;
-    }
-    const line = dialogue.lines[i];
-    const url = await fetchGroqTTS(line.en, voiceFor(line.sp));
-    if (ref.stopped) return;
-    if (!url) { playViaBrowserQueue(dialogue, rate, onLineStart, onDone, i, ref, shouldLoop); return; }
-    onLineStart?.(i);
-    if (i + 1 <= last) {
-      const n = dialogue.lines[i + 1];
-      fetchGroqTTS(n.en, voiceFor(n.sp)); // 다음 줄 미리 받기
-    }
-    // 한 줄당 한 번만 다음으로 진행 — onended/onerror/워치독 중 무엇이 먼저 와도 안전.
-    let advanced = false;
-    let watchdog: ReturnType<typeof setTimeout> | undefined;
-    const advance = () => {
-      if (advanced || ref.stopped) return;
-      advanced = true;
-      if (watchdog) clearTimeout(watchdog);
-      playFrom(i + 1);
-    };
-    // 안전망: 어떤 이유로든(이벤트 미발생 등) 한 줄에서 멈추면 넉넉한 시간 뒤 다음으로
-    // 넘어간다. 정상 재생은 onended가 먼저 와서 워치독은 발동하지 않는다(여유 있게 잡음).
-    watchdog = setTimeout(advance, 12000 + line.en.length * 220);
-    ref.cleanup = () => { if (watchdog) clearTimeout(watchdog); };
-    try {
-      // 속도는 재생 단계에서 음높이 유지(preservesPitch)하며 조절 — 느려도 자연스럽다.
-      await playUrl(url, rate, advance);
-    } catch {
-      if (watchdog) clearTimeout(watchdog);
-      if (!ref.stopped) playViaBrowserQueue(dialogue, rate, onLineStart, onDone, i, ref, shouldLoop);
-    }
-  };
-  onLineStart?.(0); // 첫 음성을 받는 동안 즉시 UI 반영(중복 클릭 방지)
-  playFrom(0);
-  return stop;
-}
 
 function getSpeechRecognition(): typeof SpeechRecognition | null {
   if (typeof window === 'undefined') return null;
@@ -177,10 +32,14 @@ function getSpeechRecognition(): typeof SpeechRecognition | null {
 
 type Tab = 'listen' | 'roleplay' | 'memorize';
 
-export default function DialoguePractice({ dialogue, lessonId }: { dialogue: Dialogue; lessonId: number }) {
+export default function DialoguePractice({ dialogue: original, lessonId }: { dialogue: Dialogue; lessonId: number }) {
   const [tab, setTab] = useState<Tab>('listen');
   const [slow, setSlow] = useState(false);
   const rate = slow ? 0.7 : 1;
+
+  // 활성 대화 — 원본 또는 🎲로 생성한 변형. 레슨이 바뀌면 원본으로 리셋.
+  const [dialogue, setDialogue] = useState<Dialogue>(original);
+  useEffect(() => setDialogue(original), [original]);
 
   // 전체 재생 상태를 부모에서 관리해 상단 버튼과 듣기 탭 버튼이 같은 상태를 공유한다.
   const [playingIdx, setPlayingIdx] = useState<number | null>(null);
@@ -220,9 +79,19 @@ export default function DialoguePractice({ dialogue, lessonId }: { dialogue: Dia
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 14, padding: 16, marginBottom: 14 }}>
       <div style={{ fontSize: '0.92rem', fontWeight: 800, marginBottom: 2 }}>💬 {dialogue.title}</div>
-      <p className="muted" style={{ fontSize: '0.74rem', marginBottom: 12, lineHeight: 1.5 }}>
-        이 회차 대화문을 듣고 · 역할로 말하고 · 외워보세요. 영어회화 앱들의 핵심 학습법을 담았어요.
+      <p className="muted" style={{ fontSize: '0.74rem', marginBottom: 8, lineHeight: 1.5 }}>
+        이 회차 대화문을 듣고 · 역할로 말하고 · 외워보세요. 🎲로 같은 상황의 새 대화를 만들어 폭넓게 들을 수 있어요.
       </p>
+
+      {/* 원본/변형 대화 전환 + 🎲 새 대화 생성 — 바꾸면 재생을 멈추고 교체한다. */}
+      <DialogueVariantPicker
+        lessonId={lessonId}
+        original={original}
+        onChange={(d) => {
+          stopAll();
+          setDialogue(d);
+        }}
+      />
 
       {/* 상단 전체 음성 재생 — 탭에 들어가지 않고도 대화문 전체를 바로 들을 수 있다. */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -260,7 +129,7 @@ export default function DialoguePractice({ dialogue, lessonId }: { dialogue: Dia
               cursor: 'pointer',
               border: `1px solid ${tab === t ? 'var(--primary)' : 'var(--border)'}`,
               background: tab === t ? 'var(--primary)' : 'var(--surface2)',
-              color: tab === t ? '#fff' : 'var(--text-muted)',
+              color: tab === t ? 'var(--on-primary)' : 'var(--text-muted)',
             }}
           >
             {label}
@@ -277,8 +146,8 @@ export default function DialoguePractice({ dialogue, lessonId }: { dialogue: Dia
           onStopAll={stopAll}
         />
       )}
-      {tab === 'roleplay' && <RolePlayMode key="roleplay" dialogue={dialogue} lessonId={lessonId} rate={rate} />}
-      {tab === 'memorize' && <MemorizeMode key="memorize" dialogue={dialogue} lessonId={lessonId} rate={rate} />}
+      {tab === 'roleplay' && <RolePlayMode key={`roleplay:${dialogue.title}`} dialogue={dialogue} lessonId={lessonId} rate={rate} />}
+      {tab === 'memorize' && <MemorizeMode key={`memorize:${dialogue.title}`} dialogue={dialogue} lessonId={lessonId} rate={rate} />}
     </div>
   );
 }
@@ -346,6 +215,8 @@ interface LineResult {
   score: number;
   diff: WordDiff[];
   spoken: string;
+  /** 왜 틀렸는지 — 잘못 들린 단어를 발음 축으로 해석한 결과 */
+  issues: PronIssue[];
 }
 
 function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lessonId: number; rate: number }) {
@@ -356,12 +227,48 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
   const [revealed, setRevealed] = useState<Record<number, boolean>>({});
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState('');
+  /** Whisper 경로의 단계 — 녹음 중인지 변환 중인지 버튼에 드러낸다 */
+  const [phase, setPhase] = useState<'idle' | 'recording' | 'transcribing'>('idle');
+  const slowListenRate = useSlowRate();
+  /** 방금 녹음한 내 소리 — 모범 발음과 번갈아 듣는다 */
+  const [clip, setClip] = useState<Blob | null>(null);
+  /** 인식이 비었을 때의 안내 — 아무 반응이 없으면 고장으로 보인다 */
+  const [micHint, setMicHint] = useState('');
+  const stopWhisperRef = useRef<(() => void) | null>(null);
 
   const recogRef = useRef<SpeechRecognition | null>(null);
   const finalRef = useRef('');
   const stepRef = useRef(0);
   stepRef.current = step;
-  const supported = getSpeechRecognition() !== null;
+  // Whisper가 되면 브라우저 내장 인식이 없어도 말하기가 가능하다
+  const supported = getSpeechRecognition() !== null || whisperAvailable();
+
+  /**
+   * 채점 한 곳 — Whisper 경로와 브라우저 내장 인식이 같은 결과를 만들어야 한다.
+   * 여기서 발음 진단까지 함께 계산해, 역할연습에서도 "무엇으로 들렸는지"가 남는다.
+   */
+  const scoreLine = useCallback(
+    (spoken: string) => {
+      if (!spoken) return;
+      const idx = stepRef.current;
+      const target = dialogue.lines[idx];
+      if (!target) return;
+      const { score, diff, missed } = computeAccuracy(target.en, spoken);
+      const issues = missed.length ? diagnose(target.en, spoken) : [];
+      if (issues.length) addPronLapses(issues.map((i) => i.key));
+      bumpSpoken(); // 역할연습 발화 집계
+      setResults((prev) => ({ ...prev, [idx]: { score, diff, spoken, issues } }));
+      setRevealed((prev) => ({ ...prev, [idx]: true }));
+      if (score < ROLEPLAY_PASS) {
+        addWeakItem({ en: target.en, kr: target.kr, lesson: lessonId, cat: 'dialogue' });
+      }
+      markPracticedToday();
+    },
+    [dialogue, lessonId]
+  );
+  // 인식기 생성 이펙트는 한 번만 도는데 scoreLine은 매 렌더 갱신되므로 ref로 잇는다
+  const scoreRef = useRef(scoreLine);
+  scoreRef.current = scoreLine;
 
   // 음성 인식기 1회 생성
   useEffect(() => {
@@ -383,17 +290,7 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
     };
     r.onend = () => {
       setListening(false);
-      const spoken = finalRef.current.trim();
-      if (!spoken) return;
-      const idx = stepRef.current;
-      const line = dialogue.lines[idx];
-      const { score, diff } = computeAccuracy(line.en, spoken);
-      setResults((prev) => ({ ...prev, [idx]: { score, diff, spoken } }));
-      setRevealed((prev) => ({ ...prev, [idx]: true }));
-      if (score < ROLEPLAY_PASS) {
-        addWeakItem({ en: line.en, kr: line.kr, lesson: lessonId, cat: 'dialogue' });
-      }
-      markPracticedToday();
+      scoreRef.current(finalRef.current.trim());
     };
     r.onerror = () => setListening(false);
     recogRef.current = r;
@@ -421,18 +318,85 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
     setInterim('');
   }, [step, myRole, line, rate]);
 
-  function startMic() {
+  /** 브라우저 내장 인식 — Whisper가 없거나 실패했을 때의 뒷길 */
+  function startWebSpeech() {
     const r = recogRef.current;
-    if (!r || listening) return;
+    if (!r) return false;
     finalRef.current = '';
-    setInterim('');
-    stopSpeaking();
     try {
       r.start();
       setListening(true);
+      return true;
     } catch {
-      /* 이미 시작됨 */
+      return false; /* 이미 시작됨 */
     }
+  }
+
+  /**
+   * Whisper 경로 — 녹음(무음 감지로 자동 종료) → 서버 변환 → 채점.
+   * 브라우저 내장 인식은 문맥으로 단어를 고쳐서 돌려주기 때문에 발음이 나빠도
+   * 점수가 후하게 나왔다. 역할연습은 발음을 보는 화면이라 여기서는 들린 대로
+   * 받는 Whisper를 우선한다.
+   */
+  async function startWhisper() {
+    setListening(true);
+    setPhase('recording');
+    try {
+      const { text, reason, audio } = await recordAndTranscribe({
+        prompt: dialogue.lines[stepRef.current]?.en,
+        onState: (st) => setPhase(st),
+        // 말하는 동안 글자가 보이게 — 채점은 Whisper 결과로만 한다
+        onPartial: (t) => setInterim(t),
+        registerStop: (fn) => {
+          stopWhisperRef.current = fn;
+        },
+      });
+      setPhase('idle');
+      setListening(false);
+      stopWhisperRef.current = null;
+      setClip(audio ?? null);
+      if (text) {
+        scoreLine(text);
+        return true;
+      }
+      if (reason === 'empty-result') {
+        setMicHint('말소리는 잡혔는데 인식하지 못했어요 — 조금 더 또렷하게 다시 말해보세요.');
+        return false; // 내장 인식으로 한 번 더
+      }
+      setMicHint('마이크에서 소리가 잡히지 않았어요 — 권한과 음소거를 확인해 주세요.');
+      return true;
+    } catch (err) {
+      setPhase('idle');
+      setListening(false);
+      stopWhisperRef.current = null;
+      const msg = (err as Error)?.message || '';
+      setMicHint(/NotAllowed|Permission/i.test(msg) ? '마이크 권한이 거부됐어요 — 브라우저 설정에서 허용해 주세요.' : '');
+      return false;
+    }
+  }
+
+  function startMic() {
+    if (listening) return;
+    setClip(null);
+    finalRef.current = '';
+    setInterim('');
+    setMicHint('');
+    stopSpeaking();
+    if (whisperAvailable()) {
+      startWhisper().then((done) => {
+        if (!done) startWebSpeech();
+      });
+      return;
+    }
+    startWebSpeech();
+  }
+
+  function stopMic() {
+    if (stopWhisperRef.current) {
+      stopWhisperRef.current();
+      return;
+    }
+    recogRef.current?.stop();
   }
 
   function pickRole(role: string) {
@@ -522,18 +486,23 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
             <button
               className={listening ? 'btn' : 'btn primary'}
               style={{ flex: 1, ...(listening ? { background: 'var(--red)', color: '#fff', borderColor: 'var(--red)' } : {}) }}
-              disabled={!supported}
-              onClick={listening ? () => recogRef.current?.stop() : startMic}
+              disabled={!supported || phase === 'transcribing'}
+              onClick={listening ? stopMic : startMic}
             >
-              {listening ? '⏹ 멈추기' : res ? '🎤 다시 말하기' : '🎤 말하기'}
+              {phase === 'transcribing' ? '⏳ 인식 중…' : listening ? '⏹ 멈추기' : res ? '🎤 다시 말하기' : '🎤 말하기'}
             </button>
             <button className="btn" style={{ flex: '0 0 auto' }} onClick={() => setRevealed((p) => ({ ...p, [step]: true }))}>
               👀 정답
             </button>
             <button className="speak-mini" title="모범 발음 듣기" onClick={() => speakText(line.en, 'en-US', rate, undefined, voiceFor(line.sp))}>🔊</button>
           </div>
-          {(interim || res) && (
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>내 발화: {res?.spoken || interim}</div>
+          {/* 말하는 중에는 실시간 자막을 우선한다 — 이전 시도 결과가 남아 있으면
+              지금 잡히는 말이 가려져 인식이 멈춘 것처럼 보인다 */}
+          {(interim || res || listening) && (
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>
+              {phase === 'transcribing' ? '인식 중' : listening ? '듣는 중' : '내 발화'}:{' '}
+              {listening ? interim || '말씀하세요…' : res?.spoken || interim}
+            </div>
           )}
           {res && (
             <div style={{ marginBottom: 8 }}>
@@ -545,7 +514,36 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
                   <span key={i} style={{ color: d.ok ? 'var(--green)' : 'var(--red)', textDecoration: d.ok ? 'none' : 'underline', marginRight: 5 }}>{d.w}</span>
                 ))}
               </div>
+              <VoiceCompare sentence={line.en} clip={clip} />
+              {res.issues.length > 0 && (
+                <div className="pron-diag">
+                  <div className="pron-diag-head">발음 진단</div>
+                  {res.issues.map((p) => (
+                    <div className="pron-issue" key={p.key}>
+                      <div className="pron-issue-top">
+                        <span className="pron-chip">{p.label}</span>
+                        <span className="pron-pair">
+                          <b>{p.target}</b>
+                          {p.heard ? <> → <i>{p.heard}</i> 로 들렸어요</> : ' — 들리지 않았어요'}
+                        </span>
+                        <button
+                          type="button"
+                          className="speak-mini pron-play"
+                          aria-label={`${p.target} 느리게 듣기`}
+                          onClick={() => speakText(p.target, 'en-US', slowListenRate)}
+                        >
+                          🔊
+                        </button>
+                      </div>
+                      <div className="pron-tip">{p.tip}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+          )}
+          {micHint && (
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.55, marginBottom: 6 }}>{micHint}</p>
           )}
         </>
       ) : null}

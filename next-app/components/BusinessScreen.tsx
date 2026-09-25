@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getChatLogs, type ChatLogEntry } from '../lib/state';
 import { groqComplete, GroqError } from '../lib/groq';
+import { safeJson } from '../lib/aiGuard';
 import {
   buildNativeDocPrompt,
   buildLessonExtractPrompt,
@@ -34,6 +35,8 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
   const [playingIdx, setPlayingIdx] = useState<number | null>(null);
   const [examples, setExamples] = useState<ExampleScenario[]>([]);
   const [examplesLoading, setExamplesLoading] = useState(false);
+  /** 예시 생성 실패/불가 안내 — 무음으로 빈 공간만 남기지 않는다 */
+  const [examplesNote, setExamplesNote] = useState('');
   const [activeExample, setActiveExample] = useState<number | null>(null);
 
   const playAllRef = useRef(false);
@@ -67,16 +70,27 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
   async function loadExamples(s: ScenarioType) {
     setExamplesLoading(true);
     setActiveExample(null);
+    setExamplesNote('');
     try {
       const raw = await groqComplete([{ role: 'user', content: buildExampleScenariosPrompt(s) }], {
         temperature: 0.8,
         maxTokens: 700,
         json: true,
       });
-      const parsed = JSON.parse(raw) as { examples?: ExampleScenario[] };
-      setExamples((parsed.examples || []).filter((e) => e && e.situation));
-    } catch {
+      const parsed = JSON.parse(raw || '{}') as { examples?: ExampleScenario[] };
+      const list = (parsed.examples || []).filter((e) => e && e.situation);
+      setExamples(list);
+      if (!list.length) setExamplesNote('예시를 만들지 못했어요 — 상황을 직접 적어도 됩니다.');
+    } catch (err) {
+      // 무음 실패 금지 — 헤더 아래가 이유 없이 빈 공간으로 남던 문제.
+      // 키 미등록이 가장 흔한 원인이라 그 경우를 구분해 안내한다.
+      const e = err as Error;
       setExamples([]);
+      setExamplesNote(
+        e instanceof GroqError && e.message === 'NO_GROQ_KEY'
+          ? '예시 생성은 Groq 키 등록 후 가능해요 — 상황을 직접 적어도 됩니다.'
+          : '예시를 만들지 못했어요 — 상황을 직접 적어도 됩니다.'
+      );
     } finally {
       setExamplesLoading(false);
     }
@@ -90,14 +104,19 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
     setShowKo(false);
     setError(null);
     try {
-      // 1단계 — 원어민 문서 작성
+      // 1단계 — 원어민 문서 작성. maxTokens는 서버 캡(1200) 이하로 — 초과분은
+      // 조용히 잘려 JSON 절단 → 파싱 실패의 원인이 됐다.
       setPhase('doc');
       const docRaw = await groqComplete([{ role: 'user', content: buildNativeDocPrompt(scenario, trimmed) }], {
         temperature: 0.55,
-        maxTokens: 1800,
+        maxTokens: 1150,
         json: true,
       });
-      const doc = JSON.parse(docRaw) as NativeDoc;
+      const doc = safeJson(docRaw) as NativeDoc | null;
+      if (!doc || !Array.isArray(doc.sections)) {
+        setError('문서를 만들지 못했어요 — 잠시 후 다시 시도해 주세요.');
+        return;
+      }
       doc.title_en = doc.title_en || '';
       doc.title_ko = doc.title_ko || '';
       doc.sections = (doc.sections || []).map((s) => ({
@@ -106,27 +125,34 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
         lines: (s.lines || []).filter((l) => l && l.en),
       }));
 
-      // 2단계 — 표현 추출
+      // 2단계 — 표현 추출. 여기서 실패해도 1단계 문서는 살린다 — 예전에는 통째로 버려졌다.
       setPhase('extract');
-      const exRaw = await groqComplete([{ role: 'user', content: buildLessonExtractPrompt(scenario, docToText(doc)) }], {
-        temperature: 0.4,
-        maxTokens: 1100,
-        json: true,
-      });
-      const ex = JSON.parse(exRaw) as Omit<BusinessLesson, 'doc'>;
-
+      let ex: Partial<Omit<BusinessLesson, 'doc'>> = {};
+      try {
+        const exRaw = await groqComplete([{ role: 'user', content: buildLessonExtractPrompt(scenario, docToText(doc)) }], {
+          temperature: 0.4,
+          maxTokens: 1100,
+          json: true,
+        });
+        ex = (safeJson(exRaw) as Omit<BusinessLesson, 'doc'>) || {};
+      } catch {
+        ex = {};
+      }
+      if (!Array.isArray(ex.expressions) || !ex.expressions.length) {
+        setError('표현 추출은 실패했지만 문서는 만들어졌어요 — 아래 문서로 학습을 계속할 수 있습니다.');
+      }
       setLesson({
         situation_ko: ex.situation_ko || '',
         doc,
-        expressions: ex.expressions || [],
-        key_phrases: ex.key_phrases || [],
+        expressions: Array.isArray(ex.expressions) ? ex.expressions : [],
+        key_phrases: Array.isArray(ex.key_phrases) ? ex.key_phrases : [],
       });
     } catch (err) {
       const e = err as Error;
       if (e instanceof GroqError && e.message === 'NO_GROQ_KEY') {
         setError('⚡ 레슨 생성을 위해 회화 탭에서 무료 Groq 키를 먼저 등록해주세요.');
       } else {
-        setError(`❌ 레슨 생성 실패: ${e.message}`);
+        setError(e instanceof GroqError ? `❌ 레슨 생성 실패: ${e.message}` : '❌ 레슨 생성에 실패했어요 — 잠시 후 다시 시도해 주세요.');
       }
     } finally {
       setPhase('');
@@ -195,6 +221,9 @@ export default function BusinessScreen({ onStartTalk }: { onStartTalk: (lessonId
       <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.5 }}>
         카드를 누르면 바로 그 상황으로 레슨이 만들어져요.
       </div>
+      {!examplesLoading && examples.length === 0 && examplesNote && (
+        <div className="muted" style={{ fontSize: '0.76rem', marginBottom: 8 }}>{examplesNote}</div>
+      )}
       <div className="biz-ex-grid" style={{ marginBottom: 12 }}>
         {examplesLoading && examples.length === 0 ? (
           <div className="biz-ex-card biz-ex-skel" />

@@ -5,7 +5,7 @@
   "rewrites": [
     { "source": "/app", "destination": "https://taehyun-app.vercel.app/app" },
     { "source": "/app/:path*", "destination": "https://taehyun-app.vercel.app/app/:path*" },
-    { "source": "/((?!voice-assistant/|api/|app$|app/|sw\\.js|manifest\\.webmanifest).*)", "destination": "/voice-assistant/index.html" }
+    { "source": "/((?!voice-assistant/|api/|app$|app/|friends$|friends/|sw\\.js|manifest\\.webmanifest).*)", "destination": "/voice-assistant/index.html" }
   ],
   "headers": [
     {

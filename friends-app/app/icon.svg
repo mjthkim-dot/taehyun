@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- 모니카네 보라색 문 + 노란 액자 + 엿보기 구멍 -->
+  <rect width="100" height="100" rx="18" fill="#6b3fa0"/>
+  <rect x="31" y="22" width="38" height="46" rx="7" fill="none" stroke="#f0b429" stroke-width="6"/>
+  <circle cx="50" cy="45" r="7" fill="#faf7f1"/>
+  <circle cx="78" cy="74" r="4.5" fill="#f0b429"/>
+</svg>
