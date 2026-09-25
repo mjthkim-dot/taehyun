@@ -896,6 +896,65 @@ def _stt_vocab() -> list[str]:
     return (_STT_VOCAB_BASE + extra)[:1000]
 
 
+# ── Gemini 3.5 Transcribe Live — 조각 전사를 스트리밍으로 (2026-09-24, v6.4) ──
+# 조각 방식은 '말이 끝나고 0.7초 침묵 대기 → 조각 업로드 → 전사 왕복 2.3~2.9초'라
+# 확정 자막이 말 끝난 뒤 3.0~3.6초에 떴다. Live 모델은 오디오를 100ms 단위로 계속
+# 받아 **말하는 도중 중간 자막**을, 말이 끝나면 약 1.1초에 확정 자막을 준다
+# (실측: 같은 합성 음성으로 비교). 중간 자막 덕에 🎧 정밀 모드에서도 웹 엔진처럼
+# 즉시 오프너·투기적 선생성이 돈다.
+#
+# 연결 구조: 브라우저 → Gemini 직결(서버 중계 없음 = 왕복 한 번 덜). API 키는
+# 브라우저로 보내지 않는다 — 서버가 **1회용 토큰**만 발급한다. 토큰은
+#  · 1회 사용(재사용 시 서버가 1011로 끊음 — 실측)
+#  · 모델 고정(다른 모델을 요청해도 받아쓰기로 강제됨 — 실측)
+#  · 1분 안에 세션을 열어야 하고 30분 뒤 만료
+# 세션은 최대 10분이라 브라우저가 9분마다 새 토큰으로 갈아탄다.
+GEMINI_STT_LIVE_MODEL = os.environ.get("GEMINI_STT_LIVE_MODEL", "gemini-3.5-transcribe-live")
+STT_LIVE = os.environ.get("STT_LIVE", "1") != "0"
+# 세션 교체 주기(초) — Live 세션 상한 10분 전에 새 세션으로 갈아탄다. 테스트용으로 줄일 수 있다.
+STT_LIVE_ROTATE_S = int(os.environ.get("STT_LIVE_ROTATE_S", "540"))
+_GEMINI_DEFAULT_URL = "https://generativelanguage.googleapis.com/v1beta"
+_LIVE_WS = ("wss://generativelanguage.googleapis.com/ws/"
+            "google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained")
+
+
+def live_stt_available() -> bool:
+    """Live 전사를 쓸 수 있는가 — 키가 있고, 끄지 않았고, 실제 Gemini를 쓸 때만.
+    mock(GEMINI_URL 변경) 환경은 웹소켓 엔드포인트가 없으므로 조각 방식으로 폴백."""
+    return bool(GEMINI_API_KEY) and STT_LIVE and GEMINI_URL.rstrip("/") == _GEMINI_DEFAULT_URL
+
+
+def live_stt_session(language: str | None = None) -> dict:
+    """브라우저가 Gemini Live에 직접 붙을 수 있게 1회용 토큰 + setup 메시지를 만든다."""
+    if not live_stt_available():
+        raise RuntimeError("키 없음·STT_LIVE=0·mock 환경")
+    import datetime as _dt
+    now = _dt.datetime.now(_dt.timezone.utc)
+    iso = lambda m: (now + _dt.timedelta(minutes=m)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    body = {"uses": 1, "expireTime": iso(30), "newSessionExpireTime": iso(1),
+            "bidiGenerateContentSetup": {"model": f"models/{GEMINI_STT_LIVE_MODEL}"}}
+    req = urllib.request.Request(
+        GEMINI_URL.replace("/v1beta", "/v1alpha") + f"/auth_tokens?key={GEMINI_API_KEY}",
+        data=json.dumps(body).encode(), method="POST",
+        headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        name = json.loads(r.read()).get("name", "")
+    if not name.startswith("auth_tokens/"):
+        raise RuntimeError("Live 토큰 발급 응답이 비었습니다")
+    lang = {"en": "en-US", "ko": "ko-KR"}.get((language or "").lower(), language)
+    setup = {"setup": {
+        "model": f"models/{GEMINI_STT_LIVE_MODEL}",
+        "generationConfig": {"responseModalities": ["TEXT"]},
+        "inputAudioTranscription": {
+            "languageCodes": [lang] if lang else ["en-US", "ko-KR"],
+            "customVocabulary": _stt_vocab(),
+            "mode": "SMART",            # 필러 제거·자가수정 해소 — 조각 방식과 같은 품질
+        },
+    }}
+    return {"url": f"{_LIVE_WS}?access_token={name}", "setup": setup,
+            "model": GEMINI_STT_LIVE_MODEL, "max_session_s": STT_LIVE_ROTATE_S}
+
+
 def transcribe_gemini(audio: bytes, mime: str = "audio/webm",
                       language: str | None = None) -> str:
     """Gemini 3.5 Transcribe (Interactions API) — 오디오 → 텍스트.

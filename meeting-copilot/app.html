@@ -472,7 +472,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v6.3</span>
+  <span class="ver" id="app-ver">v6.4</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -483,9 +483,9 @@
   </div>
   <span class="spacer"></span>
   <select id="engine" title="음성 인식 방식">
-    <option value="web" selected>🎤 브라우저(실시간)</option>
+    <option value="micstt" selected>⚡ 실시간 정밀(Gemini Live)</option>
     <option value="tab">🖥 탭 오디오(설정 불필요)</option>
-    <option value="micstt">🎧 마이크 정밀(고유명사↑)</option>
+    <option value="web">🎤 브라우저(키 불필요)</option>
   </select>
   <select id="mic-dev" title="상대 목소리가 들어오는 입력 장치 — BlackHole을 고르면 내 목소리가 섞이지 않습니다"></select>
   <select id="cefr" title="내 영어 레벨"><option>A2</option><option selected>B1</option><option>B2</option><option>C1</option></select>
@@ -913,6 +913,9 @@ const NAME_FIXES = [
   [/\b(?:tune\s*system|tunesystem|bus\s*company)\b/gi, 'TuneSystem'],
   [/\b(?:daangn|dang\s*geun|congo\s*market|tango\s*market)\b/gi, 'Daangn'],
   [/\bi-?paas\b|\bipass\b/gi, 'iPaaS'],
+  [/\bn8n\b/gi, 'n8n'],             // Live SMART 모드가 "N8N"으로 대문자화(실측)
+  // 면접관이 부르는 내 이름 — 브라우저 경로에서 Tae-yeon/Taeyun/Tae-hyun으로 흔들림(실측)
+  [/\btae-(?:yeon|yun|hyeon|hyun)\b|\btae(?:yeon|yun|hyeon)\b/gi, 'Taehyun'],
   [/\bdev\s*sec\s*ops\b/gi, 'DevSecOps'],
   [/\bgit\s*lab\b/gi, 'GitLab'],
   [/\bnexus\s*community\b/gi, 'Nexus Community'],
@@ -1739,10 +1742,190 @@ function updateSttStatus(){
   if(m === 'web') return;
   const el = $('#status-txt');
   if(sttBusy > 0 && !el.textContent.startsWith('⚠️'))
-    el.textContent = m === 'tab' ? '🖥 탭 오디오 인식 중…' : '🎧 정밀 인식 중…';
+    el.textContent = m === 'tab' ? '🖥 탭 오디오 인식 중…' : '🎧 조각 인식 중…';
 }
 const engineMode = () => $('#engine')?.value || 'web';
 $('#engine')?.addEventListener('change', ()=> paintMicSource());
+
+// ════════════════════════════════════════════════════════════
+//  ⚡ Gemini Live 전사 (v6.4) — 조각 방식의 스트리밍 판
+//
+//  조각 방식(SegmentRecorder)은 말이 끝난 뒤 0.7초 침묵을 기다렸다가 조각을
+//  올려 2.3~2.9초 왕복했다 → 확정 자막이 말 끝나고 3.0~3.6초. Live는 100ms
+//  단위로 계속 흘려보내 **말하는 도중 중간 자막**을 받고, 확정 자막은 말이
+//  끝나고 약 1.1초에 온다(같은 합성 음성으로 실측). 중간 자막은 웹 엔진과
+//  같은 경로(미리보기·투기적 선생성·즉시 오프너)로 흘려보낸다.
+//
+//  연결: 서버가 1회용 토큰을 발급(/api/stt/live) → 브라우저가 Gemini에 직결.
+//  API 키는 브라우저에 오지 않는다. 세션 상한 10분 → 9분마다 새 세션으로
+//  갈아탄다(새 세션이 준비된 뒤 옛 세션을 닫아 끊김 0). 연결이 세 번 연속
+//  실패하거나 서버가 Live를 못 쓰면(mock·키 없음) 조각 방식으로 자동 폴백.
+// ════════════════════════════════════════════════════════════
+let pcmWorkletReady = null, liveInterimRow = null;
+function showInterim(t){
+  if(!t) return clearInterim();
+  if(!liveInterimRow){
+    $('#feed-empty')?.remove();
+    liveInterimRow = document.createElement('div');
+    liveInterimRow.className = 'row interim';
+    liveInterimRow.innerHTML = '<span class="tag">인식 중</span><div class="bubble"><div class="en"></div></div>';
+    feed.appendChild(liveInterimRow);
+  }
+  liveInterimRow.querySelector('.en').textContent = t;
+  feedScroll();
+  maybeSpeculate(t);
+  maybeOpener(t);
+}
+function clearInterim(){ if(liveInterimRow){ liveInterimRow.remove(); liveInterimRow = null; } }
+const b64 = buf => { const u = new Uint8Array(buf); let s = '';
+  for(let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+  return btoa(s); };
+
+class LiveStt {
+  constructor(stream, who){
+    this.stream = stream; this.who = who;
+    this.ws = null; this.pending = null; this.standby = null; this.dead = false; this.fails = 0; this.fallback = null;
+    this.q = []; this.rotateAt = Infinity; this.rotating = false; this.announced = false;
+    this.init();
+  }
+  async init(){
+    try{
+      pcmWorkletReady = pcmWorkletReady || audioCtx.audioWorklet.addModule('/pcm-worklet.js');
+      await pcmWorkletReady;
+      this.src = audioCtx.createMediaStreamSource(this.stream);
+      this.node = new AudioWorkletNode(audioCtx, 'pcm-capture');
+      // 워클릿은 그래프 끝(destination)에 닿아야 돈다 — 소리는 0배로 막아 되울림 없음
+      this.mute = audioCtx.createGain(); this.mute.gain.value = 0;
+      this.src.connect(this.node); this.node.connect(this.mute); this.mute.connect(audioCtx.destination);
+      this.node.port.onmessage = e => this.push(e.data);
+    }catch(e){ pcmWorkletReady = null; return this.toFallback('오디오 캡처 준비 실패'); }
+    this.connect();
+  }
+  async connect(){
+    if(this.dead || this.fallback) return;
+    let s;
+    try{
+      const r = await fetch('/api/stt/live?lang=en', {method:'POST'});
+      s = await r.json();
+      if(!r.ok){
+        // 서버가 Live를 못 쓰는 환경(키 없음·mock) — 재시도해도 같으니 바로 폴백
+        if(s.fallback) return this.toFallback(s.error || 'Live 불가');
+        throw new Error(s.error || `HTTP ${r.status}`);
+      }
+    }catch(e){ return this.onFail(e.message); }
+    if(this.dead) return;
+    const ws = new WebSocket(s.url);
+    this.pending = ws;                                         // 준비(setupComplete) 전 연결
+    ws.onopen = () => ws.send(JSON.stringify(s.setup));
+    ws.onmessage = async ev => {
+      let m;
+      try{ m = JSON.parse(typeof ev.data === 'string' ? ev.data : await ev.data.text()); }catch{ return; }
+      if(m.setupComplete){
+        this.pending = null; this.fails = 0; this.everConnected = true;
+        this.maxSession = (s.max_session_s || 540) * 1000;
+        if(this.ws){
+          // 세션 교체 중 — 바로 갈아타면 말하던 문장이 두 세션에 걸쳐 쪼개지고 경계의
+          // 단어가 사라진다(실측: "Why would … pay for Wercato"). 새 세션은 대기시켜
+          // 두고, 지금 세션이 **말 끊김**을 알리는 순간 갈아탄다(swap).
+          this.standby = ws;
+          return;
+        }
+        this.ws = ws; this.rotating = false;
+        this.rotateAt = Date.now() + this.maxSession;
+        for(const b of this.q.splice(0)) this.send(b);          // 연결 전 들어온 소리
+        if(!this.announced && this.who === '상대'){
+          this.announced = true;
+          $('#status-txt').textContent = '⚡ 실시간 인식 (Gemini Live) — 말하는 중에도 자막';
+        }
+        return;
+      }
+      const sc = m.serverContent;
+      // 말 끊김 신호(VAD 활동 종료·무음 상태·확정 자막) — 대기 중인 새 세션으로 갈아탈 때
+      const paused = m.voiceActivity?.type === 'ACTIVITY_END' || sc?.speechState === 'NON_SPEECH'
+                  || !!sc?.inputTranscription;
+      if(!sc){ if(paused && ws === this.ws) this.swap(); return; }
+      if(sc.interimInputTranscription && this.who === '상대')
+        showInterim(fixNames(sc.interimInputTranscription.text || ''));
+      if(sc.inputTranscription) this.onFinal(sc.inputTranscription.text || '');
+      if(paused && ws === this.ws) this.swap();
+    };
+    ws.onclose = ev => {
+      // 준비 전에 끊긴 연결(핸드셰이크 거부·토큰 만료)도 실패로 센다 — 안 세면
+      // 재시도도 폴백도 없이 자막이 영영 멈춘다(실측: 404 한 번에 멈춤).
+      if(ws === this.pending) this.pending = null;
+      else if(ws === this.standby){ this.standby = null; this.rotating = false; return; }  // 다음 소리에 다시 준비
+      else if(ws === this.ws) this.ws = null;
+      else return;                                              // 은퇴한 세션
+      if(!this.dead) this.onFail(`연결 끊김 ${ev.code}${ev.reason ? ' ' + ev.reason : ''}`);
+    };
+  }
+  onFinal(t){
+    t = t.trim();
+    if(this.who === '상대') clearInterim();
+    if(t && t.length > 3 && !/^(you|thank you|thanks|bye|okay)\.?$/i.test(t)) addUtterance(t, this.who);
+  }
+  send(buf){
+    try{ this.ws.send(JSON.stringify({realtimeInput:{audio:{data:b64(buf), mimeType:'audio/pcm;rate=16000'}}})); }catch{}
+  }
+  push(buf){
+    if(this.dead || this.fallback) return;
+    if(this.ws && this.ws.readyState === 1){
+      this.send(buf);
+      const now = Date.now();
+      if(!this.rotating && now > this.rotateAt){ this.rotating = true; this.connect(); }
+      // 45초 동안 말 끊김이 없으면(드묾) 세션 상한(10분) 전에 강제로 갈아탄다
+      if(this.standby && now > this.rotateAt + 45000) this.swap();
+    }else{
+      this.q.push(buf);
+      if(this.q.length > 50) this.q.shift();                   // 최대 5초만 보관
+    }
+  }
+  swap(){
+    if(!this.standby) return;
+    const prev = this.ws;
+    this.ws = this.standby; this.standby = null; this.rotating = false;
+    this.rotateAt = Date.now() + this.maxSession;
+    if(prev) this.retire(prev);
+  }
+  retire(ws){
+    // 말하던 문장의 확정 자막을 받도록 끝 신호 후 잠시 뒤 닫는다
+    try{ ws.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}})); }catch{}
+    setTimeout(() => { try{ ws.close(); }catch{} }, 4000);
+  }
+  onFail(msg){
+    if(this.dead || this.fallback) return;
+    this.fails++;
+    // 한 번도 연결된 적이 없으면 2회에서 포기 — 재시도하는 동안 들어온 소리는
+    // 조각 방식이 받지 못한다(실측: 3회 재시도 동안 첫 질문 앞 5초 유실).
+    // 연결된 적이 있으면 일시 끊김일 가능성이 커서 3회까지 기다린다.
+    if(this.fails >= (this.everConnected ? 3 : 2)) return this.toFallback(msg);
+    const wait = 1000 * 2 ** (this.fails - 1);
+    setBanner(`⚠️ 실시간 인식 재연결 중 (${msg}) — ${Math.ceil(wait/1000)}초 후`);
+    this.rotating = false;
+    setTimeout(() => this.connect(), wait);
+  }
+  toFallback(msg){
+    if(this.dead || this.fallback) return;
+    this.detach();
+    this.fallback = new SegmentRecorder(this.stream, this.who);
+    setBanner(`⚠️ 실시간 인식 불가 (${msg}) — 조각 인식으로 계속합니다 (자막 약 3초 지연)`);
+  }
+  detach(){
+    try{ this.src?.disconnect(); this.node?.disconnect(); this.mute?.disconnect(); }catch{}
+    if(this.ws){ this.retire(this.ws); this.ws = null; }
+    if(this.pending){ try{ this.pending.close(); }catch{} this.pending = null; }
+    if(this.standby){ try{ this.standby.close(); }catch{} this.standby = null; }
+    if(this.who === '상대') clearInterim();
+  }
+  stop(){
+    this.dead = true;
+    if(this.fallback) return this.fallback.stop();
+    this.detach();
+    this.stream.getTracks().forEach(t => t.stop());
+  }
+}
+// 실시간이 기본, 안 되면 LiveStt가 스스로 조각 방식으로 내려간다
+const makeCapture = (stream, who) => new LiveStt(stream, who);
 
 async function startTabCapture(){
   if(!navigator.mediaDevices?.getDisplayMedia){
@@ -1765,14 +1948,14 @@ async function startTabCapture(){
   }
   audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
   await audioCtx.resume();
-  tabCap = new SegmentRecorder(tabStream, '상대');
+  tabCap = makeCapture(tabStream, '상대');
   tabStream.getAudioTracks()[0].onended = () => { if(listening()) stopListening(); };
 
   // 내 목소리는 마이크에서 따로 — 화자 분리가 물리적으로 확실해진다
   try{
     micStream = await navigator.mediaDevices.getUserMedia({
       audio: meAudio({echoCancellation:true, noiseSuppression:true})});
-    micCap = new SegmentRecorder(micStream, '나');
+    micCap = makeCapture(micStream, '나');
   }catch{ /* 마이크 거부해도 상대 인식은 계속 */ }
 
   setBanner(micCap ? '🖥 탭 오디오 + 🎤 내 마이크 — 화자가 분리되어 기록됩니다'
@@ -1801,11 +1984,11 @@ async function startMicSttCapture(){
   }
   audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
   await audioCtx.resume();
-  tabCap = new SegmentRecorder(micStream, '상대');
+  tabCap = makeCapture(micStream, '상대');
   const label = micStream.getAudioTracks()[0]?.label || '';
   setBanner(/blackhole/i.test(label)
-    ? '🎧 정밀 인식 (BlackHole=상대 전용) — 고유명사 강화 STT'
-    : '🎧 정밀 인식 중 — ⚠️ 일반 마이크: 내 목소리도 "상대"로 잡힙니다 (BlackHole 권장)');
+    ? '⚡ 실시간 인식 (BlackHole=상대 전용) — 고유명사 강화 STT'
+    : '⚡ 실시간 인식 중 — ⚠️ 일반 마이크: 내 목소리도 "상대"로 잡힙니다 (BlackHole 권장)');
   return true;
 }
 
@@ -1889,7 +2072,7 @@ async function paintMicSource(){
         el.title = bh
           ? 'BlackHole이 설치돼 있는데 Chrome 기본 입력이 아닙니다.\n'
             + '① chrome://settings/content/microphone → 기본 마이크를 BlackHole 2ch로\n'
-            + '② 또는 인식 엔진을 🎧 마이크 정밀로 바꾸면 앱이 직접 BlackHole을 잡습니다'
+            + '② 또는 인식 엔진을 ⚡ 실시간 정밀로 바꾸면 앱이 직접 BlackHole을 잡습니다'
           : 'BlackHole이 안 보입니다 — docs/FIELD-TEST.md §3.5의 다중 출력 기기 설정을 먼저 하세요';
       }
       return;

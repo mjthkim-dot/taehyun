@@ -68,6 +68,7 @@ STATIC = {
     "/app.html": "text/html; charset=utf-8",
     "/app.webmanifest": "application/manifest+json",
     "/sw.js": "application/javascript; charset=utf-8",
+    "/pcm-worklet.js": "application/javascript; charset=utf-8",
 }
 # 요청 본문 상한 — 오디오 세그먼트(30초 webm ≈ 수백 KB)에 여유를 둔 값.
 # QA: 상한이 없어 Content-Length 선언만으로 메모리를 내주고 있었다.
@@ -272,7 +273,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_header("Content-Security-Policy",
                              "default-src 'self'; script-src 'self' 'unsafe-inline'; "
                              "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
-                             "connect-src 'self'; media-src 'self' blob:; "
+                             "connect-src 'self' wss://generativelanguage.googleapis.com; "
+                             "media-src 'self' blob:; "
                              "worker-src 'self'; base-uri 'self'; frame-ancestors 'none'")
             self.send_header("Permissions-Policy",
                              "microphone=(self), display-capture=(self), camera=()")
@@ -556,6 +558,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._json(429, {"error": msg})
                 return True
             return False
+
+        # ⚡ Live 전사 세션 — 1회용 토큰 + setup (브라우저가 Gemini에 직접 스트리밍)
+        #   키는 서버에만 있다. 실패하면 503 → 브라우저가 조각 방식(/api/stt)으로 폴백.
+        if path == "/api/stt/live":
+            qs = urllib.parse.parse_qs(self.path.partition("?")[2])
+            try:
+                self._json(200, llm.live_stt_session((qs.get("lang") or [None])[0]))
+            except Exception as e:  # noqa: BLE001 — 어떤 실패든 폴백 신호로
+                self._json(503, {"error": str(e)[:80], "fallback": "chunk"})
+            return
 
         # 🎙 오디오 세그먼트 → 텍스트 (탭 오디오 캡처 경로)
         #   Web Speech는 MediaStream을 입력으로 받지 못한다. 그래서 탭 오디오는

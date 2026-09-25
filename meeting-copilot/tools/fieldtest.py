@@ -679,6 +679,16 @@ def cmd_preflight(args) -> int:
         except Exception as e:  # noqa: BLE001
             bad(str(e)[:120])
             fails.append(("LLM 호출", str(e)[:80]))
+        # ⚡ 실시간 인식(Gemini Live) — 1회용 토큰이 나오는지만 본다(웹소켓은 브라우저 몫).
+        # 실패해도 앱이 조각 인식으로 폴백하므로 탈락이 아니라 경고 — 자막이 약 3초 늦어진다.
+        if llm.live_stt_available():
+            t0 = time.time()
+            try:
+                llm.live_stt_session("en")
+                ok(f"실시간 인식 토큰 발급 — {llm.GEMINI_STT_LIVE_MODEL} · {(time.time()-t0)*1000:.0f}ms")
+            except Exception as e:  # noqa: BLE001
+                warn(f"실시간 인식 토큰 실패: {str(e)[:80]}",
+                     "앱은 조각 인식으로 계속합니다(자막 약 3초 지연) — 키 권한·네트워크 확인")
 
     print("[3/5] 잔여 한도")
     try:

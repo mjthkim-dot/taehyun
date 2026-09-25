@@ -589,6 +589,45 @@ if (SHOT) {
   console.log(`\n📸 ${SHOT} (390×844)`);
 }
 
+console.log('\n■ v6.4 실시간 인식(Gemini Live) — 기본 엔진 · 키 비노출 · 자동 폴백');
+{
+  const errsBefore = errs.length;
+  const d = await p.evaluate(async () => {
+    const def = document.querySelector('#engine option[selected]')?.value;
+    const r = await fetch('/api/stt/live?lang=en', { method: 'POST' });
+    const j = await r.json();
+    const w = await fetch('/pcm-worklet.js');
+    return { def, status: r.status, fallback: j.fallback, worklet: w.status,
+             workletJs: (await w.text()).includes("registerProcessor('pcm-capture'") };
+  });
+  check('기본 엔진 = ⚡ 실시간 정밀(Gemini Live)', d.def === 'micstt', d.def);
+  check('Live 불가 환경(mock)이면 서버가 폴백 신호(503·chunk)',
+    d.status === 503 && d.fallback === 'chunk', `${d.status} ${d.fallback}`);
+  check('PCM 캡처 워클릿 제공', d.worklet === 200 && d.workletJs, String(d.worklet));
+  // CSP는 Gemini Live 주소 하나만 연다 — 다른 외부 출처는 여전히 막혀야 한다
+  const csp = (await p.request.get(APP + '/app.html')).headers()['content-security-policy'] || '';
+  const conn = (csp.match(/connect-src ([^;]+)/) || [])[1] || '';
+  check('CSP connect-src = self + Gemini Live 하나만',
+    conn.trim() === "'self' wss://generativelanguage.googleapis.com", conn);
+  // 실제 캡처: ▶ → LiveStt가 폴백 신호를 받고 조각 인식으로 내려가 자막이 끊기지 않는가
+  await p.click('.tab[data-v="live"]').catch(() => {});
+  // 앞 테스트가 심은 가짜 'BlackHole' 장치는 실제로 열 수 없다 → 기본 입력으로 되돌림
+  await p.evaluate(() => { const d = document.querySelector('#mic-dev'); if (d) d.value = '';
+                           const e = document.querySelector('#engine'); e.value = 'micstt';
+                           e.dispatchEvent(new Event('change')); });
+  await p.click('#btn-listen');
+  await p.waitForFunction(() => !!(typeof tabCap !== 'undefined' && tabCap?.fallback),
+                          { timeout: 8000 }).catch(() => {});
+  const fb = await p.evaluate(() => ({ fb: !!tabCap?.fallback,
+    banner: document.querySelector('#status-txt')?.textContent || '' }));
+  check('Live 실패 → 조각 인식으로 자동 전환 + 안내', fb.fb && /조각 인식/.test(fb.banner),
+        fb.banner.slice(0, 50));
+  if (await p.evaluate(() => listening())) await p.click('#btn-listen');
+  // 이 블록의 503은 의도한 폴백 신호다 — 오류 카운터에서 뺀다
+  for (let i = errs.length - 1; i >= errsBefore; i--)
+    if (/503/.test(errs[i]) && /stt\/live|Service Unavailable/.test(errs[i])) errs.splice(i, 1);
+}
+
 // /api/code 403은 위에서 일부러 낸 negative 테스트다 — 이 카운터는
 // '예상 못 한' 오류만 세야 신호로서 값을 한다.
 const realErrs = errs.filter(e =>

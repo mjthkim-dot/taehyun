@@ -1,6 +1,6 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v42';  // v6.3: Gemini 3.8 Flash 전환 + 임포터 시드 적재(새 체크아웃 저장소 구성 일치)
-const ASSETS = ['/app.html', '/app.webmanifest'];
+const SHELL = 'mc-shell-v43';  // v6.4: 실시간 인식(Gemini 3.5 Transcribe Live) — 말하는 중 자막 + 확정 약 1.1초
+const ASSETS = ['/app.html', '/app.webmanifest', '/pcm-worklet.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(SHELL).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
