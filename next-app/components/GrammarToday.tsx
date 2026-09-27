@@ -12,6 +12,7 @@ import { overall } from '../lib/cefrGrowth';
 import { setUnitHandoff } from '../lib/ontology/handoff';
 import { load, store } from '../lib/state';
 import { APP_VERSION } from '../lib/version';
+import { requestDramaAutoplay } from '../lib/drama';
 
 export function GrammarTodayCard({ onNavigate }: { onNavigate: (m: Mode) => void }) {
   const [u, setU] = useState<GrammarUnit | null>(null);
@@ -47,8 +48,8 @@ export function GrammarTodayCard({ onNavigate }: { onNavigate: (m: Mode) => void
 const SEEN_KEY = 'va_seen_whatsnew';
 /** 이 버전에서 알릴 것 — 버전이 바뀌면 다시 한 번 뜬다 */
 const WHATS_NEW = {
-  title: '이제 매번 다른 수업이에요',
-  body: '같은 문법이라도 두 번째부터는 AI가 새 상황(호텔 체크인, 가격 협상, 임원 보고…)과 새 문제로 만들어요. 못 끝낸 문법은 하루 쉬었다가 다시 나오고, 레슨 제목도 매일 그날 배울 내용으로 바뀌어요.',
+  title: '새로 생긴 것 — 드라마 레슨',
+  body: '이제 하루 한 편, 5분 드라마로 배워요. 신입 태오와 동료들의 좌충우돌 이야기를 따라가며, 중간중간 태오의 대사를 직접 고르고 말해 보세요. 다음 화가 궁금해지게 끝나요.',
 };
 
 export function WhatsNew({ onNavigate }: { onNavigate: (m: Mode) => void }) {
@@ -72,10 +73,11 @@ export function WhatsNew({ onNavigate }: { onNavigate: (m: Mode) => void }) {
           className="btn primary"
           onClick={() => {
             close();
-            onNavigate('grammar');
+            requestDramaAutoplay();
+            onNavigate('drama');
           }}
         >
-          바로 해보기
+          1화 보기
         </button>
         <button type="button" className="btn ghost" onClick={close}>
           닫기

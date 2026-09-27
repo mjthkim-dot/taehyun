@@ -26,6 +26,7 @@
  * 원어민과 실제 통화)도 있으므로 수동 체크를 항상 함께 둔다 — 앱이 사용자의
  * 학습을 부정하지 않게.
  */
+import { watchedToday } from './drama';
 import { todayKey as localToday, daysBetween } from './dates';
 import { load, store, spokenToday, groqKey } from './state';
 import { sessionDoneToday } from './session';
@@ -99,7 +100,7 @@ function observedDone(key: BlockKey, spokenTarget: number): boolean {
       return spokenToday() >= spokenTarget;
     case 'field':
       // 실전 블록은 화면이 주차마다 달라 신호를 넓게 본다 — 오늘의 회화/면접/미션 중 하나
-      return chattedToday() || interviewedToday() || isMissionDoneToday();
+      return chattedToday() || interviewedToday() || isMissionDoneToday() || watchedToday();
   }
 }
 

@@ -10881,3 +10881,347 @@ body::after {
 @media (prefers-reduced-motion: reduce) {
   .gm-loading-dot { animation: none; }
 }
+
+/* ════════════ 드라마 레슨 (dr-*) ════════════ */
+.dr-card-faces {
+  display: flex;
+  gap: 4px;
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+}
+.dr-card-faces span {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface2);
+  box-shadow: inset 0 0 0 1.5px var(--lit-rim);
+}
+.dr-card-faces span:not(:first-child) {
+  margin-left: -10px;
+}
+.dr-card-title,
+.dr-hero-title {
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  margin: 4px 0 6px;
+}
+.dr-card-hook {
+  font-size: 0.84rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.dr-go {
+  width: 100%;
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  font-size: 0.95rem;
+}
+.dr-cast {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.dr-cast-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 9px 4px 4px;
+  border-radius: 999px;
+  background: var(--surface2);
+}
+.dr-cast-ic {
+  font-size: 1rem;
+}
+.dr-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 플레이어 */
+.dr-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+.dr-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dr-prog {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface2);
+  overflow: hidden;
+}
+.dr-prog > span {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  border-radius: 999px;
+  transition: width 0.3s var(--ease-std);
+}
+.dr-ep {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+  margin: 10px 2px 6px;
+}
+.dr-log {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 90px;
+}
+.dr-narr {
+  align-self: center;
+  max-width: 92%;
+  text-align: center;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 4px 8px;
+  animation: rise-3d 0.35s var(--ease-std) both;
+}
+.dr-line {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  animation: rise-3d 0.35s var(--ease-std) both;
+}
+.dr-line.me {
+  justify-content: flex-end;
+}
+.dr-av {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface2);
+  font-size: 1.1rem;
+}
+.dr-bub {
+  max-width: 78%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  padding: 10px 13px;
+  border: none;
+  border-radius: 18px 18px 18px 4px;
+  background: var(--surface2);
+  color: var(--text);
+  cursor: pointer;
+}
+.dr-line.me .dr-bub {
+  border-radius: 18px 18px 4px 18px;
+  background: var(--primary-soft);
+}
+.dr-name {
+  font-size: 0.66rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+.dr-en {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.dr-kr {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+.dr-note {
+  align-self: stretch;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: rgba(255, 107, 112, 0.1);
+}
+.dr-note.ok {
+  background: var(--green-soft);
+}
+.dr-act {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1.5px solid var(--primary);
+  background: var(--surface);
+  animation: rise-3d 0.35s var(--ease-std) both;
+}
+.dr-ask {
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+.dr-opt {
+  min-height: 50px;
+}
+.dr-fill {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.6;
+  padding: 6px 2px;
+}
+.dr-blank {
+  color: var(--primary-dk);
+  border-bottom: 2px solid var(--primary);
+  padding: 0 4px;
+}
+.dr-fill-opts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dr-chip {
+  flex: 1;
+  min-width: 80px;
+  text-align: center;
+}
+.dr-target {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: none;
+  background: var(--primary-soft);
+  color: var(--text);
+  cursor: pointer;
+}
+.dr-mic {
+  align-self: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  border: none;
+  font-size: 1.8rem;
+  background: var(--grad-primary);
+  box-shadow: 0 5px 0 var(--lip-primary), 0 16px 28px -12px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  margin: 6px 0;
+}
+.dr-mic.on {
+  animation: gm-pulse 1.4s ease-in-out infinite;
+}
+.dr-mic:active {
+  transform: translateY(5px);
+  box-shadow: none;
+}
+.dr-skip {
+  min-height: 40px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.dr-msg {
+  font-size: 0.78rem;
+  text-align: center;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+.dr-next {
+  position: sticky;
+  bottom: 8px;
+  width: 100%;
+  min-height: 56px;
+  border: none;
+  border-radius: 18px;
+  background: var(--grad-primary);
+  color: var(--on-primary);
+  font-size: 1rem;
+  font-weight: 900;
+  box-shadow: 0 5px 0 var(--lip-primary), 0 18px 30px -12px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  margin-bottom: 5px;
+}
+.dr-next:active {
+  transform: translateY(5px);
+  box-shadow: none;
+}
+
+/* 엔딩 */
+.dr-end {
+  text-align: center;
+}
+.dr-end-ep {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--primary-dk);
+}
+.dr-end-title {
+  font-size: 1.3rem;
+  font-weight: 900;
+  margin: 4px 0;
+}
+.dr-end-score {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.dr-sec {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  margin: 16px 0 8px;
+  text-align: left;
+}
+.dr-learn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 11px 13px;
+  margin-bottom: 8px;
+  border-radius: 14px;
+  border: 1px solid var(--lit-rim);
+  background: var(--surface2);
+  color: var(--text);
+  cursor: pointer;
+}
+.dr-learn b {
+  font-size: 0.95rem;
+}
+.dr-learn span {
+  font-size: 0.8rem;
+}
+.dr-learn em {
+  font-style: normal;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+.dr-cliff p {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dr-line,
+  .dr-narr,
+  .dr-act,
+  .dr-mic.on {
+    animation: none;
+  }
+}

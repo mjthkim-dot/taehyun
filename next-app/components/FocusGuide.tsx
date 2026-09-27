@@ -2,25 +2,24 @@
 
 /**
  * 시작 가이드 — 처음 온 사람에게 "무엇부터"를 순서로 알려준다.
- * ① 레벨 진단(5분, 한 번) → ② 12주 코스 시작(목표·시간) → ③ 첫 레슨 완료.
- * 세 단계를 마치면 사라지고, 그 뒤로 홈은 '오늘의 레슨' 하나만 권한다.
+ * ① 레벨 진단(5분, 한 번) → ② 드라마 1화 보기(5분). 두 단계를 마치면 사라지고,
+ * 그 뒤로 홈은 '오늘의 에피소드' 하나만 권한다.
  */
 import type { Mode } from './NavBar';
+import { requestDramaAutoplay } from '../lib/drama';
 
 export interface GuideState {
   placed: boolean;
-  started: boolean;
-  firstLessonDone: boolean;
+  firstEpisode: boolean;
 }
 
 const STEPS = [
-  { key: 'placed', title: '레벨 진단', desc: '18문항 · 5분 · 한 번만', cta: '레벨 진단 시작', mode: 'placement' as Mode },
-  { key: 'started', title: '12주 코스 시작', desc: '목표 한 줄과 하루 학습 시간', cta: '아래에서 코스 시작', mode: null },
-  { key: 'firstLessonDone', title: '첫 레슨 완료', desc: '복습 → 문법 → 말하기 → 실전', cta: '아래 오늘의 레슨으로', mode: null },
+  { key: 'placed', title: '레벨 진단', desc: '18문항 · 5분 · 한 번만', cta: '레벨 진단 시작' },
+  { key: 'firstEpisode', title: '드라마 1화 보기', desc: '5분 · 대화를 따라가며 표현 2개', cta: '1화 보기' },
 ] as const;
 
 export function guideDone(s: GuideState): boolean {
-  return s.placed && s.started && s.firstLessonDone;
+  return s.placed && s.firstEpisode;
 }
 
 export default function FocusGuide({ state, onNavigate }: { state: GuideState; onNavigate: (m: Mode) => void }) {
@@ -44,11 +43,19 @@ export default function FocusGuide({ state, onNavigate }: { state: GuideState; o
           </li>
         ))}
       </ol>
-      {step.mode && (
-        <button type="button" className="btn primary fg-cta" onClick={() => onNavigate(step.mode as Mode)}>
-          {step.cta}
-        </button>
-      )}
+      <button
+        type="button"
+        className="btn primary fg-cta"
+        onClick={() => {
+          if (step.key === 'placed') onNavigate('placement');
+          else {
+            requestDramaAutoplay();
+            onNavigate('drama');
+          }
+        }}
+      >
+        {step.cta}
+      </button>
     </section>
   );
 }

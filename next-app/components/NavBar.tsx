@@ -12,6 +12,7 @@ export type Mode =
   | 'words'
   | 'cefr'
   | 'grammar'
+  | 'drama'
   | 'study'
   | 'drill'
   | 'talk'
@@ -72,6 +73,7 @@ const MORE_GROUPS: { title: string; items: { mode: Mode; icon: string; label: st
   {
     title: '학습',
     items: [
+      { mode: 'drama', icon: '🎬', label: '드라마 레슨', desc: '하루 한 편 · 5분 에피소드' },
       { mode: 'grammar', icon: '🧠', label: '문법 시뮬레이션', desc: '레벨별 문법 · 실전 상황' },
       { mode: 'study', icon: '📚', label: '레슨', desc: '회차별 · CEFR 레벨별' },
       { mode: 'review', icon: '📝', label: '복습', desc: '틀린 문장 다시 보기' },
@@ -99,7 +101,7 @@ const MORE_TABS = MORE_GROUPS.flatMap((g) => g.items);
 /** 집중 모드의 더보기 — 내 성장만. 나머지는 '모든 기능 보기'로 */
 const FOCUS_GROUPS = [
   { title: '내 성장', items: MORE_GROUPS[0].items.slice(0, 2) },
-  { title: '학습', items: MORE_GROUPS[1].items.slice(0, 1) },
+  { title: '학습', items: MORE_GROUPS[1].items.slice(0, 2) },
 ];
 /** 집중 모드의 하단 탭 — 드릴을 뺀 4개(홈·단어·회화·더보기) */
 const FOCUS_TABS: Mode[] = ['master', 'words', 'talk'];

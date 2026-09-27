@@ -26,46 +26,33 @@ await page.goto(`${BASE}/app`);
 await page.waitForSelector('.fg-card', { timeout: 15000 });
 const t1 = await page.evaluate(() => document.querySelector('.app-content')?.innerText || '');
 check('시작 가이드 1단계 = 레벨 진단', t1.includes('1단계 · 레벨 진단'));
-check('가이드 3단계가 보인다', (await page.locator('.fg-step').count()) === 3);
+check('가이드는 2단계(레벨 진단 → 드라마 1화)', (await page.locator('.fg-step').count()) === 2);
 check('집중 홈엔 미션·경로·드릴이 없다', (await page.locator('.mission-card, .path-node, .start-drill-btn, .hs-card').count()) === 0);
-check('진단 전엔 코스 카드도 숨긴다(순서대로)', (await page.locator('.pg-card').count()) === 0);
+check('진단 전엔 레벨·에피소드 카드도 숨긴다(순서대로)', (await page.locator('.cf-badge, .dr-card').count()) === 0);
 
 /* ② */
 const tabs = await page.$$eval('.mode-tab', (bs) => bs.map((b) => b.textContent.trim()));
 check('하단 탭 4개: 홈·단어·회화·더보기', tabs.join(',') === '홈,단어,회화,더보기', tabs.join(','));
 await page.click('.mode-tab:has-text("더보기")');
 await page.waitForSelector('.more-sheet', { timeout: 5000 });
-check('더보기엔 내 성장 2개 + 문법 시뮬레이션 + 모든 기능 버튼', (await page.locator('.more-sheet .feat-card').count()) === 3 && (await page.locator('.more-sheet .feat-card:has-text("문법 시뮬레이션")').count()) === 1 && (await page.locator('.more-mode').count()) === 1);
+check('더보기엔 내 성장 2 + 드라마·문법 + 모든 기능 버튼', (await page.locator('.more-sheet .feat-card').count()) === 4 && (await page.locator('.more-sheet .feat-card:has-text("드라마 레슨")').count()) === 1 && (await page.locator('.more-mode').count()) === 1);
 await page.click('.more-sheet-overlay', { position: { x: 10, y: 10 } });
 
-/* ③ 진단 완료(시드) */
+/* ③ 진단 완료(시드) → 2단계 */
 await page.evaluate(() => localStorage.setItem('va_placed', JSON.stringify({ cefr: 'A2', gse: 30, ts: Date.now() })));
 await page.reload();
 await page.waitForSelector('.fg-card', { timeout: 15000 });
-check('2단계로 넘어간다', await page.evaluate(() => document.querySelector('.fg-title')?.textContent.includes('2단계')));
-await page.waitForSelector('.pg-pledge', { timeout: 10000 });
+check('2단계(드라마 1화)로 넘어간다', await page.evaluate(() => document.querySelector('.fg-title')?.textContent.includes('2단계 · 드라마 1화 보기')));
 await page.waitForSelector('.cf-badge', { timeout: 10000 });
-check('레벨 카드와 코스 시작 카드가 나타난다', (await page.locator('.cf-badge').count()) === 1 && (await page.locator('.pg-pledge').count()) === 1);
+check('레벨 카드가 나타난다', true);
 
-/* ④ 코스 시작 */
-await page.fill('.pg-why', '외국계 세일즈 이직');
-await page.click('.pg-start');
-await page.waitForSelector('.pg-steps', { timeout: 10000 });
-await page.waitForFunction(() => document.querySelector('.fg-title')?.textContent.includes('3단계'), null, { timeout: 5000 });
-check('3단계(첫 레슨)로 넘어간다', true);
-check('오늘의 레슨이 주 행동', (await page.locator('.pg-next').count()) === 1);
-
-/* ⑤ 첫 레슨 완료(시드) */
-await page.evaluate(() => {
-  const p = JSON.parse(localStorage.getItem('va_program'));
-  const d = new Date(); d.setDate(d.getDate() - 1);
-  p.days = [`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`];
-  localStorage.setItem('va_program', JSON.stringify(p));
-});
+/* ⑤ 1화를 봤다(시드) → 가이드가 사라지고 에피소드가 주인공 */
+await page.evaluate(() => localStorage.setItem('va_drama', JSON.stringify({ done: { 1: '2026-01-01' }, score: { 1: 100 } })));
 await page.reload();
-await page.waitForSelector('.pg-steps', { timeout: 15000 });
+await page.waitForSelector('.dr-card-title', { timeout: 15000 });
 check('가이드가 사라진다', (await page.locator('.fg-card').count()) === 0);
-check('레슨 Lesson 2', await page.evaluate(() => /Lesson 2\/5/.test(document.querySelector('.pg-card .pg-kicker')?.textContent || '')));
+check('오늘의 에피소드 EP 2', await page.evaluate(() => document.querySelector('.dr-card-title')?.textContent.includes('EP 2')));
+check('집중 모드엔 12주 레슨 카드 없음(하루 한 편만)', (await page.locator('.pg-card').count()) === 0);
 
 /* ⑥ 전환 */
 await page.click('.fg-all');

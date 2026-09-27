@@ -32,6 +32,11 @@ import { programState, PROGRAM_EVENT } from '../lib/program';
 import { isFocusMode, setFocusMode, FOCUS_EVENT } from '../lib/focus';
 import FocusGuide from './FocusGuide';
 import { GrammarTodayCard, WhatsNew } from './GrammarToday';
+import { watched as dramaWatched } from '../lib/drama';
+const DramaCard = dynamic(() => import('./DramaCard'), {
+  ssr: false,
+  loading: () => <div className="study-card dr-card" style={{ minHeight: 200 }} aria-hidden="true" />,
+});
 import { isPlaced } from '../lib/state';
 // 12주 프로그램 — 홈의 첫 카드. 서약 폼과 오늘 4블록을 모두 품어 무겁기에 지연 청크로.
 // CEFR 히어로 — 홈의 주인공(레벨·다음 레벨 조건). 첫 화면이라 자리표시자로 CLS를 막는다.
@@ -175,8 +180,7 @@ export default function MasterScreen({
   }
 
   const focus = isFocusMode();
-  const prog = programState();
-  const guide = { placed: isPlaced(), started: !!prog, firstLessonDone: !!prog && prog.days.length > 0 };
+  const guide = { placed: isPlaced(), firstEpisode: dramaWatched().length > 0 };
   const now = new Date();
   const dateLine = `${now.getMonth() + 1}월 ${now.getDate()}일 ${'일월화수목금토'[now.getDay()]}요일`;
 
@@ -222,10 +226,10 @@ export default function MasterScreen({
       {focus ? (
         <>
           <FocusGuide state={guide} onNavigate={onNavigate} />
+          {/* 집중 모드의 주인공 — 하루 한 편 드라마(가이드가 끝나면 맨 위) */}
+          {guide.placed && guide.firstEpisode && <DramaCard onNavigate={onNavigate} />}
           {guide.placed && <CefrHero onNavigate={onNavigate} onSelectLesson={onSelectLesson} />}
-          {guide.placed && <ProgramCard onNavigate={onNavigate} />}
-          {guide.placed && !guide.started && <GrammarTodayCard onNavigate={onNavigate} />}
-          {guide.started && (
+          {guide.firstEpisode && (
             <>
               <h2 className="hm-sec">오늘 기록</h2>
               <StreakFlame refreshKey={tick} />
@@ -233,7 +237,7 @@ export default function MasterScreen({
           )}
           <div className="fg-foot">
             <p className="muted">
-              집중 모드 — 매일 <b>오늘의 레슨</b> 하나만 하면 됩니다. 단어 복습과 문법 시뮬레이션이 레슨 안에 들어 있어요.
+              집중 모드 — 매일 <b>드라마 한 편(5분)</b>만 보면 됩니다. 배운 표현은 자동으로 복습 카드가 돼요.
             </p>
             <button type="button" className="btn ghost fg-all" onClick={() => setFocusMode(false)}>
               모든 기능 보기
@@ -244,6 +248,9 @@ export default function MasterScreen({
         <>
       {/* ① 목표 — 내 CEFR 레벨 */}
       <CefrHero onNavigate={onNavigate} onSelectLesson={onSelectLesson} />
+
+      {/* 오늘의 에피소드 — 드라마 레슨 */}
+      <DramaCard onNavigate={onNavigate} />
 
       {/* ② 오늘의 레슨 — 화면의 주 행동 */}
       <ProgramCard onNavigate={onNavigate} />
