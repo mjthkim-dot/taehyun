@@ -11225,3 +11225,53 @@ body::after {
     animation: none;
   }
 }
+
+/* 드라마 자동 재생 표시 — 다음 버튼 대신 "재생 중" 바(탭하면 멈춤) */
+.dr-playing {
+  position: sticky;
+  bottom: 8px;
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid var(--lit-rim);
+  border-radius: 16px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dr-eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 16px;
+}
+.dr-eq i {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--primary);
+  animation: dr-eq 0.9s ease-in-out infinite;
+}
+.dr-eq i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.dr-eq i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes dr-eq {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+.dr-auto {
+  min-width: 40px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dr-eq i { animation: none; }
+}

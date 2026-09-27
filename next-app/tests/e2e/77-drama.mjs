@@ -1,7 +1,7 @@
 /**
  * 드라마 레슨 — "한 번에 할 게 너무 많고, 형식이 반복되고, 재미가 없다":
  *   ① 신규(집중 모드): 가이드 2단계(레벨 진단 → 1화 보기)
- *   ② 1화 보기 → 허브를 건너뛰고 바로 재생, 대화가 한 줄씩 흐른다(다음 ▶)
+ *   ② 1화 보기 → 허브를 건너뛰고 바로 재생, 대화가 **자동으로** 한 줄씩 흐른다(내 차례에서만 멈춤)
  *   ③ 이야기 속 참여: 답 고르기(오답이면 이유) · 뜻 알아듣기 · 따라 말하기(건너뛰기 가능)
  *   ④ 엔딩: 오늘의 표현 2개(복습 카드로) + 다음 화 예고
  *   ⑤ 홈: 가이드가 사라지고 '오늘의 에피소드'(EP 2)가 주인공
@@ -76,10 +76,12 @@ async function untilAct() {
     await next();
   }
 }
-await untilAct();
-check('대사가 말풍선으로 쌓인다', (await page.locator('.dr-line').count()) >= 3);
+// 자동 재생 — 다음 버튼 없이 첫 참여 문항까지 저절로 흐른다
+check('자동 재생 중엔 다음 버튼 대신 재생 표시', (await page.locator('.dr-next').count()) === 0 && (await page.locator('.dr-playing').count()) === 1);
+await page.waitForSelector('.dr-act', { timeout: 25000 });
+check('누르지 않아도 첫 참여 문항까지 흘렀다', (await page.locator('.dr-line').count()) >= 3);
 check('자막(한국어)이 붙는다', (await page.locator('.dr-kr').count()) >= 1);
-check('참여 문항 중엔 다음 버튼이 숨는다', (await page.locator('.dr-next').count()) === 0);
+check('내 차례에선 멈춘다(재생 표시·다음 버튼 없음)', (await page.locator('.dr-next, .dr-playing').count()) === 0);
 
 /* ③-1 choice: 일부러 오답 */
 const wrong = page.locator('.dr-opt', { hasText: 'I am first day' });
@@ -88,13 +90,19 @@ await page.waitForSelector('.dr-note', { timeout: 3000 });
 check('오답이면 이유가 나온다', await page.evaluate(() => document.querySelector('.dr-note')?.textContent.includes('It')));
 await page.waitForFunction(() => document.body.innerText.includes('Welcome to Nimbus'), null, { timeout: 5000 });
 check('정답 대사와 상대 반응으로 이야기가 이어진다', true);
-await next();
-await untilAct();
+
+/* 답한 뒤 저절로 다시 흘러 다음 참여 문항(뜻 알아듣기)까지 */
+await page.waitForFunction(() => document.querySelector('.dr-ask')?.textContent.includes('무슨 뜻'), null, { timeout: 30000 });
+check('답하고 나면 저절로 이어서 재생', true);
 
 /* ③-2 meaning */
-check('뜻 알아듣기 형식', await page.evaluate(() => document.querySelector('.dr-ask')?.textContent.includes('무슨 뜻')));
 await page.locator('.dr-opt', { hasText: '조금만 버텨 봐요' }).click();
 check('정답 해설', await page.evaluate(() => document.querySelector('.dr-note.ok')?.textContent.includes('hang in there')));
+
+/* 일시정지 → 수동 진행 */
+await page.click('.dr-auto');
+check('일시정지하면 다음 버튼이 나타난다', (await page.locator('.dr-next').count()) === 1);
+check('자동 재생 설정이 저장된다', await page.evaluate(() => JSON.parse(localStorage.getItem('va_drama_auto')) === false));
 await next();
 await untilAct();
 

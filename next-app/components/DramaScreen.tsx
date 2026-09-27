@@ -30,6 +30,7 @@ import {
 
 const AUTOPLAY_KEY = DRAMA_AUTOPLAY_KEY;
 const MUTE_KEY = 'va_drama_mute';
+const AUTO_KEY = 'va_drama_auto';
 
 function say(t: string) {
   stopSpeaking();
@@ -122,11 +123,68 @@ function Player({ ep, onEnd }: { ep: Episode; onEnd: (score: number) => void }) 
   const [picked, setPicked] = useState<number | null>(null);
   const [subs, setSubs] = useState(true);
   const [mute, setMute] = useState(() => load<boolean>(MUTE_KEY, false));
+  // 자동 재생 — 대사는 목소리가 끝나고 자막을 읽을 틈만큼 쉬었다가 저절로 넘어간다.
+  // 멈추는 곳은 내 차례(참여 문항)뿐이고, 답하면 해설을 읽을 시간 뒤 다시 흐른다.
+  const [auto, setAuto] = useState(() => load<boolean>(AUTO_KEY, true));
   const endRef = useRef<HTMLDivElement | null>(null);
   const scene = ep.scenes[i];
   const total = ep.scenes.length;
+  const okRef = useRef(0);
+  const askedRef = useRef(0);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const token = useRef(0);
+  const autoRef = useRef(auto);
+  autoRef.current = auto;
+  const iRef = useRef(i);
+  iRef.current = i;
 
-  useEffect(() => () => stopSpeaking(), []);
+  const clearTimer = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  useEffect(() => () => {
+    clearTimer();
+    token.current++;
+    stopSpeaking();
+  }, []);
+
+  /** 이 장면에서 ms 뒤 다음으로(장면이 바뀌었거나 일시정지면 무시) */
+  function scheduleNext(ms: number) {
+    clearTimer();
+    const at = iRef.current;
+    const t = ++token.current;
+    timer.current = setTimeout(() => {
+      if (t !== token.current || at !== iRef.current || !autoRef.current) return;
+      advance();
+    }, ms);
+  }
+
+  /** 소리를 내고, 끝나면 readMs만큼 쉬었다가 다음으로. 음소거·실패 시엔 글자 수로 시간 추정 */
+  function playThenNext(en: string | null, readMs: number) {
+    const at = iRef.current;
+    const t = ++token.current;
+    clearTimer();
+    const estimate = (en ? en.split(/\s+/).length * 380 + 700 : 0) + readMs;
+    if (!en || mute) {
+      timer.current = setTimeout(() => {
+        if (t === token.current && at === iRef.current && autoRef.current) advance();
+      }, Math.max(1600, estimate));
+      return;
+    }
+    let done = false;
+    const go = () => {
+      if (done) return;
+      done = true;
+      clearTimer();
+      timer.current = setTimeout(() => {
+        if (t === token.current && at === iRef.current && autoRef.current) advance();
+      }, readMs);
+    };
+    stopSpeaking();
+    speakText(en, 'en-US', 0.95, go);
+    // 안전장치 — TTS가 onend를 안 주는 기기에서도 멈추지 않게
+    timer.current = setTimeout(go, estimate * 2 + 4000);
+  }
   useEffect(() => {
     endRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' });
   }, [log.length, i, picked]);
@@ -137,26 +195,58 @@ function Player({ ep, onEnd }: { ep: Episode; onEnd: (score: number) => void }) 
   };
 
   function advance() {
+    clearTimer();
     setPicked(null);
-    if (i + 1 >= total) {
-      const score = asked ? Math.round((ok / asked) * 100) : 100;
+    const cur = iRef.current;
+    if (cur + 1 >= total) {
+      const score = askedRef.current ? Math.round((okRef.current / askedRef.current) * 100) : 100;
       onEnd(score);
       return;
     }
-    setI(i + 1);
+    setI(cur + 1);
   }
 
   // 대사·해설은 도착하면 기록에 올리고 소리 낸다
   useEffect(() => {
     if (!scene) return;
-    if (scene.type === 'narr') push({ kind: 'narr', kr: scene.kr });
+    if (scene.type === 'narr') {
+      push({ kind: 'narr', kr: scene.kr });
+      // 해설은 한국어를 읽는 시간
+      if (autoRef.current) scheduleNext(Math.max(2200, scene.kr.length * 70));
+    }
     if (scene.type === 'line') {
       push({ kind: 'line', who: scene.who, en: scene.en, kr: scene.kr });
-      voice(scene.en);
+      if (autoRef.current) playThenNext(scene.en, 700 + (subs ? scene.kr.length * 30 : 0));
+      else voice(scene.en);
     }
     if (scene.type === 'meaning') voice(scene.en);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i]);
+
+  // 답한 뒤에는 해설을 읽을 틈을 주고 다시 흐른다(틀렸으면 조금 더 길게)
+  useEffect(() => {
+    if (picked === null || !scene || !autoRef.current) return;
+    const good =
+      scene.type === 'choice' ? scene.opts[picked]?.ok : scene.type === 'meaning' || scene.type === 'fill' ? picked === scene.a : true;
+    const reply = scene.type === 'choice' ? scene.opts.find((o) => o.ok)?.reply : undefined;
+    scheduleNext((good ? 2200 : 4200) + (reply ? 2600 : 0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picked]);
+
+  function toggleAuto() {
+    const next = !auto;
+    store(AUTO_KEY, next);
+    setAuto(next);
+    autoRef.current = next;
+    if (!next) {
+      clearTimer();
+      token.current++;
+      return;
+    }
+    // 다시 켜면 지금 장면이 참여 문항이 아닌 한 바로 이어서
+    if (!scene) return;
+    if (!INTERACTIVE.has(scene.type) || picked !== null) scheduleNext(600);
+  }
 
   const order = useMemo(() => {
     if (!scene) return [];
@@ -168,6 +258,8 @@ function Player({ ep, onEnd }: { ep: Episode; onEnd: (score: number) => void }) 
   const pct = Math.round((i / total) * 100);
 
   function grade(good: boolean) {
+    askedRef.current += 1;
+    if (good) okRef.current += 1;
     setAsked((a) => a + 1);
     if (good) setOk((o) => o + 1);
     haptic(good ? 'success' : 'error');
@@ -179,6 +271,9 @@ function Player({ ep, onEnd }: { ep: Episode; onEnd: (score: number) => void }) 
         <div className="dr-prog" aria-label={`진행 ${pct}%`}>
           <span style={{ width: `${pct}%` }} />
         </div>
+        <button type="button" className="mini-btn dr-auto" onClick={toggleAuto} aria-pressed={auto} aria-label={auto ? '자동 재생 멈추기' : '자동 재생'}>
+          {auto ? '⏸' : '▶'}
+        </button>
         <button type="button" className="mini-btn" onClick={() => setSubs((v) => !v)} aria-pressed={subs}>
           {subs ? '자막 끄기' : '자막 켜기'}
         </button>
@@ -308,11 +403,21 @@ function Player({ ep, onEnd }: { ep: Episode; onEnd: (score: number) => void }) 
         <div ref={endRef} />
       </div>
 
-      {(!isAct || picked !== null) && (
-        <button type="button" className="dr-next" onClick={advance}>
-          {i + 1 >= total ? '엔딩 보기' : '다음 ▶'}
-        </button>
-      )}
+      {(!isAct || picked !== null) &&
+        (auto ? (
+          <button type="button" className="dr-playing" onClick={toggleAuto} aria-label="자동 재생 멈추기">
+            <span className="dr-eq" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+            자동 재생 중 · 탭하면 멈춤
+          </button>
+        ) : (
+          <button type="button" className="dr-next" onClick={advance}>
+            {i + 1 >= total ? '엔딩 보기' : '다음 ▶'}
+          </button>
+        ))}
     </div>
   );
 }
