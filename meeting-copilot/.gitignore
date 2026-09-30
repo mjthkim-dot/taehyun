@@ -18,3 +18,4 @@ docs/UNITS-REVIEW.md
 docs/REHEARSAL.md
 # API 호출 트레이스 — 발화 내용은 없지만 사용 패턴이라 로컬에만 둔다
 logs/
+backend/data/mock/

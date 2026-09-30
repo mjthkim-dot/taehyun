@@ -132,6 +132,18 @@ class H(http.server.BaseHTTPRequestHandler):
                 return
             w.append(now); _counts[model]+=1
         payload = json.loads(body or b"{}")
+        if "tts" in model:
+            # 모의 면접관 목소리(v6.5) — 1.2초 440Hz 톤 WAV. 인식은 안 되지만 재생·계측 경로를 검증한다
+            import base64, math, struct
+            rate, n = 24000, 24000 * 12 // 10
+            pcm = b"".join(struct.pack("<h", int(8000 * math.sin(2 * math.pi * 440 * i / rate))) for i in range(n))
+            wav = (b"RIFF" + struct.pack("<I", 36 + len(pcm)) + b"WAVEfmt "
+                   + struct.pack("<IHHIIHH", 16, 1, 1, rate, rate * 2, 2, 16) + b"data"
+                   + struct.pack("<I", len(pcm)) + pcm)
+            time.sleep(0.2)
+            self._json(200, {"candidates": [{"content": {"parts": [{"inlineData": {
+                "mimeType": "audio/wav", "data": base64.b64encode(wav).decode()}}]}}]})
+            return
         text = make_text(payload, model)
         ttft = 0.4 if "lite" in model else 0.8
         cps = (140 if "lite" in model else 80) * 4

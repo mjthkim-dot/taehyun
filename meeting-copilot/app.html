@@ -225,6 +225,17 @@
   #c-tierc ul{margin:5px 0 0;padding-left:16px}
   #c-tierc li{margin:2px 0;color:var(--sub)}
   /* Tier A — 검수된 대본. 지어낸 문장이 아니라는 사실을 눈으로 확인시킨다 */
+  #mock-box{margin:6px 8px;padding:8px 10px;border-radius:10px;font-size:12.5px;
+    background:rgba(114,46,209,.10);border:1px solid rgba(114,46,209,.35)}
+  #mock-box .mock-row{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:6px}
+  #mock-run{display:flex;align-items:center;gap:8px}
+  #mock-run[hidden], #mock-setup[hidden], #mock-report[hidden]{display:none}
+  #mock-run .sp{flex:1}
+  #mock-st{color:var(--sub)}
+  #mock-report table{border-collapse:collapse;width:100%;margin-top:6px;font-size:12px}
+  #mock-report td,#mock-report th{border-bottom:1px solid rgba(128,128,128,.25);padding:3px 5px;text-align:left}
+  #mock-report .ok{color:var(--ok,#52c41a)} #mock-report .bad{color:var(--warn,#fa8c16)}
+  #mock-hist{margin-top:6px;color:var(--sub);font-size:11.5px}
   #c-tiera{display:none;margin:6px 0 2px;padding:6px 10px;border-radius:8px;
     background:rgba(82,196,26,.13);border:1px solid rgba(82,196,26,.42);font-size:12.5px;
     align-items:center;gap:8px;flex-wrap:nowrap}
@@ -258,6 +269,11 @@
      이전 답변이 실제로 있을 때만(:has(.kr)) 붙인다 */
   #card.gen #c-answers:has(.en:not(:empty))::before{
     content:"↻ 새 답변 생성 중 — 아래는 직전 답변";display:block;
+    font-size:10.5px;color:var(--accent);margin-bottom:6px}
+  /* 상대가 아직 말하는 중에 미리 만든 답 — 질문이 덜 끝났으니 읽지 말라는 표시 */
+  body.them-speaking #card.spec #c-answers{opacity:.35}
+  body.them-speaking #card.spec #c-answers::before{
+    content:"🎧 질문 듣는 중 — 끝나면 답이 확정됩니다";display:block;
     font-size:10.5px;color:var(--accent);margin-bottom:6px}
   #card.stale #c-answers{opacity:.55}
   #card.stale #c-answers::before{
@@ -476,6 +492,7 @@
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
+  <button class="btn" id="btn-mock" title="모의 면접 — AI 면접관이 음성으로 묻고, 실전과 같은 경로로 답변이 뜹니다">🎭</button>
   <div class="tabs">
     <button class="tab active" data-v="live">라이브</button>
     <button class="tab" data-v="lib">자료</button>
@@ -545,6 +562,32 @@
       <span id="ov-mic" title="화자 분리 상태"></span>
     </div>
     <video id="bg-mirror" muted playsinline></video>
+    <!-- 🎭 모의 면접 — 설정·진행·결과. 답변 카드를 가리지 않게 얇은 띠로 -->
+    <div id="mock-box" hidden>
+      <div id="mock-setup">
+        <b>🎭 모의 면접</b> — AI 면접관이 <b>음성으로</b> 묻고, 실전과 똑같이 인식·답변이 뜹니다.
+        화면의 답변을 <b>소리 내어 읽으세요</b>. 이어폰을 쓰면 내 마이크에 면접관 목소리가 섞이지 않습니다.
+        <div class="mock-row">
+          <label>문항 <select id="mock-n"><option>5</option><option selected>7</option><option>10</option></select></label>
+          <label>목소리 <select id="mock-voice"></select></label>
+          <label>억양 <select id="mock-accent"></select></label>
+          <label>속도 <select id="mock-pace"><option value="slow">천천히</option><option value="natural" selected>보통</option><option value="fast">빠르게</option></select></label>
+          <label title="내 답변이 끝나고 4초 조용하면 다음 질문"><input type="checkbox" id="mock-auto" checked> 자동 넘김</label>
+          <button class="go" id="mock-start">시작</button>
+          <button class="go ghost" id="mock-close">닫기</button>
+        </div>
+        <div id="mock-hist"></div>
+      </div>
+      <div id="mock-run" hidden>
+        <span id="mock-prog">🎭 0/0</span>
+        <span id="mock-st">준비 중…</span>
+        <span class="sp"></span>
+        <button class="tiny" id="mock-replay" title="질문 다시 듣기">🔁</button>
+        <button class="tiny" id="mock-next" title="다음 질문 (N)">⏭</button>
+        <button class="tiny" id="mock-end" title="끝내고 결과 보기">■</button>
+      </div>
+      <div id="mock-report" hidden></div>
+    </div>
     <div id="feed">
       <div class="empty" id="feed-empty">
         <div class="big">🎧</div>
@@ -931,6 +974,9 @@ const NAME_FIXES = [
   [/(\d+)\s*mg\b/gi, '$1M'],          // "160mg" → "160M" (금액 오인식)
 ];
 const NAME_FIXES_CORE = NAME_FIXES.length;
+// 🎭 모의 면접 상태 — 자막 경로(addUtterance)가 먼저 참조하므로 여기서 선언한다
+const mock = {on:false, qs:[], i:-1, rows:[], cfg:{}, bufs:{}, dest:null, src:null,
+              playing:false, playEndAt:0, timer:null, meActiveAt:0, advanceAt:0};
 // 지금 지원 회사 — 이름·다른 지원 회사(말하면 안 되는 이름)·개인 교정 사전
 let companyInfo = {name:'', others:[]};
 async function loadCompany(){
@@ -978,11 +1024,16 @@ function scheduleTurnAnswer(){
   clearTimeout(turnTimer); turnTimer = null;
   if(!wantsReply(turnBuf)) return;
   if(!(gov.remaining('main') > 2 && !gov.rpdBlocked() && gov.rpdHeadroom('main') > 0.3)) return;
-  if(!turnOpened && turnBuf.split(/\s+/).length >= 5){ turnOpened = true; fireOpener(turnBuf, 'reply'); }
+  // 같은 질문의 본답변이 이미 생성 중·완료면 오프너는 쏘지 않는다 — 카드가
+  // 오프너→본답변으로 두 번 바뀌어 읽던 줄을 잃는다(v6.5 모의 면접 실측: 질문당 2~3회 교체)
+  const answering = specKey && covers(specKey, turnBuf) >= 0.85 && (specDone || suggestAbort);
+  if(!turnOpened && !answering && !liveVad() && turnBuf.split(/\s+/).length >= 5){ turnOpened = true; fireOpener(turnBuf, 'reply'); }
   // 정착 창은 '문장이 끝났는가'로 가른다. 조각 간격(실측 0.6~1.0s)보다 짧으면
   // 말하는 중에 발사돼 다시 조각 단위로 돌아간다 — 종결부호가 없으면 넉넉히 기다린다.
   // 기다리는 동안은 ⚡오프너가 이미 첫 문장을 띄워 두므로 체감 공백이 없다.
-  const settle = /[?.!]["')\]]?\s*$/.test(turnBuf) ? 250 : 1100;
+  // 실시간 모드: 확정 자막은 말 끝(클라이언트 VAD) 뒤에 온 완결 문장이다 — 기다릴 이유가 없다.
+  const ended = /[?.!]["')\]]?\s*$/.test(turnBuf);
+  const settle = liveVad() ? (ended ? 0 : 600) : (ended ? 250 : 1100);
   turnTimer = setTimeout(()=>{
     turnTimer = null;
     if(turnFired && covers(turnFired, turnBuf) >= 0.85) return;   // 이미 답한 턴
@@ -992,9 +1043,12 @@ function scheduleTurnAnswer(){
 }
 
 function addUtterance(text, who){
+  // 🎭 모의 면접: 면접관 음성이 재생되는 동안 내 마이크로 들어온 소리는 스피커 되울림이다
+  if(mock.on && who === '나' && mockEcho()) return;
   $('#feed-empty')?.remove();
   const me = who === '나';
   if(!me) text = fixNames(text);        // 상대 발화의 고유명사부터 되살린다
+  if(mock.on) mockHeard(text, who);
   if(me) resetTurn();
   else{
     const nw = Date.now();
@@ -1283,6 +1337,18 @@ function stopSummaryTimer(){ if(sumTimer){ clearInterval(sumTimer); sumTimer=nul
 // ── 제안 카드 ──
 let pinned = false, specKey = '', specDone = '';
 const normQ = t => t.toLowerCase().replace(/[^a-z0-9가-힣 ]/g,'').replace(/\s+/g,' ').trim();
+// 질문의 **끝 낱말**이 미리 만든 답의 질문에 들어 있는가 — 말 끝 시점의 중간 자막은
+// 마지막 한두 단어가 빠진 경우가 많다("…from first meeting to" ← opportunity?). 겹침이
+// 85%여도 끝 낱말이 질문의 뜻을 정하므로(to close? / to opportunity?) 재사용 조건에 넣는다.
+const TAIL_STOP = new Set(['the','a','an','to','of','for','in','on','at','me','you','your','us','our','it','is','are','do','does','and','or','with','about','that','this','now','there','here','please']);
+function tailOk(spec, fin){
+  const S = new Set(normQ(spec).split(' '));
+  // 회사 이름은 끝에 붙어도 뜻을 바꾸지 않는다("…ROI on Snowflake?") — 프롬프트가 이미 안다
+  const co = new Set([companyInfo?.name, ...(companyInfo?.aliases || [])].filter(Boolean)
+                       .flatMap(n => normQ(n).split(' ')));
+  const tail = normQ(fin).split(' ').filter(w => w && !TAIL_STOP.has(w) && !co.has(w)).slice(-2);
+  return tail.every(w => S.has(w));
+}
 function covers(spec, fin){
   const S = new Set(normQ(spec).split(' ')), F = normQ(fin).split(' ').filter(Boolean);
   if(!S.size || !F.length) return 0;
@@ -1442,7 +1508,9 @@ function renderCard(raw){
   if(ansIdx){ box.innerHTML = ''; box.appendChild(frag); }
   fitCard();          // 카드가 자라며 피드가 줄어도 최신 자막을 계속 보이게
 }
+let lastTier = '';
 function renderSources(meta){
+  if(meta?.tier) lastTier = meta.tier;
   lastPhrases = meta?.phrases || [];
   knownNumbers = (meta?.known_numbers || []).map(numKey);
   renderTierC(meta);
@@ -1468,7 +1536,7 @@ let openerAbort = null, mainRaw = '';
 // 메운다. 오프너는 "That's a good question — let me share one example" 같은
 // 범용 문장이라 중간 인식의 오자에 영향받지 않는다. 턴당 1회(turnOpened).
 function maybeOpener(interim){
-  if(turnOpened || pinned) return;
+  if(turnOpened || pinned || liveVad()) return;       // 실시간 모드는 말 끝에 본답변을 바로 시작
   const t = interim.trim();
   if(t.split(/\s+/).length < 5 || !wantsReply(t)) return;
   turnOpened = true;
@@ -1510,7 +1578,7 @@ async function suggest(said, intent, auto, speculative, retried, depth){
   // 0.85: 투기 답변 재사용 문턱 — 짧은 질문(8단어)에서 마지막 1어절만
   // 놓쳐도 7/8=0.875로 0.88에 걸려 재생성됐다. 어미 1~2어절 차이는 답변
   // 방향을 바꾸지 않는다 (접두 부분 투기는 covers 구조상 여전히 재사용 불가)
-  if(!speculative && specKey && covers(specKey, said) >= 0.85 && (specDone || suggestAbort)){
+  if(!speculative && specKey && covers(specKey, said) >= 0.85 && tailOk(specKey, said) && (specDone || suggestAbort)){
     $('#card').classList.remove('spec'); specKey = ''; specDone = ''; return;
   }
   if(speculative){ specKey = said; specDone = ''; }
@@ -1615,6 +1683,7 @@ function hotkeys(e){
   if(e.metaKey||e.ctrlKey||e.altKey) return;
   if(e.code==='Space'){ e.preventDefault(); $('#c-pin').click(); }
   else if(e.key==='Escape'){ e.preventDefault(); $('#c-close').click(); }
+  else if((e.key==='n'||e.key==='N') && mock.on){ e.preventDefault(); mockNext(); }
   else if(e.key==='+'||e.key==='='){ e.preventDefault(); sizeIdx++; applySize(); }
   else if(e.key==='-'||e.key==='_'){ e.preventDefault(); sizeIdx--; applySize(); }
   else if(e.key==='/' && pipWin){
@@ -1646,6 +1715,10 @@ function specThreshold(){
 }
 function maybeSpeculate(interim){
   if(pinned || specTries >= specMax()) return;
+  // 실시간 모드는 말하는 도중 투기를 하지 않는다 — 말 끝 감지가 있어 이득이 작고,
+  // 버려진 투기 요청이 본답변과 겹쳐 첫 토큰을 늦춘다(실측: 겹치면 p50 +0.25초,
+  // 최악 3초). 중간 자막은 오디오보다 0.5~1초 늦어 끝 낱말이 빠진 질문으로 답을 만든다.
+  if(liveVad()) return;
   // 투기 보수화: 분당 예산 잔여 50% 미만이면 쏘지 않는다 — 투기 한 발이
   // 실제 클릭·번역과 같은 게이트웨이 토큰을 먹기 때문에, 여유가 확실할 때만.
   if(gov.rpmHeadroom('main') < 0.5 || gov.rpdBlocked()) return;
@@ -1658,6 +1731,9 @@ function maybeSpeculate(interim){
   clearTimeout(specTimer);
   if(t.split(/\s+/).length < 5 || !wantsReply(t)) return;
   if(specKey && covers(specKey,t) >= 0.92) return;
+  // 이미 본답변을 낸 턴의 늦은 중간 자막 — 투기로 본답변을 끊지 않는다(v6.5 실측:
+  // 확정 뒤에 온 "Do you have any questions for"가 완성된 답을 끊고 잘린 질문으로 다시 만들었다)
+  if(turnFired && covers(turnFired, t) >= 0.6) return;
   // 히스테리시스: 직전 투기 대비 새 어절 2개 이상일 때만 재발사.
   // 4로 두면 짧은 질문(면접 질문 대부분 8~15단어)의 마지막 성장분을 놓쳐
   // 최종 문장과의 일치율(covers)이 떨어지고 → 미리 만든 답을 버리고
@@ -1811,6 +1887,11 @@ class LiveStt {
     this.stream = stream; this.who = who;
     this.ws = null; this.pending = null; this.standby = null; this.dead = false; this.fails = 0; this.fallback = null;
     this.q = []; this.rotateAt = Infinity; this.rotating = false; this.announced = false;
+    // 클라이언트 VAD — 말 끝(무음 0.5초)을 직접 잡는다. Live 서버 VAD는 확정까지
+    // 1.3~1.5초를 기다린다. 끝을 알려 주면(audioStreamEnd) 약 1.0초에 확정되고(실측),
+    // 그 순간 최신 중간 자막(이미 질문 전체)으로 답변을 시작할 수 있다.
+    this.vad = {floor: 60, on: false, quiet: 0, dur: 0};
+    this.lastInterim = '';
     this.init();
   }
   async init(){
@@ -1869,8 +1950,11 @@ class LiveStt {
       const paused = m.voiceActivity?.type === 'ACTIVITY_END' || sc?.speechState === 'NON_SPEECH'
                   || !!sc?.inputTranscription;
       if(!sc){ if(paused && ws === this.ws) this.swap(); return; }
-      if(sc.interimInputTranscription && this.who === '상대')
-        showInterim(fixNames(sc.interimInputTranscription.text || ''));
+      if(sc.interimInputTranscription && this.who === '상대'){
+        this.lastInterim = fixNames(sc.interimInputTranscription.text || '');
+        showInterim(this.lastInterim);
+      }
+      if(sc.interimInputTranscription && this.who === '나' && mock.on) mock.meActiveAt = Date.now();
       if(sc.inputTranscription) this.onFinal(sc.inputTranscription.text || '');
       if(paused && ws === this.ws) this.swap();
     };
@@ -1886,6 +1970,7 @@ class LiveStt {
   }
   onFinal(t){
     t = t.trim();
+    this.lastInterim = '';
     if(this.who === '상대') clearInterim();
     if(t && t.length > 3 && !/^(you|thank you|thanks|bye|okay)\.?$/i.test(t)) addUtterance(t, this.who);
   }
@@ -1894,6 +1979,7 @@ class LiveStt {
   }
   push(buf){
     if(this.dead || this.fallback) return;
+    this.vadStep(buf);
     if(this.ws && this.ws.readyState === 1){
       this.send(buf);
       const now = Date.now();
@@ -1904,6 +1990,33 @@ class LiveStt {
       this.q.push(buf);
       if(this.q.length > 50) this.q.shift();                   // 최대 5초만 보관
     }
+  }
+  vadStep(buf){
+    const a = new Int16Array(buf); let s = 0, n = 0;
+    for(let i = 0; i < a.length; i += 2){ s += a[i]*a[i]; n++; }
+    const rms = Math.sqrt(s / Math.max(1, n)), v = this.vad;
+    // 모의 면접: 내 말하기 시간(VAD 켜진 구간) — 확정 자막 시각으로는 못 잰다
+    // (Live는 답변 전체를 확정 1~2개로 주기도 해서 첫·끝 시각이 같아진다)
+    if(this.who === '나' && mock.on && v.on && !mockEcho()){
+      const r = mock.rows[mock.i]; if(r) r.me_ms = (r.me_ms || 0) + 100;
+    }
+    if(!v.on){
+      v.floor = v.floor*0.95 + rms*0.05;                      // 조용할 때만 소음 수준 학습
+      if(rms > Math.max(v.floor*3.2, 250)){ v.on = true; v.dur = 0; v.quiet = 0; this.onSpeech(true); }
+    }else{
+      v.dur += 100;
+      v.quiet = rms < Math.max(v.floor*2, 160) ? v.quiet + 100 : 0;
+      if(v.quiet >= 500 && v.dur >= 600){ v.on = false; this.onSpeech(false); }
+    }
+  }
+  onSpeech(on){
+    if(this.who !== '상대') return;
+    document.body.classList.toggle('them-speaking', on);
+    if(on) return;
+    // 서버에 말 끝을 알린다 — 확정 자막이 0.3~0.5초 빨라진다. 세션은 그대로 이어진다(실측).
+    try{ if(this.ws && this.ws.readyState === 1)
+      this.ws.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}})); }catch{}
+    liveTurnEnd(this.lastInterim);
   }
   swap(){
     if(!this.standby) return;
@@ -1951,6 +2064,30 @@ class LiveStt {
 }
 // 실시간이 기본, 안 되면 LiveStt가 스스로 조각 방식으로 내려간다
 const makeCapture = (stream, who) => new LiveStt(stream, who);
+
+// 말 끝(클라이언트 VAD) → 확정 자막을 기다리지 않고 답변 시작.
+// 중간 자막은 이 시점에 이미 질문 전체다(실측). 투기 경로로 보내므로 확정 자막이
+// 오면 같은 질문이면(covers ≥ 0.85) 그대로 재사용하고, 다르면 다시 만든다.
+// 실시간 인식(Gemini Live)이 살아 있는가 — 말 끝 감지가 본답변을 바로 시작하는 모드.
+// 이 모드에서는 ⚡오프너를 쏘지 않는다: 본답변이 0.05~0.8초 뒤에 와서 카드가 오프너→
+// 본답변으로 바뀌는데(첫 문장이 서로 다르다), 소리 내어 읽는 사람에게는 0.5초보다
+// '읽던 줄이 그대로 있는 것'이 중요하다(v6.5 모의 면접 실측).
+const liveVad = () => !!(tabCap && tabCap instanceof LiveStt && !tabCap.fallback);
+function liveTurnEnd(interim){
+  interim = (interim || '').trim();
+  window.__vadEnd && window.__vadEnd(interim);          // 계측 훅(테스트용, 없으면 무시)
+  if(!interim || pinned) return;
+  const t = turnTrim(((turnBuf && Date.now() - turnAt < TURN_GAP) ? turnBuf + ' ' : '') + interim);
+  if(t.split(/\s+/).length < 5 || !wantsReply(t)) return;
+  // 말 끝 시점의 중간 자막은 대개 끝 낱말이 빠져 있다(실측 5문항 중 4). 이미 물음표로
+  // 끝난 완결 질문일 때만 바로 시작하고, 아니면 0.3초 뒤 확정 자막을 기다린다 —
+  // 잘린 질문으로 한 번, 확정으로 또 한 번 만들면 요청이 겹쳐 둘 다 늦어진다.
+  if(!/\?\s*$/.test(interim)) return;
+  if(specKey && covers(specKey, t) >= 0.92 && (specDone || suggestAbort)) return;   // 이미 그 질문으로 생성 중
+  if(turnFired && covers(turnFired, interim) >= 0.6) return;                         // 이미 답한 턴의 늦은 조각
+  if(!(gov.remaining('main') > 2 && !gov.rpdBlocked())) return;
+  suggest(t, 'reply', true, true);
+}
 
 async function startTabCapture(){
   if(!navigator.mediaDevices?.getDisplayMedia){
@@ -2245,7 +2382,215 @@ function preflight(){
   }
   return true;
 }
+// ════════════════════════════════════════════════════════════
+//  🎭 모의 면접 (v6.5) — AI 면접관 음성 → 실전과 같은 인식·답변 경로
+//
+//  면접관 질문을 Gemini 3.8 Flash TTS로 만들고, 그 소리를 스피커와 **인식기 입력**
+//  (MediaStreamDestination)에 동시에 흘린다. 그러면 Gemini Live 인식 → 자막 →
+//  질문 감지 → 답변 카드가 실전과 똑같이 돈다. 텍스트 주입 테스트가 건너뛰던
+//  STT·VAD·턴 판정까지 포함한 "질문이 끝나고 읽을 문장이 뜨기까지"를 잰다.
+//  내 답변은 마이크로 받아(있으면) 말한 시간·속도·대본 소화율을 기록한다.
+// ════════════════════════════════════════════════════════════
+const mockNow = () => performance.now();
+function mockEcho(){ return mock.playing || (Date.now() - mock.playEndAt < 800); }
+function mockHeard(text, who){
+  const r = mock.rows[mock.i]; if(!r) return;
+  if(who === '상대'){ if(!r.cap_at) r.cap_at = mockNow(); r.cap_text = ((r.cap_text||'') + ' ' + text).trim(); }
+  else{
+    const w = text.split(/\s+/).filter(Boolean).length;
+    if(!r.me_first) r.me_first = mockNow();
+    r.me_last = mockNow(); r.me_words = (r.me_words||0) + w; r.me_text = ((r.me_text||'') + ' ' + text).trim();
+    mock.meActiveAt = Date.now();
+  }
+}
+function mockTts(i){
+  const q = mock.qs[i]; if(!q) return null;
+  return mock.bufs[i] ||= fetch('/api/tts', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({text:q.q, voice:mock.cfg.voice, accent:mock.cfg.accent, pace:mock.cfg.pace})})
+    .then(async r => { if(!r.ok) throw new Error((await r.json().catch(()=>({}))).error || `HTTP ${r.status}`);
+                       return audioCtx.decodeAudioData(await r.arrayBuffer()); });
+}
+function mockSt(t){ $('#mock-st').textContent = t; }
+function answerText(){ return [...document.querySelectorAll('#c-answers .en')].map(e=>e.textContent).join(' ').trim(); }
+async function mockOpen(){
+  const box = $('#mock-box'); box.hidden = false;
+  $('#mock-setup').hidden = false; $('#mock-run').hidden = true; $('#mock-report').hidden = true;
+  try{
+    const d = await (await fetch('/api/mock/questions?n=3')).json();
+    $('#mock-voice').innerHTML = (d.voices||['Charon']).map(v=>`<option>${esc(v)}</option>`).join('');
+    const AK = {american:'미국', british:'영국', indian:'인도', australian:'호주', singaporean:'싱가포르'};
+    $('#mock-accent').innerHTML = (d.accents||['american']).map(a=>`<option value="${esc(a)}">${AK[a]||a}</option>`).join('');
+    if(!d.tts) $('#mock-hist').textContent = '⚠️ 면접관 음성에는 GEMINI_API_KEY가 필요합니다';
+    const h = await (await fetch('/api/mock/history')).json();
+    const ss = h.sessions || [];
+    if(ss.length && d.tts) $('#mock-hist').innerHTML = '지난 연습: ' + ss.slice(0,5).map(x =>
+      `${esc(x.saved_at||'')} ${esc(x.company||'')} · 답변 준비 p50 ${x.summary?.ans_p50_ms!=null ? (x.summary.ans_p50_ms/1000).toFixed(1)+'초' : '—'}`
+      + ` · 말하기 ${x.summary?.wpm_avg ?? '—'}wpm`).join(' &nbsp;|&nbsp; ');
+  }catch{}
+}
+async function mockStart(){
+  mock.cfg = {n:+$('#mock-n').value, voice:$('#mock-voice').value || 'Charon',
+              accent:$('#mock-accent').value || 'american', pace:$('#mock-pace').value, auto:$('#mock-auto').checked};
+  let d;
+  try{ d = await (await fetch(`/api/mock/questions?n=${mock.cfg.n}`)).json(); }
+  catch(e){ setBanner('모의 면접 질문을 못 불러왔습니다: ' + e.message); return; }
+  if(!d.tts){ setBanner('⚠️ 모의 면접의 면접관 음성에는 GEMINI_API_KEY가 필요합니다'); return; }
+  if(listening()) stopListening();
+  $('#preset').value = 'interview'; applyPreset();
+  audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  await audioCtx.resume();
+  mock.dest = audioCtx.createMediaStreamDestination();
+  Object.assign(mock, {on:true, qs:d.questions, i:-1, rows:[], bufs:{}, playing:false, playEndAt:0});
+  mockTts(0); mockTts(1);                              // 미리 합성 — 질문당 약 5초 걸린다
+  tabCap = makeCapture(mock.dest.stream, '상대');       // 면접관 목소리 = 실전의 상대 입력
+  try{
+    micStream = await navigator.mediaDevices.getUserMedia({audio: meAudio({echoCancellation:true, noiseSuppression:true})});
+    micCap = makeCapture(micStream, '나');
+  }catch{ micCap = null; }
+  $('#engine').disabled = true;
+  $('#btn-listen').textContent='⏸'; $('#btn-listen').classList.add('live'); $('#status').classList.add('on');
+  $('#mock-setup').hidden = true; $('#mock-report').hidden = true; $('#mock-run').hidden = false;
+  setBanner(micCap ? '🎭 모의 면접 — 답변을 소리 내어 읽으세요 (내 마이크로 말하기 속도를 잽니다)'
+                   : '🎭 모의 면접 — 마이크가 없어 ⏭ 로 넘기세요 (말하기 속도는 재지 않습니다)');
+  clearInterval(mock.timer);
+  mock.timer = setInterval(mockTick, 50);
+  mockNext();
+}
+async function mockNext(){
+  if(!mock.on) return;
+  mock.advanceAt = 0;
+  if(mock.src){ try{ mock.src.onended = null; mock.src.stop(); }catch{} mock.src = null; mock.playing = false; }
+  mock.i++;
+  if(mock.i >= mock.qs.length) return mockFinish();
+  const q = mock.qs[mock.i];
+  const r = mock.rows[mock.i] = {q:q.q, kind:q.kind, ans0:answerText(), cards:[]};
+  $('#mock-prog').textContent = `🎭 ${mock.i+1}/${mock.qs.length}`;
+  mockSt('면접관 음성 준비 중…');
+  let buf;
+  try{ buf = await mockTts(mock.i); }
+  catch(e){ mockSt('⚠️ 음성 합성 실패: ' + e.message + ' — ⏭ 로 넘기세요'); r.err = e.message; return; }
+  if(!mock.on || mock.rows[mock.i] !== r) return;       // 기다리는 사이 넘겼거나 끝냈다
+  mockTts(mock.i + 1);
+  mockPlay(buf, r);
+}
+function mockPlay(buf, r){
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  src.connect(audioCtx.destination);                    // 내가 듣는 소리
+  src.connect(mock.dest);                               // 인식기가 듣는 소리(실전의 BlackHole 자리)
+  mock.src = src; mock.playing = true;
+  mockSt('면접관이 질문 중…');
+  src.onended = ()=>{
+    if(mock.src !== src) return;
+    mock.playing = false; mock.playEndAt = Date.now();
+    if(!r.t_end) r.t_end = mockNow();
+    mockSt(micCap ? '답변하세요 — 화면의 문장을 소리 내어' : '답변하세요 — 끝나면 ⏭');
+  };
+  src.start();
+}
+function mockTick(){
+  const r = mock.rows[mock.i]; if(!mock.on || !r) return;
+  // 카드가 바뀔 때마다 '어느 질문으로 만든 답인가'(lastSaid)와 시각을 남긴다.
+  // 판정은 끝에서 한다 — 확정 자막과 같은 질문(covers ≥ 0.85)으로 만든 답만
+  // '읽을 수 있는 답'으로 센다. 반쯤 들은 질문의 투기 답은 세지 않는다.
+  const t = answerText(), card = $('#card');
+  const dim = card.classList.contains('gen') && !card.classList.contains('opened');
+  const last = r.cards[r.cards.length-1];
+  if(t && t !== r.ans0 && !/생성 중/.test(t) && (!last || last.text !== t || last.dim !== dim))
+    r.cards.push({t: mockNow(), text: t, said: lastSaid, tier: lastTier, dim,
+                  speaking: document.body.classList.contains('them-speaking')});
+  if(!r.t_end) return;
+  // 자동 넘김: 내가 말했고(8단어+), 4초 조용하면 — 말하는 중(중간 인식)이면 미룬다
+  if(mock.cfg.auto && micCap && (r.me_words||0) >= 8 && !mock.playing){
+    const quiet = Date.now() - mock.meActiveAt;
+    if(quiet > 4000){ mockNext(); return; }
+    if(quiet > 1500) mockSt(`다음 질문까지 ${Math.ceil((4000 - quiet)/1000)}초 — 계속 말하면 기다립니다`);
+  }
+}
+function pct(a, p){ const v = a.filter(x=>x!=null && isFinite(x)).sort((x,y)=>x-y);
+  return v.length ? v[Math.min(v.length-1, Math.floor(p*(v.length-1)+0.5))] : null; }
+function mockFinish(){
+  if(!mock.on) return;
+  mock.on = false; clearInterval(mock.timer);
+  if(mock.src){ try{ mock.src.stop(); }catch{} mock.src = null; }
+  stopListening();
+  const rows = mock.rows.filter(Boolean).map(r => {
+    const cap = r.cap_at && r.t_end ? Math.round(r.cap_at - r.t_end) : null;
+    // 비교 대상은 '질문 문장' — "Thanks for joining today." 같은 인사 뒤에 질문이 오면
+    // 인사까지 합친 전체와 비교해 맞는 답을 틀렸다고 셌다(실측). 마지막 물음 문장을 쓴다.
+    const heardQ = (r.cap_text || '').split(/(?<=[.?!])\s+/).filter(x => /\?\s*$/.test(x)).pop();
+    const target = heardQ || r.cap_text || r.q;
+    const good = (r.cards||[]).filter(c => !c.dim && !c.speaking && c.said
+                                           && covers(c.said, target) >= 0.85 && tailOk(c.said, target));
+    const firstGood = good[0], lastGood = good[good.length-1];
+    const read = firstGood && r.t_end ? Math.max(0, Math.round(firstGood.t - r.t_end)) : null;
+    const full = lastGood && r.t_end ? Math.max(0, Math.round(lastGood.t - r.t_end)) : null;
+    // 읽기 시작 뒤 카드가 몇 번 **다른 답으로** 바뀌었나 — 스트리밍으로 문장이
+    // 자라는 것(앞부분이 같다)은 교체가 아니다. 앞 20자가 달라질 때만 센다.
+    let swaps = 0;
+    if(firstGood){
+      let cur = firstGood.text.replace(/\s+/g,' ').slice(0, 20);
+      for(const c of (r.cards||[])){
+        if(c.t <= firstGood.t || c.dim) continue;
+        const head = c.text.replace(/\s+/g,' ').slice(0, 20);
+        if(!head.startsWith(cur.slice(0, Math.min(cur.length, head.length)))){ swaps++; cur = head; }
+        else if(head.length > cur.length) cur = head;
+      }
+    }
+    r.tier = lastGood?.tier || r.tier; r.card = lastGood?.text || r.card;
+    const speakMs = r.me_ms || (r.me_first && r.me_last ? r.me_last - r.me_first : 0);
+    const wpm = speakMs > 3000 && r.me_words ? Math.round(r.me_words / (speakMs/60000)) : null;
+    const cw = new Set((r.card||'').toLowerCase().replace(/[^a-z0-9' ]/g,' ').split(/\s+/).filter(w=>w.length>2));
+    const mw = new Set((r.me_text||'').toLowerCase().replace(/[^a-z0-9' ]/g,' ').split(/\s+/).filter(w=>w.length>2));
+    const cover = cw.size && mw.size ? Math.round(100 * [...cw].filter(w=>mw.has(w)).length / cw.size) : null;
+    return {q:r.q, kind:r.kind, played: !!r.t_end, cap_ms:cap, read_ms:read, full_ms:full, swaps, tier:r.tier||'',
+            me_words:r.me_words||0, wpm, cover, heard:r.cap_text||'', said:r.me_text||'', err:r.err||''};
+  });
+  // 끝까지 재생된 질문만 센다 — 재생 도중 ⏭/■로 넘긴 질문은 '답이 안 떴다'가 아니다
+  const qa = rows.filter(r => r.kind !== 'closer' && r.played);
+  const summary = {n: rows.length, cap_p50_ms: pct(qa.map(r=>r.cap_ms), .5),
+    ans_p50_ms: pct(qa.map(r=>r.read_ms), .5), ans_p90_ms: pct(qa.map(r=>r.read_ms), .9),
+    full_p50_ms: pct(qa.map(r=>r.full_ms), .5),
+    missed: qa.filter(r=>r.read_ms==null).length,
+    swaps_total: qa.reduce((a,r)=>a+(r.swaps||0), 0),
+    tiers: qa.reduce((m,r)=>{ if(r.tier) m[r.tier]=(m[r.tier]||0)+1; return m; }, {}),
+    wpm_avg: (w=>w.length ? Math.round(w.reduce((a,b)=>a+b,0)/w.length) : null)(rows.map(r=>r.wpm).filter(Boolean)),
+    voice: mock.cfg.voice, accent: mock.cfg.accent, pace: mock.cfg.pace};
+  const s = v => v==null ? '—' : (v/1000).toFixed(1)+'초';
+  const verdict = summary.ans_p50_ms==null ? '<span class="bad">답변이 한 번도 뜨지 않았습니다 — 인식·키를 확인하세요</span>'
+    : summary.ans_p50_ms <= 2000 ? `<span class="ok">✅ 실전 기준 충족 — 질문이 끝나고 ${s(summary.ans_p50_ms)}에 읽기 시작 가능</span>`
+    : `<span class="bad">⚠️ 실전 기준(2초) 초과 — 질문 끝 → 읽기 시작 ${s(summary.ans_p50_ms)}</span>`;
+  $('#mock-report').innerHTML = `<b>🎭 결과</b> — ${verdict}<br>`
+    + `자막 확정 p50 ${s(summary.cap_p50_ms)} · 읽기 시작 p50 ${s(summary.ans_p50_ms)} (p90 ${s(summary.ans_p90_ms)}) · 답변 완성 p50 ${s(summary.full_p50_ms)}`
+    + ` · 경로 ${Object.entries(summary.tiers).map(([k,v])=>k+' '+v).join(' / ') || '—'}`
+    + (summary.wpm_avg ? ` · 내 말하기 ${summary.wpm_avg}wpm (비원어민 목표 100~110)` : '')
+    + (summary.missed ? ` · <span class="bad">답변 안 뜸 ${summary.missed}문항</span>` : '')
+    + (summary.swaps_total ? ` · <span class="bad">읽는 중 카드 교체 ${summary.swaps_total}회</span>` : ' · 읽는 중 카드 교체 0회')
+    + `<table><tr><th>#</th><th>질문</th><th>자막</th><th>읽기 시작</th><th>경로</th><th>내 말하기</th><th>대본 소화</th></tr>`
+    + rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.q)}${r.err ? ' <span class="bad">('+esc(r.err)+')</span>' : ''}</td>`
+      + `<td>${s(r.cap_ms)}</td><td class="${r.read_ms!=null && r.read_ms<=2000?'ok':'bad'}">${s(r.read_ms)}</td>`
+      + `<td>${esc(r.tier||'—')}</td><td>${r.wpm ? r.wpm+'wpm' : (r.me_words ? r.me_words+'단어' : '—')}</td>`
+      + `<td>${r.cover!=null ? r.cover+'%' : '—'}</td></tr>`).join('') + '</table>'
+    + `<div class="mock-row"><button class="go" id="mock-again">다시 하기</button>`
+    + `<button class="go ghost" id="mock-done">닫기</button><span id="mock-saved"></span></div>`;
+  $('#mock-run').hidden = true; $('#mock-report').hidden = false;
+  $('#mock-again').onclick = mockOpen;
+  $('#mock-done').onclick = ()=>{ $('#mock-box').hidden = true; };
+  fetch('/api/mock/report', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({summary, rows})}).then(r=>r.json())
+    .then(j=>{ $('#mock-saved').textContent = ' 저장됨 — 지난 기록과 비교할 수 있습니다'; }).catch(()=>{});
+  setBanner('🎭 모의 면접 끝 — 결과 표를 확인하세요');
+}
+$('#btn-mock').onclick = ()=>{ if(mock.on) return; const b = $('#mock-box'); if(!b.hidden && !$('#mock-setup').hidden){ b.hidden = true; return; } mockOpen(); };
+$('#mock-start').onclick = mockStart;
+$('#mock-close').onclick = ()=>{ $('#mock-box').hidden = true; };
+$('#mock-next').onclick = mockNext;
+$('#mock-end').onclick = mockFinish;
+$('#mock-replay').onclick = async ()=>{ const b = await mockTts(mock.i).catch(()=>null);
+  if(b && !mock.playing){ const r = mock.rows[mock.i]; mockPlay(b, r); } };
+
 $('#btn-listen').onclick = async ()=>{
+  if(mock.on){ mockFinish(); return; }
   if(listening()){ stopListening(); return; }
   if(!preflight()) return;
   const em = engineMode();

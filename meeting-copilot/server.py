@@ -38,6 +38,7 @@ import company  # noqa: E402
 import ingest  # noqa: E402
 import gateway
 import llm  # noqa: E402
+import mock  # noqa: E402
 import notion  # noqa: E402
 import numwords
 import prompts  # noqa: E402
@@ -410,7 +411,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     "stt_ready": bool(llm.stt_local_available() or llm.GROQ_API_KEY),
                     # 실제 Gemini가 아닌 주소(mock·프록시) — 평가 기록이 무엇의 실측인지 밝히려고
                     "gemini_custom_url": llm.GEMINI_URL.rstrip("/") != llm._GEMINI_DEFAULT_URL,
-                    "live_stt": llm.live_stt_available()}
+                    "live_stt": llm.live_stt_available(),
+                    "hedge": {"ms": llm.HEDGE_MS, **llm._hedge_stats}}
             # 인증이 켜져 있으면 색인 통계(개인 데이터의 윤곽)는 로그인한 사람에게만
             if not gate or user:
                 base["rag"] = store_for(user).stats()
@@ -428,6 +430,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
             d["name_fixes"] = company.name_fixes()
             d["switchable"] = not gate and not os.environ.get("INTERVIEW_COMPANY")
             self._json(200, d)
+            return
+
+        # 🎭 모의 면접 — 질문 세트·지난 기록 (연습 결과는 개인 데이터라 인증 뒤)
+        if path == "/api/mock/questions":
+            n = int((q.get("n") or ["7"])[0])
+            self._json(200, {"questions": mock.questions(n), "company": company.name(),
+                             "voices": llm.TTS_VOICES, "accents": list(llm.TTS_ACCENTS),
+                             "tts": bool(llm.GEMINI_API_KEY)})
+            return
+        if path == "/api/mock/history":
+            self._json(200, {"sessions": mock.history()})
             return
 
         if path == "/api/glossary/candidates":
@@ -602,6 +615,29 @@ class Handler(http.server.BaseHTTPRequestHandler):
             rag._invalidate()
             units.load(force=True)
             self._json(200 if rc == 0 else 500, {**company.summary(), "ok": rc == 0, "log": log})
+            return
+
+        # 🎭 모의 면접관 목소리 — Gemini 3.8 Flash TTS → WAV
+        if path == "/api/tts":
+            try:
+                wav = llm.tts(str(req.get("text") or ""), str(req.get("voice") or "Charon"),
+                              str(req.get("accent") or "american"), str(req.get("pace") or "natural"))
+            except ValueError as e:
+                self._json(400, {"error": str(e)})
+                return
+            except Exception as e:  # noqa: BLE001
+                self._json(503, {"error": f"음성 합성 실패 — {str(e)[:120]}"})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "audio/wav")
+            self.send_header("Content-Length", str(len(wav)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(wav)
+            self._status = 200
+            return
+        if path == "/api/mock/report":
+            self._json(200, {"saved": mock.save(req)})
             return
 
         # ⚡ Live 전사 세션 — 1회용 토큰 + setup (브라우저가 Gemini에 직접 스트리밍)

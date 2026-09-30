@@ -656,6 +656,52 @@ console.log('\n■ v6.4 실시간 인식(Gemini Live) — 기본 엔진 · 키 �
     if (/503/.test(errs[i]) && /stt\/live|Service Unavailable/.test(errs[i])) errs.splice(i, 1);
 }
 
+console.log('\n■ v6.5 🎭 모의 면접 — AI 면접관 음성 → 실전 경로 · 결과 표');
+{
+  const errsBefore = errs.length;
+  await p.click('.tab[data-v="live"]').catch(() => {});
+  if (await p.evaluate(() => listening())) await p.click('#btn-listen');
+  await p.click('#btn-mock');
+  await p.waitForFunction(() => document.querySelectorAll('#mock-voice option').length > 0, { timeout: 8000 }).catch(() => {});
+  const setup = await p.evaluate(() => ({ open: !document.querySelector('#mock-box').hidden,
+    voices: document.querySelectorAll('#mock-voice option').length,
+    accents: [...document.querySelectorAll('#mock-accent option')].map(o => o.textContent) }));
+  check('🎭 설정 패널 — 목소리·억양 선택지', setup.open && setup.voices >= 3 && setup.accents.includes('영국'),
+    `${setup.voices}개 · ${setup.accents.join('/')}`);
+  const qs = await p.evaluate(async () => (await (await fetch('/api/mock/questions?n=7')).json()).questions);
+  check('질문 세트 — 오프너로 시작·마무리로 끝·후속 질문 포함(7문항)',
+    qs.length === 7 && qs[0].kind === 'opener' && qs[6].kind === 'closer' && qs.some(q => q.kind === 'followup'),
+    qs.map(q => q.kind).join(','));
+  await p.evaluate(() => { document.querySelector('#mock-n').value = '5'; document.querySelector('#mock-auto').checked = false; });
+  await p.click('#mock-start');
+  // 면접관 음성(톤) 재생이 끝나면 t_end가 찍힌다 — 실제 오디오 그래프를 탄다
+  await p.waitForFunction(() => mock.on && mock.rows[0] && mock.rows[0].t_end, { timeout: 15000 }).catch(() => {});
+  const r0 = await p.evaluate(() => ({ on: mock.on, played: !!(mock.rows[0] && mock.rows[0].t_end),
+    listening: listening(), prog: document.querySelector('#mock-prog').textContent }));
+  check('면접관 음성 재생 완료 → 계측 시작 · 인식 입력 연결', r0.on && r0.played && r0.listening, JSON.stringify(r0));
+  await p.evaluate(() => { const r = mock.rows[0]; mockHeard('Tell me about yourself please', '상대'); });
+  await p.click('#mock-next');
+  await p.waitForFunction(() => mock.i === 1, { timeout: 5000 }).catch(() => {});
+  check('⏭ 다음 질문', await p.evaluate(() => mock.i === 1 && /2\/5/.test(document.querySelector('#mock-prog').textContent)));
+  const echo = await p.evaluate(() => { mock.playing = true; const n = document.querySelectorAll('#feed .row').length;
+    addUtterance('this is the interviewer echo', '나'); const m = document.querySelectorAll('#feed .row').length;
+    mock.playing = false; return m - n; });
+  check('면접관 음성 재생 중 내 마이크 소리는 무시(스피커 되울림)', echo === 0, String(echo));
+  await p.click('#mock-end');
+  await p.waitForFunction(() => !document.querySelector('#mock-report').hidden, { timeout: 5000 }).catch(() => {});
+  const rep = await p.evaluate(() => ({ txt: document.querySelector('#mock-report').textContent,
+    rows: document.querySelectorAll('#mock-report tr').length, on: mock.on, listening: listening() }));
+  check('■ 끝내기 → 결과 표·판정 · 듣기 종료', /결과/.test(rep.txt) && rep.rows >= 2 && !rep.on && !rep.listening,
+    rep.txt.replace(/\s+/g, ' ').slice(0, 70));
+  const hist = await p.evaluate(async () => { await new Promise(r => setTimeout(r, 400));
+    return (await (await fetch('/api/mock/history')).json()).sessions.length; });
+  check('결과 저장 → 지난 기록에 쌓임', hist >= 1, String(hist));
+  await p.evaluate(() => { document.querySelector('#mock-box').hidden = true; });
+  // mock 환경에는 음성 인식이 없다 — Live 폴백 신호(503)와 조각 인식 503은 의도된 것
+  for (let i = errs.length - 1; i >= errsBefore; i--)
+    if (/503|Service Unavailable/.test(errs[i])) errs.splice(i, 1);
+}
+
 // /api/code 403은 위에서 일부러 낸 negative 테스트다 — 이 카운터는
 // '예상 못 한' 오류만 세야 신호로서 값을 한다.
 const realErrs = errs.filter(e =>

@@ -17,6 +17,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -669,6 +670,78 @@ def chat_once(messages: list[dict], json_mode: bool = False, temperature: float 
     raise _no_provider_error(errs)
 
 
+# ── 헤지 요청 — 답변 첫 토큰의 꼬리 지연을 자른다 (v6.5) ──
+# 모의 면접 실측: 3.8 Flash 본답변 첫 토큰 p50 1.2~1.5초인데 가끔 4~6초가 걸린다
+# (서버 측 배정 운). 같은 요청을 하나 더 보내면 대개 빠른 쪽이 1초 안에 온다.
+# 첫 토큰이 HEDGE_MS 안에 안 오면 같은 요청을 한 번 더 보내 먼저 오는 쪽을 쓰고,
+# 진 쪽은 닫는다. 느린 경우에만 호출이 하나 늘어난다 — 유료 티어에서만 켠다
+# (무료 티어는 분당 한도가 빠듯해 헤지가 오히려 429를 부른다).
+HEDGE_MS = int(os.environ.get("HEDGE_MS", "1800" if _PAID else "0"))
+HEDGE_MODEL = os.environ.get("HEDGE_MODEL", "")          # 비우면 같은 모델
+_HEDGE_KINDS = {"suggest", "suggest_bg"}
+_hedge_stats = {"hedged": 0, "won_by_hedge": 0}
+
+
+def _hedged_first(make_iter, make_alt, wait_s: float):
+    """make_iter/make_alt: 인자 없는 함수 → 토큰 이터레이터. 첫 청크를 먼저 준 쪽의
+    (first, iterator)를 돌려준다. 진 쪽 이터레이터는 도착하는 대로 닫는다."""
+    import queue as _q
+    box: _q.Queue = _q.Queue()
+    done = threading.Event()
+
+    def run(tag, fn):
+        try:
+            it = fn()
+            first = next(it, None)
+            if _first_is_empty(first):
+                raise _EmptyResp()
+        except Exception as e:  # noqa: BLE001
+            box.put((tag, None, None, e))
+            return
+        if done.is_set():                       # 이미 다른 쪽이 이겼다 — 조용히 닫는다
+            try:
+                it.close()
+            except Exception:  # noqa: BLE001
+                pass
+            return
+        box.put((tag, first, it, None))
+
+    threading.Thread(target=run, args=("main", make_iter), daemon=True).start()
+    pending, last_err = 1, None
+    try:
+        tag, first, it, err = box.get(timeout=wait_s)
+        pending -= 1
+        if err is None:
+            done.set()
+            return first, it
+        last_err = err                          # 본 요청이 빨리 실패 — 헤지로 한 번 더
+    except _q.Empty:
+        pass
+    _hedge_stats["hedged"] += 1
+    threading.Thread(target=run, args=("hedge", make_alt), daemon=True).start()
+    pending += 1
+    while pending:
+        tag, first, it, err = box.get()
+        pending -= 1
+        if err is None:
+            done.set()
+            if tag == "hedge":
+                _hedge_stats["won_by_hedge"] += 1
+            # 진 쪽이 이미 성공해 큐에 들어와 있으면 닫는다
+            while True:
+                try:
+                    _t, _f, other, _e = box.get_nowait()
+                    if other is not None:
+                        other.close()
+                except _q.Empty:
+                    break
+                except Exception:  # noqa: BLE001
+                    pass
+            return first, it
+        last_err = err
+    raise last_err or RuntimeError("헤지 요청 모두 실패")
+
+
 def stream_ndjson(messages: list[dict], temperature: float = 0.4,
                   max_tokens: int = 400, model: str | None = None,
                   fast: bool = False, kind: str = "suggest",
@@ -683,6 +756,12 @@ def stream_ndjson(messages: list[dict], temperature: float = 0.4,
         ticket = gateway.acquire(kind, fast, bg, provider=name, model=_model_label(name, mdl))
 
         def attempt():
+            if HEDGE_MS > 0 and name == "gemini" and kind in _HEDGE_KINDS and not fast:
+                alt = HEDGE_MODEL or mdl
+                return _hedged_first(
+                    lambda: _STREAM[name](messages, temperature, max_tokens, mdl),
+                    lambda: _STREAM[name](messages, temperature, max_tokens, alt),
+                    HEDGE_MS / 1000)
             it = _STREAM[name](messages, temperature, max_tokens, mdl)
             first = next(it, None)
             if _first_is_empty(first):
@@ -959,6 +1038,71 @@ def live_stt_session(language: str | None = None) -> dict:
     }}
     return {"url": f"{_LIVE_WS}?access_token={name}", "setup": setup,
             "model": GEMINI_STT_LIVE_MODEL, "max_session_s": STT_LIVE_ROTATE_S}
+
+
+# ── Gemini 3.8 Flash TTS — 모의 면접관의 목소리 (v6.5) ──
+# 모의 면접: 면접관 질문을 **실제 음성**으로 만들어, 실전과 똑같은 인식·질문 감지·
+# 답변 파이프라인에 흘린다. 텍스트 주입 테스트는 STT·VAD·턴 판정을 건너뛰어
+# "질문이 끝나고 읽을 문장이 뜨기까지"를 한 번도 재지 못했다.
+GEMINI_TTS_MODEL = os.environ.get("GEMINI_TTS_MODEL", "gemini-3.8-flash-tts")
+TTS_VOICES = ["Charon", "Kore", "Puck", "Aoede", "Fenrir", "Leda"]
+TTS_ACCENTS = {
+    "american": "a friendly, professional American hiring manager",
+    "british": "a friendly, professional British hiring manager",
+    "indian": "a friendly, professional hiring manager with an Indian English accent",
+    "australian": "a friendly, professional Australian hiring manager",
+    "singaporean": "a friendly, professional Singaporean hiring manager",
+}
+_TTS_CACHE: dict[str, bytes] = {}
+_TTS_CACHE_MAX = 64
+
+
+def _wav(pcm: bytes, rate: int = 24000) -> bytes:
+    import struct
+    return (b"RIFF" + struct.pack("<I", 36 + len(pcm)) + b"WAVEfmt "
+            + struct.pack("<IHHIIHH", 16, 1, 1, rate, rate * 2, 2, 16)
+            + b"data" + struct.pack("<I", len(pcm)) + pcm)
+
+
+def tts(text: str, voice: str = "Charon", accent: str = "american", pace: str = "natural") -> bytes:
+    """영어 문장 → WAV 바이트. 같은 요청은 캐시(같은 질문을 다시 연습할 때 즉시)."""
+    if not GEMINI_API_KEY:
+        raise RuntimeError("GEMINI_API_KEY 없음")
+    text = " ".join((text or "").split())[:600]
+    if not text:
+        raise ValueError("빈 문장")
+    voice = voice if voice in TTS_VOICES else "Charon"
+    who = TTS_ACCENTS.get(accent, TTS_ACCENTS["american"])
+    speed = {"slow": "slowly and clearly", "fast": "at a brisk native pace"}.get(pace, "at a natural pace")
+    key = f"{voice}|{accent}|{pace}|{text}"
+    if key in _TTS_CACHE:
+        return _TTS_CACHE[key]
+    # 스타일은 '감독 노트' 형식으로 준다. "Say as …: 문장" 식으로 앞에 붙이면 3.8 TTS가
+    # 지시문까지 소리 내 읽는다(실측 — 받아쓰기로 확인). systemInstruction은 이 모델에서
+    # 400("Developer instruction is not enabled"). 아래 형식은 TRANSCRIPT만 말한다(실측).
+    prompt = (f"# AUDIO PROFILE: {who}\n## DIRECTOR'S NOTES\n"
+              f"Style: warm, professional video interview. Pace: {speed}.\n"
+              f"## TRANSCRIPT\n{text}")
+    body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"responseModalities": ["AUDIO"],
+                                 "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}}}}
+    req = urllib.request.Request(
+        f"{GEMINI_URL}/models/{GEMINI_TTS_MODEL}:generateContent?key={GEMINI_API_KEY}",
+        data=json.dumps(body).encode(), method="POST", headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        obj = json.loads(r.read())
+    part = ((obj.get("candidates") or [{}])[0].get("content") or {}).get("parts", [{}])[0]
+    data = base64.b64decode((part.get("inlineData") or {}).get("data", ""))
+    if not data:
+        raise RuntimeError("TTS 응답에 오디오가 없습니다")
+    if data[:4] != b"RIFF":                  # raw PCM(audio/L16)이면 WAV로 감싼다
+        mt = (part.get("inlineData") or {}).get("mimeType", "")
+        m = re.search(r"rate=(\d+)", mt)
+        data = _wav(data, int(m.group(1)) if m else 24000)
+    if len(_TTS_CACHE) >= _TTS_CACHE_MAX:
+        _TTS_CACHE.pop(next(iter(_TTS_CACHE)))
+    _TTS_CACHE[key] = data
+    return data
 
 
 def transcribe_gemini(audio: bytes, mime: str = "audio/webm",
