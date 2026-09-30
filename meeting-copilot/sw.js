@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v43';  // v6.4: 실시간 인식(Gemini 3.5 Transcribe Live) — 말하는 중 자막 + 확정 약 1.1초
+const SHELL = 'mc-shell-v44';  // v6.5: 회사 레이어 v2·모의 면접·말 끝 감지·헤지·근거 확인·실명 제거
 const ASSETS = ['/app.html', '/app.webmanifest', '/pcm-worklet.js'];
 
 self.addEventListener('install', e => {

@@ -103,6 +103,22 @@ ollama pull bge-m3
 | `Esc` | 카드 닫기 |
 | `+` / `-` | 제안 글자 크기 (100/118/140%) |
 
+## 면접 준비 도구 (v6.5)
+
+- **🎭 모의 면접** — 헤더 🎭. AI 면접관(Gemini 3.8 Flash TTS, 목소리 6·억양 5·속도 3)이
+  음성으로 묻고, 그 소리가 실전과 같은 경로(Gemini Live 인식 → 자막 → 질문 감지 →
+  답변 카드)를 탄다. 결과 표: 자막 확정·**맞는 답**이 읽을 수 있게 된 시각·경로(A/B/C)·
+  읽는 중 카드 교체 수·내 말하기 속도(wpm)·대본 소화율. 기록이 쌓여 연습 추이를 본다.
+- **🏢 지원 회사 전환** — '자료' 탭. 회사마다 노트·대본·음성 어휘·질의 확장·도메인 시드가
+  바뀐다. 다른 지원 회사 이름이 든 대본은 읽히지 않고, 생성 답변에 새면 빨갛게.
+- **다음 회사 초안** — `GEMINI_API_KEY=... python3 tools/new_company.py "회사명"`.
+  Google 검색 근거로 회사·재무 / 제품 / 경쟁·반론 / 한국 시장 노트 8개 + 면접 질문 7개 +
+  음성 어휘를 만들고, 확인할 숫자·출처 목록을 남긴다. 개인 경험은 `[CONFIRM]`으로 비운다.
+- **근거 확인** — 생성 답변에서 자료에 없는 구체적 주장(사유·사람·고객사·도구·기간)이 든
+  문장에 점선 밑줄. 숫자 검증(빨간 숫자)과 함께 "읽지 말 곳"을 화면이 알려 준다.
+- **개인 어휘** — 고객사명 등 코드에 둘 수 없는 음성 어휘·오인식 교정은
+  `backend/data/imported/vocab.json`(gitignore)에 둔다. 형식은 `backend/company.py` 머리말.
+
 ## 내 자료 넣기 (RAG)
 
 '자료' 탭에서:
@@ -170,6 +186,8 @@ bash meeting-copilot/start.sh          # 다른 터미널에서 서버를 띄운
 
 python3 meeting-copilot/tests/golden_routing.py  # 라우팅 골든셋 40문항 (면접 기준선)
 python3 meeting-copilot/tests/golden_followup.py # 후속 질문 11문항 — 자료에 없는 수치를 지어내면 실패
+python3 meeting-copilot/tests/company_layer.py   # 회사 레이어 36계약 — 가상 인물 픽스처, 개인 자료 없이
+python3 meeting-copilot/tests/grounding_eval.py  # 근거 확인 — 심은 날조 재현율·오탐 (키 필요)
 python3 meeting-copilot/tests/ooc_eval.py       # 코퍼스 밖 질문에 지어내지 않는가
 python3 meeting-copilot/tests/rag_eval.py       # 검색 품질 15케이스 (node 없이)
 npx tsx  meeting-copilot/tests/rag-eval.ts      # 같은 케이스, TS 러너

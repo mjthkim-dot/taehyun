@@ -1,6 +1,6 @@
 #!/bin/bash
 # 자료 묶음(zip) 적용 — 맥북에서 한 번만 실행.
-#   bash meeting-copilot/tools/apply_bundle.sh ~/Downloads/mc-data-v6.3.zip
+#   bash meeting-copilot/tools/apply_bundle.sh ~/Downloads/mc-data-v6.3.zip  (자료 추가분: mc-vocab-v6.5.zip도 같은 방법으로)
 # 하는 일: 기존 자료 백업 → zip 풀기 → 재적재(임베딩·사실 정정 포함) → 프리플라이트
 set -eu
 ZIP="${1:?사용법: bash tools/apply_bundle.sh <zip 경로>}"

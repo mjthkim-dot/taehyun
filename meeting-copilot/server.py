@@ -134,8 +134,11 @@ def _metrics_snapshot() -> list[dict]:
     return out
 
 
+GROUNDING = os.environ.get("GROUNDING", "1") != "0"
+
+
 def _stream(handler, messages, temperature, max_tokens, meta=None, fast=False,
-            kind="suggest", bg=False):
+            kind="suggest", bg=False, ground=None):
     """LLM 토큰 스트림을 NDJSON으로 프록시.
 
     · 첫 청크를 당겨 연결 실패가 200 뒤로 새지 않게 한다
@@ -196,6 +199,17 @@ def _stream(handler, messages, temperature, max_tokens, meta=None, fast=False,
             wrong = company.mentions_other(en)
             w((json.dumps({"verify": {"unverified": bad, "wrong_company": wrong}},
                           ensure_ascii=False) + "\n").encode())
+            # 근거 확인 — 자료에 없는 구체적 주장(사유·사람·고객사·도구·기간)이 든 문장.
+            # 본답변 스트림은 이미 다 보냈다(읽기 시작은 늦추지 않는다). 더 새로운 답변이
+            # 시작됐으면 건너뛴다. 실패해도 조용히 넘어간다 — 표시가 없는 것뿐이다.
+            if ground and GROUNDING and not (cancel and cancel()):
+                try:
+                    import grounding
+                    flags = grounding.check(en, ground["q"], ground["material"], ground["profile"])
+                    w((json.dumps({"verify": {"unsupported": flags}}, ensure_ascii=False)
+                       + "\n").encode())
+                except Exception:  # noqa: BLE001
+                    pass
         handler.wfile.write(b"0\r\n\r\n")
         handler.wfile.flush()
     except (BrokenPipeError, ConnectionResetError):
@@ -786,9 +800,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             # 2400: 발표형 EN+KR+PR(한글 발음) 병기 + META까지 —
             # 상한에 걸려 잘린 응답은 형식 파손(KR/PR 누락)으로 이어진다
             # 후속 질문은 40단어 상한이라 토큰도 그만큼만 — 완성이 빨라진다
+            ground = None
+            if preset == "interview" and not quick:
+                import grounding
+                ground = {"q": said[-600:], "profile": prompts._profile(store),
+                          "material": grounding.material_of(built["hits"])}
             _stream(self, [{"role": "user", "content": built["prompt"]}], 0.4,
                     700 if quick else (400 if built.get("followup") else 2400), fast=quick,
-                    kind="suggest", bg=bool(req.get("bg")),
+                    kind="suggest", bg=bool(req.get("bg")), ground=ground,
                     meta={"sources": built["sources"],
                           "phrases": built["phrases"],
                           "rag_used": built["rag_used"],

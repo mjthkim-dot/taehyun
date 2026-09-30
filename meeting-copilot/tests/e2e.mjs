@@ -656,6 +656,23 @@ console.log('\n■ v6.4 실시간 인식(Gemini Live) — 기본 엔진 · 키 �
     if (/503/.test(errs[i]) && /stt\/live|Service Unavailable/.test(errs[i])) errs.splice(i, 1);
 }
 
+console.log('\n■ v6.5 근거 확인 — 자료에 없는 구체적 주장은 점선 밑줄(지우지 않음)');
+{
+  const g = await p.evaluate(() => {
+    $('#card').style.display = 'block';
+    renderCard('EN: I lead multi-stakeholder deals. / The sponsor was / the business unit head. / We aligned them / on the plan.');
+    markUnsupported([{ sentence: 'The sponsor was the business unit head.', why: '노트에 없는 인물' }]);
+    const segs = [...document.querySelectorAll('#c-answers .en .seg')];
+    return { marked: segs.filter(e => e.classList.contains('unsup')).map(e => e.textContent),
+             kept: segs.length, note: document.querySelector('.unsup-note')?.textContent || '',
+             why: document.querySelector('.seg.unsup')?.title || '' };
+  });
+  check('근거 없는 문장의 조각만 표시 · 문장은 남김',
+    JSON.stringify(g.marked) === JSON.stringify(['The sponsor was', 'the business unit head.']) && g.kept === 5,
+    JSON.stringify(g.marked));
+  check('건너뛰라는 안내 + 사유', /건너뛰고 읽으세요/.test(g.note) && /노트에 없는 인물/.test(g.why), g.note);
+}
+
 console.log('\n■ v6.5 🎭 모의 면접 — AI 면접관 음성 → 실전 경로 · 결과 표');
 {
   const errsBefore = errs.length;

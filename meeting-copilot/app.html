@@ -275,6 +275,9 @@
   body.them-speaking #card.spec #c-answers::before{
     content:"🎧 질문 듣는 중 — 끝나면 답이 확정됩니다";display:block;
     font-size:10.5px;color:var(--accent);margin-bottom:6px}
+  .seg.unsup{text-decoration:underline dotted #F6B73C;text-decoration-thickness:2px;
+    text-underline-offset:4px;opacity:.7}
+  .unsup-note{font-size:10.5px;color:#F6B73C;margin-bottom:4px}
   #card.stale #c-answers{opacity:.55}
   #card.stale #c-answers::before{
     content:"⤴ 이전 발화의 답변 — 새 질문이면 아래 버튼을 누르세요";display:block;
@@ -488,7 +491,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v6.4</span>
+  <span class="ver" id="app-ver">v6.5</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -878,6 +881,7 @@ async function streamChat(url, payload, onToken, signal, onMeta){
         if(o.error) throw new Error(o.error);
         if(o.meta){ onMeta?.(o.meta); continue; }
         if(o.verify){
+          if(o.verify.unsupported){ markUnsupported(o.verify.unsupported); continue; }
           markUnverified(o.verify.unverified||[]);
           markUnverified(o.verify.wrong_company||[], '다른 지원 회사 이름입니다 — 읽지 말고 건너뛰세요');
           continue;
@@ -1440,6 +1444,29 @@ function renderTierC(meta){
 
 // ── 서버 검증 결과 표시 — 풀어 쓴 숫자("four months")까지 서버가 잡아 보낸다 ──
 // 클라이언트 정규식(markNumbers)은 아라비아 숫자만 보므로 이쪽이 진짜 방어선이다.
+// 근거 없는 구체적 주장이 든 문장 — 그 문장의 조각(.seg)에 점선 밑줄. 지우지 않는다:
+// 화면이 비면 면접 중 대응이 불가능하다. 읽는 사람이 건너뛰게만 한다.
+const normS = t => t.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+function markUnsupported(flags){
+  if(!flags || !flags.length) return;
+  const sents = flags.map(f => ({n: normS(f.sentence), why: f.why || ''}));
+  let n = 0;
+  for(const seg of document.querySelectorAll('#c-answers .en .seg')){
+    const t = normS(seg.textContent);
+    if(t.split(' ').length < 2) continue;
+    const hit = sents.find(s => s.n.includes(t));
+    if(hit){ seg.classList.add('unsup'); seg.title = '내 자료에 없는 내용일 수 있어요 — 건너뛰고 읽으세요'
+                                                     + (hit.why ? ` (${hit.why})` : ''); n++; }
+  }
+  const body = document.querySelector('#c-answers .lrow .body');
+  if(n && body && !body.querySelector('.unsup-note')){
+    const d = document.createElement('div'); d.className = 'unsup-note';
+    d.textContent = `⚠️ 점선 밑줄 ${flags.length}문장은 내 자료에 없는 내용 — 건너뛰고 읽으세요`;
+    body.insertBefore(d, body.firstChild);
+  }
+  lastUnsup = flags.length;
+}
+let lastUnsup = 0;
 function markUnverified(spans, why){
   if(!spans.length) return;
   why = why || '내 자료에 없는 숫자입니다 — 확인 전에는 읽지 마세요';
