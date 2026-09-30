@@ -1,5 +1,8 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /**
  * 단어 — 상황별 대량 암기 화면.
  *
@@ -22,6 +25,7 @@ import {
   quizKindFor,
   setWordConfig,
   todayQueue,
+  easyWordsRunningOut,
   wordConfig,
   wordStats,
   type QueueItem,
@@ -101,6 +105,7 @@ export default function WordsScreen() {
   const stats = useMemo(() => wordStats(), [tick]);
   const packs = useMemo(() => getPacks(), [tick]);
   const queue = useMemo(() => todayQueue(), [tick]);
+  const runningOut = useMemo(() => easyWordsRunningOut(), [tick]);
   const dueN = queue.filter((q) => q.kind === 'review').length;
   const newN = queue.length - dueN;
 
@@ -110,7 +115,9 @@ export default function WordsScreen() {
   }, []);
 
   const cur = steps[idx];
-  const box = cur ? progress()[cur.item.word.id]?.b ?? 0 : 0;
+  // 진도는 렌더마다 23번씩 다시 읽지 않고 한 번만(단어·드라마 기록이 쌓일수록 무거워졌다, 성능 #8)
+  const hubProg = useMemo(() => progress(), [tick, idx, view]);
+  const box = cur ? hubProg[cur.item.word.id]?.b ?? 0 : 0;
   const quiz: Quiz | null = useMemo(() => {
     if (!cur || (cur.item.kind === 'learn' && !cur.met)) return null;
     return makeQuiz(cur.item.word, cur.item.kind === 'learn' ? 'meaning' : quizKindFor(box, idx), idx * 31 + 7);
@@ -157,14 +164,29 @@ export default function WordsScreen() {
       nextSteps.splice(Math.min(idx + 4, nextSteps.length), 0, { item: { ...cur.item, kind: 'review' }, met: true, retry: true });
       setSteps(nextSteps);
     }
-    timer.current = setTimeout(() => {
-      setPicked(null);
-      if (idx + 1 >= nextSteps.length) {
-        setView('done');
-        setTick((t) => t + 1);
-      } else setIdx(idx + 1);
-    }, ok ? 650 : 1500);
+    // 정답은 잠깐 뒤 저절로 다음, 오답은 뜻·예문을 읽을 때까지 기다린다('다음' 버튼) — 예전엔 1.5초 만에 넘어갔다
+    pendingSteps.current = nextSteps;
+    if (ok) timer.current = setTimeout(() => goNext(nextSteps), 650);
   }
+
+  const pendingSteps = useRef<Step[] | null>(null);
+  const revealRef = useRef<HTMLDivElement | null>(null);
+  function goNext(nextSteps = pendingSteps.current || steps) {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    setPicked(null);
+    if (idx + 1 >= nextSteps.length) {
+      setView('done');
+      setTick((t) => t + 1);
+    } else setIdx(idx + 1);
+  }
+  useEffect(() => {
+    // 작은 화면에서 해설이 탭 바 뒤에 잘리지 않게 보이는 곳으로
+    if (picked !== null && revealRef.current) {
+      revealRef.current.scrollIntoView?.({ block: 'nearest' });
+      revealRef.current.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
+    }
+  }, [picked]);
 
   function toggleDaily(n: number) {
     setWordConfig({ daily: n });
@@ -199,10 +221,10 @@ export default function WordsScreen() {
     return (
       <div className="screen wd-screen">
         <div className="wd-top">
-          <button type="button" className="mini-btn" onClick={() => { stopSpeaking(); setView('hub'); setTick((t) => t + 1); }}>
+          <button type="button" className="mini-btn" aria-label="단어 학습 끝내기" onClick={() => { stopSpeaking(); setView('hub'); setTick((t) => t + 1); }}>
             ✕
           </button>
-          <div className="wd-prog" role="progressbar" aria-valuenow={idx} aria-valuemax={steps.length}>
+          <div className="wd-prog" role="progressbar" aria-label="오늘 단어 진행" aria-valuemin={0} aria-valuenow={idx} aria-valuemax={steps.length}>
             <span style={{ width: `${pct}%` }} />
           </div>
           <span className="wd-count">
@@ -231,7 +253,7 @@ export default function WordsScreen() {
             </div>
             <div className="wd-q">
               {quiz.kind === 'listen' ? (
-                <button type="button" className="wd-listen" onClick={() => say(w.w)}>
+                <button type="button" className="wd-listen" onClick={() => say(w.w)} aria-label="단어 다시 듣기">
                   🔊
                 </button>
               ) : (
@@ -249,10 +271,16 @@ export default function WordsScreen() {
                 );
               })}
             </div>
+            <p className="sr-only" role="status">
+              {picked === null ? '' : picked === quiz.answer ? '정답' : `오답 — 정답은 ${quiz.options[quiz.answer]}`}
+            </p>
             {picked !== null && picked !== quiz.answer && (
-              <div className="wd-reveal">
+              <div className="wd-reveal" ref={revealRef}>
                 <b>{w.w}</b> — {w.kr}
                 <span>{w.ex}</span>
+                <button type="button" className="btn primary wd-reveal-next" onClick={() => goNext()}>
+                  다음 →
+                </button>
               </div>
             )}
           </div>
@@ -304,7 +332,7 @@ export default function WordsScreen() {
     const p = packs.find((x) => x.id === openPack);
     if (p) {
       const prog = progress();
-      const st = packStats(p);
+      const st = packStats(p, prog);
       return (
         <div className="screen wd-screen">
           <button type="button" className="mini-btn" onClick={() => { setView('hub'); setGenMsg(''); }}>
@@ -377,6 +405,12 @@ export default function WordsScreen() {
             </button>
           ))}
         </div>
+        {runningOut.out && (
+          // 쉬운 단어가 떨어졌을 때 — 채울 수 없는 할당을 보여 주는 대신 AI로 목표 레벨 단어를 더 만들게
+          <p className="wd-today muted" role="status">
+            {runningOut.target} 단어를 거의 다 봤어요 — {groqKey() ? `아래 팩을 열고 '✨ 이 상황 단어 20개 더 만들기'를 누르면 ${runningOut.target} 단어를 더 받을 수 있어요.` : '어려운 단어는 하루에 조금씩만 섞어서 드려요.'}
+          </p>
+        )}
         {stats.today.new + stats.today.rev > 0 && (
           <p className="wd-today muted">
             오늘 신규 {stats.today.new} · 복습 {stats.today.rev} · 정답 {stats.today.ok}
@@ -387,7 +421,7 @@ export default function WordsScreen() {
       <div className="pg-sec-h">상황 팩 — 고른 팩을 번갈아 배워요</div>
       <div className="wd-packs">
         {packs.map((p) => {
-          const st = packStats(p);
+          const st = packStats(p, hubProg);
           const on = sel.includes(p.id);
           return (
             <div key={p.id} className={`wd-pack${on ? ' on' : ''}`}>

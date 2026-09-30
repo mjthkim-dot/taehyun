@@ -7,10 +7,11 @@
  * 1~3화는 사람이 쓴 원고(data/dramaSeed.json), 4화부터 AI가 앞 이야기를 기억하며 이어 쓴다.
  */
 import seed from '../data/dramaSeed.json';
-import { load, store, groqKey, addWeakItem, markPracticedToday, gradeWeakItem } from './state';
-import { recordSkillResult } from './cefrGrowth';
+import { load, store, groqKey, addWeakItem, gradeWeakItem } from './state';
+import { overall, recordSkillResult } from './cefrGrowth';
 import { CEFR_ORDER as CEFR_LEVELS } from './cefr';
 import { todayKey } from './dates';
+import { markDramaPracticeToday, migrateDramaOnce } from './homeLite';
 import { groqKoJson, hasHangul } from './aiGuard';
 import type { Cefr } from './cefr';
 
@@ -24,9 +25,9 @@ export interface CastMember {
 export type Scene =
   | { type: 'narr'; kr: string }
   | { type: 'line'; who: string; en: string; kr: string }
-  | { type: 'choice'; prompt: string; opts: { en: string; ok: boolean; why?: string; reply?: { who: string; en: string; kr: string } }[] }
-  | { type: 'meaning'; who: string; en: string; opts: string[]; a: number; why: string }
-  | { type: 'fill'; who: string; before: string; after: string; opts: string[]; a: number; kr: string; why: string }
+  | { type: 'choice'; prompt: string; opts: { en: string; ok: boolean; kr?: string; why?: string; reply?: { who: string; en: string; kr: string } }[]; level?: string }
+  | { type: 'meaning'; who: string; en: string; opts: string[]; a: number; why: string; level?: string }
+  | { type: 'fill'; who: string; before: string; after: string; opts: string[]; a: number; kr: string; why: string; level?: string }
   | { type: 'speak'; who: string; en: string; kr: string };
 
 export interface Episode {
@@ -59,6 +60,14 @@ export function castOf(who: string): CastMember {
 
 export const INTERACTIVE = new Set(['choice', 'meaning', 'fill', 'speak']);
 
+/**
+ * 인물별 목소리(Groq Orpheus: austin·daniel·troy 남성, hannah·diana 여성). 어떤 목소리를 Groq가 거부하면
+ * TTS 라우트가 같은 성별의 다른 목소리(→ 기본 목소리)로 바꿔 부르고, 그것도 안 되면 그 줄만 브라우저 음성.
+ * 키가 없으면 브라우저 음성 안에서 성별·음높이로 인물을 구분한다.
+ */
+const VOICE: Record<string, string> = { taeo: 'austin', jun: 'daniel', grant: 'troy', maya: 'hannah', diane: 'diana' };
+export const voiceOf = (who?: string) => VOICE[who || 'taeo'] || 'austin';
+
 /* ── 저장 ── */
 
 const EPS_KEY = 'va_drama_eps';
@@ -69,20 +78,57 @@ interface DramaProgress {
   done: Record<string, string>;
   /** 화 번호 → 점수(0~100) */
   score: Record<string, number>;
+  /** 처음 본 순서대로의 점수(최근 10개) — 난이도 조절 근거 */
+  hist: number[];
+  /** 난이도 보정 -1(한 단계 쉽게) · 0 · +1(한 단계 어렵게) */
+  adj: number;
 }
 
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+
+// v1.29 → v1.30 이전(AI 4~7화 → 원고)은 홈 경량 모듈에 있다 — 홈 카드도 이전된 기록을 보게
 function prog(): DramaProgress {
-  const p = load<DramaProgress>(PROG_KEY, { done: {}, score: {} });
-  return { done: p.done || {}, score: p.score || {} };
+  migrateDramaOnce();
+  const p = load<Partial<DramaProgress>>(PROG_KEY, {});
+  // 손상된 값(다른 버전·수동 편집)이어도 화면이 죽지 않게 모양을 맞춘다
+  const done = isObj(p.done) ? (p.done as Record<string, string>) : {};
+  const score = isObj(p.score) ? (p.score as Record<string, number>) : {};
+  const hist = Array.isArray(p.hist) ? p.hist.filter((n) => typeof n === 'number') : [];
+  const adj = p.adj === -1 || p.adj === 1 ? p.adj : 0;
+  return { done, score, hist, adj };
 }
+
+function isEpisodeLike(e: unknown): e is Episode {
+  const x = e as Partial<Episode> | null;
+  return !!x && typeof x.no === 'number' && Array.isArray(x.scenes) && Array.isArray(x.learn) && typeof x.titleKr === 'string';
+}
+
+/* 생성 원고는 최대 40화(~90KB) — 호출마다 파싱·정렬하지 않게 저장 원문이 같으면 결과를 재사용한다(성능 #8) */
+let epsRaw: string | null = null;
+let epsCache: Episode[] = [];
+let allCache: { src: Episode[]; out: Episode[] } | null = null;
 
 export function generatedEpisodes(): Episode[] {
-  return load<Episode[]>(EPS_KEY, []);
+  migrateDramaOnce();
+  let raw = '';
+  try {
+    raw = localStorage.getItem(EPS_KEY) || '';
+  } catch {
+    raw = '';
+  }
+  if (raw !== epsRaw) {
+    epsRaw = raw;
+    epsCache = load<Episode[]>(EPS_KEY, []).filter(isEpisodeLike);
+  }
+  return epsCache;
 }
 
 export function allEpisodes(): Episode[] {
-  const gen = generatedEpisodes().filter((e) => e.no > S.episodes.length);
-  return [...S.episodes, ...gen].sort((a, b) => a.no - b.no);
+  const gen = generatedEpisodes();
+  if (allCache && allCache.src === gen) return allCache.out;
+  const out = [...S.episodes, ...gen.filter((e) => e.no > S.episodes.length)].sort((a, b) => a.no - b.no);
+  allCache = { src: gen, out };
+  return out;
 }
 
 export function episodeByNo(no: number): Episode | undefined {
@@ -101,6 +147,9 @@ export function episodeScore(no: number): number | null {
   return prog().score[String(no)] ?? null;
 }
 
+// 오늘의 추천(dramaPlan)은 홈 카드가 원고 없이 계산할 수 있게 홈 경량 모듈에 있다
+export { dramaPlan, DRAMA_NOTICE_KEY, type DramaPlan } from './homeLite';
+
 /** 다음에 볼 화 번호(아직 안 본 가장 앞 화) */
 export function nextEpisodeNo(): number {
   const w = new Set(watched());
@@ -109,16 +158,64 @@ export function nextEpisodeNo(): number {
   return n;
 }
 
-/** 에피소드 완료 — 기록, 학습일, 오늘의 표현을 복습 카드로 */
-export function completeEpisode(ep: Episode, score: number, asked = 0) {
+/** 틀린 장면 — 정답 영어 문장과 그 뜻(또는 상황) */
+export interface MissedItem {
+  en: string;
+  kr: string;
+}
+
+/**
+ * 난이도 보정 기준 — 최근 두 화 평균이 이 이상이면 한 단계 어렵게(i+1 — 다음 레벨 증거가 쌓이게),
+ * 이하면 한 단계 쉽게. 85였을 땐 거의 오르지 않아 드라마만 하는 사용자의 레벨이 멈춰 있었다.
+ */
+export const LEVEL_UP_AVG = 70;
+export const LEVEL_DOWN_AVG = 50;
+
+/**
+ * 에피소드 완료 — 기록, 학습일, 오늘의 표현과 **틀린 문장**을 복습 카드로.
+ * 처음 본 화의 점수로 다음 화 난이도를 조절한다(-1: 쉽게, +1: 어렵게, 0: 그대로).
+ */
+/** 문항 레벨별 성적 — 원고의 윗단계(예: B1) 문항으로 다음 레벨 듣기 증거를 따로 쌓는다 */
+export type LevelStats = Record<string, { asked: number; ok: number }>;
+
+export function completeEpisode(ep: Episode, score: number, asked = 0, missed: MissedItem[] = [], byLevel: LevelStats = {}): { levelChange: -1 | 0 | 1 } {
   const p = prog();
   const first = !p.done[String(ep.no)];
   // 다시 본 화는 처음 본 날짜를 유지한다(예전엔 덮어써서 '오늘 완료'로 잘못 표시됐다)
   if (first) p.done[String(ep.no)] = todayKey();
   p.score[String(ep.no)] = Math.max(p.score[String(ep.no)] ?? 0, Math.round(score));
+  let levelChange: -1 | 0 | 1 = 0;
+  if (first && asked >= 2) {
+    p.hist = [...p.hist, Math.round(score)].slice(-10);
+    const last2 = p.hist.slice(-2);
+    if (last2.length === 2) {
+      const avg = (last2[0] + last2[1]) / 2;
+      const before = p.adj;
+      if (avg >= LEVEL_UP_AVG) p.adj = Math.min(p.adj + 1, 1);
+      else if (avg <= LEVEL_DOWN_AVG) p.adj = Math.max(p.adj - 1, -1);
+      levelChange = (p.adj - before) as -1 | 0 | 1;
+      // 한 번 조절했으면 다음 판단은 새 두 화로(같은 점수로 연달아 두 단계 움직이지 않게)
+      if (levelChange) p.hist = [];
+    }
+  }
   store(PROG_KEY, p);
-  markPracticedToday();
-  for (const l of ep.learn) addWeakItem({ en: l.en, kr: l.kr, cat: '드라마', lesson: `drama:${ep.no}` });
+  markDramaPracticeToday(); // 학습일 기록 + 다시 본 화도 오늘의 연습(불꽃·퀘스트)
+  // 첫 복습은 내일 — 오늘 배운 걸 오늘 또 묻지 않는다(간격 반복)
+  for (const l of ep.learn) addWeakItem({ en: l.en, kr: l.kr, cat: '드라마', lesson: `drama:${ep.no}` }, 1);
+  // 틀린 장면의 정답 문장도 복습 카드로 — 다음 화 첫머리 '지난 화 기억나요?'에 나온다
+  for (const m of missed) if (str(m.en) && str(m.kr)) addWeakItem({ en: m.en, kr: m.kr, cat: '드라마', lesson: `drama:${ep.no}` }, 1);
+  // 윗단계 문항(원고 4~7화의 B1 문항) — 그 문항 성적을 그 레벨의 듣기 증거로 따로 기록(처음 볼 때만).
+  // 드라마만 하는 A2 사용자도 B1 증거가 쌓여 '다음 레벨까지 0%'에 머물지 않게(감사 v1.31 비평 #5)
+  if (first) {
+    for (const [lv, st] of Object.entries(byLevel)) {
+      if (lv === ep.level || st.asked < 1 || !CEFR_LEVELS.includes(lv as Cefr)) continue;
+      try {
+        recordSkillResult('listening', lv as Cefr, Math.round((st.ok / st.asked) * 100), 'listening');
+      } catch {
+        /* 무시 */
+      }
+    }
+  }
   // 대사를 알아듣고 고른 결과 = 그 레벨의 듣기 증거(처음 볼 때만, 문항 2개 이상일 때)
   if (first && asked >= 2) {
     try {
@@ -127,6 +224,26 @@ export function completeEpisode(ep: Episode, score: number, asked = 0) {
       /* 증거 기록 실패는 시청 완료를 막지 않는다 */
     }
   }
+  return { levelChange };
+}
+
+const LEVELS = CEFR_LEVELS as readonly Cefr[];
+
+/** 드라마 난이도 — 지금 레벨에서 최근 이해도로 한 단계 오르내린다(A1~C2 안에서) */
+export function dramaLevel(base?: Cefr): Cefr {
+  let b: Cefr = 'A2';
+  try {
+    b = base || overall().level;
+  } catch {
+    /* 증거 기록 손상 — 기본 A2 */
+  }
+  const k = Math.max(0, LEVELS.indexOf(b));
+  return LEVELS[Math.min(LEVELS.length - 1, Math.max(0, k + prog().adj))];
+}
+
+/** 지금 난이도 보정 상태(엔딩 안내용) */
+export function dramaAdjust(): number {
+  return prog().adj;
 }
 
 /* ── 이야기 속 복습 — "지난 화 기억나요?" ──
@@ -141,29 +258,104 @@ export interface RecallItem {
   a: number;
 }
 
-export function recallItems(no: number, max = 2): RecallItem[] {
-  if (no <= 1) return [];
-  const pool = allEpisodes().flatMap((e) => e.learn.map((l) => ({ ...l, no: e.no })));
-  const weak = load<{ en: string; kr?: string; cat?: string; due?: number }[]>('va_weak', []);
+const lessonNo = (lesson: unknown): number => {
+  const m = typeof lesson === 'string' ? /^drama:(\d+)$/.exec(lesson) : null;
+  return m ? Number(m[1]) : 0;
+};
+
+/** 문장 비교용 — 대소문자·문장부호 무시 */
+export const normEn = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[’']/g, "'")
+    .replace(/[^a-z0-9' ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/** 복습 보기 채우개 — 시리즈에 안 나오는 흔한 문장(아직 안 본 화의 표현을 보기로 쓰지 않기 위해) */
+const FILLER = ['See you later.', "I'm on my way.", 'No problem at all.', 'That sounds great.', 'Nice to meet you.', 'Thanks for waiting.'];
+
+/** 한쪽이 다른 쪽을 품거나 단어가 60% 이상 겹치면 사실상 같은 문장 */
+function nearSame(a: string, b: string): boolean {
+  const na = normEn(a);
+  const nb = normEn(b);
+  if (na === nb || na.includes(nb) || nb.includes(na)) return true;
+  const wa = na.split(' ');
+  const wb = new Set(nb.split(' '));
+  const hit = wa.filter((w) => wb.has(w)).length;
+  return hit / Math.max(wa.length, wb.size) >= 0.6;
+}
+
+type DramaWeak = { en: string; kr: string; cat?: string; due?: number; box?: number; lesson?: unknown };
+
+function dramaWeak(): DramaWeak[] {
+  return load<DramaWeak[]>('va_weak', []).filter((w) => w && w.cat === '드라마' && str(w.en) && str(w.kr));
+}
+
+export function recallItems(no: number, max = 3, opts: { dueOnly?: boolean } = {}): RecallItem[] {
+  if (no <= 1 && !opts.dueOnly) return [];
+  const seen = new Set(watched());
+  // 보기 풀은 **본 화**의 표현과 이미 가진 카드만 — 아직 안 본 화의 문장이 섞이면 익숙한 걸 고르기만 해도 맞힌다
+  const learnPool = allEpisodes()
+    .filter((e) => seen.has(e.no))
+    .flatMap((e) => e.learn.map((l) => l.en));
   const now = Date.now();
-  const due = weak.filter((w) => w.cat === '드라마' && (w.due == null || w.due <= now));
-  let picks = due.map((w) => pool.find((p) => p.en === w.en)).filter((x): x is (typeof pool)[number] => !!x && x.no < no);
-  if (!picks.length) {
+  const weak = dramaWeak();
+  // 기한이 가장 오래 지난 카드부터(같으면 약한 것부터) — 새 카드가 늘 먼저 뽑혀 옛 카드가 밀리던 문제
+  let picks = weak
+    .filter((w) => (w.due == null || w.due <= now) && lessonNo(w.lesson) < no)
+    .sort((a, b) => (a.due ?? 0) - (b.due ?? 0) || (a.box || 0) - (b.box || 0))
+    .map((w) => ({ en: w.en, kr: w.kr }));
+  if (!picks.length && !opts.dueOnly) {
     const prev = episodeByNo(no - 1);
-    if (prev?.learn[0]) picks = [{ ...prev.learn[0], no: prev.no }];
+    if (prev?.learn[0]) picks = [{ en: prev.learn[0].en, kr: prev.learn[0].kr }];
   }
+  const pool = [...new Set([...learnPool, ...weak.map((w) => w.en)])];
   return picks.slice(0, max).map((p, k) => {
-    const others = pool.filter((x) => x.en !== p.en);
+    // 정답과 거의 같은 문장(“Yes, it's my first day.” ↔ “It's my first day.”)은 보기로 쓰지 않는다 — 정답이 둘로 보인다
+    let others = pool.filter((x) => !nearSame(x, p.en));
+    // 초반엔 배운 표현이 두세 개뿐이라 보기가 모자란다 — 흔한 짧은 문장으로 채운다(뜻으로 골라야 한다)
+    if (others.length < 2) others = [...others, ...FILLER.filter((f) => !nearSame(f, p.en) && !others.includes(f))];
     const ds: string[] = [];
-    for (let j = 0; ds.length < 2 && j < others.length; j++) {
-      const c = others[(no * 7 + k * 3 + j * 5) % others.length].en;
+    for (let j = 0; ds.length < 2 && j < others.length * 2; j++) {
+      const c = others[(no * 7 + k * 3 + j * 5) % others.length];
       if (!ds.includes(c)) ds.push(c);
     }
-    const opts = [p.en, ...ds];
+    const opts2 = [p.en, ...ds];
     // 결정적 섞기
-    const order = [0, 1, 2].sort((x, y) => ((x * 13 + no + k) % 3) - ((y * 13 + no + k) % 3));
-    return { en: p.en, kr: p.kr, opts: order.map((o) => opts[o]), a: order.indexOf(0) };
+    const order = opts2.map((_, x) => x).sort((x, y) => ((x * 13 + no + k) % opts2.length) - ((y * 13 + no + k) % opts2.length));
+    return { en: p.en, kr: p.kr, opts: order.map((o) => opts2[o]), a: order.indexOf(0) };
   });
+}
+
+/** 표현 복습 세션 — 새 화가 없는 날(키 없음·오늘 이미 봄)에도 매일 복습할 수 있게 */
+export function reviewItems(max = 8): RecallItem[] {
+  return recallItems(100000, max, { dueOnly: true });
+}
+
+/**
+ * 이야기 속에서 다시 나온 표현 채점 — 참여 문항의 정답 문장에 기한이 된 지난 표현이
+ * 들어 있으면, 그 문항을 맞힌 것 = 간격 반복 복습 한 번(틀리면 내일 다시).
+ */
+export function gradeRecycled(correctEn: string, good: boolean, epNo: number): string[] {
+  const hay = ` ${normEn(correctEn)} `;
+  const now = Date.now();
+  const hits = dramaWeak().filter((w) => {
+    const n = normEn(w.en);
+    return n.length >= 3 && lessonNo(w.lesson) < epNo && (w.due == null || w.due <= now || !good) && hay.includes(` ${n} `);
+  });
+  for (const w of hits) gradeWeakItem(w.en, good ? 'good' : 'again');
+  return hits.map((w) => w.en);
+}
+
+/** AI 작가에게 다시 쓰게 할 지난 표현(기한 된 것·아직 약한 것 우선, 최대 3개) */
+export function recycleCandidates(no: number, max = 3): { en: string; kr: string }[] {
+  const now = Date.now();
+  return dramaWeak()
+    .filter((w) => lessonNo(w.lesson) < no && ((w.due ?? 0) <= now || (w.box || 0) <= 2))
+    .sort((a, b) => (a.box || 0) - (b.box || 0))
+    .slice(0, max)
+    .map((w) => ({ en: w.en, kr: w.kr }));
 }
 
 export function gradeRecall(en: string, ok: boolean) {
@@ -172,12 +364,105 @@ export function gradeRecall(en: string, ok: boolean) {
 
 export { DRAMA_AUTOPLAY_KEY, requestDramaAutoplay } from './homeLite';
 
+/* ── 이어 보기 — 통화·알림으로 잠깐 나가도 처음부터 다시 보지 않게(감사 v1.31 모바일 #1) ── */
+const RESUME_KEY = 'va_drama_resume';
+const RESUME_TTL = 24 * 3600 * 1000;
+
+export interface ResumeState {
+  no: number;
+  /** 다음에 보여 줄 장면 번호(플레이어 장면 기준 — 첫머리 복습 포함) */
+  i: number;
+  ok: number;
+  asked: number;
+  log: unknown[];
+  missed: MissedItem[];
+  /** 틀린 장면 — 원고 장면 번호 */
+  retryIdx: number[];
+  /** 첫머리 복습 문항(이어 볼 때 장면 번호가 어긋나지 않게 그대로 보관) */
+  rc: RecallItem[];
+  at: number;
+}
+
+/** 기록 한 줄의 모양 — 하나라도 어긋나면 이어 보기를 버린다(같은 크래시 반복 방지, 감사 v1.31 비평 #7) */
+function okLogItem(x: unknown): boolean {
+  const it = x as { kind?: string; kr?: unknown; who?: unknown; en?: unknown; text?: unknown; ok?: unknown } | null;
+  if (!it || typeof it !== 'object') return false;
+  if (it.kind === 'narr') return typeof it.kr === 'string';
+  if (it.kind === 'line') return str(it.who) && typeof it.en === 'string' && typeof it.kr === 'string';
+  if (it.kind === 'note') return typeof it.text === 'string' && typeof it.ok === 'boolean';
+  return false;
+}
+
+function okRecall(x: unknown): x is RecallItem {
+  const r = x as Partial<RecallItem> | null;
+  return !!r && str(r.en) && typeof r.kr === 'string' && Array.isArray(r.opts) && r.opts.every((o) => typeof o === 'string') && Number.isInteger(r.a) && (r.a as number) >= 0 && (r.a as number) < r.opts.length;
+}
+
+export function loadResume(no: number): ResumeState | null {
+  const r = load<Partial<ResumeState> | null>(RESUME_KEY, null);
+  if (!r || r.no !== no || typeof r.i !== 'number' || r.i <= 0 || !Array.isArray(r.log) || !Array.isArray(r.rc)) return null;
+  if (typeof r.at !== 'number' || Date.now() - r.at > RESUME_TTL) return null;
+  if (!r.log.every(okLogItem) || !r.rc.every(okRecall)) {
+    clearResume();
+    return null;
+  }
+  return {
+    no,
+    i: r.i,
+    ok: Number(r.ok) || 0,
+    asked: Number(r.asked) || 0,
+    log: r.log,
+    missed: Array.isArray(r.missed) ? r.missed.filter((m) => m && str(m.en) && str(m.kr)) : [],
+    retryIdx: Array.isArray(r.retryIdx) ? r.retryIdx.filter((n) => Number.isInteger(n)) : [],
+    rc: r.rc,
+    at: r.at,
+  };
+}
+
+export function saveResume(r: Omit<ResumeState, 'at'>) {
+  store(RESUME_KEY, { ...r, at: Date.now() });
+}
+
+export function clearResume() {
+  store(RESUME_KEY, null);
+}
+
 /* ── AI 다음 화 ── */
 
 const str = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
 
 /** 형식 검증 — 어긋나면 null */
-export function validateEpisode(d: unknown, no: number): Episode | null {
+/** 빈칸 장면의 완성 문장 — 문장부호 앞 공백 없이 */
+export function fillFull(s: { before: string; after: string; opts: string[]; a: number }): string {
+  return `${s.before} ${s.opts[s.a]} ${s.after}`.replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
+}
+
+/** 장면에 실제로 나오는 영어 문장들(정답 기준) — 표현 재등장·learn 검사용 */
+function sceneTexts(s: Scene): string[] {
+  if (s.type === 'line' || s.type === 'speak' || s.type === 'meaning') return [s.en];
+  if (s.type === 'fill') return [fillFull(s)];
+  if (s.type === 'choice') {
+    const r = s.opts.find((o) => o.ok);
+    return r ? [r.en, ...(r.reply ? [r.reply.en] : [])] : [];
+  }
+  return [];
+}
+
+/** 참여 문항의 정답 문장(뜻·빈칸·고르기) */
+function answerTexts(s: Scene): string[] {
+  if (s.type === 'meaning') return [s.en];
+  if (s.type === 'fill') return [fillFull(s)];
+  if (s.type === 'choice') return s.opts.filter((o) => o.ok).map((o) => o.en);
+  return [];
+}
+
+const contains = (hay: string, needle: string) => ` ${normEn(hay)} `.includes(` ${normEn(needle)} `);
+
+/**
+ * 형식 검증 — 어긋나면 null.
+ * want: 요청한 레벨(대사 길이 검사), recycle: 이번 화에 다시 나와야 할 지난 표현(참여 문항 정답 중 하나에)
+ */
+export function validateEpisode(d: unknown, no: number, want?: string, recycle: string[] = []): Episode | null {
   const x = d as Partial<Episode> | null;
   if (!x || typeof x.title !== 'string' || !hasHangul(x.titleKr) || !hasHangul(x.cliff) || !Array.isArray(x.scenes) || !Array.isArray(x.learn)) return null;
   const scenes: Scene[] = [];
@@ -193,6 +478,8 @@ export function validateEpisode(d: unknown, no: number): Episode | null {
       if (new Set(s.opts.map((o) => o.en)).size !== 3) return null;
       if (s.opts.filter((o) => o.ok === true).length !== 1) return null;
       if (!s.opts.every((o) => o.ok || hasHangul(o.why))) return null;
+      // 고른 대사에도 자막이 붙도록 정답 보기엔 한국어 뜻이 있어야 한다
+      if (!hasHangul(s.opts.find((o) => o.ok)?.kr)) return null;
       const r = s.opts.find((o) => o.ok)?.reply;
       if (r !== undefined && (!r || !str(r.who) || !str(r.en) || !hasHangul(r.kr))) return null;
     } else if (s.type === 'meaning') {
@@ -213,8 +500,24 @@ export function validateEpisode(d: unknown, no: number): Episode | null {
   if (scenes.length < 10 || scenes.length > 22 || inter.length < 2 || inter.length > 4 || kinds.size < 2) return null;
   const learn = (x.learn as Episode['learn']).filter((l) => l && str(l.en) && hasHangul(l.kr)).map((l) => ({ en: l.en, kr: l.kr, note: typeof l.note === 'string' ? l.note : '' })).slice(0, 2);
   if (learn.length < 1) return null;
-  return { no, level: String(x.level || 'A2'), title: x.title, titleKr: String(x.titleKr), recap: String(x.recap || ''), scenes, learn, cliff: String(x.cliff), ai: true };
+  // 오늘의 표현은 이야기 속에 실제로 나와야 한다(엔딩에만 있는 표현은 배운 게 아니다)
+  const texts = scenes.flatMap(sceneTexts);
+  if (!learn.every((l) => texts.some((t) => contains(t, l.en)))) return null;
+  // 지난 표현 재등장 — 참여 문항 정답 중 하나에(이야기 속 간격 반복)
+  if (recycle.length) {
+    const answers = scenes.flatMap(answerTexts);
+    if (!recycle.some((r) => answers.some((a) => contains(a, r)))) return null;
+  }
+  // 요청한 레벨보다 눈에 띄게 어려운 원고는 거부(초급자가 긴 문장에 지치지 않게)
+  const lv = String(want || x.level || 'A2');
+  const lineWords = scenes.filter((s): s is Extract<Scene, { type: 'line' }> => s.type === 'line').map((s) => s.en.split(/\s+/).length);
+  const cap = LEVEL_MAX_WORDS[lv];
+  if (cap && lineWords.length && lineWords.reduce((a, b) => a + b, 0) / lineWords.length > cap) return null;
+  return { no, level: lv, title: x.title, titleKr: String(x.titleKr), recap: String(x.recap || ''), scenes, learn, cliff: String(x.cliff), ai: true };
 }
+
+/** 레벨별 대사 평균 단어 수 상한(가이드보다 여유 있게 — 이걸 넘으면 레벨이 안 맞는 원고) */
+const LEVEL_MAX_WORDS: Record<string, number> = { A1: 8, A2: 11, B1: 15 };
 
 const LEVEL_GUIDE: Record<string, string> = {
   A1: '아주 짧은 문장(3~6단어), 현재 시제 위주, 기초 어휘만',
@@ -230,13 +533,44 @@ export function discardGenerated(no: number) {
   store(EPS_KEY, generatedEpisodes().filter((e) => e.no !== no));
 }
 
+/** 쓰는 중인 화 — 엔딩에서 미리 쓰기 시작한 화를 열면 같은 요청을 기다린다(중복 호출 없음) */
+const inflight = new Map<number, Promise<Episode | null>>();
+
+export function isGenerating(no: number): boolean {
+  return inflight.has(no);
+}
+
 /** 다음 화를 만든다 — 앞 이야기(최근 4화 요약 + 직전 클리프행어)를 기억하며 */
-export async function generateEpisode(no: number, level: Cefr): Promise<Episode | null> {
+export function generateEpisode(no: number, level: Cefr = dramaLevel()): Promise<Episode | null> {
+  const cur = inflight.get(no);
+  if (cur) return cur;
+  const p = writeEpisode(no, level).finally(() => inflight.delete(no));
+  inflight.set(no, p);
+  return p;
+}
+
+/**
+ * 다음 화 미리 쓰기 — 한 화를 다 본 뒤(엔딩) 백그라운드로 시작한다. 다음 날 열 때
+ * 기다림 없이 바로 재생된다. 원고 화(1~7화)나 이미 있는 화, 키가 없으면 아무것도 안 한다.
+ */
+export function prefetchEpisode(no: number): Promise<boolean> | null {
+  if (no <= S.episodes.length || episodeByNo(no) || !groqKey()) return null;
+  return generateEpisode(no)
+    .then((e) => !!e)
+    .catch(() => false);
+}
+
+async function writeEpisode(no: number, level: Cefr): Promise<Episode | null> {
   if (!groqKey()) return null;
   const prev = allEpisodes().filter((e) => e.no < no).slice(-4);
   const last = prev[prev.length - 1];
   const story = prev.map((e) => `${e.no}화 「${e.titleKr}」: ${e.recap || ''} → 끝: ${e.cliff}`).join('\n');
   const cast = CAST.map((c) => `${c.id}(${c.name}): ${c.desc}`).join('\n');
+  // 지난 화에서 배운(또는 틀린) 표현 — 새 상황에서 다시 쓰게 해 이야기 속 간격 반복이 되게 한다
+  const recycle = recycleCandidates(no);
+  const recycleRule = recycle.length
+    ? `- 복습 표현(학습자가 지난 화에서 배웠거나 틀린 것): ${recycle.map((r) => `"${r.en}"(${r.kr})`).join(', ')}\n  → 이 중 최소 1개를 이번 화 참여 문항의 정답(태오의 대사)으로, 다른 상황에서 자연스럽게 다시 쓰게 하라. learn에는 넣지 말 것.\n`
+    : '';
   const sys = `너는 한국인 영어 학습자를 위한 웹드라마 작가다. 시리즈: "${SERIES}"(${SERIES_KR}). 시트콤처럼 웃기고, 매 화 작은 사건과 반전이 있다.
 등장인물(id: 설명):
 ${cast}
@@ -244,20 +578,25 @@ ${cast}
 지금까지 이야기:
 ${story}
 이번 ${no}화는 직전 화의 끝("${last?.cliff || ''}")에서 바로 이어진다. 회사 일만이 아니라 동료 관계·일상·유머를 섞어라.
-영어 난이도: ${level} — ${LEVEL_GUIDE[level] || LEVEL_GUIDE.A2}.
+영어 난이도: ${level} — ${LEVEL_GUIDE[level] || LEVEL_GUIDE.A2}. 모든 영어 대사가 이 난이도를 지켜야 한다.
 구성 규칙:
 - scenes 12~18개. type: "narr"(한국어 해설 kr), "line"(who,en,kr), 그리고 학습자 참여 3개(서로 다른 형식 2종 이상):
-  "choice"(prompt 한국어, opts 3개 {en, ok, why(오답만, 한국어), reply(정답만: {who,en,kr} 상대의 반응)}, 정답 정확히 1개)
-  "meaning"(who, en, opts 한국어 뜻 3개, a 정답 인덱스, why 한국어)
+  "choice"(prompt 한국어, opts 3개 {en, ok, kr(한국어 뜻), why(오답만, 한국어), reply(정답만: {who,en,kr} 상대의 반응)}, 정답 정확히 1개)
+  "meaning"(who, en, opts 한국어 뜻 3개, a 정답 인덱스, why 한국어) — 바로 앞 line에 같은 영어를 쓰지 말 것
   "fill"(who, before, after, opts 영어 3개, a, kr 전체 번역, why 한국어)
   "speak"(who:"taeo", en, kr — 태오가 소리 내어 말할 한 문장)
 - 참여 문항은 이야기 흐름 속 태오의 대사여야 한다(시험 문제처럼 떼어 내지 말 것).
-- learn: 이번 화 핵심 표현 2개 {en, kr, note(언제 쓰는지 한국어 짧게)}.
+${recycleRule}- learn: 이번 화 새 핵심 표현 2개 {en, kr, note(언제 쓰는지 한국어 짧게)} — 두 표현 모두 이번 화 대사나 문항에 그대로 나와야 한다.
 - recap: 직전 화까지 한 줄 요약(한국어). cliff: 다음 화가 궁금해지는 한 줄(한국어).
 JSON만: {"level":"${level}","title":"영어 제목","titleKr":"한국어 제목","recap":"","scenes":[...],"learn":[...],"cliff":""}`;
   // 네트워크·429·키 오류는 예외로 올라온다 — 삼키고 null(예전엔 '쓰는 중' 스피너가 영원히 돌았다).
-  // 느린 응답도 45초에서 끊는다.
+  // 느린 응답도 60초에서 끊는다(검증 실패 시 한 번 더 쓰므로 두 번 분량).
   let ep: Episode | null = null;
+  let t: ReturnType<typeof setTimeout> | undefined;
+  // 첫 원고는 '지난 표현 재등장'까지 엄격히 보고, 다시 쓴 원고는 그 조건만 풀어 준다
+  // (모델이 한 번 놓쳤다고 이야기 자체를 못 보게 하지 않는다)
+  let attempt = 0;
+  const recycleEns = recycle.map((r) => r.en);
   try {
     ep = await Promise.race([
       groqKoJson<Episode>(
@@ -265,16 +604,49 @@ JSON만: {"level":"${level}","title":"영어 제목","titleKr":"한국어 제목
           { role: 'system', content: sys },
           { role: 'user', content: `${no}화를 써 줘.` },
         ],
-        { temperature: 0.9, maxTokens: 2000 },
-        (d) => validateEpisode(d, no)
+        { temperature: 0.9, maxTokens: 4000 },
+        (d) => {
+          // 레벨은 요청한 값으로 고정·검사(AI가 적어 낸 레벨을 믿지 않는다), 지난 표현 재등장도 검사
+          return validateEpisode(d, no, level, attempt++ === 0 ? recycleEns : []);
+        }
       ),
-      new Promise<null>((res) => setTimeout(() => res(null), 45000)),
+      new Promise<null>((res) => {
+        t = setTimeout(() => res(null), 60000);
+      }),
     ]);
   } catch {
     ep = null;
+  } finally {
+    if (t) clearTimeout(t);
   }
   if (!ep) return null;
   const gen = generatedEpisodes().filter((e) => e.no !== no);
   store(EPS_KEY, [...gen, ep].sort((a, b) => a.no - b.no).slice(-40));
   return ep;
+}
+
+/* ── 따라 말하기 일치도 ── */
+const words = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[’']/g, "'")
+    .replace(/[^a-z0-9' ]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+
+/** 따라 말한 문장이 목표와 얼마나 겹치나(0~1) — 목표 단어 중 들린 비율 */
+export function speakMatch(target: string, said: string): number {
+  const t = words(target);
+  if (!t.length) return 0;
+  const bag = new Map<string, number>();
+  for (const w of words(said)) bag.set(w, (bag.get(w) || 0) + 1);
+  let hit = 0;
+  for (const w of t) {
+    const n = bag.get(w) || 0;
+    if (n > 0) {
+      hit++;
+      bag.set(w, n - 1);
+    }
+  }
+  return hit / t.length;
 }

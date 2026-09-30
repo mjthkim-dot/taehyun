@@ -46,6 +46,14 @@ await page2.waitForTimeout(500);
 check('복원 성공 메시지', !!(await page2.evaluate(() => document.querySelector('.bk-msg')?.textContent?.includes('복원'))));
 check('복원 후 표현장 데이터', (await page2.evaluate(() => JSON.parse(localStorage.getItem('va_phrases') || '[]').length)) === 1);
 check('복원해도 키는 안 들어옴', (await page2.evaluate(() => localStorage.getItem('va_groq_key'))) === null);
+check('복원 뒤 앱을 새 값으로 다시 연다(자동 새로고침)', await page2.waitForEvent('load', { timeout: 6000 }).then(() => true).catch(() => false));
+await page2.waitForTimeout(1200);
+await page2.click('.mode-tab:has-text("더보기")');
+await page2.waitForSelector('.more-sheet .feat-card', { timeout: 8000 });
+await page2.click('.more-sheet .feat-card:has-text("기능")');
+await page2.waitForSelector('.feat-card', { timeout: 8000 });
+await page2.click('.feat-card:has-text("백업")');
+await page2.waitForSelector('.bk-stats', { timeout: 8000 });
 
 // 불량 파일 거부
 const bad = tmp.replace('.json', '-bad.json');

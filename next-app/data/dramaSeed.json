@@ -74,17 +74,20 @@
                 "who": "diane",
                 "en": "Nice! Welcome to Nimbus.",
                 "kr": "잘됐네요! Nimbus에 온 걸 환영해요."
-              }
+              },
+              "kr": "네, 오늘이 첫 출근이에요."
             },
             {
               "en": "Yes, I am first day.",
               "ok": false,
-              "why": "'I am first day'는 '나 = 첫날'이 돼요. 날을 말할 땐 It's my first day."
+              "why": "'I am first day'는 '나 = 첫날'이 돼요. 날을 말할 땐 It's my first day.",
+              "kr": "네, 저는 첫날이에요.(문법 오류)"
             },
             {
               "en": "First day is yes.",
               "ok": false,
-              "why": "영어는 '누가/무엇이 + 동사' 순서예요. It's my first day."
+              "why": "영어는 '누가/무엇이 + 동사' 순서예요. It's my first day.",
+              "kr": "첫날은 네.(뜻이 안 통함)"
             }
           ]
         },
@@ -231,9 +234,43 @@
           "kr": "1층 카페. 바리스타가 태오를 본다."
         },
         {
+          "type": "line",
+          "who": "barista",
+          "en": "Hi! New face. First time here?",
+          "kr": "안녕하세요! 처음 보는 얼굴이네요. 여기 처음이에요?"
+        },
+        {
+          "type": "choice",
+          "prompt": "처음 왔냐는 바리스타에게 오늘이 첫 출근이라고 말하자.",
+          "opts": [
+            {
+              "en": "Yes, it's my first day at Nimbus.",
+              "ok": true,
+              "kr": "네, 오늘 Nimbus 첫 출근이에요.",
+              "reply": {
+                "who": "barista",
+                "en": "Welcome! What can I get you?",
+                "kr": "환영해요! 뭘 드릴까요?"
+              }
+            },
+            {
+              "en": "Yes, I am first day at Nimbus.",
+              "ok": false,
+              "kr": "네, 저는 Nimbus 첫날이에요.(문법 오류)",
+              "why": "'나 = 첫날'이 돼요. 날·요일은 It's로 — 1화에서 배운 It's my first day."
+            },
+            {
+              "en": "First day is me at Nimbus.",
+              "ok": false,
+              "kr": "첫날은 나예요.(뜻이 안 통함)",
+              "why": "주어가 뒤바뀌었어요. It's my first day."
+            }
+          ]
+        },
+        {
           "type": "fill",
           "who": "taeo",
-          "before": "Hi, could I",
+          "before": "Thanks! Could I",
           "after": "an iced americano, please?",
           "opts": [
             "get",
@@ -241,7 +278,7 @@
             "getting"
           ],
           "a": 0,
-          "kr": "안녕하세요, 아이스 아메리카노 하나 주시겠어요?",
+          "kr": "감사해요! 아이스 아메리카노 하나 주시겠어요?",
           "why": "Could I 뒤에는 동사원형 — could I get ~ 은 주문할 때 가장 자연스러운 말이에요."
         },
         {
@@ -261,17 +298,20 @@
                 "who": "barista",
                 "en": "Got it. Name for the order?",
                 "kr": "알겠습니다. 주문하시는 분 이름은요?"
-              }
+              },
+              "kr": "그리고 귀리 우유 라테 하나 주세요."
             },
             {
               "en": "And latte oat milk give me.",
               "ok": false,
-              "why": "한국어 순서(라테·귀리우유·주세요)를 그대로 옮긴 거예요. 영어는 '무엇을 + 어떻게' 순서로: And a latte with oat milk, please."
+              "why": "한국어 순서(라테·귀리우유·주세요)를 그대로 옮긴 거예요. 영어는 '무엇을 + 어떻게' 순서로: And a latte with oat milk, please.",
+              "kr": "그리고 라테 귀리 우유 줘.(어순 오류)"
             },
             {
               "en": "Oat milk is latte.",
               "ok": false,
-              "why": "'귀리 우유는 라테다'라는 뜻이 돼요. A latte with oat milk."
+              "why": "'귀리 우유는 라테다'라는 뜻이 돼요. A latte with oat milk.",
+              "kr": "귀리 우유는 라테다.(뜻이 다름)"
             }
           ]
         },
@@ -292,7 +332,7 @@
           "kr": "타코! 이제 네 이름은 그거야."
         },
         {
-          "type": "speak",
+          "type": "line",
           "who": "taeo",
           "en": "Very funny. Here's your latte.",
           "kr": "참 재밌네요. 여기 라테요."
@@ -310,8 +350,8 @@
       ],
       "learn": [
         {
-          "en": "Could I get a latte, please?",
-          "kr": "라테 하나 주시겠어요?",
+          "en": "Could I get an iced americano, please?",
+          "kr": "아이스 아메리카노 하나 주시겠어요?",
           "note": "주문할 때 가장 자연스러운 표현"
         },
         {
@@ -350,17 +390,20 @@
                 "who": "grant",
                 "en": "Good. Where's Maya?",
                 "kr": "좋아요. Maya는 어디 있죠?"
-              }
+              },
+              "kr": "네, 또렷하게 잘 들려요."
             },
             {
               "en": "Yes, I hear you clear.",
               "ok": false,
-              "why": "'또렷하게'는 동사를 꾸미니까 clear가 아니라 clearly."
+              "why": "'또렷하게'는 동사를 꾸미니까 clear가 아니라 clearly.",
+              "kr": "네, 들려요 또렷.(문법 오류)"
             },
             {
               "en": "Hello yes hearing.",
               "ok": false,
-              "why": "단어만 나열하면 뜻이 안 돼요. Yes, I can hear you."
+              "why": "단어만 나열하면 뜻이 안 돼요. Yes, I can hear you.",
+              "kr": "여보세요 네 듣기.(뜻이 안 통함)"
             }
           ]
         },
@@ -391,17 +434,20 @@
                 "who": "grant",
                 "en": "Fine. By tomorrow.",
                 "kr": "좋아요. 내일까지요."
-              }
+              },
+              "kr": "확인해 보고 다시 연락드릴게요."
             },
             {
               "en": "I don't know. Bye.",
               "ok": false,
-              "why": "모를 땐 끊는 대신 '확인하고 다시 연락드릴게요'가 신뢰를 지켜요."
+              "why": "모를 땐 끊는 대신 '확인하고 다시 연락드릴게요'가 신뢰를 지켜요.",
+              "kr": "몰라요. 끊을게요."
             },
             {
               "en": "Your bill is high because it is high.",
               "ok": false,
-              "why": "이유가 아니라 같은 말 반복이에요. 확인 후 답하겠다고 하세요."
+              "why": "이유가 아니라 같은 말 반복이에요. 확인 후 답하겠다고 하세요.",
+              "kr": "청구서가 많은 건 많아서예요."
             }
           ]
         },
@@ -412,16 +458,10 @@
           "kr": "그리고 하나 더."
         },
         {
-          "type": "meaning",
+          "type": "line",
           "who": "grant",
           "en": "I'd rather talk face to face.",
-          "opts": [
-            "차라리 직접 만나서 얘기하고 싶어요",
-            "얼굴 보면서 화내고 싶어요",
-            "전화가 싫어서 끊을게요"
-          ],
-          "a": 0,
-          "why": "I'd rather + 동사원형 = 차라리 ~하고 싶다. face to face = 직접 만나서."
+          "kr": "차라리 직접 만나서 얘기하고 싶어요."
         },
         {
           "type": "line",
@@ -444,6 +484,18 @@
           "who": "jun",
           "en": "Grant is coming to Seoul? Good luck, Taco.",
           "kr": "Grant가 서울에 온다고? 행운을 빈다, 타코."
+        },
+        {
+          "type": "meaning",
+          "who": "jun",
+          "en": "Hang in there, buddy.",
+          "opts": [
+            "힘내, 친구",
+            "거기 매달려 있어, 친구",
+            "친구 좀 기다려 줘"
+          ],
+          "a": 0,
+          "why": "1화에서 배운 Hang in there — 힘든 상황을 조금만 더 버티라는 응원이에요. buddy = 친구(친근하게)."
         },
         {
           "type": "narr",
@@ -508,17 +560,20 @@
                 "who": "maya",
                 "en": "Show me.",
                 "kr": "보여 줘요."
-              }
+              },
+              "kr": "이상한 걸 발견했어요."
             },
             {
               "en": "I find something strange yesterday.",
               "ok": false,
-              "why": "방금 찾아낸 일은 과거형 found. find는 '지금·평소'에 써요."
+              "why": "방금 찾아낸 일은 과거형 found. find는 '지금·평소'에 써요.",
+              "kr": "어제 이상한 걸 발견해요.(시제 오류)"
             },
             {
               "en": "Something strange is finding me.",
               "ok": false,
-              "why": "'이상한 게 나를 찾고 있다'가 돼요. 찾은 사람(I)이 주어예요."
+              "why": "'이상한 게 나를 찾고 있다'가 돼요. 찾은 사람(I)이 주어예요.",
+              "kr": "이상한 게 나를 찾고 있어요."
             }
           ]
         },
@@ -545,6 +600,12 @@
           "kr": "탐정님 커피 왔습니다!"
         },
         {
+          "type": "line",
+          "who": "taeo",
+          "en": "Thanks! Could I get a donut too?",
+          "kr": "고마워! 도넛도 하나 줄 수 있어?"
+        },
+        {
           "type": "meaning",
           "who": "jun",
           "en": "Any luck?",
@@ -554,7 +615,8 @@
             "행운을 빌어"
           ],
           "a": 0,
-          "why": "Any luck? = '(찾던 거) 뭐 좀 됐어?' 진행 상황을 가볍게 물을 때 써요."
+          "why": "Any luck? = '(찾던 거) 뭐 좀 됐어?' 진행 상황을 가볍게 물을 때 써요.",
+          "level": "B1"
         },
         {
           "type": "line",
@@ -563,18 +625,24 @@
           "kr": "아마도. 누가 지난달에 이 서버들을 만들었어."
         },
         {
+          "type": "line",
+          "who": "jun",
+          "en": "Who? Do you know?",
+          "kr": "누구? 알아?"
+        },
+        {
           "type": "fill",
           "who": "taeo",
-          "before": "Can you help me",
-          "after": "out who made them?",
+          "before": "Not yet. Let me",
+          "after": "and get back to you.",
           "opts": [
-            "find",
-            "found",
-            "finding"
+            "check",
+            "checking",
+            "checked"
           ],
           "a": 0,
-          "kr": "누가 만들었는지 찾는 것 좀 도와줄래?",
-          "why": "help me + 동사원형 — help me find."
+          "kr": "아직. 확인해 보고 다시 알려 줄게.",
+          "why": "3화에서 배운 표현 — Let me 뒤에는 동사원형 check. '확인해 보고 다시 알려 줄게.'"
         },
         {
           "type": "narr",
@@ -651,17 +719,20 @@
                 "who": "jun",
                 "en": "Really? Thanks, Taco.",
                 "kr": "정말? 고마워, 타코."
-              }
+              },
+              "kr": "괜찮아. 같이 고치자."
             },
             {
               "en": "It's okay. Let's fixing it together.",
               "ok": false,
-              "why": "Let's 뒤에는 동사원형 — Let's fix."
+              "why": "Let's 뒤에는 동사원형 — Let's fix.",
+              "kr": "괜찮아. 같이 고치는 중 하자.(문법 오류)"
             },
             {
               "en": "Okay is it. Together fix.",
               "ok": false,
-              "why": "한국어 순서를 옮기면 뜻이 흐려져요. It's okay. Let's fix it together."
+              "why": "한국어 순서를 옮기면 뜻이 흐려져요. It's okay. Let's fix it together.",
+              "kr": "괜찮다 그건. 같이 고침.(어순 오류)"
             }
           ]
         },
@@ -681,11 +752,26 @@
             "보험이 제일 좋아"
           ],
           "a": 0,
-          "why": "영어 속담 — 솔직하게 말하는 게 결국 제일 낫다는 뜻이에요."
+          "why": "영어 속담 — 솔직하게 말하는 게 결국 제일 낫다는 뜻이에요.",
+          "level": "B1"
         },
         {
           "type": "narr",
           "kr": "오후 3시. 두 사람이 Maya 앞에 선다."
+        },
+        {
+          "type": "fill",
+          "who": "taeo",
+          "before": "Go on, Jun. It's your",
+          "after": ".",
+          "opts": [
+            "turn",
+            "turning",
+            "turned"
+          ],
+          "a": 0,
+          "kr": "어서, Jun. 네 차례야.",
+          "why": "2화에서 배운 It's your turn — '네 차례야'. turn은 여기서 명사(차례)라 형태가 바뀌지 않아요."
         },
         {
           "type": "line",
@@ -700,18 +786,10 @@
           "kr": "말해 줘서 고마워요. 오늘 끌 수 있어요?"
         },
         {
-          "type": "fill",
+          "type": "line",
           "who": "taeo",
-          "before": "Yes, we",
-          "after": "them off right now.",
-          "opts": [
-            "can turn",
-            "can turned",
-            "can to turn"
-          ],
-          "a": 0,
-          "kr": "네, 지금 바로 끌 수 있어요.",
-          "why": "can 뒤에는 동사원형 — can turn. to나 -ed를 붙이지 않아요."
+          "en": "Yes, we can turn them off right now.",
+          "kr": "네, 지금 바로 끌 수 있어요."
         },
         {
           "type": "line",
@@ -740,6 +818,12 @@
           "who": "maya",
           "en": "You'll meet Mr. Grant alone.",
           "kr": "Grant 씨는 혼자 만나야 해요."
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "Don't worry. Hang in there, Maya.",
+          "kr": "걱정 마세요. 힘내세요, Maya."
         }
       ],
       "learn": [
@@ -796,17 +880,49 @@
                 "who": "grant",
                 "en": "Go on.",
                 "kr": "계속해요."
-              }
+              },
+              "kr": "네. 요금이 많이 나온 원인을 찾았어요."
             },
             {
               "en": "Yes. We find the reason for the high bill last week.",
               "ok": false,
-              "why": "지난주에 찾은 일은 과거형 found."
+              "why": "지난주에 찾은 일은 과거형 found.",
+              "kr": "네. 지난주에 원인을 찾아요.(시제 오류)"
             },
             {
               "en": "Yes. The reason is finding by us.",
               "ok": false,
-              "why": "'이유가 우리에 의해 찾는 중'이 돼요. We found the reason."
+              "why": "'이유가 우리에 의해 찾는 중'이 돼요. We found the reason.",
+              "kr": "네. 원인이 우리에 의해 찾는 중이에요."
+            }
+          ],
+          "level": "B1"
+        },
+        {
+          "type": "choice",
+          "prompt": "지난주 청구서에서 이상한 걸 발견했다고 설명하자.",
+          "opts": [
+            {
+              "en": "Last week, I found something strange in your bill.",
+              "ok": true,
+              "kr": "지난주에 청구서에서 이상한 걸 발견했어요.",
+              "reply": {
+                "who": "grant",
+                "en": "Strange? Tell me.",
+                "kr": "이상한 거요? 말해 봐요."
+              }
+            },
+            {
+              "en": "Last week, I find something strange in your bill.",
+              "ok": false,
+              "kr": "지난주에 청구서에서 이상한 걸 발견해요.(시제 오류)",
+              "why": "지난주에 한 일은 과거형 found. 4화에서 배운 I found something strange."
+            },
+            {
+              "en": "Something strange found me in your bill.",
+              "ok": false,
+              "kr": "이상한 게 청구서에서 나를 발견했어요.",
+              "why": "찾은 사람(I)이 주어예요 — I found something strange."
             }
           ]
         },
@@ -859,7 +975,7 @@
           "kr": "좋아요. 그런데 하나는 알아야겠어요."
         },
         {
-          "type": "speak",
+          "type": "line",
           "who": "taeo",
           "en": "Of course. What is it?",
           "kr": "물론이죠. 뭔가요?"
@@ -905,8 +1021,9 @@
           "prompt": "동료를 탓하지 않고 팀의 책임으로 답하자.",
           "opts": [
             {
-              "en": "Our team made the mistake, and we fixed it.",
+              "en": "It was our team. We found the reason and fixed it.",
               "ok": true,
+              "kr": "저희 팀이었어요. 원인을 찾아서 고쳤어요.",
               "reply": {
                 "who": "grant",
                 "en": "Hm. You didn't name anyone.",
@@ -914,22 +1031,31 @@
               }
             },
             {
-              "en": "Our team make the mistake, and we fix it.",
+              "en": "It was Jun. He made the mistake.",
               "ok": false,
-              "why": "이미 끝난 일이라 과거형 made, fixed."
+              "kr": "Jun이었어요. 그가 실수했어요.",
+              "why": "동료를 탓하면 팀 신뢰가 무너져요 — 태오는 팀의 책임으로 답해요."
             },
             {
-              "en": "The mistake made our team.",
+              "en": "It was our team. We find the reason and fix it.",
               "ok": false,
-              "why": "'실수가 우리 팀을 만들었다'가 돼요. 실수한 쪽(Our team)이 주어예요."
+              "kr": "저희 팀이었어요. 원인을 찾고 고쳐요.(시제 오류)",
+              "why": "이미 끝난 일이라 과거형 found, fixed — 6화에서 배운 We found the reason."
             }
-          ]
+          ],
+          "level": "B1"
         },
         {
           "type": "line",
           "who": "taeo",
           "en": "We work as one team. The mistake is ours.",
           "kr": "저희는 한 팀으로 일해요. 실수도 저희 거예요."
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "We found it, and we fixed it together.",
+          "kr": "저희가 찾아냈고, 함께 고쳤어요."
         },
         {
           "type": "line",
@@ -947,7 +1073,8 @@
             "당신이 제 친구예요"
           ],
           "a": 0,
-          "why": "trust = 신뢰. You have my trust = 내 신뢰를 얻었다 → 믿겠다."
+          "why": "trust = 신뢰. You have my trust = 내 신뢰를 얻었다 → 믿겠다.",
+          "level": "B1"
         },
         {
           "type": "line",

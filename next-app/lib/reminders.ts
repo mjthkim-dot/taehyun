@@ -11,7 +11,18 @@
  */
 import { dateKey } from './dates';
 import { dueWeak, load, store } from './state';
-import { isMissionDoneToday } from './dailyMission';
+import { isMissionDoneToday } from './homeLite';
+import { isFocusMode } from './focus';
+import { dramaPracticedToday } from './homeLite';
+
+/** 오늘 할 일을 끝냈는가 — 집중 모드는 '드라마 한 편', 전체 모드는 '오늘의 미션' */
+function todayDone(focus: boolean): boolean {
+  try {
+    return focus ? dramaPracticedToday() : isMissionDoneToday();
+  } catch {
+    return false;
+  }
+}
 
 export interface ReminderSettings {
   enabled: boolean;
@@ -66,8 +77,13 @@ export function reminderTitle(): string {
   return '🔥 오늘의 영어';
 }
 
-/** 미션 완료 여부 + 복습 카드 수에 따라 가장 와닿는 문구를 고른다. */
-export function reminderBody(count: number, missionDone: boolean): string {
+/** 미션(집중 모드는 드라마) 완료 여부 + 복습 카드 수에 따라 가장 와닿는 문구를 고른다. */
+export function reminderBody(count: number, missionDone: boolean, focus = false): string {
+  if (focus) {
+    // 집중 모드 사용자는 미션을 하지 않는다 — '비즈니스 미션' 대신 드라마로 부른다(감사 v1.31 견고성 #7)
+    if (!missionDone) return '오늘의 드라마 한 편(5분)이 기다려요 — 태오 이야기 이어 보기!';
+    return `지난 화 표현 ${count}개를 떠올릴 시간이에요. 다음 화 첫머리에서 물어볼게요!`;
+  }
   if (!missionDone && count > 0) {
     return `오늘의 비즈니스 미션이 아직 남았어요 · 복습 카드도 ${count}개 대기 중! 15분이면 충분해요.`;
   }
@@ -134,8 +150,9 @@ async function showNotification(title: string, body: string) {
 export async function maybeFireReminder(now = new Date()): Promise<boolean> {
   const s = getReminderSettings();
   const count = dueReviewCount();
-  const missionDone = isMissionDoneToday();
-  mirrorReminderMeta(count, missionDone); // 서비스워커(백그라운드)가 읽을 수 있게 미러링
+  const focus = isFocusMode();
+  const missionDone = todayDone(focus);
+  mirrorReminderMeta(count, missionDone, s.enabled, focus); // 서비스워커(백그라운드)가 읽을 수 있게 미러링
   if (
     !shouldFire({
       enabled: s.enabled,
@@ -150,7 +167,7 @@ export async function maybeFireReminder(now = new Date()): Promise<boolean> {
   ) {
     return false;
   }
-  await showNotification(reminderTitle(), reminderBody(count, missionDone));
+  await showNotification(reminderTitle(), reminderBody(count, missionDone, focus));
   store(FIRED_KEY, todayKey(now));
   return true;
 }
@@ -158,23 +175,45 @@ export async function maybeFireReminder(now = new Date()): Promise<boolean> {
 /** "지금 테스트" 버튼 — 조건과 무관하게 즉시 알림을 한 번 띄운다(포그라운드). */
 export async function showTestReminder(): Promise<void> {
   const count = dueReviewCount();
-  const missionDone = isMissionDoneToday();
+  const focus = isFocusMode();
+  const missionDone = todayDone(focus);
   await showNotification(
     reminderTitle(),
-    count > 0 || !missionDone ? reminderBody(count, missionDone) : '알림이 이렇게 표시됩니다. 매일 이 시간에 오늘의 미션과 복습을 알려드릴게요!'
+    count > 0 || !missionDone
+      ? reminderBody(count, missionDone, focus)
+      : focus
+        ? '알림이 이렇게 표시됩니다. 매일 이 시간에 오늘의 드라마를 알려드릴게요!'
+        : '알림이 이렇게 표시됩니다. 매일 이 시간에 오늘의 미션과 복습을 알려드릴게요!'
   );
 }
 
 /** 서비스워커가 백그라운드에서 복습 개수·미션 완료 여부를 알 수 있도록 Cache에 미러링한다. */
-export function mirrorReminderMeta(count: number, missionDone: boolean) {
+export function mirrorReminderMeta(count: number, missionDone: boolean, enabled = true, focus = false) {
   if (typeof caches === 'undefined') return;
   caches
     .open('reminder-meta')
     .then((c) => {
       c.put('reminder-due', new Response(String(count))).catch(() => {});
       c.put('reminder-mission-done', new Response(missionDone ? '1' : '0')).catch(() => {});
+      // 워커는 이 값이 '1'일 때만 알린다 — 알림을 꺼도 백그라운드 알림이 계속 오던 문제
+      c.put('reminder-enabled', new Response(enabled ? '1' : '0')).catch(() => {});
+      c.put('reminder-focus', new Response(focus ? '1' : '0')).catch(() => {});
     })
     .catch(() => {});
+}
+
+/** 알림 끄기·모든 데이터 삭제 — 백그라운드 주기 동기화를 해제하고 미러 캐시를 지운다 */
+export async function unregisterPeriodicReminder() {
+  try {
+    if (typeof caches !== 'undefined') await caches.delete('reminder-meta');
+    if (!('serviceWorker' in navigator)) return;
+    const reg = (await navigator.serviceWorker.getRegistration()) as
+      | (ServiceWorkerRegistration & { periodicSync?: { unregister: (tag: string) => Promise<void> } })
+      | undefined;
+    await reg?.periodicSync?.unregister('daily-review');
+  } catch {
+    /* 미지원 — 무시 */
+  }
 }
 
 /** 지원 브라우저(설치된 PWA)에서 하루 주기 백그라운드 동기화를 등록한다(best-effort). */

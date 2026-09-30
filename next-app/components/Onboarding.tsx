@@ -14,6 +14,8 @@ import { useState } from 'react';
 import { APP_NAME_KO, APP_TAGLINE_KO } from '../lib/brand';
 import { saveGroqKey, store, load } from '../lib/state';
 import { validateGroqKey } from '../lib/groq';
+import { isFocusMode } from '../lib/focus';
+import { restoreBackup } from '../lib/backup';
 
 export const ONBOARDED_KEY = 'va_onboarded';
 
@@ -36,6 +38,20 @@ export default function Onboarding({ onDone, onPlacement }: { onDone: () => void
   const [keyErr, setKeyErr] = useState('');
   const [keyOk, setKeyOk] = useState(false);
   const [goal, setGoal] = useState(20);
+  // 집중 모드(기본)는 '하루 드라마 한 편'이 목표 — 숨긴 기능을 약속하거나 문장 수 목표를 고르게 하지 않는다(감사 #23)
+  const [focus] = useState(() => isFocusMode());
+  const [restoreMsg, setRestoreMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  /** 예전 기기의 백업 파일로 바로 시작 — 새 폰으로 옮긴 사용자가 백업 화면을 찾아 헤매지 않게 */
+  async function restoreFrom(file: File | undefined) {
+    if (!file) return;
+    const r = restoreBackup(await file.text());
+    setRestoreMsg({ ok: r.ok, text: r.message });
+    if (r.ok) {
+      store(ONBOARDED_KEY, true);
+      setTimeout(() => window.location.reload(), 900);
+    }
+  }
 
   function finish(startPlacement: boolean) {
     store(ONBOARDED_KEY, true);
@@ -78,16 +94,32 @@ export default function Onboarding({ onDone, onPlacement }: { onDone: () => void
             <div className="onb-logo">EC</div>
             <h2>{APP_NAME_KO}</h2>
             <p className="onb-lead">{APP_TAGLINE_KO}</p>
-            <p className="onb-body">
-              읽고 끝나는 영어가 아니라 <b>소리 내어 말하는</b> 연습을 매일 이어가는 앱입니다.
-              CEFR 48단계 커리큘럼, IT 영업 실무 어휘, AI 롤플레이가 하나로 이어집니다.
-            </p>
+            {focus ? (
+              <p className="onb-body">
+                하루 <b>5분 드라마 한 편</b>이면 충분해요. 신입 태오가 되어 동료·고객과 영어로 말하며,
+                매 화 표현 두 개를 익히고 다음 화 첫머리에서 다시 떠올려요.
+              </p>
+            ) : (
+              <p className="onb-body">
+                읽고 끝나는 영어가 아니라 <b>소리 내어 말하는</b> 연습을 매일 이어가는 앱입니다.
+                CEFR 48단계 커리큘럼, IT 영업 실무 어휘, AI 롤플레이가 하나로 이어집니다.
+              </p>
+            )}
             <button className="btn primary onb-next" onClick={() => setStep(1)}>
               시작하기
             </button>
             <button className="onb-skip" onClick={() => finish(false)}>
               둘러보기만 할게요
             </button>
+            <label className="onb-skip onb-restore">
+              예전 기기의 백업 파일이 있어요
+              <input type="file" accept="application/json,.json" className="sr-only" onChange={(e) => void restoreFrom(e.target.files?.[0])} />
+            </label>
+            {restoreMsg && (
+              <p className={restoreMsg.ok ? 'onb-ok' : 'onb-err'} role="status">
+                {restoreMsg.text}
+              </p>
+            )}
           </>
         )}
 
@@ -95,7 +127,16 @@ export default function Onboarding({ onDone, onPlacement }: { onDone: () => void
           <>
             <h2>AI 연결</h2>
             <p className="onb-body">
-              무료 Groq 키를 넣으면 <b>AI 회화·발음 인식·즉석 질문</b>이 모두 켜집니다.
+              {focus ? (
+                <>
+                  무료 Groq 키를 넣으면 <b>실제 사람 같은 인물 목소리, 8화부터 이어지는 이야기, 드라마 인물과 영어 대화</b>가 켜집니다.
+                  1~7화는 키 없이도 볼 수 있어요.
+                </>
+              ) : (
+                <>
+                  무료 Groq 키를 넣으면 <b>AI 회화·발음 인식·즉석 질문</b>이 모두 켜집니다.
+                </>
+              )}{' '}
               키는 이 기기에만 저장되고 서버나 백업 파일에 담기지 않아요.
             </p>
             <ol className="onb-steps">
@@ -122,7 +163,7 @@ export default function Onboarding({ onDone, onPlacement }: { onDone: () => void
               </button>
             </div>
             <button className="onb-skip" onClick={() => setStep(2)}>
-              나중에 할게요 — 기능 탭에서 언제든 등록할 수 있어요
+              {focus ? '나중에 할게요 — 드라마·회화 화면에서 언제든 연결할 수 있어요' : '나중에 할게요 — 기능 탭에서 언제든 등록할 수 있어요'}
             </button>
           </>
         )}
@@ -131,10 +172,17 @@ export default function Onboarding({ onDone, onPlacement }: { onDone: () => void
           <>
             <h2>하루 목표</h2>
             {keyOk && <div className="onb-ok">AI 연결 완료 — 회화·음성이 켜졌어요.</div>}
-            <p className="onb-body">
-              목표는 <b>소리 내어 말한 문장 수</b>로 셉니다. 나중에 바꿀 수 있어요.
-            </p>
-            <div className="onb-goals">
+            {focus ? (
+              <p className="onb-body">
+                하루 할 일은 딱 하나, <b>드라마 한 편(5분)</b>이에요. 한 편을 보면 오늘의 🔥 불꽃이 켜지고 연속 학습일이 이어져요.
+                먼저 짧은 레벨 진단(객관식 18문항)으로 내게 맞는 난이도를 찾아요.
+              </p>
+            ) : (
+              <p className="onb-body">
+                목표는 <b>소리 내어 말한 문장 수</b>로 셉니다. 나중에 바꿀 수 있어요.
+              </p>
+            )}
+            {!focus && <div className="onb-goals">
               {GOALS.map((g) => (
                 <button
                   key={g.value}
@@ -145,7 +193,7 @@ export default function Onboarding({ onDone, onPlacement }: { onDone: () => void
                   <span>{g.desc}</span>
                 </button>
               ))}
-            </div>
+            </div>}
             <button className="btn primary onb-next" onClick={() => finish(true)}>
               레벨 진단하고 시작하기
             </button>

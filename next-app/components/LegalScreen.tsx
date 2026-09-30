@@ -1,5 +1,8 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /** 약관 · 개인정보처리방침 화면 — 내용은 lib/legalContent.ts(초안). */
 import { useState } from 'react';
 import { TERMS_SECTIONS, PRIVACY_SECTIONS, LEGAL_DRAFT_NOTICE } from '../lib/legalContent';

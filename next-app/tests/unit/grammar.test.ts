@@ -155,3 +155,56 @@ describe('변형 생성 — 같은 문법, 새 상황', async () => {
     expect(w.think.rule).toBe(u.think.rule);
   });
 });
+
+describe('만들기 — 다른 올바른 어순도 정답(감사 #24)', () => {
+  test('if절을 앞에 둬도, 시간 표현을 앞으로 빼도 정답', async () => {
+    const { isAcceptedBuild, grammarUnit } = await import('../../lib/grammar');
+    const u = grammarUnit('b1-conditional1')!;
+    const b = u.builds.find((x) => x.a === 'I will tell you if it gets approved')!;
+    expect(isAcceptedBuild('if it gets approved I will tell you', b.a, b.alt)).toBe(true);
+    expect(isAcceptedBuild('I will tell you if it gets approved.', b.a, b.alt)).toBe(true);
+    expect(isAcceptedBuild('it gets approved if I will tell you', b.a, b.alt)).toBe(false);
+  });
+  test('모든 대안 어순은 같은 조각으로 되어 있다(조각 퍼즐로 만들 수 있어야 함)', async () => {
+    const { GRAMMAR_UNITS, sameTokens } = await import('../../lib/grammar');
+    let n = 0;
+    for (const u of GRAMMAR_UNITS) {
+      const items = [...u.builds, ...u.sim.turns.filter((t) => t.task === 'build')] as { a: string; alt?: string[]; extra?: string[] }[];
+      for (const it of items)
+        for (const x of it.alt || []) {
+          n++;
+          expect(sameTokens(x, it.a), `${u.id}: ${x}`).toBe(true);
+          for (const e of it.extra || []) expect(x.split(' ')).not.toContain(e);
+        }
+    }
+    expect(n).toBeGreaterThanOrEqual(20);
+  });
+  test('AI 변형의 대안 어순은 같은 조각일 때만 받는다', async () => {
+    const { validateVariant } = await import('../../lib/grammarGen');
+    const { GRAMMAR_UNITS } = await import('../../lib/grammar');
+    const u = GRAMMAR_UNITS.find((x) => x.id === 'b1-conditional1')!;
+    const v = validateVariant({
+      scene: '새 상황이에요.',
+      ex: u.think.ex,
+      checks: u.checks,
+      builds: [
+        { ...u.builds[0], alt: ['You will save twenty percent if you commit for three years', 'You save money if you sign'] },
+        u.builds[1],
+      ],
+      sim: u.sim,
+    })!;
+    expect(v.builds[0].alt).toEqual(['You will save twenty percent if you commit for three years']);
+  });
+});
+
+test('어순이 자유로운 조립 문항(if절·분사구·앞으로 뺀 시간 표현)은 대안 어순이 있다', async () => {
+  const { GRAMMAR_UNITS } = await import('../../lib/grammar');
+  const movable = /^(if|having|using|working|so far|since|every (week|month|day)|next (week|month)|last (week|month)|this (week|morning|afternoon|month)|tomorrow|yesterday)\b| if |(so far|every (week|month|day)|next week|last week|this (week|morning)|tomorrow|since \w+)$/i;
+  for (const u of GRAMMAR_UNITS) {
+    const items = [...u.builds, ...u.sim.turns.filter((t) => t.task === 'build')] as { a: string; alt?: string[] }[];
+    for (const it of items) {
+      if (/\b(asked|wondering) if\b/i.test(it.a)) continue; // 간접의문의 if(~인지)는 옮길 수 없다
+      if (movable.test(it.a)) expect(it.alt?.length, `${u.id}: ${it.a}`).toBeGreaterThan(0);
+    }
+  }
+});

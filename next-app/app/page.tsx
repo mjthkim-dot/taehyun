@@ -8,7 +8,7 @@
  * 두 곳이면 끝난다. Record<Mode, …> 타입이라 Mode에만 추가하고 레지스트리에
  * 빠뜨리면 컴파일 에러로 바로 잡힌다(예전의 18줄짜리 mode !== … 제외 체인 대체).
  */
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import NavBar, { type Mode } from '../components/NavBar';
 import dynamic from 'next/dynamic';
 import { loadLessons, useLessons } from '../lib/lessonData';
@@ -90,19 +90,24 @@ import MasterScreen from '../components/MasterScreen';
 const StudyScreen = dynamic(() => import('../components/StudyScreen'), { ssr: false, loading: ScreenLoading });
 const ProgramScreen = dynamic(() => import('../components/ProgramScreen'), { ssr: false, loading: ScreenLoading });
 const DramaScreen = dynamic(() => import('../components/DramaScreen'), { ssr: false, loading: ScreenLoading });
+const DramaTalkScreen = dynamic(() => import('../components/DramaTalkScreen'), { ssr: false, loading: ScreenLoading });
 const GrammarScreen = dynamic(() => import('../components/GrammarScreen'), { ssr: false, loading: ScreenLoading });
 const CefrScreen = dynamic(() => import('../components/CefrScreen'), { ssr: false, loading: ScreenLoading });
 const WordsScreen = dynamic(() => import('../components/WordsScreen'), { ssr: false, loading: ScreenLoading });
 const KnowledgeMapScreen = dynamic(() => import('../components/KnowledgeMapScreen'), { ssr: false, loading: ScreenLoading });
-import ReminderScheduler from '../components/ReminderScheduler';
+// 첫 화면에 꼭 필요하지 않은 셸 조각(알림 스케줄러·질문 위젯·첫 실행 온보딩)은 지연 로딩 — 홈 첫 청크 절감(감사 v1.31 G29)
+const ReminderScheduler = dynamic(() => import('../components/ReminderScheduler'), { ssr: false });
 import ThemeToggle from '../components/ThemeToggle';
 import UpdatePrompt from '../components/UpdatePrompt';
 import DepthFX from '../components/DepthFX';
-import AskWidget from '../components/AskWidget';
-import Onboarding, { needsOnboarding } from '../components/Onboarding';
+const AskWidget = dynamic(() => import('../components/AskWidget'), { ssr: false });
+const Onboarding = dynamic(() => import('../components/Onboarding'), { ssr: false, loading: ScreenLoading });
+/** 첫 실행인가 — 온보딩 모듈을 끌어오지 않고 값만 읽는다 */
+const needsOnboarding = () => typeof window !== 'undefined' && !load<boolean>('va_onboarded', false);
 import ServiceWorkerRegistrar from '../components/ServiceWorkerRegistrar';
 import { ErrorBoundary, StorageFullBanner } from '../components/AppErrorBoundary';
-import { calcStreak } from '../lib/state';
+import { BACK_EVENT, calcStreak, load, NAVIGATE_EVENT, PRACTICED_EVENT } from '../lib/state';
+import { isFocusMode } from '../lib/focus';
 import { APP_VERSION } from '../lib/version';
 
 /** 화면 렌더 함수가 받는 앱 셸 컨텍스트. */
@@ -123,18 +128,20 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
   words: { title: '단어', render: () => <WordsScreen /> },
   grammar: { title: '문법 시뮬레이션', render: () => <GrammarScreen /> },
   drama: { title: '드라마 레슨', render: (c) => <DramaScreen onNavigate={c.setMode} /> },
+  dtalk: { title: '회화', render: (c) => <DramaTalkScreen onNavigate={c.setMode} /> },
   cefr: { title: 'CEFR 리포트', render: (c) => <CefrScreen onNavigate={c.setMode} onSelectLesson={c.setLessonId} /> },
   map: { title: '학습 지도', render: (c) => <LessonsGate><KnowledgeMapScreen onNavigate={c.setMode} onSelectLesson={c.setLessonId} /></LessonsGate> },
   study: { title: '레슨', render: (c) => <LessonsGate><StudyScreen lessonId={c.lessonId} onSelectLesson={c.setLessonId} /></LessonsGate> },
   drill: { title: '드릴', render: (c) => <LessonsGate><DrillScreen lessonId={c.lessonId} auto={c.autoDrill} /></LessonsGate> },
   talk: { title: '회화', render: (c) => <LessonsGate><TalkScreen lessonId={c.lessonId} /></LessonsGate> },
   review: { title: '복습', render: () => <ReviewScreen /> },
-  progress: { title: '진도', render: (c) => <LessonsGate><ProgressScreen onNavigate={c.setMode} onSelectLesson={c.setLessonId} /></LessonsGate> },
+  // 진도는 레슨 데이터를 펼칠 때만 받는다(집중 모드는 드라마 중심 — 오프라인에서도 열리게)
+  progress: { title: '진도', render: (c) => <ProgressScreen onNavigate={c.setMode} onSelectLesson={c.setLessonId} /> },
   features: { title: '기능', render: (c) => <FeaturesScreen onNavigate={c.setMode} /> },
   video: { title: '영상', render: () => <VideoScreen /> },
   flashcards: { title: '암기 카드', render: (c) => <FlashcardsScreen onExit={() => c.setMode('review')} /> },
   homework: { title: '숙제 도우미', render: (c) => <LessonsGate><HomeworkScreen lessonId={c.lessonId} /></LessonsGate> },
-  placement: { title: 'CEFR 배치고사', render: (c) => <PlacementScreen onDone={() => c.setMode('master')} /> },
+  placement: { title: 'CEFR 배치고사', render: (c) => <PlacementScreen onDone={() => c.setMode('master')} onNavigate={c.setMode} /> },
   phrasebook: { title: '내 표현장', render: () => <PhrasebookScreen /> },
   askhistory: { title: '내 질문 기록', render: () => <AskHistoryScreen /> },
   shadowing: { title: '쉐도잉', render: (c) => <LessonsGate><ShadowingScreen lessonId={c.lessonId} /></LessonsGate> },
@@ -190,6 +197,7 @@ export default function Page() {
    * 그러니 홈은 아무것도 모른 채 있어도 된다.
    */
   const [lessonId, setLessonId] = useState<number>(0);
+  const [boundaryKey, setBoundaryKey] = useState(0);
   const [streak, setStreak] = useState<number | null>(null);
   // 홈의 "⚡ 오늘의 훈련"으로 들어왔을 때만 true — 드릴 큐에 오늘 복습할 SRS 문장을 섞는다.
   const [autoDrill, setAutoDrill] = useState(false);
@@ -210,7 +218,17 @@ export default function Page() {
     // 2단계 프리로드 — 1단계(빨리): 데이터(레슨·스토리)와 첫 탭이 될 확률이 높은
     // 레슨 화면. "첫 탭 클릭"이 공통 청크 다운로드를 무는 것이 탭 전환 지연의
     // 남은 근원이라, 데이터+첫 화면만큼은 훨씬 이른 유휴 시점에 데운다.
+    // 집중 모드(기본)는 드라마·단어·회화·문법·CEFR·진도만 쓴다 — 쓰지도 않는 레슨(199KB)·드릴을
+    // 받느라 데이터를 쓰던 것을 멈추고, 대신 이 화면들을 데워 서비스 워커 캐시에 넣는다.
+    // 그래야 지하철(오프라인)에서도 드라마가 열린다(감사 v1.31 견고성 #2: 'Loading chunk failed').
+    const focus = isFocusMode();
     const warmFast = () => {
+      if (focus) {
+        void import('../components/DramaScreen');
+        void import('../components/WordsScreen');
+        void import('../components/DramaTalkScreen');
+        return;
+      }
       void loadLessons();
       void loadStories(); // 홈 세션 CTA도 이걸 기다린다 — 가장 먼저
       void import('../components/StudyScreen');
@@ -218,12 +236,25 @@ export default function Page() {
     // 2단계(나중): 나머지 자주 가는 화면들. FeaturesScreen은 모든 도구의 관문이라
     // 함께 데운다(실측: 미프리로드 시 첫 진입 +0.5초가 이후 모든 도구 진입에 얹힘).
     const warmRest = () => {
+      if (focus) {
+        void import('../components/GrammarScreen');
+        void import('../components/CefrScreen');
+        void import('../components/ProgressScreen');
+        void import('../components/BackupScreen');
+        return;
+      }
       void import('../components/DrillScreen');
       void import('../components/TalkScreen');
       void import('../components/ReviewScreen');
       void import('../components/ProgressScreen');
       void import('../components/FeaturesScreen');
     };
+    // 오프라인으로 열렸다면 연결되는 순간 한 번 데운다(그래야 다음 오프라인 때 화면이 열린다)
+    const onOnline = () => {
+      warmFast();
+      warmRest();
+    };
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) window.addEventListener('online', onOnline, { once: true });
     type Ric = (cb: () => void, opts?: { timeout: number }) => number;
     const w = window as unknown as { requestIdleCallback?: Ric; cancelIdleCallback?: (id: number) => void };
     if (w.requestIdleCallback) {
@@ -235,6 +266,7 @@ export default function Page() {
       return () => {
         w.cancelIdleCallback?.(a);
         w.cancelIdleCallback?.(b);
+        window.removeEventListener('online', onOnline);
       };
     }
     const t1 = window.setTimeout(warmFast, 3000);
@@ -242,20 +274,100 @@ export default function Page() {
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
+      window.removeEventListener('online', onOnline);
     };
+  }, []);
+
+  /**
+   * 화면 전환을 브라우저 기록에 남긴다 — 설치형 앱(PWA)에서 휴대폰 '뒤로'를 누르면
+   * 앱이 닫히던 문제(감사 v1.31 모바일 #1). 이제 이전 화면으로 한 단계씩 돌아간다.
+   */
+  const modeRef = useRef<Mode>('master');
+  // 진입 모션은 첫 화면 전환 뒤부터(첫 로드의 LCP를 투명하게 가리지 않게)
+  const [animOn, setAnimOn] = useState(false);
+  function go(m: Mode) {
+    setAnimOn(true);
+    if (m !== modeRef.current) {
+      try {
+        // Next 라우터가 기록 칸에 넣어 둔 내부 상태(__NA 등)는 그대로 두고 우리 값만 얹는다 —
+        // 통째로 덮으면 Next가 popstate에서 페이지를 새로고침한다(감사 v1.31 비평 #0)
+        window.history.pushState({ ...(window.history.state || {}), mode: m, sub: undefined }, '');
+      } catch {
+        /* 기록 API가 없는 환경 */
+      }
+    }
+    modeRef.current = m;
+    setModeRaw(m);
+  }
+  useEffect(() => {
+    try {
+      if (!window.history.state?.mode) window.history.replaceState({ ...(window.history.state || {}), mode: 'master' }, '');
+    } catch {
+      /* 무시 */
+    }
+    const on = (e: PopStateEvent) => {
+      const st = e.state as { mode?: string; sub?: string } | null;
+      if (!st || !st.mode) return; // 우리가 만든 기록이 아니면 Next에 맡긴다
+      // Next 라우터는 같은 주소의 popstate에도 트리를 복원하며 이 페이지를 다시 마운트한다(모드가 '홈'으로
+      // 초기화됨). 우리 기록 항목은 여기서 끝낸다 — capture 단계라 Next의 리스너보다 먼저 온다.
+      e.stopImmediatePropagation();
+      const m = st.mode as Mode;
+      const next = m in SCREENS ? m : 'master';
+      modeRef.current = next;
+      setAutoDrill(false);
+      setModeRaw(next);
+      // 화면 안의 단계(드라마 재생 → 목록 등)는 각 화면이 이 이벤트로 처리한다
+      window.dispatchEvent(new CustomEvent(BACK_EVENT, { detail: st }));
+    };
+    window.addEventListener('popstate', on, true);
+    return () => window.removeEventListener('popstate', on, true);
   }, []);
 
   function setMode(m: Mode) {
     setAutoDrill(false);
-    setModeRaw(m);
+    go(m);
   }
 
   function startTodayDrill() {
     setAutoDrill(true);
-    setModeRaw('drill');
+    go('drill');
   }
 
   useEffect(() => setStreak(calcStreak()), [mode]);
+  // 드라마 엔딩처럼 화면이 그대로인 채 학습일이 기록돼도 🔥가 바로 오르게
+  // 배너·오류 화면이 보내는 화면 이동 요청(예: 저장 공간 가득 → 백업 화면)
+  useEffect(() => {
+    const on = (e: Event) => {
+      const m = (e as CustomEvent).detail as Mode;
+      if (m && m in SCREENS) setMode(m);
+    };
+    window.addEventListener(NAVIGATE_EVENT, on);
+    return () => window.removeEventListener(NAVIGATE_EVENT, on);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 불꽃이 오르는 순간을 잠깐 강조한다(보상감 — 움직임 줄이기 설정이면 CSS가 끈다)
+  const [streakBump, setStreakBump] = useState(false);
+  const streakRef = useRef<number | null>(null);
+  streakRef.current = streak;
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const on = () => {
+      const next = calcStreak();
+      const prev = streakRef.current;
+      if (prev !== null && next > prev) {
+        setStreakBump(true);
+        if (t) clearTimeout(t);
+        t = setTimeout(() => setStreakBump(false), 1200);
+      }
+      setStreak(next);
+    };
+    window.addEventListener(PRACTICED_EVENT, on);
+    return () => {
+      window.removeEventListener(PRACTICED_EVENT, on);
+      if (t) clearTimeout(t);
+    };
+  }, []);
 
   const screen = SCREENS[mode];
   const ctx: ScreenCtx = { lessonId, autoDrill, setLessonId, setMode, startTodayDrill };
@@ -266,7 +378,7 @@ export default function Page() {
         onDone={() => setOnboarding(false)}
         onPlacement={() => {
           setOnboarding(false);
-          setModeRaw('placement');
+          go('placement');
         }}
       />
     );
@@ -285,7 +397,7 @@ export default function Page() {
         </div>
         <div className="app-header-actions">
           {streak !== null && (
-            <div className="streak-chip" title="연속 학습일">
+            <div className={`streak-chip${streakBump ? ' bump' : ''}`} title="연속 학습일" aria-live="polite">
               🔥 {streak}
             </div>
           )}
@@ -293,10 +405,19 @@ export default function Page() {
         </div>
       </header>
 
-      <div className="app-content" key={mode}>
+      <div className="app-content" key={mode} data-anim={animOn ? '' : undefined}>
         {/* 화면 단위로 감싼다 — 한 화면이 죽어도 셸(탭·헤더)은 살아 있어야 돌아갈 수 있다.
             key={mode}라 화면을 옮기면 경계도 함께 초기화된다. */}
-        <ErrorBoundary onReset={() => setMode('master')}>{screen.render(ctx)}</ErrorBoundary>
+        <ErrorBoundary
+          key={`${mode}-${boundaryKey}`}
+          onReset={() => {
+            // 홈에서 난 오류도 복구되게 — 같은 화면이어도 새로 마운트한다
+            setBoundaryKey((k) => k + 1);
+            setMode('master');
+          }}
+        >
+          {screen.render(ctx)}
+        </ErrorBoundary>
       </div>
 
       <NavBar mode={mode} onChange={setMode} />

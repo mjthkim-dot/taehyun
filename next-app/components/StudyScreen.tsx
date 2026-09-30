@@ -1,5 +1,8 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /**
  * 레슨(학습) 화면 — 기존 voice-assistant/index.html 의 renderStudy() 를 React로 포팅.
  * 섹션/포인트/예문/대화문/프리토킹/숙제를 원본과 동일한 순서로 보여준다.

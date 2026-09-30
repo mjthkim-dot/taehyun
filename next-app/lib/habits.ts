@@ -11,8 +11,10 @@
  * 데이터로 계산만 한다 — 새 인프라 없음. 달성 시 XP 적립, 주간 XP 그래프.
  */
 import { dateKey } from './dates';
-import { load, store, dueWeak, spokenToday, DAILY_GOAL } from './state';
-import { isMissionDoneToday } from './dailyMission';
+import { load, store, dueWeak, spokenToday, dailyGoal } from './state';
+import { isMissionDoneToday } from './homeLite';
+import { isFocusMode } from './focus';
+import { dramaPracticedToday } from './homeLite';
 
 export const FREEZE_MAX = 2;
 /** 미션 완료일 N일마다 프리즈 1개 적립 */
@@ -108,6 +110,9 @@ export interface Quest {
 }
 
 const REVIEW_GOAL = 5;
+/** 집중 모드 퀘스트 목표 — 드라마 한 편 안에서 자연히 채워지는 양 */
+const FOCUS_RECALL_GOAL = 2;
+const FOCUS_SPEAK_GOAL = 3;
 
 export function getQuests(): Quest[] {
   const today = dstr(new Date());
@@ -115,12 +120,40 @@ export function getQuests(): Quest[] {
   const reviewCount = rv.date === today ? rv.count : 0;
   const due = dueWeak().length;
   const spoken = spokenToday();
+  // 집중 모드엔 미션·드릴·복습 화면이 없다 — 그 화면의 할 일을 세면 매일 0이 된다(감사 #17·#56).
+  // 집중 모드에서 실제로 하는 일(드라마·첫머리 복습·따라 말하기/회화)로 센다.
+  if (isFocusMode()) {
+    const episode = dramaPracticedToday();
+    const recallAuto = due === 0 && reviewCount === 0;
+    return [
+      { id: 'episode', label: '드라마 한 편 보기(또는 복습)', progress: episode ? 1 : 0, goal: 1, done: episode, xp: 50 },
+      {
+        id: 'recall',
+        label: `지난 표현 ${FOCUS_RECALL_GOAL}개 떠올리기`,
+        progress: Math.min(reviewCount, FOCUS_RECALL_GOAL),
+        goal: FOCUS_RECALL_GOAL,
+        done: reviewCount >= FOCUS_RECALL_GOAL || recallAuto,
+        xp: 20,
+        note: recallAuto ? '오늘은 떠올릴 표현이 없어요 — 자동 달성' : undefined,
+      },
+      {
+        id: 'speak',
+        label: `영어로 ${FOCUS_SPEAK_GOAL}문장 말하기 (따라 말하기·회화)`,
+        progress: Math.min(spoken, FOCUS_SPEAK_GOAL),
+        goal: FOCUS_SPEAK_GOAL,
+        done: spoken >= FOCUS_SPEAK_GOAL,
+        xp: 30,
+      },
+    ];
+  }
   const missionDone = isMissionDoneToday();
+  const goal = dailyGoal();
   // 복습 카드가 아예 없는 날은 목표가 성립하지 않으므로 자동 달성으로 처리(정직하게 표기)
   const reviewAutoDone = due === 0 && reviewCount === 0;
   return [
     { id: 'mission', label: '오늘의 미션 완주', progress: missionDone ? 1 : 0, goal: 1, done: missionDone, xp: 50 },
-    { id: 'practice', label: `문장 ${DAILY_GOAL}개 소리 내어 말하기`, progress: Math.min(spoken, DAILY_GOAL), goal: DAILY_GOAL, done: spoken >= DAILY_GOAL, xp: 30 },
+    // 목표 문장 수는 사용자가 고른 하루 목표(온보딩) — 상수 20이 아니라
+    { id: 'practice', label: `문장 ${goal}개 소리 내어 말하기`, progress: Math.min(spoken, goal), goal, done: spoken >= goal, xp: 30 },
     {
       id: 'review',
       label: `복습 카드 ${REVIEW_GOAL}개 채점`,

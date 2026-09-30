@@ -35,7 +35,12 @@ const tabs = await page.$$eval('.mode-tab', (bs) => bs.map((b) => b.textContent.
 check('하단 탭 4개: 홈·단어·회화·더보기', tabs.join(',') === '홈,단어,회화,더보기', tabs.join(','));
 await page.click('.mode-tab:has-text("더보기")');
 await page.waitForSelector('.more-sheet', { timeout: 5000 });
-check('더보기엔 내 성장 2 + 드라마·문법 + 모든 기능 버튼', (await page.locator('.more-sheet .feat-card').count()) === 4 && (await page.locator('.more-sheet .feat-card:has-text("드라마 레슨")').count()) === 1 && (await page.locator('.more-mode').count()) === 1);
+check('더보기엔 내 성장 2 + 드라마·문법 + 백업 + 모든 기능 버튼', (await page.locator('.more-sheet .feat-card').count()) === 5 && (await page.locator('.more-sheet .feat-card:has-text("드라마 레슨")').count()) === 1 && (await page.locator('.more-sheet .feat-card:has-text("백업")').count()) === 1 && (await page.locator('.more-mode').count()) === 1);
+check('더보기 = 대화상자(열면 첫 항목에 포커스, Esc로 닫힘)', await page.evaluate(() => document.querySelector('.more-sheet')?.getAttribute('role') === 'dialog' && document.activeElement?.classList.contains('feat-card')));
+await page.keyboard.press('Escape');
+check('Esc로 닫고 더보기 탭으로 포커스 복귀', (await page.locator('.more-sheet').count()) === 0 && (await page.evaluate(() => document.activeElement?.textContent?.includes('더보기'))));
+await page.click('.mode-tab:has-text("더보기")');
+await page.waitForSelector('.more-sheet .feat-card', { timeout: 5000 });
 await page.click('.more-sheet-overlay', { position: { x: 10, y: 10 } });
 
 /* ③ 진단 완료(시드) → 2단계 */

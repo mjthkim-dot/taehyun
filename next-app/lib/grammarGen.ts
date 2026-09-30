@@ -11,7 +11,7 @@
 import { groqKoJson, hasHangul } from './aiGuard';
 import { load, store, groqKey } from './state';
 import { todayKey, daySeed } from './dates';
-import type { GrammarUnit, GCheck, GBuild, GTurn } from './grammar';
+import { normSentence, sameTokens, type GrammarUnit, type GCheck, type GBuild, type GTurn } from './grammar';
 
 /** 변형에 쓸 상황 풀 — 업무 중심 + 일상 */
 export const SCENE_POOL = [
@@ -87,6 +87,8 @@ export function nextScene(unitId: string, attempt: number, seed = daySeed()): st
 const words = (s: string) => s.trim().split(/\s+/);
 
 /** 생성 결과 검증 — 하나라도 어긋나면 null(원본으로 대체) */
+const strip = (s: string) => s.replace(/[.!?]+$/, '');
+
 export function validateVariant(d: unknown): GrammarVariant | null {
   const x = d as Record<string, unknown> | null;
   if (!x || typeof x.scene !== 'string' || !hasHangul(x.scene)) return null;
@@ -98,6 +100,9 @@ export function validateVariant(d: unknown): GrammarVariant | null {
   const builds = (Array.isArray(x.builds) ? x.builds : []) as GBuild[];
   const okBuild = (b: GBuild) =>
     b && typeof b.a === 'string' && words(b.a).length >= 3 && words(b.a).length <= 14 && hasHangul(b.kr) && (b.extra || []).every((e) => typeof e === 'string' && !words(b.a).includes(e));
+  // 다른 올바른 어순 — 같은 조각으로 된 것만 받는다(AI가 단어를 바꿔 쓰면 버림)
+  const altOf = (b: { a: string; alt?: unknown }) =>
+    (Array.isArray(b.alt) ? b.alt : []).filter((x): x is string => typeof x === 'string' && sameTokens(x, b.a) && normSentence(x) !== normSentence(b.a)).map(strip).slice(0, 2);
   if (builds.length < 2 || !builds.slice(0, 2).every(okBuild)) return null;
   const sim = x.sim as { who?: unknown; turns?: unknown } | undefined;
   if (!sim || typeof sim.who !== 'string' || !Array.isArray(sim.turns)) return null;
@@ -109,13 +114,12 @@ export function validateVariant(d: unknown): GrammarVariant | null {
   const okBuildTurn = (t: GTurn) => okTurnBase(t) && t.task === 'build' && okBuild({ a: t.a, kr: t.kr, extra: t.extra }) && hasHangul(t.why);
   const okFree = (t: GTurn) => okTurnBase(t) && t.task === 'free' && hasHangul(t.prompt) && typeof t.model === 'string' && typeof t.focus === 'string';
   if (!okChoose(t1) || !okBuildTurn(t2) || !okChoose(t3) || !okFree(t4)) return null;
-  const strip = (s: string) => s.replace(/[.!?]+$/, '');
   return {
     scene: x.scene,
     ex: ex.length === 2 ? ex : [],
     checks: checks.slice(0, 3),
-    builds: builds.slice(0, 2).map((b) => ({ ...b, a: strip(b.a) })),
-    sim: { who: sim.who, turns: [t1, { ...t2, a: strip((t2 as { a: string }).a) } as GTurn, t3, t4] },
+    builds: builds.slice(0, 2).map((b) => ({ ...b, a: strip(b.a), alt: altOf(b) })),
+    sim: { who: sim.who, turns: [t1, { ...t2, a: strip((t2 as { a: string }).a), alt: altOf(t2 as { a: string; alt?: unknown }) } as GTurn, t3, t4] },
     ai: true,
   };
 }
@@ -131,27 +135,49 @@ export async function generateVariant(unit: GrammarUnit, attempt: number): Promi
 - 모든 문항이 목표 문법을 '고르고/조립하고/말하게' 해야 한다. 다른 문법으로 풀리면 안 된다.
 - ${unit.level} 수준의 쉬운 어휘. 영어는 자연스러운 원어민 문장.
 - checks: 빈칸(___) 문장 + 보기 3개(정답 1, 목표 문법을 잘못 쓴 오답 2) + why(한국어, 왜 그 형태인지).
-- builds: kr(한국어 문장) + a(영어 정답, 마침표 없이, 3~12단어) + extra(헷갈리는 오답 단어 1~2개, a에 없는 단어).
+- builds: kr(한국어 문장) + a(영어 정답, 마침표 없이, 3~12단어) + alt(같은 단어들로 만들 수 있는 다른 올바른 어순 — if절 앞/뒤, 시간 표현 앞으로 등. 없으면 []) + extra(헷갈리는 오답 단어 1~2개, a에 없는 단어).
 - sim: who(상대 역할, 한국어) + turns 정확히 4개:
   1) task "choose": them(상대 영어 말) kr(번역) opts 3개(정답 1) a why
-  2) task "build": them kr a extra why
+  2) task "build": them kr a alt extra why
   3) task "choose": them kr opts a why
   4) task "free": them kr prompt(한국어로 무엇을 말할지) model(모범 영어 답) focus(목표 문법 영어 이름)
 JSON만 출력:
-{"scene":"한국어 상황 한 문장","ex":[["영어 예문","번역"],["영어 예문","번역"]],"checks":[{"q":"","opts":["","",""],"a":0,"why":""}],"builds":[{"kr":"","a":"","extra":[""]}],"sim":{"who":"","turns":[...]}}`;
-  const v = await groqKoJson<GrammarVariant>(
-    [
-      { role: 'system', content: sys },
-      { role: 'user', content: `새 상황 "${scene}"으로 만들어 줘.` },
-    ],
-    { temperature: 0.8, maxTokens: 2000 },
-    validateVariant
-  );
+{"scene":"한국어 상황 한 문장","ex":[["영어 예문","번역"],["영어 예문","번역"]],"checks":[{"q":"","opts":["","",""],"a":0,"why":""}],"builds":[{"kr":"","a":"","alt":[],"extra":[""]}],"sim":{"who":"","turns":[...]}}`;
+  // 429·오프라인·키 오류는 예외로 올라온다 — 삼키고 null(예전엔 '만드는 중…'이 영원히 돌았다, 감사 #48).
+  // 느린 응답도 40초에서 끊는다. null이면 호출부가 캐시된 변형이나 원본으로 진행한다.
+  let v: GrammarVariant | null = null;
+  let t: ReturnType<typeof setTimeout> | undefined;
+  try {
+    v = await Promise.race([
+      groqKoJson<GrammarVariant>(
+        [
+          { role: 'system', content: sys },
+          { role: 'user', content: `새 상황 "${scene}"으로 만들어 줘.` },
+        ],
+        { temperature: 0.8, maxTokens: 2400 },
+        validateVariant
+      ),
+      new Promise<null>((res) => {
+        t = setTimeout(() => res(null), 40000);
+      }),
+    ]);
+  } catch {
+    v = null;
+  } finally {
+    if (t) clearTimeout(t);
+  }
   if (!v) return null;
   const c = cache();
   c[unit.id] = [...(c[unit.id] || []), { date: todayKey(), v }].slice(-6);
   store(CACHE_KEY, c);
   return v;
+}
+
+/** 이 유닛의 가장 최근 변형(생성 실패·오프라인일 때 대신 쓴다) — 없으면 null */
+export function lastVariant(unitId: string): GrammarVariant | null {
+  const list = cache()[unitId];
+  const v = Array.isArray(list) && list.length ? list[list.length - 1]?.v : null;
+  return v ? validateVariant(v) : null;
 }
 
 /** 변형을 유닛에 입힌다 — 사고 단계의 설명·규칙은 원본 유지 */

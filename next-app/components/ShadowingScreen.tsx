@@ -1,5 +1,8 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /**
  * 쉐도잉(따라 말하기) — 원어민 음성을 듣고 따라 말하면 단어별로 맞고 틀림을 색으로
  * 보여주고(기존 SpeakingPractice + computeAccuracy 재사용), 틀린 단어에 대해서는
@@ -10,7 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { lessonsNow } from '../lib/lessonData';
 import type { Lesson } from '../lib/lessons';
-import { getPhrases, load, markPracticedToday, type WeakItem } from '../lib/state';
+import { getPhrases, load, markPracticedToday, weakItems, type WeakItem } from '../lib/state';
 import { GroqError } from '../lib/groq';
 import { groqKoJson, hasHangul } from '../lib/aiGuard';
 import { useLessonStore } from '../store/useLessonStore';
@@ -49,7 +52,7 @@ function buildQueue(lesson: Lesson | undefined): ShadowItem[] {
   };
   (lesson?.examples || []).forEach((ex) => push(ex.en, ex.kr, '레슨'));
   getPhrases().forEach((p) => push(p.en, p.kr, '표현장'));
-  load<WeakItem[]>('va_weak', []).forEach((w) => push(w.en, w.kr, '복습'));
+  weakItems().forEach((w) => push(w.en, w.kr, '복습'));
   return out.slice(0, 24);
 }
 

@@ -1,5 +1,8 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /**
  * 음성 진단 — "소리가 안 나요"를 추측이 아니라 데이터로 잡는 도구.
  * 오디오 체인(키 → TTS 서버 호출 → 신경망 음성 재생 → 브라우저 폴백)을
@@ -119,6 +122,20 @@ export default function AudioCheckScreen() {
       const j = await r.json();
       if (j.ok) {
         push({ name: '서버→Groq 실연결', ok: true, detail: `정상 · ${(j.bytes / 1024).toFixed(1)}KB 수신 (${j.model})` });
+        // 드라마 인물 목소리 5개도 하나씩 — 특정 인물만 기계음이면 여기서 드러난다
+        try {
+          const v = await (await fetch('/app/api/tts?voices=1')).json();
+          if (v && v.voices) {
+            const bad = Object.entries(v.voices as Record<string, string>).filter(([, st]) => st !== 'ok');
+            push({
+              name: '드라마 인물 목소리',
+              ok: bad.length === 0,
+              detail: bad.length ? `일부 목소리 실패: ${bad.map(([k, st]) => `${k}(${st})`).join(', ')} — 그 인물은 같은 성별의 다른 목소리로 대체돼요` : '태오·Jun·Grant·Maya·Diane 목소리 모두 정상',
+            });
+          }
+        } catch {
+          /* 선택 진단 — 실패해도 넘어간다 */
+        }
       } else {
         push({
           name: '서버→Groq 실연결',

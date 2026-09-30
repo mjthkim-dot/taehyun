@@ -30,6 +30,16 @@ const PLAYAI_VOICE: Record<string, string> = {
 };
 let ttsModelIdx: 0 | 1 = 0; // 0=Orpheus, 1=playai (모듈 캐시)
 
+/**
+ * Orpheus 영어 목소리(Groq 문서: autumn·diana·hannah 여성, austin·daniel·troy 남성).
+ * 목록 밖 값은 기본값으로, 특정 목소리를 거부하면(없어지거나 이름이 바뀌면) 같은 성별의 다른
+ * 목소리로 한 번 더 — 그 인물만 기계음으로 떨어지지 않게(감사 v1.31 비평 #13).
+ */
+const ORPHEUS_VOICES = new Set(['autumn', 'diana', 'hannah', 'austin', 'daniel', 'troy']);
+const VOICE_FALLBACK: Record<string, string> = { diana: 'hannah', autumn: 'hannah', hannah: 'diana', troy: 'daniel', daniel: 'austin', austin: 'daniel' };
+/** 거부된 목소리 → 대신 통한 목소리(모듈 캐시) — 첫 줄만 두 번 부르고 다음 줄부터는 바로 대체 목소리로 */
+const rejectedVoices = new Map<string, string>();
+
 function isModelError(status: number, detail: string): boolean {
   return (status === 400 || status === 404) && /decommission|deprecat|not found|does not exist|invalid model|no longer|unknown model/i.test(detail);
 }
@@ -63,6 +73,20 @@ export async function GET(req: NextRequest) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     return Response.json({ ok: false, where: 'server-key', detail: '서버에 GROQ_API_KEY가 없어요 — 로컬 키 경로만 사용 중' });
+  }
+  // ?voices=1 — 드라마 인물 목소리(austin·daniel·troy·hannah·diana)를 하나씩 실제로 합성해 본다.
+  // 특정 목소리만 막혔을 때(그 인물만 기계음) 원인을 바로 찾게(감사 v1.31 비평 #13)
+  if (req.nextUrl.searchParams.get('voices') === '1') {
+    const result: Record<string, string> = {};
+    for (const v of ['austin', 'daniel', 'troy', 'hannah', 'diana']) {
+      const r = await fetch('https://api.groq.com/openai/v1/audio/speech', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify(ttsPayload(0, 'Hi.', v)),
+      }).catch(() => null);
+      result[v] = !r ? 'network' : r.ok ? 'ok' : rejectedVoices.has(v) ? `rejected→${rejectedVoices.get(v)}` : `HTTP ${r.status}`;
+    }
+    return Response.json({ ok: Object.values(result).every((x) => x === 'ok'), voices: result });
   }
   // 체인 순서대로 실제 합성을 시도 — 어느 모델이 살아 있는지까지 보고한다
   let lastDetail = '';
@@ -116,12 +140,34 @@ export async function POST(req: NextRequest) {
   const order: (0 | 1)[] = ttsModelIdx === 0 ? [0, 1] : [1, 0];
   let lastStatus = 502;
   let lastDetail = 'Groq 연결 실패';
+  let v = typeof voice === 'string' && ORPHEUS_VOICES.has(voice) ? voice : DEFAULT_VOICE;
+  v = rejectedVoices.get(v) ?? v;
   for (const idx of order) {
-    const resp = await fetch('https://api.groq.com/openai/v1/audio/speech', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify(ttsPayload(idx, text, voice || DEFAULT_VOICE)),
-    }).catch(() => null);
+    const send = () =>
+      fetch('https://api.groq.com/openai/v1/audio/speech', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify(ttsPayload(idx, text, v)),
+      }).catch(() => null);
+    let resp = await send();
+    // 목소리를 거부하면 같은 성별의 다른 목소리 → 기본 목소리 순으로(성공한 걸 기억해 다음 줄은 바로)
+    if (resp && resp.status === 400 && idx === 0) {
+      const txt = await resp.clone().text().catch(() => '');
+      if (/voice/i.test(txt)) {
+        const original = v;
+        const tried = new Set([v]);
+        for (const alt of [VOICE_FALLBACK[v], DEFAULT_VOICE]) {
+          if (!alt || tried.has(alt)) continue;
+          tried.add(alt);
+          v = alt;
+          resp = await send();
+          if (resp && resp.ok) {
+            rejectedVoices.set(original, alt);
+            break;
+          }
+        }
+      }
+    }
 
     if (!resp) break; // 네트워크 문제 — 모델 교체 무의미
     if (!resp.ok) {

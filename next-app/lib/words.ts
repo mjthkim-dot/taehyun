@@ -20,6 +20,7 @@ import { VOCAB_DOMAINS } from './domainVocab';
 import { groqKoJson, hasHangul } from './aiGuard';
 import { WORD_LOG_KEY, WORD_PROGRESS_KEY, wordLog, type WordDayLog } from './wordProgress';
 import { overall } from './cefrGrowth';
+import { isFocusMode } from './focus';
 
 export type WordLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
 
@@ -93,7 +94,13 @@ let cache: WordPack[] | null = null;
 let cacheExtraSig = '';
 
 function extraRaw(): Record<string, RawWord[]> {
-  return load<Record<string, RawWord[]>>(EXTRA_KEY, {});
+  const raw = load<Record<string, unknown>>(EXTRA_KEY, {});
+  const out: Record<string, RawWord[]> = {};
+  // AI가 보탠 단어 — 6칸 문자열 튜플만(손상된 값 하나로 단어·CEFR이 깨지지 않게)
+  for (const [k, v] of Object.entries(raw)) {
+    if (Array.isArray(v)) out[k] = v.filter((r): r is RawWord => Array.isArray(r) && r.length === 6 && r.every((c) => typeof c === 'string'));
+  }
+  return out;
 }
 
 export function getPacks(): WordPack[] {
@@ -117,9 +124,52 @@ export function getPacks(): WordPack[] {
     const have = new Set(p.words.map((w) => w.w.toLowerCase()));
     for (const r of add) if (!have.has(r[0].toLowerCase())) { p.words.push(toWord(r, p.id, p.sit, true)); have.add(r[0].toLowerCase()); }
   }
+  dedupeAcrossPacks(packs);
   cache = packs;
   cacheExtraSig = sig;
   return packs;
+}
+
+const headKey = (w: string) =>
+  w
+    .toLowerCase()
+    .replace(/-/g, ' ')
+    .replace(/[^a-z0-9 ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/** 뜻이 사실상 같은가(뜻 핵심 조각이 하나라도 겹치면) — 표제어 비교는 하지 않는다 */
+function sameMeaning(a: Word, b: Word): boolean {
+  const sa = meaningStems(a.kr);
+  const sb = meaningStems(b.kr);
+  for (const t of sb) if (sa.has(t)) return true;
+  // '투자 대비 수익' ↔ '투자수익률'처럼 붙여 쓴 뜻 — 두 조각 이상이 상대 뜻 안에 들어 있으면 같은 뜻
+  const inside = (xs: Set<string>, kr: string) => [...xs].filter((t) => kr.replace(/\s+/g, '').includes(t)).length;
+  return inside(sa, b.kr) >= 2 || inside(sb, a.kr) >= 2;
+}
+
+/**
+ * 팩을 가로지르는 중복 정리(감사 #34) — latency·pipeline·quote 같은 단어가 여러 팩(직무 연어
+ * 포함)에 레벨·뜻이 다르게 들어 있어 같은 단어를 다른 카드로 두 번 외우고 있었다.
+ * 같은 표제어 + 같은 뜻이면 먼저 나온 카드 하나만 남기고(레벨은 더 쉬운 쪽), 뜻이 다르면
+ * (availability 가용성/가능한 시간, check in 등) 둘 다 둔다. 이미 공부 중인 카드는 지우지 않는다.
+ */
+function dedupeAcrossPacks(packs: WordPack[]) {
+  const studied = load<Record<string, unknown>>(WORD_PROGRESS_KEY, {});
+  const seen = new Map<string, Word[]>();
+  for (const p of packs) {
+    p.words = p.words.filter((w) => {
+      const k = headKey(w.w);
+      const prior = seen.get(k) || [];
+      const twin = prior.find((x) => sameMeaning(x, w));
+      if (twin && !studied[w.id]) {
+        if (LEVEL_ORDER.indexOf(w.lv) < LEVEL_ORDER.indexOf(twin.lv)) twin.lv = w.lv;
+        return false;
+      }
+      seen.set(k, [...prior, w]);
+      return true;
+    });
+  }
 }
 
 export function allWords(): Word[] {
@@ -137,8 +187,10 @@ export function totalWords(): number {
 /* ── 설정·상태 ── */
 
 export function wordConfig(): WordConfig {
-  const c = load<WordConfig>(CFG_KEY, { daily: 20, packs: [] });
-  return { daily: DAILY_CHOICES.includes(c.daily) ? c.daily : 20, packs: Array.isArray(c.packs) ? c.packs : [] };
+  // 집중 모드(드라마 한 편이 하루 할 일)에선 새 단어 기본값을 10개로 — 두 번째 큰 숙제가 되지 않게(감사 #22)
+  const def = isFocusMode() ? 10 : 20;
+  const c = load<Partial<WordConfig>>(CFG_KEY, {});
+  return { daily: DAILY_CHOICES.includes(c.daily as number) ? (c.daily as number) : def, packs: Array.isArray(c.packs) ? c.packs.filter((x) => typeof x === 'string') : [] };
 }
 
 export function setWordConfig(c: Partial<WordConfig>) {
@@ -146,7 +198,10 @@ export function setWordConfig(c: Partial<WordConfig>) {
 }
 
 export function progress(): Record<string, WordState> {
-  return load<Record<string, WordState>>(WORD_PROGRESS_KEY, {});
+  const raw = load<Record<string, WordState | null>>(WORD_PROGRESS_KEY, {});
+  const out: Record<string, WordState> = {};
+  for (const [k, v] of Object.entries(raw)) if (v && typeof v === 'object' && typeof v.b === 'number') out[k] = v;
+  return out;
 }
 
 function logDay(delta: Partial<WordDayLog>) {
@@ -199,7 +254,11 @@ function selectedPacks(): WordPack[] {
   const { packs } = wordConfig();
   const all = getPacks();
   const sel = packs.length ? all.filter((p) => packs.includes(p.id)) : all;
-  return sel.length ? sel : all;
+  const out = sel.length ? sel : all;
+  // 초급(A1·A2)은 팩을 직접 골랐어도 '업무 생존 영어'를 늘 포함한다 — 예전에 팩을 고른 사람은 새 기초 팩을 못 봤다
+  const basics = all.find((p) => p.id === 'basics');
+  if (basics && !out.includes(basics) && ['A1', 'A2'].includes(targetWordLevel())) return [basics, ...out];
+  return out;
 }
 
 /** CEFR 목표 레벨(종합 다음 레벨) — 단어도 i+1로 고른다 */
@@ -237,13 +296,23 @@ export function nextNewWords(n: number, target: WordLevel = targetWordLevel()): 
   // 난이도 층(목표 레벨 → 한 단계 아래 → …)을 먼저 채우고, 같은 층 안에서 팩을 번갈아 꺼낸다.
   // 예전엔 팩을 무조건 번갈아서, 쉬운 단어가 없는 팩이 첫날부터 B2·C1 전문어를 내놓았다.
   const out: Word[] = [];
+  // 목표보다 어려운 단어는 하루 할당의 20%까지만 — 쉬운 단어가 떨어졌다고 B1~C1 전문어로 다 채우지 않는다
+  const hardCap = Math.floor(n * 0.2);
+  const ti = LEVEL_ORDER.indexOf(target);
+  let hard = 0;
   const ranks = [...new Set(lanes.flat().map((w) => levelRank(w.lv, target)))].sort((a, b) => a - b);
   for (const r of ranks) {
     const tier = lanes.map((l) => l.filter((w) => levelRank(w.lv, target) === r));
     let i = 0;
     while (out.length < n && tier.some((l) => l.length)) {
       const w = tier[i % tier.length].shift();
-      if (w) out.push(w);
+      if (w) {
+        const harder = LEVEL_ORDER.indexOf(w.lv) > ti;
+        if (!harder || hard < hardCap) {
+          out.push(w);
+          if (harder) hard++;
+        }
+      }
       i++;
     }
     if (out.length >= n) break;
@@ -262,9 +331,17 @@ export function dueWords(now = Date.now(), max = 200): Word[] {
     .slice(0, max);
 }
 
-/** 오늘 남은 신규 할당량 */
+/** 오늘 남은 신규 할당량 — 실제로 줄 수 있는 단어 수 이상은 약속하지 않는다(쉬운 단어가 떨어졌을 때) */
 export function newQuotaLeft(): number {
-  return Math.max(0, wordConfig().daily - (wordLog()[todayKey()]?.new || 0));
+  const left = Math.max(0, wordConfig().daily - (wordLog()[todayKey()]?.new || 0));
+  return left ? Math.min(left, nextNewWords(left).length) : 0;
+}
+
+/** 목표 레벨 단어가 떨어졌는가(오늘 할당을 다 채울 수 없는가) — 단어 홈에서 AI로 더 만들기를 권한다 */
+export function easyWordsRunningOut(): { out: boolean; target: WordLevel } {
+  const target = targetWordLevel();
+  const left = Math.max(0, wordConfig().daily - (wordLog()[todayKey()]?.new || 0));
+  return { out: left > 0 && nextNewWords(left, target).length < left, target };
 }
 
 /** 오늘의 세션 — 복습 먼저(잊기 직전인 것부터), 그다음 신규 */
@@ -313,22 +390,30 @@ function shuffle<T>(arr: T[], seed: number): T[] {
 function meaningStems(kr: string): Set<string> {
   return new Set(
     kr
-      .split(/[\s,·()~/]+/)
+      .split(/[\s,·()~/;]+/)
       .map((t) => t.replace(/[을를이가은는의에]$/, '').replace(/(하다|되다|하는|한|다)$/, ''))
       .filter((t) => t.length >= 2)
   );
 }
 
 /** 오답 보기가 사실상 정답인가(동의어·같은 뜻) — 예전엔 정답이 두 개로 보이는 문제가 흔했다 */
-function tooClose(a: Word, b: Word): boolean {
+/** 뜻 조각 캐시 — 문제마다 단어 500여 개의 뜻을 다시 쪼개지 않게(성능 G32) */
+const stemCache = new Map<string, Set<string>>();
+const stemsOf = (w: Word) => {
+  let s = stemCache.get(w.id + w.kr);
+  if (!s) stemCache.set(w.id + w.kr, (s = meaningStems(w.kr)));
+  return s;
+};
+
+function tooClose(a: Word, b: Word, sa: Set<string> = stemsOf(a)): boolean {
   if (a.w.toLowerCase() === b.w.toLowerCase()) return true;
-  const sa = meaningStems(a.kr);
-  for (const t of meaningStems(b.kr)) if (sa.has(t)) return true;
+  for (const t of stemsOf(b)) if (sa.has(t)) return true;
   return false;
 }
 
 function distractors(word: Word, field: 'kr' | 'w', seed: number): string[] {
-  const pool = allWords().filter((w) => w.id !== word.id && w[field] !== word[field] && !tooClose(word, w));
+  const sa = stemsOf(word);
+  const pool = allWords().filter((w) => w.id !== word.id && w[field] !== word[field] && !tooClose(word, w, sa));
   const same = pool.filter((w) => w.pack === word.pack && w.pos === word.pos);
   const pack = pool.filter((w) => w.pack === word.pack);
   const picks: string[] = [];
@@ -428,8 +513,8 @@ export interface PackStat {
   total: number;
 }
 
-export function packStats(p: WordPack): PackStat {
-  const prog = progress();
+/** prog를 넘기면 저장값을 다시 읽지 않는다(허브는 팩 23개를 한 번에 그린다) */
+export function packStats(p: WordPack, prog: Record<string, WordState> = progress()): PackStat {
   const seen = p.words.filter((w) => prog[w.id]);
   return { seen: seen.length, mastered: seen.filter((w) => prog[w.id].b >= MASTER_BOX).length, total: p.words.length };
 }
@@ -457,11 +542,12 @@ export async function generateMoreWords(packId: string, n = 20): Promise<number>
   const p = getPacks().find((x) => x.id === packId);
   if (!p) return 0;
   const known = p.words.map((w) => w.w).slice(-120).join(', ');
+  const target = targetWordLevel();
   const sys = `너는 한국인 IT 클라우드 영업 담당자(메가존클라우드 AM)를 위한 영어 단어장 편집자다.
 상황: "${p.name}" — ${p.desc}
 이 상황에서 실제로 자주 쓰는 영어 단어·연어·구동사 ${n}개를 골라라. 이미 있는 단어는 제외: ${known}
-규칙: 원어민이 실제 업무에서 쓰는 것, 너무 쉬운 기초어(the, good 등) 제외, B1~C1 위주.
-JSON만 출력: {"words":[{"w":"영어 표제어","pos":"v|n|adj|adv|phr","kr":"한국어 뜻(짧게)","lv":"B1|B2|C1","ex":"이 상황의 자연스러운 영어 예문","exKr":"예문의 한국어 번역"}]}`;
+규칙: 원어민이 실제 업무에서 쓰는 것, 관사·대명사 같은 기능어 제외. 학습자 목표 레벨은 ${target} — ${target} 단어 위주로(한 단계 위는 20% 이하), 너무 어려운 전문어 제외. 예문도 ${target} 수준의 짧은 문장.
+JSON만 출력: {"words":[{"w":"영어 표제어","pos":"v|n|adj|adv|phr","kr":"한국어 뜻(짧게)","lv":"A1|A2|B1|B2|C1","ex":"이 상황의 자연스러운 영어 예문","exKr":"예문의 한국어 번역"}]}`;
   const list = await groqKoJson<RawWord[]>(
     [
       { role: 'system', content: sys },
@@ -474,7 +560,8 @@ JSON만 출력: {"words":[{"w":"영어 표제어","pos":"v|n|adj|adv|phr","kr":"
       const rows = arr
         .map((x) => x as Record<string, unknown>)
         .filter((x) => typeof x.w === 'string' && typeof x.ex === 'string' && hasHangul(x.kr) && hasHangul(x.exKr) && /[a-z]/i.test(String(x.w)))
-        .map((x) => [String(x.w).trim(), String(x.pos || 'phr'), String(x.kr).trim(), String(x.lv || 'B2'), String(x.ex).trim(), String(x.exKr).trim()] as RawWord);
+        // 레벨이 비었거나 이상하면 목표 레벨로(예전엔 B2로 채워 초급자에게 어려운 단어가 섞였다)
+        .map((x) => [String(x.w).trim(), String(x.pos || 'phr'), String(x.kr).trim(), LEVEL_ORDER.includes(String(x.lv) as WordLevel) ? String(x.lv) : target, String(x.ex).trim(), String(x.exKr).trim()] as RawWord);
       return rows.length ? rows : null;
     }
   );

@@ -1,5 +1,8 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /**
  * 백업 · 복원 — 학습 데이터(진도·표현장·복습 카드·질문 기록 등)를 JSON 파일로
  * 내보내고, 다른 기기/브라우저에서 그 파일로 복원한다. 로직은 lib/backup.ts.
@@ -9,13 +12,20 @@ import { downloadBackup, restoreBackup, dataSummary, eraseAllData } from '../lib
 
 export default function BackupScreen() {
   const [ready, setReady] = useState(false);
-  const [summary, setSummary] = useState({ phrases: 0, weak: 0, askHistory: 0, days: 0, sessions: 0, chatLogs: 0 });
+  const [summary, setSummary] = useState({ episodes: 0, words: 0, grammar: 0, phrases: 0, weak: 0, askHistory: 0, days: 0, sessions: 0, chatLogs: 0 });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // 브라우저가 기록을 지울 수 있는 상태인가(영구 저장 거부) — 그렇다면 백업을 더 권한다
+  const [volatile, setVolatile] = useState(false);
   useEffect(() => {
     setSummary(dataSummary());
     setReady(true);
+    try {
+      void navigator.storage?.persisted?.().then((p) => setVolatile(!p)).catch(() => undefined);
+    } catch {
+      /* 미지원 */
+    }
   }, []);
 
   if (!ready) return null;
@@ -36,10 +46,15 @@ export default function BackupScreen() {
     setMsg({ ok: result.ok, text: result.message });
     if (result.ok) setSummary(dataSummary());
     if (fileRef.current) fileRef.current.value = '';
+    // 복원한 값으로 앱 전체(모드·탭·진도)를 다시 읽도록 — 예전엔 새로고침 전까지 옛 상태 그대로였다
+    if (result.ok) setTimeout(() => window.location.reload(), 1200);
   }
 
   const stats: { label: string; value: number }[] = [
     { label: '학습한 날', value: summary.days },
+    { label: '본 드라마', value: summary.episodes },
+    { label: '공부한 단어', value: summary.words },
+    { label: '문법 유닛', value: summary.grammar },
     { label: '저장한 표현', value: summary.phrases },
     { label: '복습 카드', value: summary.weak },
     { label: '질문 기록', value: summary.askHistory },
@@ -54,6 +69,11 @@ export default function BackupScreen() {
         <div className="bk-desc">
           학습 데이터는 이 브라우저에만 저장돼요. 브라우저 데이터를 지우거나 기기를 바꾸면 사라지니, 가끔 백업해 두세요.
         </div>
+        {volatile && (
+          <div className="bk-desc" role="note">
+            ⚠️ 이 브라우저는 저장 공간이 부족하거나 오래 열지 않으면 기록을 지울 수 있어요. 홈 화면에 추가(설치)하고, 가끔 아래 버튼으로 파일을 받아 두세요.
+          </div>
+        )}
 
         <div className="bk-stats">
           {stats.map((s) => (

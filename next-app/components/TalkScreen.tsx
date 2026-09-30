@@ -1,5 +1,8 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /**
  * 회화(talk) 화면 — voice-assistant/index.html 의 sendMessage()/buildSystemPrompt()/
  * maybeBackgroundCorrect()/analyzeCaf() 등을 포팅. 모델은 Groq 고정(WebLLM/Ollama 제외),
@@ -860,7 +863,8 @@ export default function TalkScreen({ lessonId }: { lessonId: number }) {
     setMessages((prev) => [...prev, { id: nextId(), kind: 'system', text: valid === true ? 'Groq 키 확인 완료 — AI 회화·음성이 활성화됐어요.' : 'Groq 키를 저장했어요(네트워크 문제로 검증은 건너뜀).' }]);
   }
 
-  const helperChips = [...new Set([...(lesson.examples || []).slice(0, 2).map((e) => e.en), ...TALK_STARTERS])].slice(0, 6);
+  // 도움 칩은 지금 상황(오늘의 미션)의 표현부터 — 예전엔 장애 보고 상황에 식당 문장('A table for two')이 떴다
+  const helperChips = [...new Set([...(missionCtx?.examples?.length ? missionCtx.examples : lesson.examples || []).slice(0, 2).map((e) => e.en), ...TALK_STARTERS])].slice(0, 6);
   const micSupported = whisperAvailable() || !!getSpeechRecognition();
 
   return (

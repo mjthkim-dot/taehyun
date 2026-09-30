@@ -7,11 +7,28 @@
 import { todayKey as localToday, dateKey } from './dates';
 import { CEFR_GSE, CEFR_ORDER, gseMid, gseToCefr, scaffoldFor, type Cefr } from './cefr';
 
+/** 셸 밖(배너·오류 화면)에서 화면을 바꾸고 싶을 때 — detail에 모드 이름 */
+export const NAVIGATE_EVENT = 'va:navigate';
+
 /** 저장 실패(용량 초과)를 앱에 알리는 신호 — 조용히 데이터를 잃지 않기 위해. */
 export const STORAGE_FULL_EVENT = 'va:storage-full';
 
 /** 용량이 부족할 때 먼저 버려도 되는 것들(오래된 기록 순). 학습 진도는 건드리지 않는다. */
-const EVICTABLE = ['va_chat_logs', 'va_ask_history', 'va_sessions', 'va_spoken_log', 'va_depth_cache', 'va_attempt_log'];
+const EVICTABLE = [
+  // AI가 다시 만들 수 있는 캐시부터(지워도 학습 기록은 그대로)
+  'va_depth_cache',
+  'va_gloss_cache',
+  'va_ladder_cache',
+  'va_grammar_variants',
+  'va_dlg_variants',
+  'va_drama_resume', // 이어 보기(없으면 처음부터 보면 된다)
+  // 그다음 오래된 기록
+  'va_chat_logs',
+  'va_ask_history',
+  'va_sessions',
+  'va_spoken_log',
+  'va_attempt_log',
+];
 
 export function store(key: string, val: unknown) {
   try {
@@ -83,7 +100,8 @@ export type SkillStats = Record<SkillKey, { gse: number; sessions: number }>;
 
 export function getSkillStats(): SkillStats {
   const s = load<SkillStats | null>('va_skill_stats', null);
-  if (s) return s;
+  // 모양까지 확인(문자열·빈 칸이면 새로 만든다 — 예전엔 "x" 한 글자로 홈이 깨졌다)
+  if (s && typeof s === 'object' && SKILLS.every((sk) => s[sk.key] && typeof s[sk.key].gse === 'number')) return s;
   const init = {} as SkillStats;
   SKILLS.forEach((sk) => {
     init[sk.key] = { gse: 10, sessions: 0 };
@@ -106,16 +124,30 @@ export function dailyGoal(): number {
 // 날짜 키는 lib/dates.ts 단일 정의를 쓴다(리뷰 F1: UTC/로컬 분열 해소)
 const todayKey = () => localToday();
 
+/** 휴대폰 '뒤로' — 셸(page)이 기록 항목을 처리한 뒤 화면 안의 단계(재생 → 목록)에 알린다 */
+export const BACK_EVENT = 'va:back';
+
+/** 학습일이 기록됐음을 알린다 — 헤더 🔥 연속일이 화면 전환 없이 바로 갱신되게 */
+export const PRACTICED_EVENT = 'va:practiced';
+
 export function markPracticedToday() {
   const days = load<string[]>('va_days', []);
   const today = todayKey();
   if (!days.includes(today)) {
     days.push(today);
-    store('va_days', days);
+    // 날짜가 무한히 쌓이지 않게 최근 3년치만(연속일 계산에는 충분)
+    store('va_days', days.slice(-1100));
   }
   const counts = load<Record<string, number>>('va_daycount', {});
   counts[today] = (counts[today] || 0) + 1;
+  const ck = Object.keys(counts).sort();
+  if (ck.length > 400) for (const k of ck.slice(0, ck.length - 400)) delete counts[k];
   store('va_daycount', counts);
+  try {
+    window.dispatchEvent(new Event(PRACTICED_EVENT));
+  } catch {
+    /* SSR */
+  }
 }
 
 /* ── 발화 카운터(스픽 벤치마크) — '공부한 횟수'가 아니라 '소리 내어 말한 문장 수'를
@@ -208,21 +240,26 @@ export function isMastered(w: WeakItem) {
   return (w.box || 0) >= SRS_MAX_BOX;
 }
 
+/** 복습 카드 전체 — 빈 칸(null)·영어 없는 항목은 걸러 낸다(손상값 하나로 화면이 깨지지 않게) */
+export function weakItems(): WeakItem[] {
+  return load<WeakItem[]>('va_weak', []).filter((w): w is WeakItem => !!w && typeof w === 'object' && typeof w.en === 'string');
+}
+
 export function dueWeak() {
   const now = Date.now();
-  return load<WeakItem[]>('va_weak', []).filter((w) => w.due == null || w.due <= now);
+  return weakItems().filter((w) => w.due == null || w.due <= now);
 }
 
 export function pendingWeakCount() {
   const now = Date.now();
-  return load<WeakItem[]>('va_weak', []).filter((w) => w.due != null && w.due > now).length;
+  return weakItems().filter((w) => w.due != null && w.due > now).length;
 }
 
 export type FlashGrade = 'again' | 'hard' | 'good' | 'easy';
 
 /** 4단계 자가채점(다시/어려움/알맞음/쉬움) → SRS 박스/복습일 갱신 (Anki 근사). */
 export function gradeWeakItem(en: string, grade: FlashGrade) {
-  const weak = load<WeakItem[]>('va_weak', []);
+  const weak = weakItems();
   const w = weak.find((x) => x.en === en);
   if (!w) return;
   // 데일리 퀘스트(복습 N개 채점)용 — 오늘 채점한 카드 수를 기록한다.
@@ -296,10 +333,27 @@ export function takeDrillQueue(): DrillHandoff | null {
 }
 
 /** 약점 노트(va_weak)에 새 항목을 추가한다 — 이미 있으면 건너뛴다. */
-export function addWeakItem(item: { en: string; kr?: string; lesson?: number | string; cat?: string }) {
-  const weak = load<WeakItem[]>('va_weak', []);
+/** 복습 카드 상한 — 넘치면 이미 외운(박스 최고) 카드부터, 그다음 오래된 카드부터 뺀다 */
+export const WEAK_MAX = 800;
+
+/**
+ * dueDays: 첫 복습까지 며칠 — 드라마 표현은 1(내일). 배운 당일 바로 '떠올릴 표현'으로 잡히면
+ * 풀 곳도 없이 오늘 퀘스트가 미완으로 남고, 새 카드가 매번 먼저 뽑혀 옛 카드가 밀렸다.
+ */
+export function addWeakItem(item: { en: string; kr?: string; lesson?: number | string; cat?: string }, dueDays = 0) {
+  let weak = weakItems();
   if (weak.some((w) => w.en === item.en)) return weak;
-  weak.push({ kr: item.kr || '', en: item.en, lesson: item.lesson, cat: item.cat, box: 0, lapses: 0, due: srsDue(0) });
+  weak.push({ kr: item.kr || '', en: item.en, lesson: item.lesson, cat: item.cat, box: 0, lapses: 0, due: Date.now() + dueDays * 86400000 });
+  if (weak.length > WEAK_MAX) {
+    const over = weak.length - WEAK_MAX;
+    const mastered = weak.filter((w) => isMastered(w)).slice(0, over);
+    const drop = new Set<WeakItem>(mastered);
+    for (const w of weak) {
+      if (drop.size >= over) break;
+      drop.add(w);
+    }
+    weak = weak.filter((w) => !drop.has(w));
+  }
   store('va_weak', weak);
   return weak;
 }

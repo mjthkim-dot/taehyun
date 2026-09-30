@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import bank from '../../data/wordBank.json';
 import {
   allWords, clozeOf, dueWords, getPacks, gradeWord, makeQuiz, nextNewWords, newQuotaLeft, progress,
@@ -23,6 +23,22 @@ describe('단어 뱅크', () => {
   });
   test('모든 단어의 상황은 온톨로지 분류표에 있다', () => {
     for (const w of allWords()) expect(SITUATION_BY_ID[w.sit], w.id).toBeTruthy();
+  });
+  test('팩을 가로질러 같은 뜻의 같은 단어는 한 장만(감사 #34), 뜻이 다르면 둘 다', () => {
+    const head = (w: string) => w.toLowerCase().replace(/-/g, ' ').trim();
+    const by = new Map<string, number>();
+    for (const w of allWords()) by.set(head(w.w), (by.get(head(w.w)) || 0) + 1);
+    for (const k of ['latency', 'pipeline', 'quote', 'deploy', 'forecast', 'roi', 'deal breaker', 'leverage', 'receipt']) expect(by.get(k), k).toBeLessThanOrEqual(k === 'pipeline' ? 2 : 1);
+    expect(by.get('availability')).toBe(2); // 가능한 시간 / 가용성
+    expect(by.get('check in')).toBe(2); // 안부 확인 / 체크인
+  });
+  test('이미 공부 중인 중복 카드는 지우지 않는다', async () => {
+    const dropped = ['dv-tech:latency', 'dv-ai-data:latency'].find((id) => !allWords().some((w) => w.id === id))!;
+    expect(dropped).toBeTruthy();
+    localStorage.setItem('va_words', JSON.stringify({ [dropped]: { box: 2, due: 0 } }));
+    vi.resetModules();
+    const fresh = await import('../../lib/words');
+    expect(fresh.allWords().some((w) => w.id === dropped)).toBe(true);
   });
   test('뜻은 한국어, 예문은 영어', () => {
     for (const w of allWords()) {
@@ -74,8 +90,13 @@ describe('오늘의 큐', () => {
     const packsOf = nextNewWords(6).map((w) => w.pack);
     expect(new Set(packsOf).size).toBeGreaterThanOrEqual(5);
   });
-  test('고른 팩에서만 꺼낸다', () => {
+  test('고른 팩에서만 꺼낸다(초급은 업무 생존 영어가 늘 함께)', () => {
     setWordConfig({ packs: ['finops'] });
+    // 초급(A1·A2 목표): 고른 팩 + 기초 팩
+    expect(nextNewWords(8).every((w) => w.pack === 'finops' || w.pack === 'basics')).toBe(true);
+    expect(nextNewWords(8).some((w) => w.pack === 'basics')).toBe(true);
+    // B1 이상 배치: 고른 팩만
+    localStorage.setItem('va_placed', JSON.stringify({ cefr: 'B1', gse: 45, ts: Date.now() }));
     expect(nextNewWords(8).every((w) => w.pack === 'finops')).toBe(true);
   });
   test('복습 기한이 된 단어가 먼저 온다', () => {
@@ -132,5 +153,20 @@ describe('오답 보기 — 정답과 같은 뜻은 쓰지 않는다', () => {
       for (const [k, o] of q.options.entries()) if (k !== q.answer && [...stems(o)].some((t) => right.has(t))) bad++;
     }
     expect(bad).toBe(0);
+  });
+});
+
+describe('초급 단어(감사 v1.31 비평 #12)', () => {
+  test('업무 생존 영어 팩 — A1·A2만 100개 이상', () => {
+    const basics = getPacks().find((p) => p.id === 'basics')!;
+    expect(basics.words.length).toBeGreaterThanOrEqual(100);
+    expect(basics.words.every((w) => w.lv === 'A1' || w.lv === 'A2')).toBe(true);
+  });
+  test('목표보다 어려운 단어는 하루 할당의 20%까지만', () => {
+    for (const n of [10, 20, 30]) {
+      const picks = nextNewWords(n, 'A2');
+      const hard = picks.filter((w) => !['A1', 'A2'].includes(w.lv)).length;
+      expect(hard).toBeLessThanOrEqual(Math.floor(n * 0.2));
+    }
   });
 });

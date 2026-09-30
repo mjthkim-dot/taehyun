@@ -1,5 +1,6 @@
 'use client';
 
+
 /**
  * 홈의 주인공 — CEFR 레벨과 "다음 레벨까지 무엇을".
  *
@@ -7,12 +8,16 @@
  * 둔다: 지금 레벨(증거 기반), 다음 레벨까지 진척, 4기능 각각의 레벨, 그리고 가장
  * 가까운 입증 과제 하나. 측정 전이면 진단부터 권한다.
  */
+import { isFocusMode } from '../lib/focus';
 import { useEffect, useState } from 'react';
 import type { Mode } from './NavBar';
 import { LEVEL_SUMMARY } from '../lib/cefrDescriptors';
 import {
+  evidenceLog,
   nextActions,
   overall,
+  PASS_SCORE,
+  PASSES_NEEDED,
   setLevelPreset,
   SKILL_LABEL,
   syncCefr,
@@ -33,7 +38,14 @@ export function goAction(a: CefrAction, onNavigate: (m: Mode) => void, onSelectL
 }
 
 export default function CefrHero({ onNavigate, onSelectLesson }: { onNavigate: (m: Mode) => void; onSelectLesson?: (id: number) => void }) {
-  const [o, setO] = useState<Overall | null>(null);
+  // 첫 렌더에서 바로 계산 — 자리표시자 한 프레임 뒤에 카드가 바뀌며 아래가 밀리지 않게(CLS). 승급 확정은 효과에서
+  const [o, setO] = useState<Overall | null>(() => {
+    try {
+      return overall();
+    } catch {
+      return null;
+    }
+  });
   const [promo, setPromo] = useState<string | null>(null);
   useEffect(() => {
     // 홈을 여는 순간 감지된 승급(배치고사 재응시·다른 기기 복원 등)도 축하한다
@@ -41,7 +53,8 @@ export default function CefrHero({ onNavigate, onSelectLesson }: { onNavigate: (
     setO(overall());
     setPromo(takePromotion() || now);
   }, []);
-  if (!o) return <div className="study-card cf-hero" style={{ minHeight: 220 }} aria-hidden="true" />;
+  // 자리표시자 = 실측 높이(집중 171px·전체 235px) — 로딩 자리와 같은 값이라 레이아웃이 튀지 않는다
+  if (!o) return <div className="study-card cf-hero" style={{ minHeight: isFocusMode() ? 171 : 235 }} aria-hidden="true" />;
 
   if (!o.measured) {
     return (
@@ -99,6 +112,12 @@ export default function CefrHero({ onNavigate, onSelectLesson }: { onNavigate: (
         ))}
       </div>
 
+      {isFocusMode() && o.level !== 'C2' && (
+        // 집중 모드: 숨긴 기능 대신 '드라마로 다음 레벨을 입증하는 길'을 알려 준다(감사 v1.31 비평 #5)
+        <p className="cf-hero-hint">
+          🎬 드라마의 {o.next} 문항을 맞히면 듣기 {o.next} 입증이 쌓여요 · {Math.min(PASSES_NEEDED, evidenceLog().filter((e) => e.skill === 'listening' && e.level === o.next && e.counts && e.score >= PASS_SCORE).length)}/{PASSES_NEEDED}
+        </p>
+      )}
       {top && (
         // 홈의 주 행동은 '오늘의 레슨' 하나 — 레벨 과제는 보조 버튼으로 둔다
         <button type="button" className="btn cf-cta" onClick={() => goAction(top, onNavigate, onSelectLesson)}>

@@ -1,5 +1,8 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /**
  * 기능(features) 허브 — voice-assistant/index.html 의 renderFeatures() 포팅.
  * 이미 구현된 화면(회화/복습/진도/드릴/표현장)은 실제 탭으로 바로 연결하고,

@@ -19,7 +19,7 @@
  */
 import { dateKey } from './dates';
 import { load, store, calcStreak, spokenToday, dailyGoal } from './state';
-import { dramaWatchedToday } from './homeLite';
+import { dramaPracticedToday } from './homeLite';
 import { isFocusMode } from './focus';
 
 export const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100, 200, 365] as const;
@@ -53,7 +53,7 @@ export function flameState(): FlameState {
   const practiced = load<string[]>('va_days', []).includes(today);
   // 하루 한 편 루틴: 드라마 에피소드 한 편을 끝내면 오늘 목표 달성(예전엔 20문장을 말해야만
   // 켜져서, 한 편을 다 봐도 불꽃이 꺼진 채로 남았다)
-  const episode = dramaWatchedToday();
+  const episode = dramaPracticedToday();
   const level: FlameLevel = spoken >= goal || episode ? 'lit' : practiced || spoken > 0 ? 'ember' : 'off';
   const nextMilestone = STREAK_MILESTONES.find((m) => m > streak) ?? null;
   return { streak, spoken, goal, level, nextMilestone, episode, focus: isFocusMode() };

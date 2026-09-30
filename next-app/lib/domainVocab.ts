@@ -1126,7 +1126,7 @@ export const VOCAB_DOMAINS: VocabDomain[] = [
       },
       {
         term: 'deal-breaker',
-        kr: '거래를 깨는 조건',
+        kr: '거래를 깨는 조건, 결정적 걸림돌',
         level: 'B1',
         collocations: ['a real deal-breaker', 'that would be a deal-breaker', 'no deal-breakers'],
         example: { en: 'Is the data residency requirement a deal-breaker?', kr: '데이터 국내 보관 요건이 결정적 조건인가요?' },

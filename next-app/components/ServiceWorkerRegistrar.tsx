@@ -25,6 +25,25 @@ export default function ServiceWorkerRegistrar() {
       navigator.serviceWorker.register('/app/sw.js', { scope: '/app' }).catch(() => {
         /* 등록 실패(구형 브라우저·사설 모드 등) — 앱은 온라인으로 그대로 동작한다 */
       });
+      // 첫 방문 세션의 문서·스크립트는 서비스 워커가 켜지기 전에 받아서 어디에도 캐시되지 않았다 —
+      // 그래서 설치한 날 한 번 쓰고 다음에 오프라인으로 열면 앱 대신 '오프라인' 안내만 떴다
+      // (감사 v1.31 견고성 #4). 워커가 준비되면 지금 문서와 이미 받은 스크립트를 캐시에 넣어 둔다.
+      void navigator.serviceWorker.ready
+        .then(async () => {
+          if (typeof caches === 'undefined') return;
+          const pages = await caches.open('app-pages');
+          if (!(await pages.match('/app'))) await pages.add('/app').catch(() => undefined);
+          // 1.30까지 쓰던 'start-url' 캐시는 이제 규칙이 없다 — /app이 app-pages에 들어간 뒤 치운다
+          if (await pages.match('/app')) await caches.delete('start-url').catch(() => undefined);
+          const assets = await caches.open('app-assets');
+          const urls = performance
+            .getEntriesByType('resource')
+            .map((e) => e.name)
+            .filter((u) => /\/app\/_next\/static\/.+\.(js|css)$/.test(u));
+          // 이미 어느 캐시에든(프리캐시는 ?__WB_REVISION__ 꼬리표가 붙는다) 있으면 건너뛴다 — 두 번 받지 않게
+          await Promise.all(urls.map((u) => caches.match(u, { ignoreSearch: true }).then((m) => (m ? undefined : assets.add(u))).catch(() => undefined)));
+        })
+        .catch(() => undefined);
     };
 
     if (document.readyState === 'complete') register();

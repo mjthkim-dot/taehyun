@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Icon, { type IconName } from './Icon';
 import { haptic } from '../lib/haptics';
 import { FOCUS_EVENT, isFocusMode, setFocusMode } from '../lib/focus';
@@ -13,6 +13,7 @@ export type Mode =
   | 'cefr'
   | 'grammar'
   | 'drama'
+  | 'dtalk'
   | 'study'
   | 'drill'
   | 'talk'
@@ -102,9 +103,15 @@ const MORE_TABS = MORE_GROUPS.flatMap((g) => g.items);
 const FOCUS_GROUPS = [
   { title: '내 성장', items: MORE_GROUPS[0].items.slice(0, 2) },
   { title: '학습', items: MORE_GROUPS[1].items.slice(0, 2) },
+  // 기록은 이 기기에만 있다 — 집중 모드에서도 백업·복원에 바로 갈 수 있어야 한다(감사 v1.31 견고성 #1)
+  { title: '내 데이터', items: [{ mode: 'backup' as Mode, icon: '💾', label: '백업 · 복원', desc: '기록을 파일로 보관·되살리기' }] },
 ];
-/** 집중 모드의 하단 탭 — 드릴을 뺀 4개(홈·단어·회화·더보기) */
-const FOCUS_TABS: Mode[] = ['master', 'words', 'talk'];
+/** 집중 모드의 하단 탭 — 홈·단어·회화·더보기. 회화는 업무 미션이 아니라 '드라마 인물과 대화하기' */
+const FOCUS_TAB_LIST: { mode: Mode; icon: IconName; label: string }[] = [
+  PRIMARY_TABS[0],
+  PRIMARY_TABS[1],
+  { mode: 'dtalk', icon: 'talk', label: '회화' },
+];
 
 export default function NavBar({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
   const [moreOpen, setMoreOpen] = useState(false);
@@ -117,14 +124,65 @@ export default function NavBar({ mode, onChange }: { mode: Mode; onChange: (m: M
     return () => window.removeEventListener(FOCUS_EVENT, sync);
   }, []);
   const groups = focus ? FOCUS_GROUPS : MORE_GROUPS;
-  const tabs = focus ? PRIMARY_TABS.filter((t) => FOCUS_TABS.includes(t.mode)) : PRIMARY_TABS;
+  const tabs = focus ? FOCUS_TAB_LIST : PRIMARY_TABS;
+  // 집중 모드에서 드라마는 '홈'의 주인공 — 더보기가 아니라 홈이 켜져 보이게(지금 어디 있는지 헷갈리지 않게)
+  const activeMode: Mode = focus && mode === 'drama' ? 'master' : mode;
+  // 집중 모드 더보기에 있는 화면(레벨·진도·문법·백업)이면 '더보기'가 켜진다
+  const moreOn = focus ? ['cefr', 'progress', 'grammar', 'backup'].includes(mode) : moreActive;
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const moreBtnRef = useRef<HTMLButtonElement | null>(null);
+  const closeSheet = () => {
+    setMoreOpen(false);
+    requestAnimationFrame(() => moreBtnRef.current?.focus({ preventScroll: true }));
+  };
+  // 더보기 시트 = 대화상자: 열면 첫 항목으로 포커스, Esc로 닫고 탭으로 포커스를 돌려준다
+  useEffect(() => {
+    if (!moreOpen) return;
+    const first = sheetRef.current?.querySelector<HTMLElement>('.feat-card');
+    first?.focus({ preventScroll: true });
+    // 시트 뒤의 화면은 잠시 비활성(스크린리더·Tab이 뒤로 새지 않게)
+    const behind = [document.querySelector('.app-content'), document.querySelector('.app-header')].filter(Boolean) as HTMLElement[];
+    behind.forEach((el) => el.setAttribute('inert', ''));
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeSheet();
+        return;
+      }
+      // 포커스 가두기 — Tab이 시트 안에서만 돈다
+      if (e.key === 'Tab' && sheetRef.current) {
+        const items = [...sheetRef.current.querySelectorAll<HTMLElement>('button:not([disabled])')];
+        if (!items.length) return;
+        const firstEl = items[0];
+        const lastEl = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === firstEl) {
+          e.preventDefault();
+          lastEl.focus();
+        } else if (!e.shiftKey && document.activeElement === lastEl) {
+          e.preventDefault();
+          firstEl.focus();
+        } else if (!sheetRef.current.contains(document.activeElement)) {
+          e.preventDefault();
+          firstEl.focus();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      behind.forEach((el) => el.removeAttribute('inert'));
+    };
+  }, [moreOpen]);
 
   return (
     <>
       {moreOpen && (
-        <div className="more-sheet-overlay" onClick={() => setMoreOpen(false)}>
-          <div className="more-sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="more-sheet-overlay" onClick={closeSheet}>
+          <div className="more-sheet" role="dialog" aria-modal="true" aria-label="더보기" ref={sheetRef} onClick={(e) => e.stopPropagation()}>
             <div className="more-sheet-handle" />
+            <button type="button" className="more-sheet-close" onClick={closeSheet} aria-label="더보기 닫기">
+              ✕
+            </button>
             {groups.map((g) => (
               <section key={g.title} className="more-group">
                 <h3 className="more-group-title">{g.title}</h3>
@@ -174,11 +232,12 @@ export default function NavBar({ mode, onChange }: { mode: Mode; onChange: (m: M
         </div>
       )}
 
-      <nav className="mode-tabs">
+      <nav className="mode-tabs" aria-label="주요 메뉴">
         {tabs.map((t) => (
           <button
             key={t.mode}
-            className={`mode-tab${mode === t.mode ? ' active' : ''}`}
+            className={`mode-tab${activeMode === t.mode ? ' active' : ''}`}
+            aria-current={activeMode === t.mode ? 'page' : undefined}
             onClick={() => {
               haptic('tap');
               onChange(t.mode);
@@ -191,7 +250,11 @@ export default function NavBar({ mode, onChange }: { mode: Mode; onChange: (m: M
           </button>
         ))}
         <button
-          className={`mode-tab${moreActive ? ' active' : ''}`}
+          ref={moreBtnRef}
+          className={`mode-tab${moreOn ? ' active' : ''}`}
+          aria-current={moreOn ? 'page' : undefined}
+          aria-expanded={moreOpen}
+          aria-haspopup="dialog"
           onClick={() => setMoreOpen((v) => !v)}
         >
           <span className="ic">

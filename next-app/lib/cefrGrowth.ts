@@ -55,7 +55,10 @@ export interface Evidence {
 }
 
 export function evidenceLog(): Evidence[] {
-  return load<Evidence[]>(EVIDENCE_KEY, []);
+  // 빈 칸·모양이 틀린 기록은 건너뛴다(예전엔 [null] 하나로 홈·문법·CEFR이 깨졌다)
+  return load<Evidence[]>(EVIDENCE_KEY, []).filter(
+    (e) => !!e && typeof e === 'object' && SKILLS.some((s) => s.key === e.skill) && CEFR_ORDER.includes(e.level) && typeof e.score === 'number'
+  );
 }
 
 const idx = (c: Cefr) => CEFR_ORDER.indexOf(c);
@@ -151,7 +154,11 @@ export interface CefrState {
 }
 
 export function cefrState(): CefrState {
-  return load<CefrState>(STATE_KEY, { level: null, history: [] });
+  const s = load<Partial<CefrState>>(STATE_KEY, { level: null, history: [] });
+  return {
+    level: s.level && CEFR_ORDER.includes(s.level) ? s.level : null,
+    history: Array.isArray(s.history) ? s.history.filter((h) => h && CEFR_ORDER.includes(h.level)) : [],
+  };
 }
 
 /**

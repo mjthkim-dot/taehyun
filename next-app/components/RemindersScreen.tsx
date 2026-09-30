@@ -1,5 +1,8 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /**
  * 복습 리마인더 설정 — 알림 켜기(권한 요청), 매일 알림 시간, 테스트 알림.
  * 별도 푸시 서버 없이 동작하므로, 어떤 상황에서 알림이 오는지 솔직하게 안내한다.
@@ -15,6 +18,7 @@ import {
   showTestReminder,
   dueReviewCount,
   type ReminderSettings,
+  unregisterPeriodicReminder,
 } from '../lib/reminders';
 
 export default function RemindersScreen() {
@@ -49,12 +53,15 @@ export default function RemindersScreen() {
       }
       if (p !== 'granted') {
         persist({ ...settings, enabled: false });
+        void unregisterPeriodicReminder(); // 권한이 없으면 백그라운드 등록도 남기지 않는다
         return;
       }
       persist({ ...settings, enabled: true });
       registerPeriodicReminder();
     } else {
       persist({ ...settings, enabled: false });
+      // 백그라운드 알림도 확실히 멈춘다(예전엔 꺼도 매일 알림이 왔다)
+      void unregisterPeriodicReminder();
     }
   }
 

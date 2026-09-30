@@ -30,7 +30,7 @@ import { watchedToday } from './drama';
 import { todayKey as localToday, daysBetween } from './dates';
 import { load, store, spokenToday, groqKey } from './state';
 import { sessionDoneToday } from './session';
-import { isMissionDoneToday } from './dailyMission';
+import { isMissionDoneToday } from './homeLite';
 import { getChatLogs } from './state';
 import { interviewHistory } from './interview';
 import type { Mode } from '../components/NavBar';
@@ -107,7 +107,7 @@ function observedDone(key: BlockKey, spokenTarget: number): boolean {
 
 /** 오늘 복습할 것이 없는가 — 문장 SRS·단어 SRS 모두 기한 도래 0 */
 export function nothingToReview(now = Date.now()): boolean {
-  const weak = load<{ en?: string; due?: number }[]>('va_weak', []).filter((w) => w.en && (w.due == null || w.due <= now));
+  const weak = load<{ en?: string; due?: number }[]>('va_weak', []).filter((w) => w && w.en && (w.due == null || w.due <= now));
   if (weak.length) return false;
   const words = load<Record<string, { d: number }>>('va_words', {});
   return !Object.values(words).some((w) => w && w.d <= now);

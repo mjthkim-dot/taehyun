@@ -15,19 +15,30 @@ self.addEventListener('periodicsync', (event) => {
 async function showDailyReview() {
   let count = 0;
   let missionDone = false;
+  let enabled = false;
+  let focus = false;
   try {
     const cache = await caches.open('reminder-meta');
     const res = await cache.match('reminder-due');
     if (res) count = parseInt(await res.text(), 10) || 0;
     const mres = await cache.match('reminder-mission-done');
     if (mres) missionDone = (await mres.text()) === '1';
+    const eres = await cache.match('reminder-enabled');
+    // 옛 버전이 미러링한 캐시(켜짐 값 없음)는 켜진 것으로 본다 — 끄면 앱이 '0'으로 덮어쓴다
+    enabled = eres ? (await eres.text()) === '1' : !!res;
+    const fres = await cache.match('reminder-focus');
+    if (fres) focus = (await fres.text()) === '1';
   } catch (e) {
-    /* Cache 접근 실패 — 미상으로 두고 아래 조건으로 판단 */
+    /* Cache 접근 실패 — 알리지 않는다 */
+    return;
   }
-  // 할 일(오늘 미션 미완료 or 복습 카드)이 없으면 알리지 않는다.
+  // 알림을 껐거나(또는 데이터를 지웠거나) 할 일이 없으면 알리지 않는다.
+  if (!enabled) return;
   if (count <= 0 && missionDone) return;
   let body;
-  if (!missionDone && count > 0) {
+  if (focus) {
+    body = !missionDone ? '오늘의 드라마 한 편(5분)이 기다려요 — 태오 이야기 이어 보기!' : `지난 화 표현 ${count}개를 떠올릴 시간이에요. 다음 화 첫머리에서 물어볼게요!`;
+  } else if (!missionDone && count > 0) {
     body = `오늘의 비즈니스 미션이 아직 남았어요 · 복습 카드도 ${count}개 대기 중! 15분이면 충분해요.`;
   } else if (!missionDone) {
     body = '오늘의 비즈니스 미션이 아직 남았어요. 15분이면 충분해요!';

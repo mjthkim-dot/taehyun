@@ -58,6 +58,10 @@ const wrong = opts.findIndex((o) => o !== meaning);
 await page.locator('.wd-opt').nth(wrong).click();
 await page.waitForSelector('.wd-opt.wrong', { timeout: 3000 });
 check('오답이 표시되고 정답이 드러난다', (await page.locator('.wd-opt.right').count()) === 1 && (await page.locator('.wd-reveal').count()) === 1);
+await page.waitForTimeout(2200);
+check('오답이면 뜻·예문을 읽을 때까지 기다린다(저절로 넘어가지 않음)', (await page.locator('.wd-reveal').count()) === 1);
+check('스크린리더에 정답 알림', await page.evaluate(() => document.querySelector('.wd-screen [role=status]')?.textContent.startsWith('오답')));
+await page.click('.wd-reveal-next');
 await page.waitForFunction(() => /2\/11/.test(document.querySelector('.wd-count')?.textContent || ''), null, { timeout: 5000 });
 check('오답 단어가 큐 뒤에 한 번 더 들어간다(10 → 11)', true);
 
@@ -72,7 +76,8 @@ for (let guard = 0; guard < 40; guard++) {
   if (await page.locator('.wd-opt:not([disabled])').count()) {
     // 정오와 무관하게 첫 보기 — 오답이면 재출제되고 그것도 결국 소진된다
     await page.locator('.wd-opt').first().click();
-    await page.waitForTimeout(1700);
+    await page.waitForTimeout(800);
+    if (await page.locator('.wd-reveal-next').count()) await page.click('.wd-reveal-next');
   } else {
     await page.waitForTimeout(300);
   }

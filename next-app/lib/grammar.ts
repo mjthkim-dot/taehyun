@@ -29,11 +29,13 @@ export interface GCheck {
 export interface GBuild {
   kr: string;
   a: string;
+  /** 같은 조각으로 만들 수 있는 다른 올바른 어순(if절 앞뒤, 시간 부사 앞으로 등) — 이것도 정답 */
+  alt?: string[];
   extra?: string[];
 }
 export type GTurn =
   | { them: string; kr: string; task: 'choose'; opts: string[]; a: number; why: string }
-  | { them: string; kr: string; task: 'build'; a: string; extra?: string[]; why: string }
+  | { them: string; kr: string; task: 'build'; a: string; alt?: string[]; extra?: string[]; why: string }
   | { them: string; kr: string; task: 'free'; prompt: string; model: string; focus: string };
 
 export interface GrammarUnit {
@@ -158,6 +160,22 @@ export function tokensOf(b: { a: string; extra?: string[] }, seed = 7): string[]
 
 export function normSentence(s: string): string {
   return s.toLowerCase().replace(/[.,!?]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * 조립한 문장이 정답인가 — 대표 정답 또는 다른 올바른 어순 중 하나와 같으면 정답.
+ * 예전엔 한 가지 어순만 받아서 '승인이 나면 알려 드릴게요'를 한국어 어순대로
+ * 'If it gets approved I will tell you'로 만들면 틀렸다고 나왔다(감사 #24).
+ */
+export function isAcceptedBuild(built: string, answer: string, alt?: string[]): boolean {
+  const b = normSentence(built);
+  return [answer, ...(alt || [])].some((x) => normSentence(x) === b);
+}
+
+/** 두 문장이 같은 조각(단어 묶음)으로 되어 있는가 — 대안 어순 검증용 */
+export function sameTokens(a: string, b: string): boolean {
+  const t = (x: string) => normSentence(x).split(' ').sort().join(' ');
+  return t(a) === t(b);
 }
 
 export function shuffledOptions(opts: string[], answer: number, seed: number): { opts: string[]; a: number } {

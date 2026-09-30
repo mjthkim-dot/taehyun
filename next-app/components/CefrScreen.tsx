@@ -1,5 +1,8 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /**
  * CEFR 리포트 — 레벨의 근거와 다음 레벨의 조건을 전부 보여준다.
  *   ① 종합 레벨·GSE·다음 레벨 진척, 8주 GSE 추세
@@ -74,9 +77,9 @@ export default function CefrScreen({ onNavigate, onSelectLesson }: { onNavigate:
             </div>
           </div>
         </div>
-        <div className="cf-trend" aria-label="최근 8주 GSE 추세">
+        <div className="cf-trend" role="img" aria-label={`최근 8주 GSE 추세: ${trend.map((t) => `${t.label} ${t.gse}`).join(', ')}`}>
           {trend.map((t, i) => (
-            <div key={i} className="cf-trend-col">
+            <div key={i} className="cf-trend-col" aria-hidden="true">
               <span className="cf-trend-bar" style={{ height: `${20 + ((t.gse - minT) / Math.max(1, maxT - minT)) * 60}%` }} title={`GSE ${t.gse}`} />
               <span className="cf-trend-lbl">{t.label}</span>
             </div>
@@ -122,9 +125,9 @@ export default function CefrScreen({ onNavigate, onSelectLesson }: { onNavigate:
       })}
 
       <div className="pg-sec-h">Can-do 체크리스트</div>
-      <div className="cf-levels" role="tablist">
+      <div className="cf-levels" role="group" aria-label="레벨 고르기">
         {CEFR_ORDER.map((c) => (
-          <button key={c} type="button" role="tab" aria-selected={lv === c} className={`cf-lv-tab${lv === c ? ' on' : ''}${c === o.level ? ' cur' : ''}`} onClick={() => setLv(c)}>
+          <button key={c} type="button" aria-pressed={lv === c} className={`cf-lv-tab${lv === c ? ' on' : ''}${c === o.level ? ' cur' : ''}`} onClick={() => setLv(c)}>
             {c}
           </button>
         ))}

@@ -48,14 +48,14 @@
         { "q": "The tool ___ need extra setup.", "opts": ["don't", "doesn't", "isn't"], "a": 1, "why": "it 주어의 부정은 doesn't + 원형(need)." }
       ],
       "builds": [
-        { "kr": "그녀는 매주 비용 리포트를 보내요.", "a": "She sends a cost report every week", "extra": ["send"] },
-        { "kr": "저희는 계약서를 직접 관리하지 않아요.", "a": "We don't manage the contract directly", "extra": ["doesn't"] }
+        { "kr": "그녀는 매주 비용 리포트를 보내요.", "a": "She sends a cost report every week", "alt": ["Every week she sends a cost report"], "extra": ["send"] },
+        { "kr": "저희는 계약서를 직접 관리하지 않아요.", "a": "We don't manage the contract directly", "alt": ["We don't directly manage the contract"], "extra": ["doesn't"] }
       ],
       "sim": {
         "who": "스타트업 CTO (Mr. Park)",
         "turns": [
           { "them": "So what does MZC do exactly?", "kr": "그래서 MZC는 정확히 뭘 하나요?", "task": "choose", "opts": ["We help companies move to the cloud.", "We helps companies move to the cloud.", "We helping companies move to the cloud."], "a": 0, "why": "we는 원형 help." },
-          { "them": "Who takes care of billing?", "kr": "빌링은 누가 챙기죠?", "task": "build", "a": "My colleague handles billing every month", "extra": ["handle"], "why": "my colleague = 한 명 → handles." },
+          { "them": "Who takes care of billing?", "kr": "빌링은 누가 챙기죠?", "task": "build", "a": "My colleague handles billing every month", "alt": ["Every month my colleague handles billing"], "extra": ["handle"], "why": "my colleague = 한 명 → handles." },
           { "them": "Does your team work on weekends?", "kr": "팀이 주말에도 일하나요?", "task": "choose", "opts": ["No, we don't, but our on-call engineer does.", "No, we doesn't, but our on-call engineer do.", "No, we aren't, but our on-call engineer is."], "a": 0, "why": "우리 팀 얘기는 we → don't, 엔지니어 한 명은 does. 3인칭 단수에만 -s/does." },
           { "them": "What does your monthly report include?", "kr": "월간 리포트에는 뭐가 들어가나요?", "task": "free", "prompt": "리포트가 무엇을 보여주는지 현재 시제로 한두 문장.", "model": "It shows your monthly spend and it lists the top five services.", "focus": "present simple with third-person -s" }
         ]
@@ -108,14 +108,14 @@
         { "q": "___ the alert go to your team?", "opts": ["Do", "Did", "Was"], "a": 1, "why": "과거 질문은 Did + 원형(go)." }
       ],
       "builds": [
-        { "kr": "저희가 오후 5시에 서비스를 복구했어요.", "a": "We fixed the service at five", "extra": ["fix"] },
+        { "kr": "저희가 오후 5시에 서비스를 복구했어요.", "a": "We fixed the service at five", "alt": ["At five we fixed the service"], "extra": ["fix"] },
         { "kr": "고객 데이터는 바뀌지 않았어요.", "a": "The customer data didn't change", "extra": ["changed"] }
       ],
       "sim": {
         "who": "고객사 운영 매니저 (Mr. Choi)",
         "turns": [
           { "them": "What happened last Friday?", "kr": "지난 금요일에 무슨 일이 있었죠?", "task": "choose", "opts": ["The database went down at 3 p.m.", "The database goes down at 3 p.m.", "The database go down at 3 p.m."], "a": 0, "why": "끝난 일 → go의 과거 went." },
-          { "them": "When did you find the cause?", "kr": "원인은 언제 찾았어요?", "task": "build", "a": "We found it two hours later", "extra": ["find"], "why": "find의 과거는 found(불규칙)." },
+          { "them": "When did you find the cause?", "kr": "원인은 언제 찾았어요?", "task": "build", "a": "We found it two hours later", "alt": ["Two hours later we found it"], "extra": ["find"], "why": "find의 과거는 found(불규칙)." },
           { "them": "Did you lose any data?", "kr": "데이터 손실이 있었나요?", "task": "choose", "opts": ["No, we didn't lose any data.", "No, we didn't lost any data.", "No, we don't lost any data."], "a": 0, "why": "didn't + 원형 lose." },
           { "them": "What did your team do after that?", "kr": "그 후에 팀은 뭘 했나요?", "task": "free", "prompt": "그 다음 한 조치 두 가지를 과거 시제로.", "model": "We added more monitoring and we tested the backup system.", "focus": "past simple (regular and irregular)" }
         ]
@@ -138,14 +138,14 @@
         { "q": "I ___ call you back in ten minutes.", "opts": ["'ll", "going to", "calling"], "a": 0, "why": "즉석 약속 → I'll." }
       ],
       "builds": [
-        { "kr": "(지금 약속) 제가 내일 확인해 드릴게요.", "a": "I will check it tomorrow", "extra": ["checked"] },
-        { "kr": "(계획) 저희는 다음 주에 데이터를 옮길 예정이에요.", "a": "We are going to move the data next week", "extra": ["will"] }
+        { "kr": "(지금 약속) 제가 내일 확인해 드릴게요.", "a": "I will check it tomorrow", "alt": ["Tomorrow I will check it"], "extra": ["checked"] },
+        { "kr": "(계획) 저희는 다음 주에 데이터를 옮길 예정이에요.", "a": "We are going to move the data next week", "alt": ["Next week we are going to move the data"], "extra": ["will"] }
       ],
       "sim": {
         "who": "고객사 구매 담당 (Ms. Han)",
         "turns": [
           { "them": "Can you send the updated quote?", "kr": "수정 견적 보내주실 수 있나요?", "task": "choose", "opts": ["Sure, I'll send it this afternoon.", "Sure, I will sends it this afternoon.", "Sure, I send it this afternoon."], "a": 0, "why": "요청을 듣고 바로 하는 약속 → I'll." },
-          { "them": "What's the plan for the migration?", "kr": "마이그레이션 계획은 어떻게 되나요?", "task": "build", "a": "We are going to start in June", "extra": ["will"], "why": "이미 세운 계획 → be going to." },
+          { "them": "What's the plan for the migration?", "kr": "마이그레이션 계획은 어떻게 되나요?", "task": "build", "a": "We are going to start in June", "alt": ["In June we are going to start"], "extra": ["will"], "why": "이미 세운 계획 → be going to." },
           { "them": "Our CFO has questions about pricing.", "kr": "CFO가 가격에 질문이 있어요.", "task": "choose", "opts": ["I'll prepare a short cost summary for her.", "I'm going prepare a short cost summary for her.", "I will to prepare a short cost summary for her."], "a": 0, "why": "방금 들은 문제에 대한 즉석 제안 → I'll + 원형." },
           { "them": "So what are the next steps?", "kr": "그럼 다음 단계는요?", "task": "free", "prompt": "정해진 계획(be going to) 하나와 지금 하는 약속(will) 하나.", "model": "We are going to run a pilot next month, and I'll send you the schedule tomorrow.", "focus": "will vs be going to" }
         ]
@@ -205,7 +205,7 @@
         "who": "고객사 개발 리드 (Ms. Yoon)",
         "turns": [
           { "them": "We want to start the PoC soon.", "kr": "PoC를 곧 시작하고 싶어요.", "task": "choose", "opts": ["Great. Could you share your architecture diagram?", "Great. Share me your architecture diagram.", "Great. Could you shared your architecture diagram?"], "a": 0, "why": "공손한 요청 Could you + 원형." },
-          { "them": "How fast can you set up the environment?", "kr": "환경을 얼마나 빨리 설정할 수 있어요?", "task": "build", "a": "We can set it up this week", "extra": ["to"], "why": "can + 원형(set up), to 없음." },
+          { "them": "How fast can you set up the environment?", "kr": "환경을 얼마나 빨리 설정할 수 있어요?", "task": "build", "a": "We can set it up this week", "alt": ["This week we can set it up"], "extra": ["to"], "why": "can + 원형(set up), to 없음." },
           { "them": "Can you give us a 50% discount?", "kr": "50% 할인 가능해요?", "task": "choose", "opts": ["I'm afraid we can't, but we can offer free support.", "No, we don't can, but we can to offer free support.", "No. Not possible."], "a": 0, "why": "I'm afraid로 완충 + can't / can + 원형." },
           { "them": "Anything else you need from us?", "kr": "저희한테 더 필요한 게 있나요?", "task": "free", "prompt": "Could you로 공손하게 두 가지를 부탁해 보세요.", "model": "Could you send us your current bill, and could you invite your security team to the next call?", "focus": "polite requests with could" }
         ]
@@ -228,8 +228,8 @@
         { "q": "I've worked with this client ___ three years.", "opts": ["since", "for", "during"], "a": 1, "why": "기간(three years) → for." }
       ],
       "builds": [
-        { "kr": "저희는 지금까지 두 가지 해결책을 시도했어요.", "a": "We have tried two fixes so far", "extra": ["try", "has"] },
-        { "kr": "이 문제는 지난주부터 있었어요.", "a": "This issue has existed since last week", "extra": ["for"] }
+        { "kr": "저희는 지금까지 두 가지 해결책을 시도했어요.", "a": "We have tried two fixes so far", "alt": ["So far we have tried two fixes"], "extra": ["try", "has"] },
+        { "kr": "이 문제는 지난주부터 있었어요.", "a": "This issue has existed since last week", "alt": ["Since last week this issue has existed"], "extra": ["for"] }
       ],
       "sim": {
         "who": "고객사 CTO (Mr. Lim) — 화가 난 상태",
@@ -258,14 +258,14 @@
         { "q": "We'll give you a discount if you ___ for two years.", "opts": ["commit", "will commit", "committed"], "a": 0, "why": "순서가 바뀌어도 if절은 현재형." }
       ],
       "builds": [
-        { "kr": "3년 약정하시면 20% 절감돼요.", "a": "If you commit for three years you will save twenty percent", "extra": ["will commit"] },
-        { "kr": "승인이 나면 바로 알려 드릴게요.", "a": "I will tell you if it gets approved", "extra": ["will get"] }
+        { "kr": "3년 약정하시면 20% 절감돼요.", "a": "If you commit for three years you will save twenty percent", "alt": ["You will save twenty percent if you commit for three years"], "extra": ["will commit"] },
+        { "kr": "승인이 나면 바로 알려 드릴게요.", "a": "I will tell you if it gets approved", "alt": ["If it gets approved I will tell you"], "extra": ["will get"] }
       ],
       "sim": {
         "who": "고객사 구매 총괄 (Ms. Jung)",
         "turns": [
           { "them": "Your price is still too high for us.", "kr": "가격이 아직 높아요.", "task": "choose", "opts": ["If you sign this month, we'll include free training.", "If you will sign this month, we include free training.", "If you signed this month, we'll include free training."], "a": 0, "why": "If + 현재(sign), 결과 will." },
-          { "them": "What if we need more time?", "kr": "시간이 더 필요하면요?", "task": "build", "a": "If you need more time we will extend the offer", "extra": ["will need"], "why": "if절 현재 need, 결과 will extend." },
+          { "them": "What if we need more time?", "kr": "시간이 더 필요하면요?", "task": "build", "a": "If you need more time we will extend the offer", "alt": ["We will extend the offer if you need more time"], "extra": ["will need"], "why": "if절 현재 need, 결과 will extend." },
           { "them": "Will you lower the price if we commit for two years?", "kr": "2년 약정하면 가격 낮춰 주나요?", "task": "choose", "opts": ["Yes, if you commit for two years, we'll lower it by 10%.", "Yes, if you will commit for two years, we lower it by 10%.", "Yes, if you committed for two years, we lowered it by 10%."], "a": 0, "why": "현실적인 조건 → 1조건문." },
           { "them": "Okay, give me your best offer.", "kr": "좋아요, 최선의 제안을 주세요.", "task": "free", "prompt": "If ~, we will ~ 로 조건 두 개를 걸어 제안해 보세요.", "model": "If you sign by Friday, we will add a month of free support, and if you commit for two years, we will lower the rate by ten percent.", "focus": "first conditional (if + present, will + base)" }
         ]
@@ -318,14 +318,14 @@
         { "q": "The credit ___ to your next bill.", "opts": ["will apply", "will be applied", "will applied"], "a": 1, "why": "미래 수동 → will be + p.p." }
       ],
       "builds": [
-        { "kr": "요금은 매달 1일에 청구돼요.", "a": "The fee is charged on the first of every month", "extra": ["charges"] },
-        { "kr": "문제는 오늘 아침에 해결됐어요.", "a": "The problem was solved this morning", "extra": ["solve"] }
+        { "kr": "요금은 매달 1일에 청구돼요.", "a": "The fee is charged on the first of every month", "alt": ["On the first of every month the fee is charged"], "extra": ["charges"] },
+        { "kr": "문제는 오늘 아침에 해결됐어요.", "a": "The problem was solved this morning", "alt": ["This morning the problem was solved"], "extra": ["solve"] }
       ],
       "sim": {
         "who": "고객사 회계 담당 (Ms. Oh)",
         "turns": [
           { "them": "I haven't received the invoice.", "kr": "청구서를 못 받았어요.", "task": "choose", "opts": ["It was sent to your old email address.", "It sent to your old email address.", "It was send to your old email address."], "a": 0, "why": "was + p.p.(sent)." },
-          { "them": "Why is this month's bill so high?", "kr": "이번 달 청구액이 왜 높죠?", "task": "build", "a": "Extra storage was added last week", "extra": ["adds"], "why": "누가 추가했는지보다 추가된 사실 → was added." },
+          { "them": "Why is this month's bill so high?", "kr": "이번 달 청구액이 왜 높죠?", "task": "build", "a": "Extra storage was added last week", "alt": ["Last week extra storage was added"], "extra": ["adds"], "why": "누가 추가했는지보다 추가된 사실 → was added." },
           { "them": "Will the overcharge be refunded?", "kr": "초과 청구분은 환불되나요?", "task": "choose", "opts": ["Yes, it will be refunded next month.", "Yes, it will refunded next month.", "Yes, it refunds next month."], "a": 0, "why": "will be + p.p." },
           { "them": "How is the data protected?", "kr": "데이터는 어떻게 보호되나요?", "task": "free", "prompt": "수동태 두 문장으로 보호 방식을 설명해 보세요.", "model": "All data is encrypted, and backups are stored in a separate region.", "focus": "passive voice" }
         ]
@@ -348,14 +348,14 @@
         { "q": "If I ___ you, I would choose the one-year plan.", "opts": ["am", "were", "will be"], "a": 1, "why": "비현실 가정의 be → were." }
       ],
       "builds": [
-        { "kr": "시간이 더 있다면 전부 옮길 텐데요.", "a": "If we had more time we would migrate everything", "extra": ["will"] },
-        { "kr": "알림을 설정했더라면 문제를 잡았을 거예요.", "a": "If we had set alerts we would have caught the problem", "extra": ["caught would"] }
+        { "kr": "시간이 더 있다면 전부 옮길 텐데요.", "a": "If we had more time we would migrate everything", "alt": ["We would migrate everything if we had more time"], "extra": ["will"] },
+        { "kr": "알림을 설정했더라면 문제를 잡았을 거예요.", "a": "If we had set alerts we would have caught the problem", "alt": ["We would have caught the problem if we had set alerts"], "extra": ["caught would"] }
       ],
       "sim": {
         "who": "고객사 CFO (Mr. Hwang)",
         "turns": [
           { "them": "Could you do this for half the price?", "kr": "반값에 가능할까요?", "task": "choose", "opts": ["If we cut the price that much, we would have to remove support.", "If we will cut the price that much, we have to remove support.", "If we cut the price that much, we will had to remove support."], "a": 0, "why": "비현실 가정 → if + 과거, would + 원형." },
-          { "them": "Last quarter's outage cost us a lot.", "kr": "지난 분기 장애로 손해가 컸어요.", "task": "build", "a": "If we had set up alerts we would have caught it early", "extra": ["would catch"], "why": "지난 일 가정 → had p.p. / would have p.p." },
+          { "them": "Last quarter's outage cost us a lot.", "kr": "지난 분기 장애로 손해가 컸어요.", "task": "build", "a": "If we had set up alerts we would have caught it early", "alt": ["We would have caught it early if we had set up alerts"], "extra": ["would catch"], "why": "지난 일 가정 → had p.p. / would have p.p." },
           { "them": "What would you do in my position?", "kr": "제 입장이라면 어떻게 하시겠어요?", "task": "choose", "opts": ["If I were you, I would start with a small pilot.", "If I am you, I will start with a small pilot.", "If I was you, I would started with a small pilot."], "a": 0, "why": "If I were you, I would + 원형." },
           { "them": "Why should we trust you this time?", "kr": "이번엔 왜 믿어야 하죠?", "task": "free", "prompt": "3조건문으로 과거 반성 한 문장 + 1조건문으로 앞으로의 약속 한 문장.", "model": "If we had monitored the database, we would have prevented the outage. If you renew, we will add 24/7 monitoring.", "focus": "second/third vs first conditional" }
         ]
@@ -438,8 +438,8 @@
         { "q": "How long ___ you been working with AWS?", "opts": ["have", "did", "are"], "a": 0, "why": "How long have you been -ing?" }
       ],
       "builds": [
-        { "kr": "1월부터 비용 최적화를 계속 하고 있어요.", "a": "We have been optimizing costs since January", "extra": ["for"] },
-        { "kr": "지금까지 서버 15대를 옮겼어요.", "a": "We have moved fifteen servers so far", "extra": ["been"] }
+        { "kr": "1월부터 비용 최적화를 계속 하고 있어요.", "a": "We have been optimizing costs since January", "alt": ["Since January we have been optimizing costs"], "extra": ["for"] },
+        { "kr": "지금까지 서버 15대를 옮겼어요.", "a": "We have moved fifteen servers so far", "alt": ["So far we have moved fifteen servers"], "extra": ["been"] }
       ],
       "sim": {
         "who": "고객사 PM (Mr. Ahn) — 주간 진행 회의",
@@ -528,14 +528,14 @@
         { "q": "Having reviewed the plan, ___", "opts": ["the budget was approved.", "the CFO approved the budget.", "it was approved by budget."], "a": 1, "why": "검토한 사람 = 주절의 주어(the CFO)." }
       ],
       "builds": [
-        { "kr": "설정을 바꾼 뒤, 저희는 지연 시간을 절반으로 줄였습니다.", "a": "Having changed the settings we cut latency in half", "extra": ["Changed"] },
-        { "kr": "자동 알림을 사용해 팀이 문제를 더 빨리 잡았습니다.", "a": "Using automatic alerts the team caught the issue faster", "extra": ["Used"] }
+        { "kr": "설정을 바꾼 뒤, 저희는 지연 시간을 절반으로 줄였습니다.", "a": "Having changed the settings we cut latency in half", "alt": ["We cut latency in half having changed the settings"], "extra": ["Changed"] },
+        { "kr": "자동 알림을 사용해 팀이 문제를 더 빨리 잡았습니다.", "a": "Using automatic alerts the team caught the issue faster", "alt": ["The team caught the issue faster using automatic alerts"], "extra": ["Used"] }
       ],
       "sim": {
         "who": "우리 회사 임원 (Director Kim) — 포스트모템 리뷰",
         "turns": [
           { "them": "How did you find the root cause?", "kr": "근본 원인은 어떻게 찾았죠?", "task": "choose", "opts": ["Having reviewed the access logs, we found a misconfigured rule.", "Reviewed the access logs, we found a misconfigured rule.", "Having reviewed the access logs, a misconfigured rule was found by it."], "a": 0, "why": "Having p.p. + 같은 주어(we)." },
-          { "them": "How did you restore service so quickly?", "kr": "어떻게 그렇게 빨리 복구했죠?", "task": "build", "a": "Working with the vendor we restored it in an hour", "extra": ["Worked"], "why": "동시에 하며 → -ing." },
+          { "them": "How did you restore service so quickly?", "kr": "어떻게 그렇게 빨리 복구했죠?", "task": "build", "a": "Working with the vendor we restored it in an hour", "alt": ["We restored it in an hour working with the vendor"], "extra": ["Worked"], "why": "동시에 하며 → -ing." },
           { "them": "What will prevent a repeat?", "kr": "재발은 무엇으로 막죠?", "task": "choose", "opts": ["Having added automated checks, we can now catch this in minutes.", "Added automated checks, we can now catch this in minutes.", "Having add automated checks, we can now catch this."], "a": 0, "why": "Having + p.p.(added)." },
           { "them": "Summarize it in two sentences for the client.", "kr": "고객용으로 두 문장 요약해 주세요.", "task": "free", "prompt": "분사구문(Having p.p. 또는 -ing)을 넣어 두 문장으로 요약해 말해 보세요.", "model": "Having identified a faulty rule, we fixed it within an hour. Using new automated checks, we will now detect similar issues in minutes.", "focus": "participle clauses (having p.p., -ing) with matching subject" }
         ]

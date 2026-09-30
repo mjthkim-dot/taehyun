@@ -32,8 +32,13 @@ const RATE_LIMIT_PER_MIN = 30;
 /** 대화 메시지 배열 최대 길이·전체 문자수 — 정상 사용(시스템+최근 8턴)의 여유 상한. */
 const MAX_MESSAGES = 24;
 const MAX_TOTAL_CHARS = 16000;
-// 문법 변형 생성(상황+문항 11개 JSON)은 추론 모델에서 1200으론 잘린다 — 2000까지 허용
-const MAX_TOKENS_CAP = 2000;
+// 문법 변형 생성(상황+문항 11개 JSON)은 추론 모델에서 1200으론 잘린다 — 2000까지 허용.
+// 드라마 한 화(장면 12~18개 JSON, 한글 포함 2.1~2.4천 자)는 추론 토큰까지 합치면 2000에서
+// 잘릴 수 있어 4000까지 허용한다(감사 v1.31). JSON 생성은 추론 강도를 낮춰 출력에 토큰을 쓴다.
+const MAX_TOKENS_CAP = 4000;
+
+/** 추론 강도 파라미터를 받는 모델(gpt-oss) — 다른 모델에 보내면 400이 날 수 있어 한정한다 */
+const supportsEffort = (model: string) => model.startsWith('openai/gpt-oss');
 
 export async function GET() {
   return Response.json({ hasServerKey: !!process.env.GROQ_API_KEY, model: resolvedModel || MODEL_CHAIN[0] });
@@ -62,18 +67,29 @@ export async function POST(req: NextRequest) {
   let lastStatus = 502;
   let lastDetail = 'Groq 연결 실패';
   for (const model of models) {
-    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
+    const payload = (effort: boolean) =>
+      JSON.stringify({
         model,
         messages,
         stream: !!stream,
         temperature: Math.min(Math.max(Number(temperature ?? 0.7) || 0.7, 0), 2),
         max_tokens: Math.min(Number(maxTokens ?? 400) || 400, MAX_TOKENS_CAP),
         ...(json ? { response_format: { type: 'json_object' } } : {}),
-      }),
-    }).catch(() => null);
+        ...(effort ? { reasoning_effort: 'low' } : {}),
+      });
+    const send = (effort: boolean) =>
+      fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: payload(effort),
+      }).catch(() => null);
+    const useEffort = !!json && supportsEffort(model);
+    let resp = await send(useEffort);
+    // 추론 강도 파라미터를 거부하면(모델 사양 변경) 빼고 한 번 더 — 기능이 통째로 죽지 않게
+    if (resp && resp.status === 400 && useEffort) {
+      const txt = await resp.clone().text().catch(() => '');
+      if (/reasoning/i.test(txt)) resp = await send(false);
+    }
 
     if (!resp) {
       lastStatus = 502;

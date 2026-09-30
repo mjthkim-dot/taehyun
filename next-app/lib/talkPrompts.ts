@@ -19,10 +19,10 @@ ${prevLessons.map((pl) => `- ${pl.title}: ${(pl.sections || []).flatMap((s) => s
     : '';
 
   const weakItems = load<{ en: string; due?: number | null }[]>('va_weak', [])
-    .filter((w) => w.en && (w.due == null || w.due <= Date.now()))
+    .filter((w) => w && w.en && (w.due == null || w.due <= Date.now()))
     .slice(0, 3)
     .map((w) => w.en);
-  const savedPhrases = load<{ en: string }[]>('va_phrases', []).slice(0, 2).map((p) => p.en).filter(Boolean);
+  const savedPhrases = load<{ en: string }[]>('va_phrases', []).filter(Boolean).slice(0, 2).map((p) => p.en).filter(Boolean);
   const recycleItems = [...new Set([...weakItems, ...savedPhrases])].slice(0, 4);
   const recycleNote = recycleItems.length
     ? `\n\n♻️ 약점 표현 재순환 (자연스러울 때만): 학생이 전에 어려워했거나 저장한 아래 표현을 이번 대화에서 다시 쓸 기회가 생기면 슬쩍 유도하세요. 억지로 끼워넣지 말고 맥락이 맞을 때만:\n${recycleItems.map((t) => `- ${t}`).join('\n')}`

@@ -10,10 +10,14 @@ export default function DramaProgress() {
   const data = useMemo(() => {
     const seen = new Set(watched());
     const eps = allEpisodes().filter((e) => seen.has(e.no));
-    const weak = load<{ en: string; box?: number }[]>('va_weak', []);
+    const weak = load<{ en: string; kr?: string; box?: number; lesson?: unknown }[]>('va_weak', []).filter((w) => w && typeof w.en === 'string');
     const box = new Map(weak.map((w) => [w.en, w.box ?? 0]));
-    const learned = eps.flatMap((e) => e.learn.map((l) => ({ ...l, no: e.no, box: box.get(l.en) ?? 0 })));
-    return { count: eps.length, learned };
+    const learned = eps.flatMap((e) => e.learn.map((l) => ({ ...l, no: e.no as number | string, box: box.get(l.en) ?? 0 })));
+    // 예전 버전(1.29)의 AI 4~7화에서 배운 표현 — 원고가 바뀌어도 잃지 않고 따로 보여 준다
+    const legacy = weak
+      .filter((w) => typeof w.lesson === 'string' && /^drama:ai-\d+$/.test(w.lesson) && w.kr)
+      .map((w) => ({ en: w.en, kr: w.kr || '', note: '', no: `이전 AI ${String(w.lesson).slice(9)}화`, box: w.box ?? 0 }));
+    return { count: eps.length, learned: [...learned, ...legacy] };
   }, []);
   if (!data.count) return null;
   return (
@@ -35,7 +39,7 @@ export default function DramaProgress() {
             >
               <span className="dp-en">🔊 {l.en}</span>
               <span className="dp-kr">
-                {l.kr} · EP {l.no}
+                {l.kr} · {typeof l.no === 'number' ? `EP ${l.no}` : l.no}
                 {l.box >= 3 ? ' · 기억 ✓' : ''}
               </span>
             </button>

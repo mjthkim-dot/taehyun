@@ -24,10 +24,8 @@ const HomeShortcuts = dynamic(() => import('./HomeShortcuts'), {
 import { consumeFreezesForGaps, getFreezeCount } from '../lib/habits';
 const CurriculumPath = dynamic(() => import('./CurriculumPath'), { ssr: false });
 import StreakFlame from './StreakFlame';
-import { computeMaturity } from '../lib/maturity';
-import { pickTodayPattern, sessionDoneToday } from '../lib/session';
-import { loadStories } from '../lib/storyData';
-import { weeklyTestDue } from '../lib/weeklyTest';
+// 전체 모드 전용(오늘 세션·주간 시험) — 성장 단계·패턴 데이터를 안고 있어 집중 모드 홈 번들에서 뺀다
+const HomeFullExtras = dynamic(() => import('./HomeFullExtras'), { ssr: false });
 import { programStarted, PROGRAM_EVENT, dramaWatchedCount } from '../lib/homeLite';
 import { isFocusMode, setFocusMode, FOCUS_EVENT } from '../lib/focus';
 import FocusGuide from './FocusGuide';
@@ -37,71 +35,37 @@ const GrammarTodayCard = dynamic(() => import('./GrammarToday'), {
   ssr: false,
   loading: () => <div className="study-card gm-today" style={{ minHeight: 150 }} aria-hidden="true" />,
 });
-const DramaCard = dynamic(() => import('./DramaCard'), {
-  ssr: false,
-  loading: () => <div className="study-card dr-card" style={{ minHeight: 200 }} aria-hidden="true" />,
-});
+function cefrHeroHeight(): number {
+  try {
+    return isFocusMode() ? 171 : 235;
+  } catch {
+    return 200;
+  }
+}
+
+// 집중 모드 홈의 주인공 카드 — 원고 없이 경량 색인만 쓰므로 정적으로 싣고 첫 프레임에 그린다
+// (예전엔 지연 로딩이라 맨 위 핵심 버튼이 아래 불꽃 카드보다 1초 늦게 떴다, 감사 v1.31 성능 G26)
+import DramaCard from './DramaCard';
+if (typeof window !== 'undefined') {
+  try {
+    if (isFocusMode()) void import('./CefrHero');
+  } catch {
+    /* 저장소 접근 불가 — 평소처럼 늦게 받는다 */
+  }
+}
 import { isPlaced } from '../lib/state';
 // 12주 프로그램 — 홈의 첫 카드. 서약 폼과 오늘 4블록을 모두 품어 무겁기에 지연 청크로.
 // CEFR 히어로 — 홈의 주인공(레벨·다음 레벨 조건). 첫 화면이라 자리표시자로 CLS를 막는다.
 const CefrHero = dynamic(() => import('./CefrHero'), {
   ssr: false,
-  loading: () => <div className="study-card cf-hero" style={{ minHeight: 260 }} aria-hidden="true" />,
+  // 자리표시자 = 실측 높이(집중 모드 171px·전체 모드 235px, 390px 기준) — 뜨는 순간 아래가 밀리지 않게(CLS)
+  loading: () => <div className="study-card cf-hero" style={{ minHeight: cefrHeroHeight() }} aria-hidden="true" />,
 });
 const ProgramCard = dynamic(() => import('./ProgramCard'), {
   ssr: false,
   loading: () => <div className="pg-card" style={{ minHeight: 200 }} aria-hidden="true" />,
 });
 import type { Mode } from './NavBar';
-
-/** 주간 말하기 시험 배너 — 때가 됐을 때만 조용히 나타난다(매일 조르지 않는다). */
-function WeeklyTestBanner({ onNavigate }: { onNavigate: (m: Mode) => void }) {
-  const [due, setDue] = useState(false);
-  useEffect(() => setDue(weeklyTestDue()), []);
-  if (!due) return null;
-  return (
-    <button type="button" className="wt-banner" onClick={() => onNavigate('weeklytest')}>
-      📣 주간 말하기 시험 — 이번 주 패턴으로 1분, 지난주의 나와 비교해요 →
-    </button>
-  );
-}
-
-/** 홈의 주인공 — "오늘 세션 시작" 버튼 하나. 무엇을 할지 고르지 않게 한다. */
-function SessionCta({ onNavigate }: { onNavigate: (m: Mode) => void }) {
-  const [state, setState] = useState<{ done: boolean; patternEn: string; patternKr: string; isReview: boolean } | null>(null);
-  useEffect(() => {
-    // 스토리는 비동기 청크 — 홈 번들에 40편을 정적으로 싣지 않기 위한 대가로,
-    // CTA의 패턴 미리보기만 로드 후 채운다(캐시되면 즉시).
-    let alive = true;
-    void loadStories().then(() => {
-      if (!alive) return;
-      const mx = computeMaturity();
-      const picked = pickTodayPattern(mx.stage.n);
-      setState({ done: sessionDoneToday(), patternEn: picked?.pattern.en || '', patternKr: picked?.pattern.kr || '', isReview: picked?.isReview ?? false });
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
-  if (!state) return null;
-  return (
-    <button type="button" className={`session-cta${state.done ? ' done' : ''}`} onClick={() => onNavigate('session')}>
-      <span className="session-cta-main">
-        <span className="session-cta-title">
-          {state.done ? '오늘 세션 완주 ✓' : '▶ 오늘 세션 시작'}
-        </span>
-        <span className="session-cta-sub">
-          {state.done
-            ? '한 번 더 돌면 복습이 깊어져요'
-            : // 뜻을 함께 — 영어 스템만 보이면 "무슨 뜻인지 모르는 버튼"이 된다
-              `약 10분 · ${state.isReview ? '복습' : '오늘의 패턴'}: ${state.patternEn}${state.patternKr ? ` — ${state.patternKr}` : ''}`}
-        </span>
-      </span>
-      <span className="session-cta-arrow">→</span>
-    </button>
-  );
-}
-
 
 export default function MasterScreen({
   onSelectLesson,
@@ -164,8 +128,7 @@ export default function MasterScreen({
         </header>
         {/* LCP 앵커 — 첫 페인트에 의미 있는 큰 텍스트를 고정한다(Lighthouse) */}
         <p className="hm-lcp">
-          CEFR 레벨을 기준으로, 매일 한 레슨씩 — 복습하고, 문법을 실전 상황에서 익히고, 소리 내어 말하고,
-          실제 업무 상황에 써봅니다. 오늘의 레슨을 불러오고 있어요.
+          매일 조금씩, 소리 내어 말하며 익히는 영어 — 오늘의 학습을 준비하고 있어요.
         </p>
       </div>
     );
@@ -207,11 +170,13 @@ export default function MasterScreen({
           </button>
         </div>
       )}
-      {!groqKey() && (
-        <div className="notice danger">
+      {/* 집중 모드는 1~7화를 키 없이 볼 수 있다 — 첫 화면의 빨간 경고는 '뭔가 잘못됐다'는 인상만 준다.
+          집중 모드에선 다음 화가 AI 화일 때만(7화까지 본 뒤) 차분한 안내로(감사 v1.31 비평 #8) */}
+      {!groqKey() && (!focus || dramaWatchedCount() >= 7) && (
+        <div className={`notice${focus ? '' : ' danger'}`}>
           <div className="notice-body">
-            <div className="notice-title">AI 튜터 연결이 필요해요</div>
-            <div className="notice-desc">무료 키 하나로 AI 회화·피드백이 켜집니다.</div>
+            <div className="notice-title">{focus ? '8화부터는 AI 작가가 써요' : 'AI 튜터 연결이 필요해요'}</div>
+            <div className="notice-desc">{focus ? '무료 키 하나로 다음 이야기·인물과의 대화가 켜져요.' : '무료 키 하나로 AI 회화·피드백이 켜집니다.'}</div>
           </div>
           <button className="btn ghost-accent compact notice-action" onClick={() => onNavigate('apikey')}>
             연결
@@ -258,8 +223,7 @@ export default function MasterScreen({
 
       {/* ② 오늘의 레슨 — 화면의 주 행동 */}
       <ProgramCard onNavigate={onNavigate} />
-      {!onProgram && <SessionCta onNavigate={onNavigate} />}
-      <WeeklyTestBanner onNavigate={onNavigate} />
+      <HomeFullExtras onNavigate={onNavigate} showSession={!onProgram} />
 
       {/* 오늘의 문법 — 새 콘텐츠를 홈에서 바로 */}
       <h2 className="hm-sec">오늘의 문법</h2>

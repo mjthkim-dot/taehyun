@@ -7,6 +7,7 @@
  * 날짜 기준으로 매일 하나씩 돌려서 보여준다(매일 새로움 + 항상 관련 있음). 정적
  * 데이터라 키·네트워크 없이도 즉시 동작한다. 완료는 날짜로 기록해 하루 1회 판정.
  */
+import { MISSION_DONE_KEY } from './homeLite';
 import { dateKey } from './dates';
 import { load, store } from './state';
 import { groqKoJson, hasHangul } from './aiGuard';
@@ -629,7 +630,8 @@ export const BUSINESS_MISSIONS: BusinessMission[] = [
   },
 ];
 
-const DONE_KEY = 'va_mission_done'; // 마지막으로 완료한 날짜(YYYY-MM-DD)
+// 마지막으로 완료한 날짜(YYYY-MM-DD) — 키 이름은 홈 경량 모듈과 하나로
+const DONE_KEY = MISSION_DONE_KEY;
 const OFFSET_KEY = 'va_mission_offset'; // 사용자가 "다른 상황"으로 넘긴 오프셋
 
 function todayStr(d = new Date()): string {
@@ -656,9 +658,8 @@ export function nextMission(): BusinessMission {
   return getTodayMission();
 }
 
-export function isMissionDoneToday(): boolean {
-  return load<string>(DONE_KEY, '') === todayStr();
-}
+// 완료 여부 읽기는 홈 경량 모듈에 있다(홈이 미션 원고를 끌어오지 않게) — 호환용으로 다시 내보낸다
+export { isMissionDoneToday } from './homeLite';
 
 /* ── ✨ AI 새 상황 생성 ──
  * 정적 미션 12종은 12일이면 한 바퀴 돈다. 키가 있으면 그날의 상황을 AI가

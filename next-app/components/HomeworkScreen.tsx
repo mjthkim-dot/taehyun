@@ -1,5 +1,8 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /**
  * 숙제 도우미 v2 — voice-assistant/index.html 의 renderHomework()/solveHomework() 포팅에
  * 1) 힌트 모드에서 직접 풀어본 답 채점, 2) 완료 체크 트래킹, 3) 후속 질문(이어서 질문하기)을 더했다.

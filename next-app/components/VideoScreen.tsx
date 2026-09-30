@@ -1,5 +1,8 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /**
  * 영상(video) 탭 — voice-assistant/index.html 의 renderVideo() 포팅.
  * v1 범위: YouTube 영상 임베드 + IFrame API로 재생 위치 추적 + 자막 자동 수집

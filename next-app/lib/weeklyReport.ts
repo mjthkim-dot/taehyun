@@ -9,7 +9,7 @@
  *
  * 계산은 순수 함수로 두어(화면과 분리) 데이터만 넣으면 테스트할 수 있게 했다.
  */
-import { load, spokenHistory, dueWeak, topPronLapses, type WeakItem } from './state';
+import { load, spokenHistory, dueWeak, topPronLapses, weakItems, type WeakItem } from './state';
 import { LAPSE_TIPS, type LapseKey } from './pronunciation';
 import { weeklyXp } from './habits';
 import { MASTER_CURRICULUM } from './curriculum';
@@ -86,7 +86,7 @@ export function buildWeeklyReport(): WeeklyReport {
   const older = sessions.slice(-6, -3);
 
   /* ── 약점: 반복해서 틀린 항목이 곧 다음 주 우선순위 ── */
-  const weak = load<WeakItem[]>('va_weak', []);
+  const weak = weakItems();
   const weakTop = [...weak]
     .filter((w) => (w.lapses || 0) > 0)
     .sort((a, b) => (b.lapses || 0) - (a.lapses || 0))
@@ -114,8 +114,11 @@ export function buildWeeklyReport(): WeeklyReport {
 
   /* ── 총평: 숫자를 그대로 두지 않고 한 문장으로 해석한다 ── */
   let headline: string;
-  if (last7 === 0) {
-    headline = '이번 주에는 아직 말하기 기록이 없어요. 오늘 한 문장부터 시작해 보세요.';
+  if (last7 === 0 && activeDays > 0) {
+    // 드라마·단어만 한 주도 '기록이 없다'고 하지 않는다(말한 문장 수가 0일 뿐 학습은 했다)
+    headline = `이번 주 ${activeDays}일 학습했어요. 다음엔 따라 말하기로 소리 내어 말한 문장도 쌓아 봐요.`;
+  } else if (last7 === 0) {
+    headline = '이번 주에는 아직 학습 기록이 없어요. 오늘 한 문장부터 시작해 보세요.';
   } else if (activeDays >= 5) {
     headline = `이번 주 ${activeDays}일 학습 — 습관이 잡히고 있어요. 이 페이스를 유지하세요.`;
   } else if (last7 > prev7) {

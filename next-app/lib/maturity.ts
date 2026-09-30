@@ -14,7 +14,7 @@
  * 깎아 먹으면 동기가 죽는다.
  */
 import { todayKey } from './dates';
-import { load, store } from './state';
+import { load, store, weakItems } from './state';
 import { getProfile } from './state';
 import type { WeakItem } from './state';
 import { ladderDoneCount } from './nativeLadder';
@@ -175,7 +175,7 @@ function stageSignals(stageN: number) {
 
 /** 정착된(box≥3) 원어민 표현 수 — 보조 지표(화면 표시용) */
 export function settledNativeCount(): number {
-  return load<WeakItem[]>('va_weak', []).filter((w) => (w.cat === '원어민' || w.lesson === 'ladder') && w.box >= 3).length;
+  return weakItems().filter((w) => (w.cat === '원어민' || w.lesson === 'ladder') && w.box >= 3).length;
 }
 
 /**

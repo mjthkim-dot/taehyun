@@ -9,6 +9,8 @@ import './globals.css';
  * 지배해 LCP를 12초대로 끌었다(Lighthouse 검출). 공식 동적 서브셋(유니코드
  * 범위별 분할)으로 바꾸면 화면에 실제로 쓰인 글자 범위만 내려온다(수백 KB).
  * 폰트 패밀리 변수(--font-pretendard)는 globals.css에서 정의한다.
+ * 애플 기기(iOS·macOS)는 시스템 글꼴(-apple-system — Pretendard가 본뜬 원본)을 먼저 써서 이 서브셋을
+ * 전혀 받지 않고, 그 밖의 기기만 쓰는 글자의 서브셋을 받는다(감사 v1.31 성능 G30).
  */
 
 export const metadata: Metadata = {

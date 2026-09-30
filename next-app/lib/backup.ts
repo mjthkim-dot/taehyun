@@ -10,6 +10,8 @@
  * 복원 시에도 같은 이유로 이 키는 받아들이지 않는다.
  */
 
+import { sanitizeStorage } from './sanitize';
+
 const BACKUP_APP = 'my-english-coach';
 /** 리브랜딩 이전 버전이 만든 백업 파일도 계속 복원할 수 있게 허용하는 앱 식별자들. */
 const LEGACY_BACKUP_APPS = new Set(['preply-english-coach']);
@@ -45,11 +47,33 @@ export function buildBackup(): BackupFile {
     const v = localStorage.getItem(k);
     if (v != null) data[k] = v;
   }
+  // 집중 모드(기본값)는 저장된 적이 없을 수 있다 — 명시해 두지 않으면 복원 경로에서 켠
+  // '모든 기능' 모드가 그대로 남아 복잡한 화면으로 바뀐다(감사 v1.31 견고성 #1)
+  if (!data.va_mode) data.va_mode = JSON.stringify('focus');
   return { app: BACKUP_APP, format: BACKUP_FORMAT, exportedAt: new Date().toISOString(), data };
 }
 
 /** 백업 JSON을 파일로 다운로드한다. */
+/** 마지막으로 백업 파일을 받은 시각 — 홈의 '기록 보관' 권유에 쓴다 */
+export const BACKUP_AT_KEY = 'va_backup_at';
+
+/** 백업 당시 본 화 수 — 그 뒤로 7화를 더 보면 다시 권한다 */
+export const BACKUP_EPS_KEY = 'va_backup_eps';
+
+function markBackedUp() {
+  try {
+    localStorage.setItem(BACKUP_AT_KEY, JSON.stringify(Date.now()));
+    const d = JSON.parse(localStorage.getItem('va_drama') || '{}');
+    const n = d && typeof d.done === 'object' && d.done ? Object.keys(d.done).length : 0;
+    localStorage.setItem(BACKUP_EPS_KEY, JSON.stringify(n));
+  } catch {
+    /* 무시 */
+  }
+}
+
 export function downloadBackup() {
+  // 받은 시각을 먼저 기록해 파일에도 담는다(복원한 기기도 '최근에 백업했다'로 안다)
+  markBackedUp();
   const backup = buildBackup();
   const date = backup.exportedAt.slice(0, 10);
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
@@ -96,6 +120,14 @@ export function restoreBackup(text: string): RestoreResult {
     // 허용된 키만 복원 — 백업 파일을 통해 임의 키/비밀키가 심기지 않게 한다.
     const allowed = (k.startsWith('va_') && /^va_[a-z0-9_]+$/.test(k) && !EXCLUDED_KEYS.has(k)) || EXTRA_KEYS.includes(k);
     if (!allowed || typeof v !== 'string') continue;
+    // 학습 값은 JSON이어야 한다 — 읽을 수 없는 값은 들이지 않는다(홈이 깨지는 원인)
+    if (k.startsWith('va_')) {
+      try {
+        JSON.parse(v);
+      } catch {
+        continue;
+      }
+    }
     try {
       localStorage.setItem(k, v);
       restored++;
@@ -104,7 +136,19 @@ export function restoreBackup(text: string): RestoreResult {
     }
   }
   if (!restored) return { ok: false, restored: 0, message: '복원할 데이터가 없어요.' };
-  return { ok: true, restored, message: `${restored}개 항목을 복원했어요. 새로고침하면 반영됩니다.` };
+  // 1.30 이전 백업: 모드가 저장된 적이 없다 = 집중 모드였다(전체 모드는 늘 'full'이 저장됨)
+  if (!('va_mode' in b.data)) localStorage.setItem('va_mode', JSON.stringify('focus'));
+  // 1.30 이전 백업엔 드라마 이전 표시가 없다 — 옛 AI 4~7화 기록이 돌아왔을 수 있으니 이전을 다시 돌린다
+  if (!('va_drama_migrated' in b.data)) localStorage.removeItem('va_drama_migrated');
+  // 이 사람은 백업 파일을 갖고 있다
+  markBackedUp();
+  // 들어온 값의 모양을 한 번 점검(빈 칸·어긋난 항목 정리)
+  try {
+    sanitizeStorage();
+  } catch {
+    /* 점검 실패는 복원을 막지 않는다 */
+  }
+  return { ok: true, restored, message: `${restored}개 항목을 복원했어요. 잠시 후 앱을 다시 열어요.` };
 }
 
 /**
@@ -118,6 +162,14 @@ export function eraseAllData() {
     if (k && (k.startsWith('va_') || EXTRA_KEYS.includes(k))) keys.push(k);
   }
   keys.forEach((k) => localStorage.removeItem(k));
+  // 백그라운드 알림·캐시도 함께 — 데이터를 지웠는데 매일 알림이 오면 안 된다
+  // (알림 모듈은 미션 데이터를 안고 있어 오류 화면·홈 번들에 넣지 않으려고 지연 로딩)
+  void import('./reminders').then((m) => m.unregisterPeriodicReminder()).catch(() => undefined);
+  try {
+    if (typeof caches !== 'undefined') void caches.delete('app-pages');
+  } catch {
+    /* 무시 */
+  }
   try {
     indexedDB.deleteDatabase('preply-english-coach'); // 내부 레슨 캐시(구 식별자 유지분)
   } catch {
@@ -136,7 +188,26 @@ export function dataSummary() {
       return 0;
     }
   };
+  const keys = (key: string) => {
+    try {
+      const v = JSON.parse(localStorage.getItem(key) || '{}');
+      return v && typeof v === 'object' && !Array.isArray(v) ? Object.keys(v).length : 0;
+    } catch {
+      return 0;
+    }
+  };
+  const dramaDone = (() => {
+    try {
+      const v = JSON.parse(localStorage.getItem('va_drama') || '{}');
+      return v && typeof v.done === 'object' && v.done ? Object.keys(v.done).length : 0;
+    } catch {
+      return 0;
+    }
+  })();
   return {
+    episodes: dramaDone,
+    words: keys('va_words'),
+    grammar: keys('va_grammar'),
     phrases: count('va_phrases'),
     weak: count('va_weak'),
     askHistory: count('va_ask_history'),

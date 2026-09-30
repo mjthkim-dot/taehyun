@@ -1,5 +1,8 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /**
  * 문법 시뮬레이션 화면 — 허브(레벨별 유닛) + 유닛 플레이어(이해 → 고르기 → 만들기 → 실전 → 결과).
  */
@@ -18,6 +21,7 @@ import {
   grammarStats,
   grammarUnit,
   MASTER_SCORE,
+  isAcceptedBuild,
   normSentence,
   pickTodayGrammar,
   recordGrammar,
@@ -28,7 +32,7 @@ import {
   type GrammarUnit,
   type GTurn,
 } from '../lib/grammar';
-import { applyVariant, generateVariant } from '../lib/grammarGen';
+import { applyVariant, generateVariant, lastVariant } from '../lib/grammarGen';
 
 type Phase = 'think' | 'check' | 'build' | 'sim' | 'result';
 const PHASES: { key: Phase; label: string }[] = [
@@ -50,7 +54,7 @@ function say(t: string) {
 }
 
 /** 단어 조각 조립 */
-function Builder({ answer, extra, seed, onDone }: { answer: string; extra?: string[]; seed: number; onDone: (ok: boolean, built: string) => void }) {
+function Builder({ answer, alt, extra, seed, onDone }: { answer: string; alt?: string[]; extra?: string[]; seed: number; onDone: (ok: boolean, built: string) => void }) {
   const pool = useMemo(() => tokensOf({ a: answer, extra }, seed), [answer, extra, seed]);
   const [picked, setPicked] = useState<number[]>([]);
   const [checked, setChecked] = useState<boolean | null>(null);
@@ -81,7 +85,7 @@ function Builder({ answer, extra, seed, onDone }: { answer: string; extra?: stri
           className="btn primary gm-go"
           disabled={!picked.length}
           onClick={() => {
-            const ok = normSentence(built) === normSentence(answer);
+            const ok = isAcceptedBuild(built, answer, alt);
             setChecked(ok);
             haptic(ok ? 'success' : 'error');
           }}
@@ -93,6 +97,12 @@ function Builder({ answer, extra, seed, onDone }: { answer: string; extra?: stri
           {!checked && (
             <div className="gm-why">
               정답: <b>{answer}</b>
+              {alt?.length ? <span className="muted"> (또는 {alt.join(' / ')})</span> : null}
+            </div>
+          )}
+          {checked && normSentence(built) !== normSentence(answer) && (
+            <div className="gm-why ok">
+              맞아요 — 이렇게도 말해요: <b>{answer}</b>
             </div>
           )}
           <button type="button" className="btn primary gm-go" onClick={() => onDone(!!checked, built)}>
@@ -189,14 +199,18 @@ function SpeakTurn({ unit, turn, onDone }: { unit: GrammarUnit; turn: Extract<GT
         return;
       }
       setState('grading');
-      const g = await gradeFree(unit, turn, t);
+      // 채점(AI) 실패는 마이크 문제가 아니다 — 문구를 나눈다(예전엔 429도 '마이크를 쓸 수 없어요'였다)
+      const g = await gradeFree(unit, turn, t).catch(() => null);
       if (g) {
         setGrade(g);
         setState('graded');
-      } else setState('self');
+      } else {
+        setErr('AI 채점을 받지 못했어요(연결·사용량 한도). 모범 답안과 비교해 스스로 확인해 보세요.');
+        setState('self');
+      }
     } catch {
       stopRef.current = null;
-      setErr('마이크를 사용할 수 없어요. 모범 답안을 듣고 따라 말해 보세요.');
+      setErr('녹음이나 받아 적기에 실패했어요. 마이크 권한을 확인하거나, 모범 답안을 듣고 따라 말해 보세요.');
       setState('self');
     }
   }
@@ -391,6 +405,7 @@ function Player({ unit, onExit, onAgain, fresh }: { unit: GrammarUnit; onExit: (
           <div className="study-card gm-prompt">{unit.builds[i].kr}</div>
           <Builder
             answer={unit.builds[i].a}
+            alt={unit.builds[i].alt}
             extra={unit.builds[i].extra}
             seed={i * 13 + 5}
             onDone={(g) => {
@@ -436,6 +451,7 @@ function Player({ unit, onExit, onAgain, fresh }: { unit: GrammarUnit; onExit: (
               <div className="gm-task">단어를 눌러 답을 만들어요 — {turn.why}</div>
               <Builder
                 answer={turn.a}
+                alt={turn.alt}
                 extra={turn.extra}
                 seed={i * 17 + 3}
                 onDone={(g) => {
@@ -486,8 +502,11 @@ function Player({ unit, onExit, onAgain, fresh }: { unit: GrammarUnit; onExit: (
 function PlayerLoader({ unit, forceFresh, onExit }: { unit: GrammarUnit; forceFresh: boolean; onExit: () => void }) {
   const [round, setRound] = useState(0);
   const [ready, setReady] = useState<{ u: GrammarUnit; fresh: boolean } | null>(null);
+  // '바로 시작'을 누른 뒤 늦게 도착한 변형이 풀고 있는 문제를 바꿔치기하지 않게
+  const settled = useRef(false);
   useEffect(() => {
     let alive = true;
+    settled.current = false;
     setReady(null);
     const attempts = grammarProgress()[unit.id]?.n ?? 0;
     const wantFresh = forceFresh || round > 0 || attempts > 0;
@@ -495,10 +514,15 @@ function PlayerLoader({ unit, forceFresh, onExit }: { unit: GrammarUnit; forceFr
       setReady({ u: unit, fresh: false });
       return;
     }
-    void generateVariant(unit, attempts + round).then((v) => {
-      if (!alive) return;
-      setReady({ u: applyVariant(unit, v), fresh: !!v });
-    });
+    void generateVariant(unit, attempts + round)
+      .catch(() => null)
+      .then((v) => {
+        if (!alive || settled.current) return;
+        settled.current = true;
+        // 새 변형을 못 만들면(한도·오프라인) 전에 만든 변형, 그것도 없으면 원본으로 — 멈추지 않는다
+        const alt = v || lastVariant(unit.id);
+        setReady({ u: applyVariant(unit, alt), fresh: !!v });
+      });
     return () => {
       alive = false;
     };
@@ -510,6 +534,12 @@ function PlayerLoader({ unit, forceFresh, onExit }: { unit: GrammarUnit; forceFr
           <div className="gm-loading-dot" aria-hidden="true" />
           <b>{unit.title}</b>
           <span className="muted">같은 문법을 새로운 상황으로 만드는 중…</span>
+          <button type="button" className="btn ghost" onClick={() => {
+              settled.current = true;
+              setReady({ u: applyVariant(unit, lastVariant(unit.id)), fresh: false });
+            }}>
+            기다리지 않고 바로 시작
+          </button>
         </div>
       </div>
     );
@@ -542,9 +572,9 @@ export default function GrammarScreen() {
         </button>
       </div>
 
-      <div className="gm-levels" role="tablist">
+      <div className="gm-levels" role="group" aria-label="레벨 고르기">
         {stats.map((s) => (
-          <button key={s.level} type="button" role="tab" aria-selected={level === s.level} className={`cf-lv-tab gm-lv${level === s.level ? ' on' : ''}${s.level === cur ? ' cur' : ''}`} onClick={() => setLevel(s.level)}>
+          <button key={s.level} type="button" aria-pressed={level === s.level} className={`cf-lv-tab gm-lv${level === s.level ? ' on' : ''}${s.level === cur ? ' cur' : ''}`} onClick={() => setLevel(s.level)}>
             {s.level}
             <span className="gm-lv-n">
               {s.mastered}/{s.total}

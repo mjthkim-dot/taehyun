@@ -20,6 +20,20 @@ const withPWA = require('next-pwa')({
   fallbacks: {
     document: '/app/offline',
   },
+  // 시작 주소(/app) 전용 규칙을 끈다 — next-pwa 기본값은 '/app'에 제한 시간 없는 NetworkFirst를
+  // 다른 규칙보다 앞에 붙여서, 신호가 약한 곳(연결은 되지만 느린 터널·혼잡 LTE)에선 캐시에 앱이
+  // 있어도 네트워크가 답할 때까지(실측 10초+) 흰 화면이었다. 이제 '/app'도 아래 app-pages 규칙
+  // (2초 넘으면 캐시)으로 처리된다(감사 v1.31 성능 #0).
+  dynamicStartUrl: false,
+  cacheStartUrl: false,
+  // 콘텐츠 해시가 이미 URL에 있는 파일은 리비전을 고정한다 — 빌드 ID를 리비전으로 쓰면 배포마다
+  // 바뀌지 않은 react-dom 등 ~720KB를 다시 받았다(성능 #1)
+  manifestTransforms: [
+    async (entries) => ({
+      manifest: entries.map((e) => (/\/_next\/static\/(chunks|css|media)\/.*[.-][0-9a-f]{8,}\.(js|css|woff2)$/.test(e.url) ? { ...e, revision: 'immutable' } : e)),
+      warnings: [],
+    }),
+  ],
   // app-build-manifest.json은 프로덕션에서 서빙되지 않는데 프리캐시 목록에 들어간다
   // — 같은 이유로 설치를 깨뜨리므로 제외한다.
   //
@@ -32,7 +46,17 @@ const withPWA = require('next-pwa')({
   //
   // 이름 규칙으로 갈린다: 앱 셸은 `117-be4b….js`(하이픈), 지연 청크는
   // `126.56d3….js`(점). 파일명이 이렇게 다른 것은 webpack의 규칙이다.
-  buildExcludes: [/app-build-manifest\.json$/, /chunks\/\d+\.[0-9a-f]+\.js$/],
+  //
+  // 글꼴 서브셋(92개·2.96MB)도 프리캐시에서 뺀다 — 홈이 실제로 쓰는 건 9개뿐이다. 쓴 서브셋만
+  // 아래 런타임 규칙(font → app-assets)이 캐시한다. App Router는 Pages Router 런타임
+  // (framework·main·polyfills·pages/*)을 요청하지 않으므로 그것도 뺀다(성능 #1: 첫 방문 3.3MB → ~0.3MB).
+  buildExcludes: [
+    /app-build-manifest\.json$/,
+    /chunks\/\d+\.[0-9a-f]+\.js$/,
+    /media\/.*\.woff2$/,
+    /chunks\/(framework|main|polyfills)-[0-9a-f]+\.js$/,
+    /chunks\/pages\//,
+  ],
   // 네트워크 우선 + 캐시 폴백: 레슨(문장 세트) API 응답을 런타임 캐싱한다.
   //
   // 주의: runtimeCaching을 직접 지정하면 next-pwa의 기본 규칙이 **통째로 대체**된다.
@@ -45,7 +69,7 @@ const withPWA = require('next-pwa')({
       handler: 'NetworkFirst',
       options: {
         cacheName: 'app-pages',
-        networkTimeoutSeconds: 3,
+        networkTimeoutSeconds: 2,
         expiration: { maxEntries: 32, maxAgeSeconds: 60 * 60 * 24 * 30 },
         cacheableResponse: { statuses: [0, 200] },
       },
@@ -54,7 +78,7 @@ const withPWA = require('next-pwa')({
       // JS·CSS 등 앱 자원 — 프리캐시에서 빠진 청크까지 받아둔다
       urlPattern: ({ request }) => ['script', 'style', 'font'].includes(request.destination),
       handler: 'StaleWhileRevalidate',
-      options: { cacheName: 'app-assets', expiration: { maxEntries: 128 } },
+      options: { cacheName: 'app-assets', expiration: { maxEntries: 200 } },
     },
     {
       urlPattern: /^https?.*\/api\/lessons.*$/i,
@@ -89,6 +113,8 @@ const nextConfig = {
   // 이렇게 하면 태현 본인 배포에서는 앱이 Groq 키 등록 UI를 아예 보여주지 않는다.
   env: {
     NEXT_PUBLIC_GROQ_SERVER: process.env.GROQ_API_KEY ? '1' : '',
+    // 빌드 식별(배포 커밋) — 새 버전 배너가 '정말 다른 빌드'일 때만 뜨게 비교한다
+    NEXT_PUBLIC_COMMIT: process.env.VERCEL_GIT_COMMIT_SHA || '',
   },
   // 서비스워커 스코프 확장.
   // 스크립트가 /app/sw.js라 기본 최대 스코프는 /app/ 인데, 사용자가 실제로 접속하는

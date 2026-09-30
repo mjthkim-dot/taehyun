@@ -1,5 +1,8 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /** 작문 — voice-assistant/index.html 의 renderWriting()/gradeWriting() 포팅. */
 import { recordSkillResult, startLevelFor } from '../lib/cefrGrowth';
 import { useState } from 'react';

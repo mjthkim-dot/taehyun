@@ -130,8 +130,24 @@ let audioUnlocked = false;
 /** 반드시 사용자 제스처(클릭) 안에서 동기적으로 호출 — iOS 오디오 재생을 언락한다.
  * 이미 언락됐으면 아무것도 안 한다 — 예전엔 매 제스처마다 play()를 다시 걸어
  * 직전 TTS 소리가 '유령처럼' 다시 재생되는 버그가 있었다. */
+let speechPrimed = false;
+
 export function primeAudio() {
-  if (typeof window === 'undefined' || audioUnlocked) return;
+  if (typeof window === 'undefined') return;
+  // 키 없는 기본 경로(브라우저 음성)도 iOS는 제스처 안에서 한 번 깨워야 첫 대사가 들린다
+  // (예전엔 <audio>만 언락해서 키 없는 아이폰에선 첫 대사가 무음이었다 — 감사 v1.31 비평 #10)
+  const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (ios && !speechPrimed && window.speechSynthesis && !window.speechSynthesis.speaking) {
+    try {
+      const u = new SpeechSynthesisUtterance(' ');
+      u.volume = 0;
+      window.speechSynthesis.speak(u);
+      speechPrimed = true;
+    } catch {
+      /* 미지원 */
+    }
+  }
+  if (audioUnlocked) return;
   try {
     const a = audioEl();
     if (!a.src) a.src = SILENT_WAV;
@@ -194,16 +210,48 @@ export function rankedEnVoices(): SpeechSynthesisVoice[] {
   return [...en].sort((a, b) => score(b) - score(a));
 }
 
-function speakWithBrowser(text: string, lang: string, rate: number, onend?: () => void) {
+/* ── 인물별 브라우저 목소리 — 키가 없어도 여자 CEO와 태오가 같은 목소리로 말하지 않게(비평 #11) ── */
+const FEMALE_HINTS = new Set(['hannah', 'diana', 'autumn']);
+/** 같은 성별 안에서 몇 번째 목소리를 쓸지(인물마다 다르게) */
+const HINT_SLOT: Record<string, number> = { austin: 0, daniel: 1, troy: 2, hannah: 0, diana: 1, autumn: 2 };
+/** 목소리가 하나뿐인 기기에서의 음높이 차이 */
+const HINT_PITCH: Record<string, number> = { austin: 1, daniel: 0.9, troy: 0.82, hannah: 1.12, diana: 1.22, autumn: 1.05 };
+const FEMALE_RE = /female|samantha|aria|jenny|zira|karen|moira|tessa|victoria|allison|ava|susan|serena|fiona|kate|zoe|joanna|salli|kimberly|google us english/i;
+const MALE_RE = /male|daniel|alex|fred|guy|david|mark|tom|aaron|arthur|oliver|rishi|matthew|joey|justin/i;
+
+function voiceFor(lang: string, hint?: string): { voice?: SpeechSynthesisVoice; pitch: number } {
+  const base = pickVoice(lang);
+  if (!hint || !lang.startsWith('en')) return { voice: base, pitch: 1 };
+  const female = FEMALE_HINTS.has(hint);
+  const pool = rankedEnVoices().filter((v) => (female ? FEMALE_RE.test(v.name) && !/\bmale\b/i.test(v.name) : MALE_RE.test(v.name) && !FEMALE_RE.test(v.name)));
+  if (pool.length) {
+    // 같은 성별 목소리가 모자라 다른 인물과 겹치면(예: 남성 목소리 2개에 남자 인물 3명) 음높이로 구분한다
+    const slot = HINT_SLOT[hint] ?? 0;
+    const reused = slot >= pool.length;
+    return { voice: pool[slot % pool.length], pitch: reused || pool.length === 1 ? HINT_PITCH[hint] ?? 1 : 1 };
+  }
+  return { voice: base, pitch: HINT_PITCH[hint] ?? 1 };
+}
+
+function speakWithBrowser(text: string, lang: string, rate: number, onend?: () => void, voiceHint?: string) {
   if (typeof window === 'undefined' || !window.speechSynthesis) return;
   const synth = window.speechSynthesis;
+  const gen = speakGen;
   const fire = () => {
+    if (gen !== speakGen) return; // 그 사이 멈춤·새 재생이 있었으면 늦은 발화는 버린다
     const u = new SpeechSynthesisUtterance(text);
     u.lang = lang;
     u.rate = rate;
-    const voice = pickVoice(lang);
+    const { voice, pitch } = voiceFor(lang, voiceHint);
     if (voice) u.voice = voice;
-    if (onend) u.onend = onend;
+    u.pitch = pitch;
+    if (onend) {
+      u.onend = onend;
+      // iOS 'not-allowed'·Chrome 'synthesis-failed' 등은 onend가 오지 않는다 — 기다리다 멈추지 않게
+      u.onerror = (e: SpeechSynthesisErrorEvent) => {
+        if (e.error !== 'interrupted' && e.error !== 'canceled') onend();
+      };
+    }
     try {
       synth.resume(); // Chrome: cancel() 후 paused에 갇히면 speak()가 무음이 된다
     } catch {
@@ -406,7 +454,7 @@ export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => 
     return;
   }
   if (!lang.startsWith('en') || !groqKey()) {
-    speakWithBrowser(text, lang, baseRate() * rate, onend);
+    speakWithBrowser(text, lang, baseRate() * rate, onend, voice);
     return;
   }
   const chunks = splitForTTS(text);
@@ -427,9 +475,9 @@ export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => 
     fetchGroqTTS(chunks[idx], v, opts).then((url) => {
       if (gen !== speakGen) return;
       if (url) {
-        playUrl(url, rate, step).catch(() => speakWithBrowser(chunks[idx], lang, baseRate() * rate, step));
+        playUrl(url, rate, step).catch(() => speakWithBrowser(chunks[idx], lang, baseRate() * rate, step, v));
       } else {
-        speakWithBrowser(chunks[idx], lang, baseRate() * rate, step);
+        speakWithBrowser(chunks[idx], lang, baseRate() * rate, step, v);
       }
     });
   };

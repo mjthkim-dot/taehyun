@@ -1,9 +1,13 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /** 복습(review) 화면 — voice-assistant/index.html 의 renderReview() 포팅 (SM-2 간격 반복 목록). */
 import { useEffect, useState } from 'react';
 import {
   dueWeak,
+  weakItems,
   pendingWeakCount,
   isLeech,
   isMastered,
@@ -19,7 +23,7 @@ export default function ReviewScreen() {
   useEffect(() => setReady(true), []);
   if (!ready) return null;
 
-  const weak = load<WeakItem[]>('va_weak', []);
+  const weak = weakItems();
 
   if (!weak.length) {
     return (
