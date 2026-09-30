@@ -14,6 +14,7 @@ Out-of-Corpus 평가 러너 (파이썬) — ooc-eval.ts와 같은 케이스를 �
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 import time
@@ -121,6 +122,7 @@ def main() -> int:
         with urllib.request.urlopen(BASE + "/health", timeout=5) as r:
             h = json.loads(r.read())
         backend = f"{h.get('provider')} ({h.get('model')})"
+        mock = bool(h.get("gemini_custom_url"))
     except Exception:  # noqa: BLE001
         sys.exit("서버가 없습니다 — bash start.sh 로 먼저 기동하세요")
 
@@ -143,17 +145,32 @@ def main() -> int:
         if not ok:
             print(f"   문제: {'; '.join(problems)}")
         esc = lambda t: t.replace("|", "\\|")
+        # 공개 문서(REPORT.md)에 쓰는 표다 — 개인 노트 제목·그 노트로 만든 문장은
+        # 고객사명·실적을 담는다(실측: v6.4까지 이 표에 고객사 실명이 기록됐다).
+        # 시드(도메인 용어집)가 아닌 근거는 '개인 노트'로 가리고, 개인 근거로
+        # 만든 답변 문장도 생략한다. 판정은 그대로 남긴다.
+        private = [x for x in srcs if not x.startswith("도메인 용어집")]
+        shown = ["개인 노트" if not x.startswith("도메인 용어집") else x.split(': ')[-1] for x in srcs]
         rows.append(
             f"| {c['tier']} | {esc(c['q'])} | "
-            f"{esc('<br>'.join(s.split(': ')[-1] for s in srcs)) or '— (프로필 폴백)'} | "
-            f"{esc('<br>'.join(e[:90] for e in en[:2]))} | "
-            f"{'✅' if ok else '❌ ' + esc('; '.join(problems))} |")
+            f"{esc('<br>'.join(dict.fromkeys(shown))) or '— (프로필 폴백)'} | "
+            f"{'(개인 자료 근거 — 생략)' if private else esc('<br>'.join(e[:90] for e in en[:2]))} | "
+            f"{'✅' if ok else '❌ ' + esc('; '.join(x for x in problems if x.startswith('회피') or ':' not in x) or '기준 미달')} |")
 
+    try:
+        rs = json.load(urllib.request.urlopen(f"{BASE}/api/rag/stats"))
+        bs = rs.get("by_source") or {}
+        env_line = (f"노트 {bs.get('note', 0)} · 용어집 {bs.get('glossary', 0)}"
+                    + (" · **mock LLM** (생성 문장은 형식 검증용, 품질 실측 아님)" if mock else ""))
+    except Exception:  # noqa: BLE001
+        env_line = "(색인 통계 없음)"
     tier_line = " · ".join(f"{t} {v[0]}/{v[1]}" for t, v in per_tier.items())
     print(f"\n결과: {npass}/15 ({tier_line})")
 
     block = f"""{MARK_S}
 ### 13.1 결과 표 (ooc_eval.py 자동 기록 — {time.strftime('%Y-%m-%d %H:%M')} · 공급자: {backend})
+
+환경: {env_line}
 
 | 계층 | 면접관 질문 | 검색 근거 (관련성 컷 통과분) | 생성 2안 | 판정 |
 |---|---|---|---|---|

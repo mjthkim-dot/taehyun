@@ -29,21 +29,14 @@ import llm  # noqa: E402
 import rag  # noqa: E402
 import ingest  # noqa: E402
 
-IMP = ROOT / "backend" / "data" / "imported"
+import company  # noqa: E402
+
+IMP = company.IMP                       # MC_IMPORTED_DIR로 바꿀 수 있다(테스트 픽스처)
 
 
 def _active_company() -> str:
-    """지원 중인 회사. 환경변수 > ACTIVE_COMPANY 파일 > 첫 번째 회사 파일."""
-    env = os.environ.get("INTERVIEW_COMPANY", "").strip()
-    if env:
-        return env
-    f = IMP / "ACTIVE_COMPANY"
-    if f.exists():
-        v = f.read_text(encoding="utf-8").strip()
-        if v:
-            return v
-    cands = sorted((IMP / "company").glob("*.json"))
-    return cands[0].stem if cands else ""
+    """지원 중인 회사 — 서버와 같은 규칙(company.slug)."""
+    return company.slug()
 
 
 def _insert_link(text: str, link: str) -> str:

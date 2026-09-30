@@ -13,6 +13,7 @@ import os
 import re
 
 import llm
+import company
 import numwords
 import rag
 import triggers
@@ -118,7 +119,7 @@ def _asks_reason(q: str) -> bool:
 
 
 def _known_values(texts: list[str]) -> list[float]:
-    """자료에 실재하는 수치를 **값**으로. 표기(75.6M / seventy-five million)가 달라도
+    """자료에 실재하는 수치를 **값**으로. 표기(42.5M / forty-two and a half million)가 달라도
     같은 값이면 같은 출처다. 풀어 쓴 수까지 잡는 numwords 기반 — 아라비아 숫자만
     보던 _known_numbers를 대체한다(그건 화면 표시 호환용으로만 남긴다)."""
     out: set[float] = set()
@@ -191,6 +192,24 @@ def _profile(store) -> str:
     return DEFAULT_PROFILE
 
 _PLACEHOLDER = re.compile(r"\[[^\]\n]{1,30}\]")
+
+
+def _company_rule() -> str:
+    """지금 면접 보는 회사 + 말하면 안 되는 이름(다른 지원 회사).
+
+    노트에는 이전에 준비한 회사의 흔적이 남는다("Why Workato…"). 다른 회사 면접에서
+    그 이름을 말하면 그 자리에서 끝이다. 생성 뒤에도 서버가 한 번 더 검사해 화면에서
+    빨갛게 표시한다(server._stream) — 여기는 1차 방어선."""
+    nm = company.name()
+    if not nm:
+        return ""
+    rule = f"COMPANY: this interview is with {nm}. When they say \"you/your company\", they mean {nm}.\n"
+    oth = company.others()
+    if oth:
+        rule += ("NEVER say these names — they are OTHER companies the candidate applied to, "
+                 "and naming one here would be a disaster: " + ", ".join(oth) + ". "
+                 "If the material mentions one, replace it with the current company or drop it.\n")
+    return rule
 
 
 def _evidence_block(hits: list[dict]) -> tuple[str, list[str]]:
@@ -368,9 +387,10 @@ PR accuracy rules: derive the Hangul from the standard spoken pronunciation
 NOT 아너슬리; strengths → 스트렝쓰스; asked → 애스크트; maturity → 머추리티
 NOT 머튜리티; usually → 유주얼리; executive → 이그제큐티브). Acronyms as
 Korean letter names (AWS → 에이더블유에스, SoW → 에스오더블유, EDP → 이디피).
-Numbers as the spoken English words (75.6 million → 세븐티 파이브 포인트
-식스 밀리언).>
+Numbers as the spoken English words (12.4 million → 트웰브 포인트
+포 밀리언).>
 """ if SHOW_PR else "")
+    company_rule = _company_rule() if preset == "interview" else ""
     prompt = number_block + f"""{head}
 {ctx}
 {who}
@@ -383,7 +403,7 @@ Their spoken English level: CEFR {cefr}.
 CANDIDATE PROFILE (ground truth about them — always available):
 \"\"\"{profile}\"\"\"
 {material_block}
-TRUTHFULNESS: use only facts from the profile and material. Never invent a
+{company_rule}TRUTHFULNESS: use only facts from the profile and material. Never invent a
 specific figure, client name, or commitment that is not there. Never inflate
 ownership: if the material says they USE or APPLY a framework/method, do NOT
 say they built, authored, created, or invented it.
@@ -457,7 +477,7 @@ SPOKEN ENGLISH (CEFR B1-B2, said aloud instantly, not written English):
 
 SOUND HUMAN — an interviewer trusts one vivid specific over five stats:
 - HARD CAP: ≤2 numbers per answer (≤3 for presentation-scale); never
-  chain numbers back to back ("38 accounts, 26.8 to 50.7M, 89%" = resume
+  chain numbers back to back ("40 accounts, 20 to 35M, 75%" = resume
   recitation). At most ONE client name unless they ask for more.
 - Say numbers like people talk: "about fifty million dollars", "we almost
   doubled it" — exact figures only when asked for exact figures.

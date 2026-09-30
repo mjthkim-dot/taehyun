@@ -127,12 +127,9 @@ def _company_overlay() -> tuple[str, list[dict], dict]:
     같다. 회사 전용 7문항만 company/<회사>.json 의 golden에 둔다 — 다음 회사는
     그 파일 하나만 새로 쓰면 바로 측정할 수 있다.
     """
-    imp = ROOT / "backend" / "data" / "imported"
-    slug = os.environ.get("INTERVIEW_COMPANY", "").strip()
-    if not slug:
-        f = imp / "ACTIVE_COMPANY"
-        slug = f.read_text(encoding="utf-8").strip() if f.exists() else ""
-    cf = imp / "company" / f"{slug}.json"
+    import company                      # 서버와 같은 규칙(MC_IMPORTED_DIR·INTERVIEW_COMPANY)
+    slug = company.slug()
+    cf = company.IMP / "company" / f"{slug}.json"
     if not cf.exists():
         return (slug or "(미지정)"), [], {}
     cj = json.loads(cf.read_text(encoding="utf-8"))

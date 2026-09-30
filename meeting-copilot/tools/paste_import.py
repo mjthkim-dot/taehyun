@@ -24,10 +24,13 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+IMP = Path(os.environ.get("MC_IMPORTED_DIR") or ROOT / "backend" / "data" / "imported")
 # 저장 파일명 — 인자로 바꿀 수 있다: python3 tools/paste_import.py gitlab-pitch
-# (기본값 그대로 쓰면 기존 workato-corpus.json을 덮어쓰니, 새 자료는 새 이름으로!)
-_name = (sys.argv[1] if len(sys.argv) > 1 else "workato-corpus").removesuffix(".json")
-DEST = ROOT / "backend" / "data" / "imported" / f"{_name}.json"
+# (기본값 그대로 쓰면 같은 이름의 기존 파일을 덮어쓰니, 새 자료는 새 이름으로!)
+_name = (sys.argv[1] if len(sys.argv) > 1 else "pasted-corpus").removesuffix(".json")
+# core/ 폴더가 있으면(v6.0 새 구조) 임포터는 core/만 읽는다 — 최상위에 쓰면 조용히
+# 무시된다(v6.5에서 발견). 회사 무관 자료로 core/에 넣는다.
+DEST = (IMP / "core" if (IMP / "core").is_dir() else IMP) / f"{_name}.json"
 
 
 def _read_paste() -> str | None:

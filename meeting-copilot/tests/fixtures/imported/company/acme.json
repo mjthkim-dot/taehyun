@@ -1,0 +1,54 @@
+{
+ "company": {
+  "name": "Acme Automation",
+  "aliases": [
+   "Acme"
+  ]
+ },
+ "domain_packs": [
+  "ipaas"
+ ],
+ "vocab": [
+  "Acme Flow",
+  "Recipe Hub"
+ ],
+ "name_fixes": [
+  [
+   "\\bak me\\b",
+   "Acme"
+  ]
+ ],
+ "triggers": [
+  [
+   "\\b(product line|your product|our product)\\b",
+   "Acme Flow Recipe Hub 제품 라인업"
+  ]
+ ],
+ "notes": [
+  {
+   "title": "Acme 제품 라인업 — Acme Flow · Recipe Hub",
+   "text": "Acme Flow: 워크플로 자동화. Recipe Hub: 재사용 레시피 마켓.\n[검색어] product line portfolio what do you know about our product"
+  },
+  {
+   "title": "경쟁 대응 — 무료 오픈소스 자동화 도구",
+   "text": "무료 도구는 거버넌스·보안·지원이 약하다. 엔터프라이즈는 감사 가능성을 산다.\n[검색어] free open source competitor why pay objection"
+  }
+ ],
+ "links": {},
+ "units": [
+  {
+   "note_title": "Acme 제품 라인업 — Acme Flow · Recipe Hub",
+   "answer_en_30s": "From what I've learned, / Acme Flow runs the workflows, / and Recipe Hub lets teams reuse them.",
+   "intent_tags": [
+    "product line",
+    "your product"
+   ],
+   "key_numbers": [],
+   "gist": "제품",
+   "strategy": "두 제품만",
+   "reviewed": true
+  }
+ ],
+ "golden": [],
+ "unit_ok": []
+}

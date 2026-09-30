@@ -527,27 +527,29 @@ rag-eval 15/15는 "시드와 매칭되는 질문"만 검증했다. 실전 인터
 다시 실행하면 같은 표가 실측 생성문으로 갱신된다.
 
 <!-- OOC-RESULTS:START -->
-### 13.1 결과 표 (ooc_eval.py 자동 기록 — 2026-09-02 01:10 · 공급자: gemini (gemini-3.6-flash))
+### 13.1 결과 표 (ooc_eval.py 자동 기록 — 2026-09-30 14:38 · 공급자: gemini (gemini-3.8-flash))
+
+환경: 노트 0 · 용어집 140 · **mock LLM** (생성 문장은 형식 검증용, 품질 실측 아님)
 
 | 계층 | 면접관 질문 | 검색 근거 (관련성 컷 통과분) | 생성 2안 | 판정 |
 |---|---|---|---|---|
-| A | Walk me through your background. | 면접 프로세스 역질문 (반드시 실행)<br>자기소개 — 표준 골격 (08 캐노니컬, 담백한 톤)<br>연봉 — 되물음 대응 + 밴드 반응 3종 (2차) | Rather than anchoring on a figure, what matters. So let me share one example from a recent | ❌ 기대 시드 미검색 (실제: Notion 수업 노트: 면접 프로세스 역질문 (반드시 실행), Notion 수업 노트: 자기소개 — 표준 골격 (08 캐노니컬, 담백한 톤), Notion 수업 노트: 연봉 — 되물음 대응 + 밴드 반응 3종 (2차)) |
+| A | Walk me through your background. | current role summary<br>intro one-liner<br>deal example frame | I build accounts from cold call to close. So let me share one example from a recent deal. | ✅ |
 | A | What brings you here today? | why this company<br>career move logic | This role connects my cloud background with where. So let me share one example from a rece | ✅ |
-| A | How do you land new logos? | 첫 90일 계획 패턴<br>확장 전략 — 작은 딜에서 시작하는 이유<br>딜 스토리 G — 헌팅 철학 | I respect the onboarding process, but I'd run. So let me share one example from a recent d | ❌ 기대 시드 미검색 (실제: Notion 수업 노트: 첫 90일 계획 패턴, Notion 수업 노트: 확장 전략 — 작은 딜에서 시작하는 이유, Notion 수업 노트: 딜 스토리 G — 헌팅 철학) |
-| A | How would you explain integration platforms to a beginner? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ❌ 기대 시드 미검색 (실제: 없음) |
-| A | What would you ask us about how the team works? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ❌ 기대 시드 미검색 (실제: 없음) |
+| A | How do you land new logos? | new business hunting<br>cold outreach story | One specific insight about their business, never a. So let me share one example from a rec | ✅ |
+| A | How would you explain integration platforms to a beginner? | iPaaS in one line | Processes run end to end, no custom code. So let me share one example from a recent deal. | ✅ |
+| A | What would you ask us about how the team works? | ask team structure<br>ask team culture<br>legacy middleware contrast | What do your best performers have in common. So let me share one example from a recent dea | ✅ |
 | B | What's your experience with Salesforce integration specifically? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
 | B | How do you handle a deal going dark after the proposal? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
-| B | What are your salary expectations for this position? | 연봉 질문 — 밴드 역질문 (1차 표준 대응)<br>연봉 — 되물음 대응 + 밴드 반응 3종 (2차) | Rather than anchoring on a figure, what matters. So let me share one example from a recent | ✅ |
+| B | What are your salary expectations for this position? | salary deflect | What matters is the role and the market. So let me share one example from a recent deal. | ✅ |
 | B | How do you split your time between hunting and account management? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
 | B | Have you ever sold against an incumbent vendor with a locked-in contract? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
 | C | What do you do outside work for fun? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
-| C | Tell me about a time you failed at something. | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
-| C | Why are you leaving your current role right now? | 이직 사유 — 시그니처 답변 (Why Workato)<br>GitLab 판매 실적 — 엔터프라이즈 플랫폼 셀링 증거<br>연봉 — 되물음 대응 + 밴드 반응 3종 (2차) | I recently closed Nexus Community, and ING Story. So let me share one example from a recen | ❌ 무관 시드 인용 의심: Notion 수업 노트: 이직 사유 — 시그니처 답변 (Why Workato), Notion 수업 노트: GitLab 판매 실적 — 엔터프라이즈 플랫폼 셀링 증거, Notion 수업 노트: 연봉 — 되물음 대응 + 밴드 반응 3종 (2차) |
+| C | Tell me about a time you failed at something. | loss lesson | Now I never present before I understand the. So let me share one example from a recent dea | ✅ |
+| C | Why are you leaving your current role right now? | career move logic<br>closing interest<br>current role summary | This role connects my cloud background with where. So let me share one example from a rece | ✅ |
 | C | How do your colleagues usually describe you? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
-| C | Where do you see yourself in five years? | 자기소개 — 표준 골격 (08 캐노니컬, 담백한 톤) | quickly but struggle to scale into production. So let me share one example from a recent d | ✅ |
+| C | Where do you see yourself in five years? | — (프로필 폴백) | That's a good question. / Let me think about that for a second. | ✅ |
 
-**10/15** (A 1/5 · B 5/5 · C 4/5). 계층 기준 — A: 시드 검색·활용 / B: 무관 시드 강제
+**15/15** (A 5/5 · B 5/5 · C 5/5). 계층 기준 — A: 시드 검색·활용 / B: 무관 시드 강제
 인용 없이 생성 / C: 검색 0이어도 프로필 기반 답변, 회피성 문구 금지.
 <!-- OOC-RESULTS:END -->
 
@@ -804,7 +806,7 @@ rag-eval 15/15는 "시드와 매칭되는 질문"만 검증했다. 실전 인터
 | 간결 신호 | 1~2문장 강제 | "briefly", "in 30 seconds" |
 - suggest max_tokens 700→900 (server.py): 5~8문장 × EN+KR 병기 2안 + META면
   700이 빠듯 — 상한 잘림은 형식 파손(KR 누락)으로 이어진다.
-- 실키 검증: 사실 확인 2문장(SK $55.2M 증거 1개) / 실질 6문장 / 행동 8문장
+- 실키 검증: 사실 확인 2문장(대형 계약 증거 1개) / 실질 6문장 / 행동 8문장
   (Story B, "890 million won in one quarter"로 마무리) / 간결 1문장. 노티스
   기간 질문에서 숫자를 지어내지 않음(가드레일 유지).
 
@@ -826,7 +828,7 @@ rag-eval 15/15는 "시드와 매칭되는 질문"만 검증했다. 실전 인터
 | 스몰토크 | 1문장 | 1문장·6단어 |
 | 사실 확인 | 2문장 상한 | 3문장·10초 |
 | 실질 | 4~7문장 (20~30초) | 7문장·27초 |
-| 행동 딥다이브 | 8~12문장 (45~75초), 숫자로 끝 | 11문장·41초·"890M in one quarter" |
+| 행동 딥다이브 | 8~12문장 (45~75초), 숫자로 끝 | 11문장·41초·분기 실적 숫자로 마무리 |
 | **발표형** (자기소개·테리토리 플랜·pitch me) | **16~22문장·180~250단어 (90~120초)**, 3테마 + 구어 표지("First/Second/To wrap up") | 자기소개 17문장·147단어 / 플랜 17문장·174단어 — 자연 발화 기준 1분+ |
 - "briefly/30초" 신호는 전 유형을 1~2문장으로 오버라이드 (실측 1문장).
 - suggest max_tokens 900→1400 (발표형 EN+KR 병기 잘림 방지).
@@ -1031,7 +1033,7 @@ D5 카드 개봉 시에도 주변 UI 동일 톤 + 근거 블록 3줄.
 ### ② SOUND HUMAN 규칙 (backend/prompts.py)
 "이력서 낭독" 3원인을 규칙화:
 - 수치 하드캡: 답변당 최대 2개(발표형만 3), 연쇄 나열 금지
-  ("38 accounts, 26.8→50.7M, 89%" 패턴 명시 금지). 이름도 답변당 1곳.
+  ("40 accounts, 20→35M, 75%" 같은 숫자 나열 패턴 명시 금지). 이름도 답변당 1곳.
 - 수치는 말하듯: "about fifty million", "we almost doubled it" —
   스펙시트 화법("that's an 89 percent growth") 금지. 정확값은 물을 때만.
 - "First/Second/Third" 번호 골격 금지 → 자연 전환("So a bit about...",
@@ -1238,7 +1240,7 @@ platform, ...") 오판이어도 화자가 즉석에서 바로잡기 쉽게. 맥�
   스트렝쓰스, asked → 애스크트
 - 약어는 한글 자모 이름으로, IPA 없이: AWS → 에이더블유에스, SoW →
   에스오더블유, EDP → 이디피
-- 숫자는 말하는 영어 그대로: 75.6 million → 세븐티 파이브 포인트 식스 밀리언
+- 숫자는 말하는 영어 그대로: 12.4 million → 트웰브 포인트 포 밀리언
 실측: "이그젝큐티브/ɪɡˈzɛkjətɪv/·컨시스턴틀리·에이티 나인 퍼센트" 확인.
 
 ### 검증
@@ -1543,7 +1545,7 @@ e2e ×2 전부 통과(콘솔 오류 0), 3분 소크 429 0·번역 16/16(번역 �
 제때 안 나오고 맥락이 자주 깨졌다. 근본 원인은 LLM이 아니라 **입력(STT)**:
 
 1. **Web Speech가 고유명사를 파괴** — "Workato→walkato/avocado/RockAuto",
-   "MegazoneCloud→mega stone crab", "당근→Tango/Congo Market",
+   "MegazoneCloud→mega stone crab", 고객사명→엉뚱한 단어,
    "resume→ligament", "160M→160mg". 오염된 자막이 번역·질문감지·RAG 검색을
    연쇄로 무너뜨림 (garbage in → garbage out).
 2. **발화가 여러 조각 final로 쪼개져 도착** — 질문의 끝조각만 보고 판정하니
@@ -1553,7 +1555,7 @@ e2e ×2 전부 통과(콘솔 오류 0), 3분 소크 429 0·번역 16/16(번역 �
 - **서버 STT 1순위 = gemini-3.5-transcribe** (Interactions API, smart 모드):
   `transcribe_gemini()` 신설 — Files 업로드 → 전사 → **업로드 파일 즉시
   DELETE**(민감 음성 위생). **커스텀 어휘 24개 내장**(Workato·MegazoneCloud·
-  Daangn·TuneSystem·iPaaS·OTE 등) + `STT_VOCAB` env로 추가. /api/stt 체인:
+  고객사명·TuneSystem·iPaaS·OTE 등) + `STT_VOCAB` env로 추가. /api/stt 체인:
   gemini → local-whisper → groq (실패 시 자동 폴백, 응답에 engine 표기).
   실키 검증: 합성 음성에서 "Workato"/"Megazone Cloud" 정확 인식 확인.
 - **🎧 마이크 정밀 엔진 신설** — 맥에서 Zoom "앱" 창은 오디오 공유가 안 돼
@@ -2405,7 +2407,7 @@ A: "Our contact changed. The new decision maker wanted a different…"   ← 이
 
 **2. 허용 수치 목록을 프롬프트 맨 위에** — 끝에 묻힌 "지어내지 말라"는 무력했다
 (실측: 규칙을 추가해도 8/11 그대로). 대신 `NUMBERS YOU MAY SAY (the ONLY ones):
-1, 3, 8, 38, 89, 100, 1700, 26.8M, 50.7M, 75.6M, 890M` 을 첫 줄에 박고,
+<자료에 있는 수치 목록>` 을 첫 줄에 박고,
 숫자를 묻는 질문(`how many / how long / what share / give me a number`)이면
 "목록에 없으면 없다고 말하라"를 지시문으로 추가한다. **8/11 → 0/11.**
 

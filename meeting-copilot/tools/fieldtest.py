@@ -742,7 +742,7 @@ def cmd_preflight(args) -> int:
     print("[5/5] 답변 자산")
     try:
         import sqlite3
-        db = ROOT / "backend" / "data" / "store.db"
+        db = Path(os.environ.get("MC_DATA_DIR") or ROOT / "backend" / "data") / "store.db"
         con = sqlite3.connect(str(db))
         n_note = con.execute("SELECT COUNT(*) FROM chunks WHERE source='note'").fetchone()[0]
         n_vec = con.execute("SELECT COUNT(*) FROM chunks c JOIN vecs v ON v.chunk_id=c.id "

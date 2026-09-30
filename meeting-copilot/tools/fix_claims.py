@@ -18,7 +18,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 from rag import tokenize  # noqa: E402  (검색 인덱스 재구축용 — 서버와 동일 토크나이저)
 
-DB = Path(__file__).resolve().parent.parent / "backend" / "data" / "store.db"
+import os  # noqa: E402
+# 서버·임포터와 같은 저장소를 고친다 — MC_DATA_DIR을 무시하면 테스트·서버 모드에서
+# 엉뚱한 DB를 정정하고 실제 색인에는 과장 주장이 남는다(v6.5에서 발견).
+DB = Path(os.environ.get("MC_DATA_DIR")
+          or Path(__file__).resolve().parent.parent / "backend" / "data") / "store.db"
 
 # (패턴, 교체문) — 저작/채택 주장 → 활용 사실. 패턴은 개행·공백 변형을 허용한다.
 FIXES: list[tuple[str, str]] = [

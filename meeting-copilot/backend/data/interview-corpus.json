@@ -1,75 +1,5 @@
 [
  {
-  "term": "workflow automation value",
-  "ko": "워크플로 자동화의 가치",
-  "note": "상황태그: 도메인·가치제안",
-  "say": "Workflow automation takes the repetitive work away. Teams get time for real judgment calls.",
-  "triggers": "자동화 반복 업무 manual repetitive tasks value proposition"
- },
- {
-  "term": "iPaaS in one line",
-  "ko": "iPaaS 한 줄 정의",
-  "note": "상황태그: 도메인·개념 설명",
-  "say": "An iPaaS connects cloud apps and data. Processes run end to end, no custom code.",
-  "triggers": "iPaaS 정의 설명 what is integration platform"
- },
- {
-  "term": "enterprise integration pain",
-  "ko": "엔터프라이즈 통합의 고통",
-  "note": "상황태그: 도메인·문제 정의",
-  "say": "Enterprises run hundreds of SaaS apps. Point-to-point integrations get out of control fast.",
-  "triggers": "통합 문제 사일로 point to point spaghetti SaaS sprawl"
- },
- {
-  "term": "API connector",
-  "ko": "API 커넥터",
-  "note": "상황태그: 도메인·제품 기능",
-  "say": "Prebuilt connectors cut integration time from weeks to days.",
-  "triggers": "커넥터 API 연동 기간 단축 prebuilt"
- },
- {
-  "term": "low-code appeal",
-  "ko": "로우코드의 장점",
-  "note": "상황태그: 도메인·제품 기능",
-  "say": "With low-code, business teams build their own workflows. No waiting on engineering.",
-  "triggers": "로우코드 현업 비개발자 citizen developer no-code"
- },
- {
-  "term": "recipe concept",
-  "ko": "레시피(자동화 시나리오) 개념",
-  "note": "상황태그: 도메인·Workato 용어",
-  "say": "Each recipe waits for a trigger. Then it runs a set of actions.",
-  "triggers": "레시피 트리거 액션 recipe automation scenario"
- },
- {
-  "term": "integration plus automation",
-  "ko": "통합+자동화 결합",
-  "note": "상황태그: 도메인·차별점",
-  "say": "We combine integration and automation in one platform. That's the real edge.",
-  "triggers": "차별점 통합 자동화 결합 differentiation single platform"
- },
- {
-  "term": "citizen developer governance",
-  "ko": "현업 개발과 거버넌스",
-  "note": "상황태그: 도메인·IT 우려 대응",
-  "say": "Citizen development only scales when IT keeps the guardrails.",
-  "triggers": "거버넌스 가드레일 IT 통제 shadow IT"
- },
- {
-  "term": "order-to-cash example",
-  "ko": "주문-수금 자동화 예시",
-  "note": "상황태그: 도메인·사례",
-  "say": "A classic case is order-to-cash. It connects the CRM, the ERP, and billing.",
-  "triggers": "사례 유스케이스 order to cash CRM ERP billing 예시"
- },
- {
-  "term": "employee onboarding example",
-  "ko": "직원 온보딩 자동화 예시",
-  "note": "상황태그: 도메인·사례",
-  "say": "HR onboarding is a great first automation. It touches so many systems.",
-  "triggers": "온보딩 HR 자동화 사례 first use case"
- },
- {
   "term": "time to value",
   "ko": "가치 실현 시간",
   "note": "상황태그: 도메인·세일즈 지표",
@@ -84,46 +14,11 @@
   "triggers": "확장 전략 land expand 작게 시작"
  },
  {
-  "term": "integration backlog",
-  "ko": "통합 백로그 공략",
-  "note": "상황태그: 도메인·디스커버리",
-  "say": "Most IT teams carry a big integration backlog. They never get through it.",
-  "triggers": "백로그 IT 요청 적체 backlog discovery"
- },
- {
-  "term": "legacy middleware contrast",
-  "ko": "레거시 미들웨어와 대비",
-  "note": "상황태그: 도메인·경쟁 구도",
-  "say": "Legacy middleware needs specialists. A modern iPaaS works for the whole team.",
-  "triggers": "레거시 미들웨어 ESB 경쟁 비교 specialists"
- },
- {
-  "term": "AI agent automation",
-  "ko": "AI 에이전트와 자동화",
-  "note": "상황태그: 도메인·트렌드",
-  "say": "The next wave is AI agents inside the workflows. Not beside them.",
-  "triggers": "AI 에이전트 트렌드 genAI orchestration"
- },
- {
   "term": "security posture answer",
   "ko": "보안 우려 응대",
   "note": "상황태그: 도메인·보안",
   "say": "Enterprise buyers start with security. So I lead with certifications and data controls.",
   "triggers": "보안 인증 SOC2 컴플라이언스 data controls"
- },
- {
-  "term": "ROI framing",
-  "ko": "자동화 ROI 프레임",
-  "note": "상황태그: 도메인·가치 정량화",
-  "say": "I keep ROI simple. Hours saved times frequency, plus errors avoided.",
-  "triggers": "ROI 정량화 절감 시간 hours saved errors"
- },
- {
-  "term": "champion building",
-  "ko": "챔피언 만들기",
-  "note": "상황태그: 도메인·세일즈 전략",
-  "say": "In automation deals, the process owner becomes your champion. I build that person up.",
-  "triggers": "챔피언 내부 지지자 champion operations"
  },
  {
   "term": "IT and business dual sell",
@@ -133,81 +28,11 @@
   "triggers": "IT 현업 동시 설득 dual audience"
  },
  {
-  "term": "usage-based pricing talk",
-  "ko": "사용량 기반 과금 설명",
-  "note": "상황태그: 도메인·가격",
-  "say": "Task-based pricing scales with the value customers actually get.",
-  "triggers": "과금 가격 모델 usage task pricing"
- },
- {
-  "term": "ecosystem play",
-  "ko": "생태계 전략",
-  "note": "상황태그: 도메인·파트너",
-  "say": "Partners matter here. Automation touches every system a customer owns.",
-  "triggers": "파트너 생태계 SI ecosystem"
- },
- {
-  "term": "cloud MSP synergy",
-  "ko": "클라우드 MSP와의 시너지",
-  "note": "상황태그: 도메인·내 배경 연결",
-  "say": "I come from a cloud MSP. I've seen the manual glue work between SaaS tools.",
-  "triggers": "MSP 시너지 배경 연결 manual glue"
- },
- {
-  "term": "discovery question automation",
-  "ko": "자동화 디스커버리 질문",
-  "note": "상황태그: 도메인·디스커버리",
-  "say": "I usually ask one thing. Which process still runs on spreadsheets and email?",
-  "triggers": "디스커버리 질문 스프레드시트 수작업 handoffs"
- },
- {
   "term": "proof of concept scope",
   "ko": "PoC 범위 잡기",
   "note": "상황태그: 도메인·실행",
   "say": "A good proof of concept is small. One real process, two weeks.",
   "triggers": "PoC 파일럿 범위 two weeks pilot"
- },
- {
-  "term": "objection build vs buy",
-  "ko": "자체 구축 반론 대응",
-  "note": "상황태그: 도메인·반론 대응",
-  "say": "Sure, you can build one integration in-house. Maintaining fifty is a different story.",
-  "triggers": "자체 구축 내재화 build vs buy 반론 maintain"
- },
- {
-  "term": "objection existing tool",
-  "ko": "기존 도구 반론 대응",
-  "note": "상황태그: 도메인·반론 대응",
-  "say": "Existing tools cover data sync. They miss the approvals and exceptions around it.",
-  "triggers": "기존 도구 이미 있다 반론 Zapier 비교 approvals"
- },
- {
-  "term": "north star metric",
-  "ko": "자동화 성과 지표",
-  "note": "상황태그: 도메인·지표",
-  "say": "I'd track one number. Hours of manual work removed per month.",
-  "triggers": "지표 성과 측정 metric hours removed"
- },
- {
-  "term": "process owner language",
-  "ko": "프로세스 오너의 언어",
-  "note": "상황태그: 도메인·소통",
-  "say": "With process owners, I talk approvals and exceptions. Not APIs and payloads.",
-  "triggers": "현업 언어 눈높이 process owner 소통"
- },
- {
-  "term": "expansion signal",
-  "ko": "확장 신호 포착",
-  "note": "상황태그: 도메인·그로스",
-  "say": "When one team's recipe count keeps growing, that's my expansion signal.",
-  "triggers": "확장 신호 usage growth 업셀"
- },
- {
-  "term": "why automation now",
-  "ko": "왜 지금 자동화인가",
-  "note": "상황태그: 도메인·시장 논리",
-  "say": "Headcount is flat everywhere. So automation is how teams absorb more work.",
-  "triggers": "왜 지금 시장 타이밍 headcount workload"
  },
  {
   "term": "intro one-liner",

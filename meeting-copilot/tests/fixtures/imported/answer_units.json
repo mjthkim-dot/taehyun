@@ -1,0 +1,46 @@
+[
+ {
+  "note_title": "딜 스토리 A — 한빛리테일 12.4M 갱신",
+  "answer_en_30s": "My biggest deal was a renewal. / It was turning into a price fight. / So I moved the talk / to their growth plan. / We closed twelve point four million / over three years.",
+  "intent_tags": [
+   "biggest deal",
+   "largest contract",
+   "proudest deal"
+  ],
+  "key_numbers": [
+   "12.4M",
+   "3"
+  ],
+  "gist": "최대 딜",
+  "strategy": "숫자는 끝에 한 번",
+  "reviewed": true
+ },
+ {
+  "note_title": "Why {{COMPANY}} — 이직 사유",
+  "answer_en_30s": "I want to sell a product / that changes how customers work. / {{COMPANY}} is that next step for me.",
+  "intent_tags": [
+   "why this company",
+   "why now",
+   "why are you leaving"
+  ],
+  "key_numbers": [],
+  "gist": "이직 사유",
+  "strategy": "회사 이름 한 번",
+  "reviewed": true
+ },
+ {
+  "note_title": "첫 90일 계획",
+  "answer_en_30s": "In my first ninety days at Acme, / I would learn the product / and book ten discovery meetings.",
+  "intent_tags": [
+   "first 90 days",
+   "first ninety days"
+  ],
+  "key_numbers": [
+   "90",
+   "10"
+  ],
+  "gist": "90일",
+  "strategy": "단계로",
+  "reviewed": true
+ }
+]

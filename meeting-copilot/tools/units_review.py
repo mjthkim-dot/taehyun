@@ -12,11 +12,12 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "backend" / "data" / "imported" / "answer_units.json"
+SRC = Path(os.environ.get("MC_IMPORTED_DIR") or ROOT / "backend" / "data" / "imported") / "answer_units.json"
 # docs/ 아래지만 이 파일은 개인 자료다 — 저장소 .gitignore가 막는지 확인할 것.
 DEST = ROOT / "docs" / "UNITS-REVIEW.md"
 

@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import re
 
+import company
+
 # (면접관 표현 패턴, 내 자료 어휘) — 소문자 기준
 EXPANSIONS: list[tuple[str, str]] = [
     # 딜 딥다이브
@@ -33,19 +35,11 @@ EXPANSIONS: list[tuple[str, str]] = [
     # 숫자
     (r"\bhow many\b.{0,16}\baccounts\b|\baccounts do you (manage|own|carry)\b",
      "portfolio accounts 실적 숫자 track record 내 프로필"),
-    # 제품·경쟁
-    (r"\b(product line|product portfolio|your product|our product)\b",
-     "genies agent studio enterprise MCP platform recipes connectors Workato 제품"),
     # 프레임워크
     (r"\b(ai maturity|maturity model|maturity of|adoption stages)\b",
      "framework L1 L2 L3 L4 maturity 프레임워크 execution grounding connection governance"),
     (r"\b(where|how).{0,24}\b(money|value|revenue)\b.{0,24}\b(made|come from)\b",
      "L4 세일즈 논리 governance gartner agent failures who pays"),
-    # 동기 — "Why Workato, and why now?"는 leaving/motivating 어느 쪽도 안 쓴다.
-    # 유닛 라우팅 점검에서 이 표현이 '프레임워크 매핑' 노트로 새는 것을 잡았다.
-    (r"\b(motivating|motivates|why (a )?change|why (are you )?(looking|leaving))\b"
-     r"|\bwhy (workato|us|this company|here|now)\b|\breason for (the )?(change|move)\b",
-     "why workato why leave motivation career move 이직 사유 platform scale consultants"),
     # 규모 — "biggest/largest deal"은 랜드앤익스팬드 노트와 경합한다. 최대 딜은
     # EDP 갱신 쪽이므로 그 어휘를 실어 준다(작은 딜 노트를 지우지는 않는다).
     (r"\b(biggest|largest|best)\b.{0,20}\b(deal|contract|account)\b"
@@ -66,9 +60,38 @@ EXPANSIONS: list[tuple[str, str]] = [
 _COMPILED = [(re.compile(p, re.I), t) for p, t in EXPANSIONS]
 
 
+def _company_rules() -> list[tuple[re.Pattern, str]]:
+    """회사에 따라 달라지는 규칙 — v6.5 전에는 워카토가 코드에 박혀 있었다.
+
+    · 동기: "Why <회사>, and why now?"는 leaving/motivating 어느 쪽도 안 쓴다.
+      유닛 라우팅 점검에서 이 표현이 '프레임워크 매핑' 노트로 새는 것을 잡았다.
+      core 노트 제목은 {{COMPANY}}가 회사 이름으로 바뀌어 적재되므로
+      "why <회사>" 어휘를 실어 주면 그 노트로 간다.
+    · 제품: 회사 이름 + 제품 어휘. 제품명 같은 세부는 회사 파일 triggers에 둔다.
+    · 회사 파일(또는 vocab.json의 회사 절)의 triggers를 뒤에 붙인다."""
+    nms = company.names()
+    nm = nms[0] if nms else ""
+    alt = "|".join(re.escape(n.lower()) for n in nms)
+    who = (alt + "|") if alt else ""
+    rules = [
+        (r"\b(motivating|motivates|why (a )?change|why (are you )?(looking|leaving))\b"
+         rf"|\bwhy ({who}us|this company|here|now)\b|\breason for (the )?(change|move)\b",
+         f"why {nm.lower()} why leave motivation career move 이직 사유 platform scale consultants"),
+        (r"\b(product line|product portfolio|your product|our product)\b",
+         f"{nm} 제품 product platform"),
+    ] + company.triggers()
+    out = []
+    for p, t in rules:
+        try:
+            out.append((re.compile(p, re.I), t))
+        except re.error:
+            continue
+    return out
+
+
 def expand(query: str) -> str:
     """질의에 자료 어휘를 덧붙인다. 매칭이 없으면 원문 그대로."""
     if not query:
         return query
-    extra = [t for rx, t in _COMPILED if rx.search(query)]
+    extra = [t for rx, t in _COMPILED + _company_rules() if rx.search(query)]
     return query + " " + " ".join(extra) if extra else query

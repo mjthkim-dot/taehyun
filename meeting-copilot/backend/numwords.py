@@ -6,7 +6,7 @@
 "thirty to forty percent"가 전부 검증을 통과했다. 서로 모순인 두 규칙이
 날조를 통과시키고 있었다.
 
-여기서는 영어 수사(數詞)를 수치로 바꾼다. "seventy-five million" → 75_000_000,
+여기서는 영어 수사(數詞)를 수치로 바꾼다. "forty-two million" → 42_000_000,
 "three to five" → [3, 5], "one in three" → [1, 3], "four months" → 4.
 양쪽(자료·답변)을 같은 방식으로 수치화하면 표기가 달라도 비교가 된다.
 """
@@ -68,7 +68,7 @@ def _words_to_int(words: list[str]) -> float | None:
 def extract(text: str) -> list[tuple[str, float]]:
     """본문에서 수치 표현을 뽑는다 → [(원문 조각, 값)].
 
-    잡는 것: 아라비아 숫자(50.7M, 89%, 1,700), 풀어 쓴 수(seventy-five million,
+    잡는 것: 아라비아 숫자(35.2M, 75%, 1,200), 풀어 쓴 수(forty-two million,
     three to five, one in three, four months). 라벨(L4·n8n·D2C)과 연도는
     수치 주장이 아니라 제외한다.
     """
@@ -133,7 +133,7 @@ def unverified(answer: str, known: set[float]) -> list[str]:
 
 
 def fmt(v: float) -> str:
-    """허용 목록 표기용. 75600000 → '75.6M', 89 → '89', 0.5 → '0.5'."""
+    """허용 목록 표기용. 42500000 → '42.5M', 75 → '75', 0.5 → '0.5'."""
     if v >= 1_000_000_000:
         return f"{v/1_000_000_000:g}B"
     if v >= 1_000_000:

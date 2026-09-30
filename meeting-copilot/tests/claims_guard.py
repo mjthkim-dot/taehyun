@@ -20,8 +20,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DB = ROOT / "backend" / "data" / "store.db"
-UNITS = ROOT / "backend" / "data" / "imported" / "answer_units.json"
+import os  # noqa: E402
+DB = Path(os.environ.get("MC_DATA_DIR") or ROOT / "backend" / "data") / "store.db"
+UNITS = Path(os.environ.get("MC_IMPORTED_DIR") or ROOT / "backend" / "data" / "imported") / "answer_units.json"
 
 # (금지 문구, 왜 거짓인가) — 사용자 확인 2026-08-25.
 # L1-L4 프레임워크는 본인이 개발한 것이 아니라, 레벨별 성숙도에 따른 제안 방법을

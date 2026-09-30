@@ -20,7 +20,7 @@ DOMAIN = {
     "security", "operations", "engineering", "technical", "commission", "accelerators",
     "transparent", "transparency", "documentation", "responsibility", "identity", "delegation",
     "qualification", "validation", "generation", "conversion", "commodity", "consultants",
-    "daangn", "databricks", "analytics", "capability", "capabilities", "reliability",
+    "databricks", "analytics", "capability", "capabilities", "reliability",
     "orchestrate", "monetize", "differentiation", "acquisition", "certification", "regulation",
     "regulatory", "compliance", "prioritize", "prioritizing", "repeatable", "measurable",
     "automation", "immediately", "specifically", "financials", "valuation", "development",

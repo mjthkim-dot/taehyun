@@ -34,6 +34,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "backend"))
 import auth  # noqa: E402
+import company  # noqa: E402
 import ingest  # noqa: E402
 import gateway
 import llm  # noqa: E402
@@ -42,6 +43,7 @@ import numwords
 import prompts  # noqa: E402
 import rag  # noqa: E402
 import review  # noqa: E402
+import units  # noqa: E402
 
 PORT = int(os.environ.get("PORT", "3799"))
 # 본답변 세대 카운터 — 더 새로운 답변 요청이 오면 이전 스트림은 스스로 종료해
@@ -189,7 +191,10 @@ def _stream(handler, messages, temperature, max_tokens, meta=None, fast=False,
         if meta and "known_values" in meta and acc:
             en = "".join(acc).split("===")[0]
             bad = numwords.unverified(en, known_v)
-            w((json.dumps({"verify": {"unverified": bad}}, ensure_ascii=False) + "\n").encode())
+            # 다른 지원 회사 이름 — 프롬프트가 1차로 막고, 새어 나오면 화면에서 빨갛게
+            wrong = company.mentions_other(en)
+            w((json.dumps({"verify": {"unverified": bad, "wrong_company": wrong}},
+                          ensure_ascii=False) + "\n").encode())
         handler.wfile.write(b"0\r\n\r\n")
         handler.wfile.flush()
     except (BrokenPipeError, ConnectionResetError):
@@ -402,7 +407,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             base = {"status": "ok", "provider": llm.provider(), "model": llm.model_name(),
                     "llm": llm.probe_cached(refresh="probe" in q),
                     "stt_local": llm.stt_local_available(),
-                    "stt_ready": bool(llm.stt_local_available() or llm.GROQ_API_KEY)}
+                    "stt_ready": bool(llm.stt_local_available() or llm.GROQ_API_KEY),
+                    # 실제 Gemini가 아닌 주소(mock·프록시) — 평가 기록이 무엇의 실측인지 밝히려고
+                    "gemini_custom_url": llm.GEMINI_URL.rstrip("/") != llm._GEMINI_DEFAULT_URL,
+                    "live_stt": llm.live_stt_available()}
             # 인증이 켜져 있으면 색인 통계(개인 데이터의 윤곽)는 로그인한 사람에게만
             if not gate or user:
                 base["rag"] = store_for(user).stats()
@@ -413,6 +421,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._json(401, {"error": "로그인이 필요합니다.", "auth": True})
             return
         store = store_for(user)
+
+        if path == "/api/company":
+            # 지금 지원 회사 + 개인 교정 사전(고객사명 등 — 그래서 인증 뒤에 둔다)
+            d = company.summary()
+            d["name_fixes"] = company.name_fixes()
+            d["switchable"] = not gate and not os.environ.get("INTERVIEW_COMPANY")
+            self._json(200, d)
+            return
 
         if path == "/api/glossary/candidates":
             # raw=1이면 통계 결과 그대로(디버깅), 기본은 LLM 판별을 거친 것
@@ -558,6 +574,35 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._json(429, {"error": msg})
                 return True
             return False
+
+        # 🏢 지원 회사 전환 — ACTIVE_COMPANY를 바꾸고 자료를 재적재한다.
+        #   '인덱스 갱신은 수동 동기화' 원칙 그대로: 사용자가 누른 순간에만 돈다.
+        #   개인 모드(인증 꺼짐) 전용 — 임포터는 기본 저장소만 다룬다.
+        if path == "/api/company":
+            import subprocess
+            if gate:
+                self._json(403, {"error": "회사 전환은 로컬 개인 모드에서만 됩니다."})
+                return
+            if os.environ.get("INTERVIEW_COMPANY"):
+                self._json(409, {"error": "환경변수 INTERVIEW_COMPANY가 회사를 고정하고 있습니다"
+                                          " — 지우고 서버를 다시 켜세요."})
+                return
+            s_new = str(req.get("slug") or "").strip()
+            if s_new not in company.available():
+                self._json(400, {"error": f"회사 파일이 없습니다: {s_new}",
+                                 "available": company.available()})
+                return
+            (company.IMP / "ACTIVE_COMPANY").write_text(s_new + "\n", encoding="utf-8")
+            try:
+                r = subprocess.run([sys.executable, str(APP_DIR / "tools" / "import_private.py"),
+                                    "--replace"], capture_output=True, text=True, timeout=900)
+                log, rc = (r.stdout + r.stderr)[-2500:], r.returncode
+            except subprocess.TimeoutExpired:
+                log, rc = "재적재 시간 초과(15분)", 1
+            rag._invalidate()
+            units.load(force=True)
+            self._json(200 if rc == 0 else 500, {**company.summary(), "ok": rc == 0, "log": log})
+            return
 
         # ⚡ Live 전사 세션 — 1회용 토큰 + setup (브라우저가 Gemini에 직접 스트리밍)
         #   키는 서버에만 있다. 실패하면 503 → 브라우저가 조각 방식(/api/stt)으로 폴백.

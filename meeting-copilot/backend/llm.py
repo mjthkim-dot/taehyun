@@ -879,21 +879,27 @@ def embed_backend() -> str:
 
 # ── Gemini 3.5 Transcribe — 실전(8/27) STT 붕괴의 해법 ──
 # 브라우저 Web Speech가 고유명사를 파괴("MegazoneCloud"→"mega stone crab",
-# "Workato"→"avocado", "당근(Daangn)"→"Tango Market")해 번역·답변 전체가
-# 오염됐다. 커스텀 어휘(최대 1,000개)로 도메인 고유명사를 고정한다.
+# 지원 회사명→"avocado", 고객사명까지)해 번역·답변 전체가 오염됐다.
+# 커스텀 어휘(최대 1,000개)로 도메인 고유명사를 고정한다.
 GEMINI_STT_MODEL = os.environ.get("GEMINI_STT_MODEL", "gemini-3.5-transcribe")
 # 이 크기 이하는 본문 인라인으로 한 번만 왕복한다(업로드 왕복 ~2초 절약).
 STT_INLINE_MAX = int(os.environ.get("STT_INLINE_MAX", str(6 * 1024 * 1024)))
-# 기본 어휘: 태현의 세계 — 회사·고객사·도메인 용어. STT_VOCAB env로 추가.
+# 기본 어휘: 회사·고객과 무관한 도메인 용어만 코드에 둔다.
+# 고객사명·지원 회사 제품명은 개인 자료(imported/vocab.json·company/<회사>.json)에서
+# 읽는다 — 공개 저장소에 실명 고객사를 두지 않는다(v6.5에서 코드에서 뺐다).
 _STT_VOCAB_BASE = [
-    "Workato", "MegazoneCloud", "Megazone", "Daangn", "TuneSystem", "iPaaS",
-    "EDP", "AWS", "SK Group", "GC Company", "OTE", "ARR", "quota",
-    "attainment", "FinOps", "Gartner", "MuleSoft", "Boomi", "n8n",
-    "enterprise", "pipeline", "Savings Plans", "Bedrock", "Taehyun",
+    "MegazoneCloud", "Megazone", "TuneSystem", "Taehyun",
+    "EDP", "AWS", "OTE", "ARR", "quota", "attainment", "FinOps", "Gartner",
+    "enterprise", "pipeline", "Savings Plans", "Bedrock",
 ]
 def _stt_vocab() -> list[str]:
+    import company
     extra = [t.strip() for t in os.environ.get("STT_VOCAB", "").split(",") if t.strip()]
-    return (_STT_VOCAB_BASE + extra)[:1000]
+    out: list[str] = []
+    for w in _STT_VOCAB_BASE + company.vocab() + extra:
+        if w not in out:
+            out.append(w)
+    return out[:1000]
 
 
 # ── Gemini 3.5 Transcribe Live — 조각 전사를 스트리밍으로 (2026-09-24, v6.4) ──

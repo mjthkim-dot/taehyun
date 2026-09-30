@@ -20,12 +20,32 @@ import llm
 import rag
 
 # 시드 용어집 — 여러 파일을 합쳐 넣는다:
-#  · domain-corpus.json    클라우드/AWS 세일즈 표현 70개
-#  · interview-corpus.json iPaaS/Workato 도메인 30개 + 인터뷰 표현 40개 (8/27 대비)
+#  · domain-corpus.json    클라우드/AWS 세일즈 표현 70개 (내 본업 — 항상)
+#  · interview-corpus.json 인터뷰 표현 45개 (어느 회사든 — 항상)
+#  · packs/<묶음>.json     회사 도메인 묶음 — 지원 회사가 고른 것만 (v6.5)
+#      ipaas.json          자동화·통합 25개 (8/27 워카토 대비로 만든 것)
+#    회사 파일에 domain_packs가 없으면 전부 적재한다(옛 회사 파일 하위 호환).
 # glossary_seed.json은 초기 20개 버전으로, 다른 파일이 없는 환경 폴백으로만 둔다.
 _DATA = Path(__file__).parent / "data"
 SEEDS = [_DATA / "domain-corpus.json", _DATA / "interview-corpus.json"]
+PACKS_DIR = _DATA / "packs"
 SEED_FALLBACK = _DATA / "glossary_seed.json"
+
+
+def _packs() -> dict[str, list[dict]]:
+    out = {}
+    for f in sorted(PACKS_DIR.glob("*.json")) if PACKS_DIR.is_dir() else []:
+        try:
+            out[f.stem] = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+    return out
+
+
+def _active_pack_names(all_names: list[str]) -> list[str]:
+    import company
+    want = company.domain_packs()
+    return list(all_names) if want is None else [n for n in all_names if n in want]
 
 
 def _clean(t: str) -> str:
@@ -164,9 +184,26 @@ def load_seed_glossary() -> list[dict]:
     for path in SEEDS:
         if path.exists():
             entries += json.loads(path.read_text(encoding="utf-8"))
+    packs = _packs()
+    for n in _active_pack_names(list(packs)):
+        entries += packs[n]
     if not entries and SEED_FALLBACK.exists():
         entries = json.loads(SEED_FALLBACK.read_text(encoding="utf-8"))
     return chunks_from_glossary(entries)
+
+
+def _inactive_pack_uids() -> set[str]:
+    """지금 회사가 고르지 않은 묶음의 시드 uid — 회사를 바꾸면 색인에서 뺀다.
+    (단, 항상 적재하는 시드와 같은 용어는 빼지 않는다.)"""
+    packs = _packs()
+    active = set(_active_pack_names(list(packs)))
+    keep = {c["uid"] for c in load_seed_glossary()}
+    drop = set()
+    for n, entries in packs.items():
+        if n in active:
+            continue
+        drop |= {c["uid"] for c in chunks_from_glossary(entries)}
+    return drop - keep
 
 
 def ensure_seeded(store: rag.Store | None = None) -> dict:
@@ -182,12 +219,27 @@ def ensure_seeded(store: rag.Store | None = None) -> dict:
     with store.connect() as con:
         have = {r[0] for r in con.execute(
             "SELECT uid FROM chunks WHERE source='glossary'")}
+    # 회사를 바꿨다면 이전 회사의 도메인 묶음을 뺀다 — 남겨 두면 검색이 이전 회사
+    # 도메인(예: 자동화 용어)으로 끌린다. postings·vecs까지 함께 지운다(고아 방지).
+    drop = [u for u in _inactive_pack_uids() if u in have]
+    if drop:
+        with store.connect() as con:
+            ph = ",".join("?" * len(drop))
+            ids = [r[0] for r in con.execute(
+                f"SELECT id FROM chunks WHERE uid IN ({ph})", drop)]
+            if ids:
+                ip = ",".join("?" * len(ids))
+                con.execute(f"DELETE FROM postings WHERE chunk_id IN ({ip})", ids)
+                con.execute(f"DELETE FROM vecs WHERE chunk_id IN ({ip})", ids)
+                con.execute(f"DELETE FROM chunks WHERE id IN ({ip})", ids)
+            con.commit()
+        store._invalidate()
     todo = [c for c in items if c["uid"] not in have]
     # embed=False: 기동 시에는 네트워크를 타지 않는다. 임베딩 채우기는 사용자가
     # '동기화'를 눌렀을 때만 — "자동 백그라운드 색인 금지" 원칙(docs/PLAN.md A16).
     # 임베딩이 없어도 키워드 경로로 검색은 동작한다(설계 원칙).
     r = store.add_chunks(todo, embed=False) if todo else {"added": 0}
-    return {"seeded": r.get("added", 0), **store.stats()}
+    return {"seeded": r.get("added", 0), "unseeded": len(drop), **store.stats()}
 
 
 # ── 4. 용어집 자동 성장 (P1) ─────────────────────────────────

@@ -227,8 +227,8 @@ console.log('\n■ v5.7 Tier A — 검수된 대본을 그대로 (생성 없음)
   // 사용자가 안심하고 그대로 읽는다. 90초 판본이 있으면 버튼도 함께.
   const ui = await p.evaluate(() => {
     renderSources({ tier: 'A', sources: ['노트: 딜 스토리 A'], rag_used: true,
-                    unit_title: '딜 스토리 A — 당근마켓 $75.6M EDP', has_90s: true,
-                    known_numbers: ['75.6'], has_placeholder: false });
+                    unit_title: '딜 스토리 A — 고객사 X $42.5M 갱신', has_90s: true,
+                    known_numbers: ['42.5'], has_placeholder: false });
     const el = document.querySelector('#c-tiera');
     return { on: el.classList.contains('on'), txt: el.textContent,
              btn: !!document.querySelector('#c-90s') };
@@ -279,20 +279,20 @@ console.log('\n■ v5.4 Phase 0 — 근거 없으면 만들지 않는다 (#16·#
   // 계약 2: 자료에 없는 숫자는 붉게 표시한다(차단하지 않는다 — 화면이 비면
   // 면접 중 대응이 불가능하다). 확정 수치는 건드리지 않는다.
   const g = await p.evaluate(() => {
-    knownNumbers = ['75.6', '50.7'];
+    knownNumbers = ['42.5', '35.2'];
     const d = document.createElement('div');
-    d.innerHTML = markNumbers('grew to 50.7M, closed 75.6M, and a 999M deal');
+    d.innerHTML = markNumbers('grew to 35.2M, closed 42.5M, and a 999M deal');
     return { marked: [...d.querySelectorAll('.unverified')].map(e => e.textContent.trim()),
-             kept: d.textContent.includes('75.6') && d.textContent.includes('50.7') };
+             kept: d.textContent.includes('42.5') && d.textContent.includes('35.2') };
   });
   check('자료에 없는 숫자만 미검증 표시', g.marked.some(x => x.includes('999')) &&
-    !g.marked.some(x => x.includes('75.6')), JSON.stringify(g.marked));
+    !g.marked.some(x => x.includes('42.5')), JSON.stringify(g.marked));
   check('확정 수치는 그대로 표시', g.kept);
 
   // 라벨·연도는 수치 주장이 아니다. 여기서 오탐이 나면 검수한 대본이 온통
   // 빨갛게 뜨고(실측 61곳), 겁주는 표시가 흔해지면 진짜 경고를 못 믿는다.
   const lbl = await p.evaluate(() => {
-    knownNumbers = ['75.6', '50.7'];
+    knownNumbers = ['42.5', '35.2'];
     const d = document.createElement('div');
     d.innerHTML = markNumbers('L1 through L4, n8n is free, a D2C group, founded 2013, from 2022 to 2025');
     return [...d.querySelectorAll('.unverified')].map(e => e.textContent.trim());
@@ -413,6 +413,12 @@ console.log('\n■ v5.1 턴 정착 — 조각난 질문에 답변 1회만 발사
 
 console.log('\n■ v5.1 고유명사 교정 (지연 0 · 브라우저 STT 오인식 복구)');
 {
+  // v6.5: 회사·고객사 교정은 코드가 아니라 개인 자료에서 온다(/api/company).
+  // 실제 경로 그대로 — 응답만 가짜 회사 자료로 바꿔 loadCompany()를 태운다.
+  await p.route('**/api/company', r => r.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ slug: 'demo', name: 'Workato', others: ['Globex'], available: ['demo'],
+      name_fixes: [['\\b(?:walkato|avocado)\\b', 'Workato']], switchable: false }) }));
+  await p.evaluate(() => loadCompany());
   await p.evaluate(() => addUtterance('So you were at mega stone crab working on avocado?', '상대'));
   await p.waitForTimeout(300);
   const en = await p.evaluate(() =>
@@ -424,6 +430,28 @@ console.log('\n■ v5.1 고유명사 교정 (지연 0 · 브라우저 STT 오인
     return [...document.querySelectorAll('#feed .row .en')].pop()?.textContent || '';
   });
   check('일상어는 건드리지 않음 ("I pass")', keep.includes('I pass'), keep.slice(0, 40));
+  // 회사를 바꾸면 이전 회사 교정은 사라져야 한다(다른 회사 면접에서 엉뚱한 이름으로 바꾸지 않게)
+  await p.unroute('**/api/company');
+  await p.route('**/api/company', r => r.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ slug: 'other', name: 'Globex', others: [], available: ['other'],
+      name_fixes: [], switchable: false }) }));
+  const after = await p.evaluate(async () => { await loadCompany();
+    return fixNames('working on avocado at mega stone crab'); });
+  check('회사 전환 시 이전 회사 교정 제거 · 공통 교정 유지',
+    after.includes('avocado') && after.includes('MegazoneCloud'), after);
+  await p.unroute('**/api/company');
+  // 생성 답변에 다른 지원 회사 이름이 새면 빨갛게(읽지 말 것)
+  const wc = await p.evaluate(() => {
+    const box = document.querySelector('#c-answers');
+    const d = document.createElement('div'); d.className = 'en';
+    d.textContent = 'I am excited about Globex and this team.';
+    box.appendChild(d);
+    markUnverified(['Globex'], '다른 지원 회사 이름입니다 — 읽지 말고 건너뛰세요');
+    const m = d.querySelector('.unverified'); const r = { txt: m?.textContent, why: m?.title };
+    d.remove(); return r;
+  });
+  check('다른 지원 회사 이름은 빨간 표시 + 이유', wc.txt === 'Globex' && /다른 지원 회사/.test(wc.why || ''),
+    JSON.stringify(wc));
 }
 
 console.log('\n■ v4.0 번역 자동 재시도 (일시 503 주입 → 회복)');

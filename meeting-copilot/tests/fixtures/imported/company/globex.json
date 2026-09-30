@@ -1,0 +1,34 @@
+{
+ "company": {
+  "name": "Globex Data",
+  "aliases": [
+   "Globex"
+  ]
+ },
+ "domain_packs": [],
+ "vocab": [
+  "Globex Lake"
+ ],
+ "name_fixes": [
+  [
+   "\\bglow bex\\b",
+   "Globex"
+  ]
+ ],
+ "triggers": [
+  [
+   "\\b(product line|your product|our product)\\b",
+   "Globex Lake 데이터 플랫폼 제품"
+  ]
+ ],
+ "notes": [
+  {
+   "title": "Globex 제품 — Globex Lake 데이터 플랫폼",
+   "text": "Globex Lake: 레이크하우스. 강점은 거버넌스와 비용 가시성.\n[검색어] product line platform what do you know about our product"
+  }
+ ],
+ "links": {},
+ "units": [],
+ "golden": [],
+ "unit_ok": []
+}

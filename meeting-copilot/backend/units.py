@@ -19,6 +19,12 @@
   gist            한 줄 요지(한국어) — 카드 상단에 뜬다.
   strategy        말하기 전략(한국어) — 어디에 힘을 줄지.
   reviewed        사용자가 검수했는가. false면 Tier A로 내보내지 않는다.
+  company         (선택) 이 대본이 속한 회사 slug. 지금 회사가 아니면 내보내지 않는다.
+
+회사 레이어(v6.5): 회사 전용 대본은 company/<회사>.json의 "units"에 둘 수도 있다.
+대본 문장에 {{COMPANY}}를 쓰면 지금 회사 이름으로 바뀐다. 그리고 **다른 지원 회사
+이름이 들어간 대본은 절대 내보내지 않는다** — 그대로 읽히기 때문이다
+(다른 회사 면접에서 "Why Workato"를 읽는 사고를 구조적으로 막는다).
 """
 from __future__ import annotations
 
@@ -27,9 +33,10 @@ import os
 import pathlib
 import threading
 
+import company
+
 UNITS_PATH = pathlib.Path(os.environ.get(
-    "UNITS_PATH",
-    pathlib.Path(__file__).parent / "data" / "imported" / "answer_units.json"))
+    "UNITS_PATH", company.IMP / "answer_units.json"))
 
 # 미검수 유닛도 내보낼지 — 리허설용 탈출구. 기본은 끈다(그대로 읽히기 때문).
 ALLOW_UNREVIEWED = os.environ.get("UNITS_ALLOW_UNREVIEWED", "0") == "1"
@@ -87,25 +94,63 @@ def matches_intent(query: str, unit: dict) -> bool:
     return False
 
 
+_TEXT_KEYS = ("answer_en_30s", "answer_en_90s", "gist", "strategy")
+
+
+def active() -> list[dict]:
+    """지금 회사에 쓸 수 있는 대본 — 공통 대본 + 회사 파일의 대본, 다른 회사 것 제외."""
+    cur = company.slug()
+    out = []
+    for u in load():
+        c = str(u.get("company") or "").strip()
+        if c and c != cur:
+            continue
+        out.append(u)
+    for u in company.units():
+        out.append({**u, "company": u.get("company") or cur})
+    return out
+
+
+def _render(u: dict) -> dict:
+    """{{COMPANY}} → 지금 회사 이름. 원본은 건드리지 않는다(캐시 공유)."""
+    nm = company.name()
+    r = dict(u)
+    for k in _TEXT_KEYS + ("note_title",):
+        v = r.get(k)
+        if isinstance(v, str) and "{{COMPANY}}" in v:
+            r[k] = v.replace("{{COMPANY}}", nm)
+    return r
+
+
+def leaks(u: dict) -> list[str]:
+    """대본에 다른 지원 회사 이름이 있으면 그 이름들."""
+    return company.mentions_other(" ".join(str(u.get(k) or "") for k in _TEXT_KEYS))
+
+
 def find(title: str) -> dict | None:
-    """노트 제목으로 유닛을 찾는다. 검수 안 된 유닛은 돌려주지 않는다."""
+    """노트 제목으로 유닛을 찾는다. 검수 안 된 유닛·다른 회사 이름이 든 유닛은 돌려주지 않는다."""
     t = _norm(title)
     if not t:
         return None
-    for u in load():
-        nt = _norm(u.get("note_title", ""))
+    for u in active():
+        nt = _norm(_render(u).get("note_title", ""))
         if not nt:
             continue
         if t == nt or t.startswith(nt) or nt.startswith(t):
-            if u.get("reviewed") or ALLOW_UNREVIEWED:
-                return u
-            return None
+            if not (u.get("reviewed") or ALLOW_UNREVIEWED):
+                return None
+            r = _render(u)
+            if leaks(r):
+                return None                 # 그대로 읽히는 대본 — 회사명 사고는 생성 쪽으로 넘긴다
+            return r
     return None
 
 
 def stats() -> dict:
     """진단용 — /health와 자료 탭에 띄운다."""
-    us = load()
+    us = active()
     return {"total": len(us),
             "reviewed": sum(1 for u in us if u.get("reviewed")),
+            "blocked_other_company": sum(1 for u in us if leaks(_render(u))),
+            "company": company.slug(),
             "path": str(UNITS_PATH)}

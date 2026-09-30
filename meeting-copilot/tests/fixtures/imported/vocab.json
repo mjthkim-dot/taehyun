@@ -1,0 +1,18 @@
+{
+ "stt_vocab": [
+  "Hanbit Retail"
+ ],
+ "name_fixes": [
+  [
+   "\\bhan bit retail\\b",
+   "Hanbit Retail"
+  ]
+ ],
+ "companies": {
+  "acme": {
+   "vocab": [
+    "Acme Cloud"
+   ]
+  }
+ }
+}

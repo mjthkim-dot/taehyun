@@ -230,7 +230,7 @@
     align-items:center;gap:8px;flex-wrap:nowrap}
   #c-tiera.on{display:flex}
   #c-tiera b{color:var(--ok,#52c41a);white-space:nowrap}
-  /* 제목은 길다("딜 스토리 A — 당근마켓 $75.6M EDP"). 줄바꿈을 허용하면 배너가
+  /* 제목은 길다("딜 스토리 A — 고객사 대형 갱신 계약"). 줄바꿈을 허용하면 배너가
      2~3줄로 부풀어(실측 S에서 87px) 정작 읽어야 할 답변을 밀어낸다. 한 줄로 자른다. */
   #c-tiera .ttl{color:var(--sub);font-size:11.5px;overflow:hidden;
     text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1 1 auto}
@@ -601,6 +601,12 @@
     <div class="stat" id="lib-stat"></div>
     <p>제안 문장은 <b>여기 있는 자료에서만</b> 나옵니다. 자료가 늘수록 “내가 실제로 말할 법한 문장”에 가까워집니다.</p>
 
+    <h3>🏢 지원 회사</h3>
+    <p>지금 면접 보는 회사: <b id="company-now">…</b><br>
+       회사를 바꾸면 그 회사 노트·대본·용어로 <b>다시 적재</b>합니다(1~2분).
+       <b>다른 지원 회사 이름이 들어간 대본은 읽히지 않고</b>, 생성된 답변에 나오면 빨갛게 표시됩니다.</p>
+    <div id="company-box" class="note">불러오는 중…</div>
+
     <h3>🧩 코드를 Claude에 보내기</h3>
     <p>앱 소스를 <b>붙여넣기 좋은 조각</b>으로 나눠 복사합니다. 조각을 순서대로
        Claude 대화창에 ⌘V 하면 코드 분석·개선 요청을 할 수 있습니다.<br>
@@ -828,7 +834,11 @@ async function streamChat(url, payload, onToken, signal, onMeta){
         if(o.dropped) return;              // 게이트웨이가 밀린 항목을 버림 — 조용히 스킵
         if(o.error) throw new Error(o.error);
         if(o.meta){ onMeta?.(o.meta); continue; }
-        if(o.verify){ markUnverified(o.verify.unverified||[]); continue; }
+        if(o.verify){
+          markUnverified(o.verify.unverified||[]);
+          markUnverified(o.verify.wrong_company||[], '다른 지원 회사 이름입니다 — 읽지 말고 건너뛰세요');
+          continue;
+        }
         if(o.message?.content) onToken(o.message.content);
       }catch(e){ if(e.message && !(e instanceof SyntaxError)) throw e; }
     }
@@ -901,26 +911,40 @@ $('#new-msg').onclick = ()=> feedScroll(true);
 // (자막 표시는 조각 그대로 — 병합은 판정·생성에만 쓴다)
 // ── 고유명사 교정 (지연 0) ──
 //  8/27 실전에서 브라우저 STT가 회사·제품명을 통째로 깨뜨렸고, 오염된 자막이
-//  번역·질문감지·RAG 검색을 연쇄로 무너뜨렸다(실측: "Workato"→avocado/walkato,
-//  "MegazoneCloud"→mega stone crab, "당근"→Congo Market). 서버 전사(🎧 정밀)는
+//  번역·질문감지·RAG 검색을 연쇄로 무너뜨렸다(실측: 지원 회사명→avocado,
+//  "MegazoneCloud"→mega stone crab, 고객사명까지). 서버 전사(🎧 정밀)는
 //  정확하지만 왕복 2.5초가 붙는다 — 실시간을 지키면서 이름만 되살리기 위해
 //  브라우저 STT 결과를 표시 직전에 사전으로 교정한다. API 호출이 없어 공짜다.
 //  보수적으로: 확실한 오인식 패턴만 잡는다(일상어 오교정 금지).
+//  v6.5: 고객사명·지원 회사명 교정은 코드에서 뺐다(공개 저장소에 실명 금지).
+//  개인 자료(imported/vocab.json·company/<회사>.json)에서 /api/company로 받아 뒤에 붙인다.
 const NAME_FIXES = [
   [/\bmega\s*(?:stone|zone)\s*(?:crab|cloud|crowd|club)\b/gi, 'MegazoneCloud'],
   [/\bmegazone\s*(?:crab|crowd|club)\b/gi, 'MegazoneCloud'],
-  [/\b(?:walkato|workato|work\s*auto|rock\s*auto|avocado)\b/gi, 'Workato'],
   [/\b(?:tune\s*system|tunesystem|bus\s*company)\b/gi, 'TuneSystem'],
-  [/\b(?:daangn|dang\s*geun|congo\s*market|tango\s*market)\b/gi, 'Daangn'],
   [/\bi-?paas\b|\bipass\b/gi, 'iPaaS'],
   [/\bn8n\b/gi, 'n8n'],             // Live SMART 모드가 "N8N"으로 대문자화(실측)
   // 면접관이 부르는 내 이름 — 브라우저 경로에서 Tae-yeon/Taeyun/Tae-hyun으로 흔들림(실측)
   [/\btae-(?:yeon|yun|hyeon|hyun)\b|\btae(?:yeon|yun|hyeon)\b/gi, 'Taehyun'],
   [/\bdev\s*sec\s*ops\b/gi, 'DevSecOps'],
   [/\bgit\s*lab\b/gi, 'GitLab'],
-  [/\bnexus\s*community\b/gi, 'Nexus Community'],
   [/(\d+)\s*mg\b/gi, '$1M'],          // "160mg" → "160M" (금액 오인식)
 ];
+const NAME_FIXES_CORE = NAME_FIXES.length;
+// 지금 지원 회사 — 이름·다른 지원 회사(말하면 안 되는 이름)·개인 교정 사전
+let companyInfo = {name:'', others:[]};
+async function loadCompany(){
+  try{
+    const d = await (await fetch('/api/company')).json();
+    companyInfo = d;
+    NAME_FIXES.splice(NAME_FIXES_CORE);        // 회사를 바꾸면 이전 회사 교정을 버린다
+    for(const [pat, to] of d.name_fixes || []){
+      try{ NAME_FIXES.push([new RegExp(pat, 'gi'), to]); }catch{}
+    }
+    const el = $('#company-now');
+    if(el) el.textContent = d.name || '(회사 미지정)';
+  }catch{}
+}
 function fixNames(t){
   let out = t;
   for(const [re, to] of NAME_FIXES) out = out.replace(re, to);
@@ -1350,14 +1374,15 @@ function renderTierC(meta){
 
 // ── 서버 검증 결과 표시 — 풀어 쓴 숫자("four months")까지 서버가 잡아 보낸다 ──
 // 클라이언트 정규식(markNumbers)은 아라비아 숫자만 보므로 이쪽이 진짜 방어선이다.
-function markUnverified(spans){
+function markUnverified(spans, why){
   if(!spans.length) return;
+  why = why || '내 자료에 없는 숫자입니다 — 확인 전에는 읽지 마세요';
   for(const en of document.querySelectorAll('#c-answers .en')){
     let html = en.innerHTML;
     for(const sp of spans){
       const esc_ = sp.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-      html = html.replace(new RegExp('(?<![\\w>])'+esc_+'(?![\\w<])','g'),
-        `<span class="unverified" title="내 자료에 없는 숫자입니다 — 확인 전에는 읽지 마세요">${sp}</span>`);
+      html = html.replace(new RegExp('(?<![\\w>])'+esc_+'(?![\\w<])','gi'),
+        m => `<span class="unverified" title="${why}">${m}</span>`);
     }
     en.innerHTML = html;
   }
@@ -2299,7 +2324,7 @@ document.querySelectorAll('.tab').forEach(t=>{
     paintLive();
     $('#view-lib').classList.toggle('hidden', t.dataset.v !== 'lib');
     $('#view-rev').classList.toggle('hidden', t.dataset.v !== 'rev');
-    if(t.dataset.v === 'lib') refreshStats();
+    if(t.dataset.v === 'lib'){ refreshStats(); paintCompany(); }
     if(t.dataset.v === 'rev') loadCards();
   };
 });
@@ -2550,6 +2575,41 @@ async function runSync(pages, statusEl){
   refreshStats();
   return r;
 }
+// 🏢 회사 전환 — 자료 탭을 열 때 그린다
+async function paintCompany(){
+  const box = $('#company-box'); if(!box) return;
+  await loadCompany();
+  const d = companyInfo || {};
+  const av = d.available || [];
+  if(!av.length){
+    box.innerHTML = '회사 파일이 없습니다 — <code>backend/data/imported/company/&lt;회사&gt;.json</code>을 넣거나 '
+      + '<code>python3 tools/new_company.py "회사명"</code>으로 초안을 만드세요.';
+    return;
+  }
+  const opts = av.map(x => `<option value="${esc(x)}" ${x===d.slug?'selected':''}>${esc(x)}</option>`).join('');
+  box.innerHTML = `<select id="company-sel">${opts}</select> `
+    + (d.switchable ? '<button class="go ghost" id="company-go">이 회사로 전환</button>'
+                    : '<span>(서버 설정으로 고정됨)</span>')
+    + `<div>대본 ${d.units||0}개(회사 전용) · 음성 어휘 ${d.vocab||0}개 · 교정 ${d.name_fixes||0}개`
+    + (d.others && d.others.length ? ` · 금지 이름: ${d.others.map(esc).join(', ')}` : '') + '</div>'
+    + '<div id="company-st"></div>';
+  const go = $('#company-go');
+  if(go) go.onclick = async ()=>{
+    const slug = $('#company-sel').value;
+    if(slug === d.slug){ $('#company-st').textContent = '이미 이 회사입니다.'; return; }
+    go.disabled = true; $('#company-st').textContent = '⏳ 다시 적재 중… (임베딩 포함 1~2분)';
+    try{
+      const r = await fetch('/api/company', {method:'POST', headers:{'Content-Type':'application/json'},
+                                             body: JSON.stringify({slug})});
+      const j = await r.json();
+      $('#company-st').innerHTML = r.ok ? `✅ ${esc(j.name)}로 전환했습니다.`
+        : `❌ ${esc(j.error || '전환 실패')}<pre>${esc((j.log||'').slice(-600))}</pre>`;
+    }catch(e){ $('#company-st').textContent = '❌ ' + e.message; }
+    go.disabled = false;
+    paintCompany(); bootData();
+  };
+}
+
 $('#sync-go').onclick = async ()=>{
   localStorage.setItem(SYNC_KEY, $('#sync-pages').value);
   const pages = ($('#sync-pages').value||'').split('\n').map(x=>x.trim()).filter(Boolean);
@@ -2723,6 +2783,7 @@ $('#rev-save').onclick = async ()=>{
 // 로그인 전에는 개인 데이터(rag·복습)를 읽을 수 없으므로,
 // 인증 확인 → 로그인 완료 시점에 bootData()를 다시 부른다.
 async function bootData(){
+  loadCompany();
   try{
     const h = await (await fetch('/health')).json();
     const ls = Array.isArray(h.llm) ? h.llm : [];
