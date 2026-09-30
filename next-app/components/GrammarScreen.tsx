@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * 문법 시뮬레이션 화면 — 허브(레벨별 유닛) + 유닛 플레이어(사고 → 판단 → 조립 → 실전 → 결과).
+ * 문법 시뮬레이션 화면 — 허브(레벨별 유닛) + 유닛 플레이어(이해 → 고르기 → 만들기 → 실전 → 결과).
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { speakText, stopSpeaking } from './SpeakButton';
@@ -32,9 +32,9 @@ import { applyVariant, generateVariant } from '../lib/grammarGen';
 
 type Phase = 'think' | 'check' | 'build' | 'sim' | 'result';
 const PHASES: { key: Phase; label: string }[] = [
-  { key: 'think', label: '사고' },
-  { key: 'check', label: '판단' },
-  { key: 'build', label: '조립' },
+  { key: 'think', label: '이해' },
+  { key: 'check', label: '고르기' },
+  { key: 'build', label: '만들기' },
   { key: 'sim', label: '실전' },
   { key: 'result', label: '결과' },
 ];
@@ -358,7 +358,7 @@ function Player({ unit, onExit, onAgain, fresh }: { unit: GrammarUnit; onExit: (
             ))}
           </div>
           <button type="button" className="btn primary gm-go" onClick={() => { setPhase('check'); setI(0); }}>
-            이해했어요 — 판단 연습
+            이해했어요 — 골라 보기
           </button>
         </div>
       )}
@@ -366,7 +366,7 @@ function Player({ unit, onExit, onAgain, fresh }: { unit: GrammarUnit; onExit: (
       {phase === 'check' && (
         <div className="gm-stage" key={`c${i}`}>
           <div className="gm-count">
-            판단 {i + 1}/{unit.checks.length} — 이 상황에 맞는 형태는?
+            고르기 {i + 1}/{unit.checks.length} — 이 상황에 맞는 말은?
           </div>
           <div className="study-card gm-prompt">{unit.checks[i].q}</div>
           <Choice
@@ -375,7 +375,7 @@ function Player({ unit, onExit, onAgain, fresh }: { unit: GrammarUnit; onExit: (
             why={unit.checks[i].why}
             seed={i + unit.id.length}
             onDone={(g) => {
-              answer(g, `판단 ${i + 1}`, unit.checks[i].why);
+              answer(g, `고르기 ${i + 1}`, unit.checks[i].why);
               if (i + 1 < unit.checks.length) setI(i + 1);
               else { setPhase('build'); setI(0); }
             }}
@@ -386,7 +386,7 @@ function Player({ unit, onExit, onAgain, fresh }: { unit: GrammarUnit; onExit: (
       {phase === 'build' && (
         <div className="gm-stage" key={`b${i}`}>
           <div className="gm-count">
-            조립 {i + 1}/{unit.builds.length} — 영어 어순으로 세워 보세요
+            만들기 {i + 1}/{unit.builds.length} — 단어를 눌러 영어 문장을 만들어요
           </div>
           <div className="study-card gm-prompt">{unit.builds[i].kr}</div>
           <Builder
@@ -394,7 +394,7 @@ function Player({ unit, onExit, onAgain, fresh }: { unit: GrammarUnit; onExit: (
             extra={unit.builds[i].extra}
             seed={i * 13 + 5}
             onDone={(g) => {
-              answer(g, `조립 ${i + 1}`, `정답: ${unit.builds[i].a}`);
+              answer(g, `만들기 ${i + 1}`, `정답: ${unit.builds[i].a}`);
               if (i + 1 < unit.builds.length) setI(i + 1);
               else { setPhase('sim'); setI(0); }
             }}
@@ -433,7 +433,7 @@ function Player({ unit, onExit, onAgain, fresh }: { unit: GrammarUnit; onExit: (
           )}
           {turn.task === 'build' && (
             <>
-              <div className="gm-task">답을 조립하세요 — {turn.why}</div>
+              <div className="gm-task">단어를 눌러 답을 만들어요 — {turn.why}</div>
               <Builder
                 answer={turn.a}
                 extra={turn.extra}

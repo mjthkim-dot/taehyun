@@ -25,6 +25,8 @@ const PLAYAI_VOICE: Record<string, string> = {
   austin: 'Fritz-PlayAI',
   daniel: 'Fritz-PlayAI',
   hannah: 'Arista-PlayAI',
+  diana: 'Arista-PlayAI',
+  troy: 'Fritz-PlayAI',
 };
 let ttsModelIdx: 0 | 1 = 0; // 0=Orpheus, 1=playai (모듈 캐시)
 

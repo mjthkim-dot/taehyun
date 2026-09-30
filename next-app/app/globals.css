@@ -11275,3 +11275,43 @@ body::after {
 @media (prefers-reduced-motion: reduce) {
   .dr-eq i { animation: none; }
 }
+.dr-row {
+  display: flex;
+  gap: 8px;
+}
+.dr-row .btn {
+  flex: 1;
+}
+
+/* 진도 — 드라마로 배운 것 */
+.dp-head {
+  font-size: 0.95rem;
+  margin: 4px 0 10px;
+}
+.dp-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dp-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--lit-rim);
+  background: var(--surface2);
+  color: var(--text);
+  cursor: pointer;
+}
+.dp-en {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.dp-kr {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}

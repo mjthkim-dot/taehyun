@@ -19,6 +19,8 @@
  */
 import { dateKey } from './dates';
 import { load, store, calcStreak, spokenToday, dailyGoal } from './state';
+import { dramaWatchedToday } from './homeLite';
+import { isFocusMode } from './focus';
 
 export const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100, 200, 365] as const;
 
@@ -37,6 +39,10 @@ export interface FlameState {
   level: FlameLevel;
   /** 다음 마일스톤(이미 최고면 null) */
   nextMilestone: number | null;
+  /** 오늘 드라마 에피소드를 봤는가 */
+  episode: boolean;
+  /** 집중 모드(하루 한 편이 목표) */
+  focus: boolean;
 }
 
 export function flameState(): FlameState {
@@ -45,9 +51,12 @@ export function flameState(): FlameState {
   const goal = dailyGoal();
   const today = dstr(new Date());
   const practiced = load<string[]>('va_days', []).includes(today);
-  const level: FlameLevel = spoken >= goal ? 'lit' : practiced || spoken > 0 ? 'ember' : 'off';
+  // 하루 한 편 루틴: 드라마 에피소드 한 편을 끝내면 오늘 목표 달성(예전엔 20문장을 말해야만
+  // 켜져서, 한 편을 다 봐도 불꽃이 꺼진 채로 남았다)
+  const episode = dramaWatchedToday();
+  const level: FlameLevel = spoken >= goal || episode ? 'lit' : practiced || spoken > 0 ? 'ember' : 'off';
   const nextMilestone = STREAK_MILESTONES.find((m) => m > streak) ?? null;
-  return { streak, spoken, goal, level, nextMilestone };
+  return { streak, spoken, goal, level, nextMilestone, episode, focus: isFocusMode() };
 }
 
 export type DayFlame = 'lit' | 'frozen' | 'missed' | 'today' | 'before';

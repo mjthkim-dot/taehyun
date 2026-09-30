@@ -28,11 +28,15 @@ import { computeMaturity } from '../lib/maturity';
 import { pickTodayPattern, sessionDoneToday } from '../lib/session';
 import { loadStories } from '../lib/storyData';
 import { weeklyTestDue } from '../lib/weeklyTest';
-import { programState, PROGRAM_EVENT } from '../lib/program';
+import { programStarted, PROGRAM_EVENT, dramaWatchedCount } from '../lib/homeLite';
 import { isFocusMode, setFocusMode, FOCUS_EVENT } from '../lib/focus';
 import FocusGuide from './FocusGuide';
-import { GrammarTodayCard, WhatsNew } from './GrammarToday';
-import { watched as dramaWatched } from '../lib/drama';
+import WhatsNew from './WhatsNew';
+// 문법 원고(57KB)를 홈 첫 청크에서 빼기 위해 지연 로딩
+const GrammarTodayCard = dynamic(() => import('./GrammarToday'), {
+  ssr: false,
+  loading: () => <div className="study-card gm-today" style={{ minHeight: 150 }} aria-hidden="true" />,
+});
 const DramaCard = dynamic(() => import('./DramaCard'), {
   ssr: false,
   loading: () => <div className="study-card dr-card" style={{ minHeight: 200 }} aria-hidden="true" />,
@@ -169,7 +173,7 @@ export default function MasterScreen({
   const freeze = getFreezeCount();
 
   // 프로그램 진행 중이면 홈의 주도권은 프로그램 카드에 있다(중복 CTA 억제)
-  const onProgram = !!programState();
+  const onProgram = programStarted();
   const streak = calcStreak();
   const dueCount = dueWeak().length;
   // 스픽 벤치마크: '공부 횟수'가 아니라 '소리 내어 말한 문장 수'를 오늘의 1급 지표로.
@@ -180,7 +184,7 @@ export default function MasterScreen({
   }
 
   const focus = isFocusMode();
-  const guide = { placed: isPlaced(), firstEpisode: dramaWatched().length > 0 };
+  const guide = { placed: isPlaced(), firstEpisode: dramaWatchedCount() > 0 };
   const now = new Date();
   const dateLine = `${now.getMonth() + 1}월 ${now.getDate()}일 ${'일월화수목금토'[now.getDay()]}요일`;
 

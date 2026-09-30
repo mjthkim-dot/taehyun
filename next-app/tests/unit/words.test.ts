@@ -69,7 +69,8 @@ describe('오늘의 큐', () => {
     for (const w of nextNewWords(4)) gradeWord(w.id, true);
     expect(newQuotaLeft()).toBe(6);
   });
-  test('여러 팩을 번갈아 꺼낸다(상황 인터리빙)', () => {
+  test('같은 난이도 안에서 여러 팩을 번갈아 꺼낸다(상황 인터리빙)', () => {
+    localStorage.setItem('va_placed', JSON.stringify({ cefr: 'A2', gse: 30, ts: Date.now() }));
     const packsOf = nextNewWords(6).map((w) => w.pack);
     expect(new Set(packsOf).size).toBeGreaterThanOrEqual(5);
   });
@@ -117,5 +118,19 @@ describe('온톨로지 연결', () => {
     const by = wordStatsBySituation(rootOf);
     expect(by['finops'].seen).toBe(1);
     expect(by['finops'].total).toBeGreaterThan(30);
+  });
+});
+
+describe('오답 보기 — 정답과 같은 뜻은 쓰지 않는다', () => {
+  test('뜻 고르기 보기 중 정답과 핵심 뜻이 겹치는 것이 없다', async () => {
+    const { makeQuiz } = await import('../../lib/words');
+    const stems = (kr: string) => new Set(kr.split(/[\s,·()~/]+/).map((t) => t.replace(/[을를이가은는의에]$/, '').replace(/(하다|되다|하는|한|다)$/, '')).filter((t) => t.length >= 2));
+    let bad = 0;
+    for (const w of allWords().slice(0, 200)) {
+      const q = makeQuiz(w, 'meaning', 5);
+      const right = stems(w.kr);
+      for (const [k, o] of q.options.entries()) if (k !== q.answer && [...stems(o)].some((t) => right.has(t))) bad++;
+    }
+    expect(bad).toBe(0);
   });
 });

@@ -79,7 +79,7 @@ const th = await page.evaluate(() => document.querySelector('.gm-think')?.innerT
 check('한국어식 vs 영어식 사고가 나란히', th.includes('한국어식 사고') && th.includes('영어식 사고'));
 check('규칙과 예문 2개', (await page.locator('.gm-rule').count()) === 1 && (await page.locator('.gm-ex').count()) === 2);
 check('상황이 먼저 제시된다', await page.evaluate(() => document.querySelector('.gm-scene')?.textContent.includes('장애')));
-await page.click('button:has-text("판단 연습")');
+await page.click('button:has-text("골라 보기")');
 
 /* ③ 판단 — 첫 문제는 일부러 틀린다 */
 await page.waitForSelector('.gm-opt', { timeout: 5000 });
@@ -144,7 +144,7 @@ await page.waitForSelector('.gm-think', { timeout: 15000 });
 check('두 번째 회차는 새 상황이 생성된다', genCalls === 1 && (await page.evaluate(() => document.querySelector('.gm-scene')?.textContent.includes('호텔'))));
 check('새 상황 배지', (await page.locator('.gm-fresh').count()) === 1);
 check('문법 설명(규칙)은 그대로', await page.evaluate(() => document.querySelector('.gm-rule')?.textContent.includes('stopped')));
-await page.click('button:has-text("판단 연습")');
+await page.click('button:has-text("골라 보기")');
 await page.waitForSelector('.gm-prompt', { timeout: 5000 });
 check('판단 문제가 새 문항', await page.evaluate(() => document.querySelector('.gm-prompt')?.textContent.includes('on Monday')));
 await page.click('.gm-top .mini-btn');

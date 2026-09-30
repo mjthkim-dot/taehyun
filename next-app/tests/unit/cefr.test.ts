@@ -104,10 +104,15 @@ describe('단어도 CEFR 목표 레벨부터', () => {
     expect(levelRank('A1', 'B1')).toBe(3);
     expect(levelRank('B2', 'B1')).toBe(6);
   });
-  test('A2 학습자(목표 B1)의 첫 신규 단어는 B1이 가장 많다', () => {
+  test('초급(A2) 학습자의 첫 신규 단어는 A2가 가장 많다(전문어 폭탄 방지)', () => {
     place('A2');
     const lv = nextNewWords(20).map((w) => w.lv);
-    const b1 = lv.filter((x) => x === 'B1').length;
-    expect(b1).toBeGreaterThanOrEqual(10);
+    expect(lv.filter((x) => x === 'A2').length).toBeGreaterThanOrEqual(10);
+    expect(lv.filter((x) => x === 'B2' || x === 'C1').length).toBe(0);
+  });
+  test('B1 학습자는 한 단계 위(B2) 단어부터', () => {
+    place('B1');
+    const lv = nextNewWords(20).map((w) => w.lv);
+    expect(lv.filter((x) => x === 'B2').length).toBeGreaterThanOrEqual(10);
   });
 });

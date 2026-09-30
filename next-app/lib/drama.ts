@@ -7,7 +7,9 @@
  * 1~3화는 사람이 쓴 원고(data/dramaSeed.json), 4화부터 AI가 앞 이야기를 기억하며 이어 쓴다.
  */
 import seed from '../data/dramaSeed.json';
-import { load, store, groqKey, addWeakItem, markPracticedToday } from './state';
+import { load, store, groqKey, addWeakItem, markPracticedToday, gradeWeakItem } from './state';
+import { recordSkillResult } from './cefrGrowth';
+import { CEFR_ORDER as CEFR_LEVELS } from './cefr';
 import { todayKey } from './dates';
 import { groqKoJson, hasHangul } from './aiGuard';
 import type { Cefr } from './cefr';
@@ -108,22 +110,71 @@ export function nextEpisodeNo(): number {
 }
 
 /** 에피소드 완료 — 기록, 학습일, 오늘의 표현을 복습 카드로 */
-export function completeEpisode(ep: Episode, score: number) {
+export function completeEpisode(ep: Episode, score: number, asked = 0) {
   const p = prog();
-  p.done[String(ep.no)] = todayKey();
+  const first = !p.done[String(ep.no)];
+  // 다시 본 화는 처음 본 날짜를 유지한다(예전엔 덮어써서 '오늘 완료'로 잘못 표시됐다)
+  if (first) p.done[String(ep.no)] = todayKey();
   p.score[String(ep.no)] = Math.max(p.score[String(ep.no)] ?? 0, Math.round(score));
   store(PROG_KEY, p);
   markPracticedToday();
   for (const l of ep.learn) addWeakItem({ en: l.en, kr: l.kr, cat: '드라마', lesson: `drama:${ep.no}` });
+  // 대사를 알아듣고 고른 결과 = 그 레벨의 듣기 증거(처음 볼 때만, 문항 2개 이상일 때)
+  if (first && asked >= 2) {
+    try {
+      recordSkillResult('listening', (CEFR_LEVELS.includes(ep.level as Cefr) ? ep.level : 'A2') as Cefr, score, 'listening');
+    } catch {
+      /* 증거 기록 실패는 시청 완료를 막지 않는다 */
+    }
+  }
 }
 
-/** 홈 → 드라마 화면으로 갈 때 허브를 건너뛰고 바로 재생하라는 표시(1분 유효) */
-export const DRAMA_AUTOPLAY_KEY = 'va_drama_autoplay';
-export function requestDramaAutoplay() {
-  store(DRAMA_AUTOPLAY_KEY, Date.now());
+/* ── 이야기 속 복습 — "지난 화 기억나요?" ──
+ * 드라마 표현은 복습 카드(va_weak, cat '드라마')에 들어간다. 집중 모드엔 따로 복습 화면이
+ * 없으므로, 다음 화 첫머리에 기한이 된 표현을 1~2개 떠올리게 한다(간격 반복 그대로:
+ * 맞히면 간격이 늘고 틀리면 내일 다시). 기한이 된 게 없으면 직전 화 표현 하나.
+ */
+export interface RecallItem {
+  en: string;
+  kr: string;
+  opts: string[];
+  a: number;
 }
+
+export function recallItems(no: number, max = 2): RecallItem[] {
+  if (no <= 1) return [];
+  const pool = allEpisodes().flatMap((e) => e.learn.map((l) => ({ ...l, no: e.no })));
+  const weak = load<{ en: string; kr?: string; cat?: string; due?: number }[]>('va_weak', []);
+  const now = Date.now();
+  const due = weak.filter((w) => w.cat === '드라마' && (w.due == null || w.due <= now));
+  let picks = due.map((w) => pool.find((p) => p.en === w.en)).filter((x): x is (typeof pool)[number] => !!x && x.no < no);
+  if (!picks.length) {
+    const prev = episodeByNo(no - 1);
+    if (prev?.learn[0]) picks = [{ ...prev.learn[0], no: prev.no }];
+  }
+  return picks.slice(0, max).map((p, k) => {
+    const others = pool.filter((x) => x.en !== p.en);
+    const ds: string[] = [];
+    for (let j = 0; ds.length < 2 && j < others.length; j++) {
+      const c = others[(no * 7 + k * 3 + j * 5) % others.length].en;
+      if (!ds.includes(c)) ds.push(c);
+    }
+    const opts = [p.en, ...ds];
+    // 결정적 섞기
+    const order = [0, 1, 2].sort((x, y) => ((x * 13 + no + k) % 3) - ((y * 13 + no + k) % 3));
+    return { en: p.en, kr: p.kr, opts: order.map((o) => opts[o]), a: order.indexOf(0) };
+  });
+}
+
+export function gradeRecall(en: string, ok: boolean) {
+  gradeWeakItem(en, ok ? 'good' : 'again');
+}
+
+export { DRAMA_AUTOPLAY_KEY, requestDramaAutoplay } from './homeLite';
 
 /* ── AI 다음 화 ── */
+
+const str = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
 
 /** 형식 검증 — 어긋나면 null */
 export function validateEpisode(d: unknown, no: number): Episode | null {
@@ -135,23 +186,32 @@ export function validateEpisode(d: unknown, no: number): Episode | null {
     if (s.type === 'narr') {
       if (!hasHangul(s.kr)) return null;
     } else if (s.type === 'line' || s.type === 'speak') {
-      if (typeof s.who !== 'string' || typeof s.en !== 'string' || !s.en.trim() || !hasHangul(s.kr)) return null;
+      if (!str(s.who) || !str(s.en) || !hasHangul(s.kr)) return null;
     } else if (s.type === 'choice') {
       if (!hasHangul(s.prompt) || !Array.isArray(s.opts) || s.opts.length !== 3) return null;
-      if (s.opts.filter((o) => o && o.ok === true).length !== 1) return null;
-      if (!s.opts.every((o) => typeof o.en === 'string' && (o.ok || hasHangul(o.why)))) return null;
+      if (!s.opts.every((o) => o && typeof o === 'object' && str(o.en) && typeof o.ok === 'boolean')) return null;
+      if (new Set(s.opts.map((o) => o.en)).size !== 3) return null;
+      if (s.opts.filter((o) => o.ok === true).length !== 1) return null;
+      if (!s.opts.every((o) => o.ok || hasHangul(o.why))) return null;
+      const r = s.opts.find((o) => o.ok)?.reply;
+      if (r !== undefined && (!r || !str(r.who) || !str(r.en) || !hasHangul(r.kr))) return null;
     } else if (s.type === 'meaning') {
-      if (typeof s.en !== 'string' || !Array.isArray(s.opts) || s.opts.length !== 3 || !s.opts.every(hasHangul) || !(s.a >= 0 && s.a < 3) || !hasHangul(s.why)) return null;
+      if (!str(s.who) || !str(s.en) || !Array.isArray(s.opts) || s.opts.length !== 3 || !s.opts.every((o) => typeof o === 'string' && hasHangul(o)) || new Set(s.opts).size !== 3 || !Number.isInteger(s.a) || s.a < 0 || s.a > 2 || !hasHangul(s.why)) return null;
     } else if (s.type === 'fill') {
-      if (typeof s.before !== 'string' || typeof s.after !== 'string' || !Array.isArray(s.opts) || s.opts.length !== 3 || new Set(s.opts).size !== 3 || !(s.a >= 0 && s.a < 3) || !hasHangul(s.kr) || !hasHangul(s.why)) return null;
+      if (!str(s.who) || typeof s.before !== 'string' || typeof s.after !== 'string' || !Array.isArray(s.opts) || s.opts.length !== 3 || !s.opts.every(str) || new Set(s.opts).size !== 3 || !Number.isInteger(s.a) || s.a < 0 || s.a > 2 || !hasHangul(s.kr) || !hasHangul(s.why)) return null;
     } else return null;
     scenes.push(s);
+  }
+  for (let k = 1; k < scenes.length; k++) {
+    const cur = scenes[k];
+    const prev = scenes[k - 1];
+    if (cur.type === 'meaning' && prev.type === 'line' && prev.en.includes(cur.en)) return null;
   }
   const inter = scenes.filter((s) => INTERACTIVE.has(s.type));
   const kinds = new Set(inter.map((s) => s.type));
   // 몰입 우선: 장면 10~22개, 상호작용 2~4개, 형식 최소 2종
   if (scenes.length < 10 || scenes.length > 22 || inter.length < 2 || inter.length > 4 || kinds.size < 2) return null;
-  const learn = (x.learn as Episode['learn']).filter((l) => l && typeof l.en === 'string' && hasHangul(l.kr)).slice(0, 2);
+  const learn = (x.learn as Episode['learn']).filter((l) => l && str(l.en) && hasHangul(l.kr)).map((l) => ({ en: l.en, kr: l.kr, note: typeof l.note === 'string' ? l.note : '' })).slice(0, 2);
   if (learn.length < 1) return null;
   return { no, level: String(x.level || 'A2'), title: x.title, titleKr: String(x.titleKr), recap: String(x.recap || ''), scenes, learn, cliff: String(x.cliff), ai: true };
 }
@@ -164,6 +224,11 @@ const LEVEL_GUIDE: Record<string, string> = {
   C1: '빠르고 자연스러운 원어민 대화, 뉘앙스·유머·관용 표현',
   C2: '빠르고 자연스러운 원어민 대화, 뉘앙스·유머·관용 표현',
 };
+
+/** 재생 중 오류가 난 생성 원고를 버린다(다음 시도에서 새로 쓴다) */
+export function discardGenerated(no: number) {
+  store(EPS_KEY, generatedEpisodes().filter((e) => e.no !== no));
+}
 
 /** 다음 화를 만든다 — 앞 이야기(최근 4화 요약 + 직전 클리프행어)를 기억하며 */
 export async function generateEpisode(no: number, level: Cefr): Promise<Episode | null> {
@@ -190,14 +255,24 @@ ${story}
 - learn: 이번 화 핵심 표현 2개 {en, kr, note(언제 쓰는지 한국어 짧게)}.
 - recap: 직전 화까지 한 줄 요약(한국어). cliff: 다음 화가 궁금해지는 한 줄(한국어).
 JSON만: {"level":"${level}","title":"영어 제목","titleKr":"한국어 제목","recap":"","scenes":[...],"learn":[...],"cliff":""}`;
-  const ep = await groqKoJson<Episode>(
-    [
-      { role: 'system', content: sys },
-      { role: 'user', content: `${no}화를 써 줘.` },
-    ],
-    { temperature: 0.9, maxTokens: 2000 },
-    (d) => validateEpisode(d, no)
-  );
+  // 네트워크·429·키 오류는 예외로 올라온다 — 삼키고 null(예전엔 '쓰는 중' 스피너가 영원히 돌았다).
+  // 느린 응답도 45초에서 끊는다.
+  let ep: Episode | null = null;
+  try {
+    ep = await Promise.race([
+      groqKoJson<Episode>(
+        [
+          { role: 'system', content: sys },
+          { role: 'user', content: `${no}화를 써 줘.` },
+        ],
+        { temperature: 0.9, maxTokens: 2000 },
+        (d) => validateEpisode(d, no)
+      ),
+      new Promise<null>((res) => setTimeout(() => res(null), 45000)),
+    ]);
+  } catch {
+    ep = null;
+  }
   if (!ep) return null;
   const gen = generatedEpisodes().filter((e) => e.no !== no);
   store(EPS_KEY, [...gen, ep].sort((a, b) => a.no - b.no).slice(-40));

@@ -411,8 +411,12 @@ export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => 
   }
   const chunks = splitForTTS(text);
   const v = voice || GROQ_TTS_VOICE;
+  // 세대 번호 — stopSpeaking()이 불리면 올라간다. 합성(fetch)이 늦게 끝나도 세대가 바뀌었으면
+  // 재생하지 않는다(예전엔 멈춘 뒤 도착한 이전 대사 음성이 현재 대사 위에 재생됐다).
+  const gen = speakGen;
   let i = 0;
   const step = () => {
+    if (gen !== speakGen) return;
     if (i >= chunks.length) {
       onend?.();
       return;
@@ -421,6 +425,7 @@ export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => 
     if (idx + 1 < chunks.length) fetchGroqTTS(chunks[idx + 1], v, opts).catch(() => {});
     // 한 번 합성한 음성을 재생 단계에서 rate로 조절(음높이 유지) — 느리게 들어도 자연스럽다.
     fetchGroqTTS(chunks[idx], v, opts).then((url) => {
+      if (gen !== speakGen) return;
       if (url) {
         playUrl(url, rate, step).catch(() => speakWithBrowser(chunks[idx], lang, baseRate() * rate, step));
       } else {
@@ -432,7 +437,10 @@ export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => 
 }
 
 /** 진행 중인 모든 음성(Groq 오디오 + 브라우저 합성)을 멈춘다. */
+let speakGen = 0;
+
 export function stopSpeaking() {
+  speakGen++;
   sharedAudio?.pause();
   if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
   markMediaPaused();

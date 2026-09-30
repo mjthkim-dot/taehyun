@@ -2,109 +2,1025 @@
   "series": "Taco at Nimbus",
   "seriesKr": "타코의 좌충우돌 첫 직장",
   "cast": [
-    { "id": "taeo", "name": "Taeo", "icon": "🧑‍💼", "desc": "주인공(나). 서울 글로벌 스타트업 Nimbus의 신입 영업. 영어는 아직 서툴다." },
-    { "id": "maya", "name": "Maya", "icon": "👩‍💼", "desc": "호주 출신 팀장. 쿨하고 직설적, 커피 없이는 못 산다." },
-    { "id": "jun", "name": "Jun", "icon": "😎", "desc": "옆자리 동료. 장난꾸러기, 영어 잘하는 척을 한다." },
-    { "id": "diane", "name": "Diane", "icon": "👩‍🦰", "desc": "Nimbus의 CEO. 소탈하고 유머가 많다." },
-    { "id": "grant", "name": "Mr. Grant", "icon": "🧔", "desc": "보스턴의 까다로운 고객. 좀처럼 웃지 않는다." }
+    {
+      "id": "taeo",
+      "name": "Taeo",
+      "icon": "🧑‍💼",
+      "desc": "주인공(나). 서울 글로벌 스타트업 Nimbus의 신입 영업. 영어는 아직 서툴다."
+    },
+    {
+      "id": "maya",
+      "name": "Maya",
+      "icon": "👩‍💼",
+      "desc": "호주 출신 팀장. 쿨하고 직설적, 커피 없이는 못 산다."
+    },
+    {
+      "id": "jun",
+      "name": "Jun",
+      "icon": "😎",
+      "desc": "옆자리 동료. 장난꾸러기, 영어 잘하는 척을 한다."
+    },
+    {
+      "id": "diane",
+      "name": "Diane",
+      "icon": "👩‍🦰",
+      "desc": "Nimbus의 CEO. 소탈하고 유머가 많다."
+    },
+    {
+      "id": "grant",
+      "name": "Mr. Grant",
+      "icon": "🧔",
+      "desc": "보스턴의 까다로운 고객. 좀처럼 웃지 않는다."
+    }
   ],
   "episodes": [
     {
-      "no": 1, "level": "A2", "title": "Stuck on Day One", "titleKr": "첫날부터 멈춘 엘리베이터",
+      "no": 1,
+      "level": "A2",
+      "title": "Stuck on Day One",
+      "titleKr": "첫날부터 멈춘 엘리베이터",
       "recap": "",
       "scenes": [
-        { "type": "narr", "kr": "첫 출근 날, 오전 8시 58분. 태오가 탄 엘리베이터가 7층과 8층 사이에서 멈췄다." },
-        { "type": "line", "who": "diane", "en": "Oh no. Not again.", "kr": "아, 안 돼. 또야." },
-        { "type": "line", "who": "taeo", "en": "Is it… broken?", "kr": "이거… 고장 난 거예요?" },
-        { "type": "line", "who": "diane", "en": "It happens. Don't worry. First day?", "kr": "가끔 이래요. 걱정 마요. 첫 출근이에요?" },
-        { "type": "choice", "prompt": "태오라면 뭐라고 대답할까?", "opts": [
-          { "en": "Yes, it's my first day.", "ok": true, "reply": { "who": "diane", "en": "Nice! Welcome to Nimbus.", "kr": "잘됐네요! Nimbus에 온 걸 환영해요." } },
-          { "en": "Yes, I am first day.", "ok": false, "why": "'I am first day'는 '나는 첫날이다'가 돼요. 날을 주어로 세워서 It's my first day." },
-          { "en": "First day is yes.", "ok": false, "why": "영어는 '누가/무엇이 + 동사' 순서예요. It's my first day." }
-        ] },
-        { "type": "line", "who": "taeo", "en": "Thanks. I'm really nervous.", "kr": "감사해요. 정말 긴장돼요." },
-        { "type": "line", "who": "diane", "en": "Nervous is good. It means you care.", "kr": "긴장하는 건 좋은 거예요. 신경 쓴다는 뜻이니까." },
-        { "type": "meaning", "who": "diane", "en": "Let's just hang in there.", "opts": ["조금만 버텨 봐요", "여기에 매달려 있어요", "여기서 헤어져요"], "a": 0, "why": "hang in there = 힘든 상황을 조금만 더 버티다. 응원할 때 자주 써요." },
-        { "type": "narr", "kr": "5분 뒤, 덜컹— 엘리베이터가 다시 움직인다." },
-        { "type": "line", "who": "diane", "en": "Finally! See you around…?", "kr": "드디어! 또 봐요… 이름이?" },
-        { "type": "speak", "who": "taeo", "en": "I'm Taeo. Nice to meet you.", "kr": "저는 태오예요. 만나서 반가워요." },
-        { "type": "line", "who": "diane", "en": "Nice to meet you, Taeo. I'm Diane.", "kr": "반가워요, 태오. 저는 다이앤이에요." },
-        { "type": "narr", "kr": "9시 5분. 사무실에 들어서자 팀장 Maya가 시계를 본다." },
-        { "type": "line", "who": "maya", "en": "You're late on day one. Bold move.", "kr": "첫날부터 지각이라. 대담한데요." },
-        { "type": "line", "who": "taeo", "en": "Sorry! The elevator got stuck.", "kr": "죄송해요! 엘리베이터가 멈췄어요." },
-        { "type": "line", "who": "maya", "en": "Sure it did. Anyway, the CEO wants to meet you at ten.", "kr": "그렇겠죠. 아무튼, CEO가 10시에 당신을 보자네요." },
-        { "type": "narr", "kr": "벽에 걸린 CEO 사진을 본 태오는 얼어붙었다. 사진 속 얼굴은… 엘리베이터의 Diane이었다." }
+        {
+          "type": "narr",
+          "kr": "첫 출근 날, 오전 8시 58분. 태오가 탄 엘리베이터가 7층과 8층 사이에서 멈췄다."
+        },
+        {
+          "type": "line",
+          "who": "diane",
+          "en": "Oh no. Not again.",
+          "kr": "아, 안 돼. 또야."
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "Is it… broken?",
+          "kr": "이거… 고장 난 거예요?"
+        },
+        {
+          "type": "line",
+          "who": "diane",
+          "en": "It happens. Don't worry. First day?",
+          "kr": "가끔 이래요. 걱정 마요. 첫 출근이에요?"
+        },
+        {
+          "type": "choice",
+          "prompt": "태오라면 뭐라고 대답할까?",
+          "opts": [
+            {
+              "en": "Yes, it's my first day.",
+              "ok": true,
+              "reply": {
+                "who": "diane",
+                "en": "Nice! Welcome to Nimbus.",
+                "kr": "잘됐네요! Nimbus에 온 걸 환영해요."
+              }
+            },
+            {
+              "en": "Yes, I am first day.",
+              "ok": false,
+              "why": "'I am first day'는 '나 = 첫날'이 돼요. 날을 말할 땐 It's my first day."
+            },
+            {
+              "en": "First day is yes.",
+              "ok": false,
+              "why": "영어는 '누가/무엇이 + 동사' 순서예요. It's my first day."
+            }
+          ]
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "Thanks. I'm really nervous.",
+          "kr": "감사해요. 정말 긴장돼요."
+        },
+        {
+          "type": "line",
+          "who": "diane",
+          "en": "Nervous is good. It means you care.",
+          "kr": "긴장하는 건 좋은 거예요. 신경 쓴다는 뜻이니까."
+        },
+        {
+          "type": "meaning",
+          "who": "diane",
+          "en": "Let's just hang in there.",
+          "opts": [
+            "조금만 버텨 봐요",
+            "여기에 매달려 있어요",
+            "여기서 헤어져요"
+          ],
+          "a": 0,
+          "why": "hang in there = 힘든 상황을 조금만 더 버티다. 응원할 때 자주 써요."
+        },
+        {
+          "type": "narr",
+          "kr": "5분 뒤, 덜컹— 엘리베이터가 다시 움직인다."
+        },
+        {
+          "type": "line",
+          "who": "diane",
+          "en": "Finally! Sorry, what's your name?",
+          "kr": "드디어! 참, 이름이 뭐예요?"
+        },
+        {
+          "type": "speak",
+          "who": "taeo",
+          "en": "I'm Taeo. Nice to meet you.",
+          "kr": "저는 태오예요. 만나서 반가워요."
+        },
+        {
+          "type": "line",
+          "who": "diane",
+          "en": "Nice to meet you, Taeo. I'm Diane.",
+          "kr": "반가워요, 태오. 저는 다이앤이에요."
+        },
+        {
+          "type": "narr",
+          "kr": "9시 5분. 사무실에 들어서자 팀장 Maya가 시계를 본다."
+        },
+        {
+          "type": "line",
+          "who": "maya",
+          "en": "You're late on day one. Bold move.",
+          "kr": "첫날부터 지각이라. 대담한데요."
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "Sorry! The elevator got stuck.",
+          "kr": "죄송해요! 엘리베이터가 멈췄어요."
+        },
+        {
+          "type": "line",
+          "who": "maya",
+          "en": "Sure it did. Anyway, the CEO wants to meet you at ten.",
+          "kr": "그렇겠죠. 아무튼, CEO가 10시에 당신을 보자네요."
+        },
+        {
+          "type": "narr",
+          "kr": "벽에 걸린 CEO 사진을 본 태오는 얼어붙었다. 사진 속 얼굴은… 엘리베이터의 Diane이었다."
+        }
       ],
       "learn": [
-        { "en": "It's my first day.", "kr": "오늘 첫 출근이에요.", "note": "날·시간이 주어일 땐 It's로 시작" },
-        { "en": "Hang in there.", "kr": "조금만 버텨요.", "note": "힘들어하는 사람을 응원할 때" }
+        {
+          "en": "It's my first day.",
+          "kr": "오늘 첫 출근이에요.",
+          "note": "날짜·요일·시간을 말할 땐 It's로 시작"
+        },
+        {
+          "en": "Hang in there.",
+          "kr": "조금만 버텨요.",
+          "note": "힘들어하는 사람을 응원할 때"
+        }
       ],
       "cliff": "엘리베이터에서 만난 Diane이 CEO였다! 10시 미팅, 태오는 무사할까?"
     },
     {
-      "no": 2, "level": "A2", "title": "The Taco Incident", "titleKr": "커피 주문 대참사",
+      "no": 2,
+      "level": "A2",
+      "title": "The Taco Incident",
+      "titleKr": "커피 주문 대참사",
       "recap": "첫날 엘리베이터에 갇힌 태오. 같이 갇혔던 Diane이 알고 보니 CEO였다.",
       "scenes": [
-        { "type": "narr", "kr": "10시, CEO 미팅. 태오는 고개를 들지 못한다. Diane이 웃는다." },
-        { "type": "line", "who": "diane", "en": "Welcome aboard, Taeo. Relax. I don't bite.", "kr": "합류를 환영해요, 태오. 편하게 해요. 나 안 물어요." },
-        { "type": "meaning", "who": "diane", "en": "I don't bite.", "opts": ["나 무서운 사람 아니에요(편하게 해요)", "저는 음식을 씹지 않아요", "조심해요, 물 수도 있어요"], "a": 0, "why": "말 그대로 '안 문다'가 아니라 '겁먹지 마'라는 농담이에요." },
-        { "type": "narr", "kr": "오후 2시. 옆자리 Jun이 의자를 굴려 다가온다." },
-        { "type": "line", "who": "jun", "en": "Hey, newbie. It's your turn to get coffee for the team.", "kr": "어이, 신입. 팀 커피 사 올 차례야." },
-        { "type": "line", "who": "taeo", "en": "My turn? Okay… what does everyone want?", "kr": "제 차례요? 알겠어요… 다들 뭐 드세요?" },
-        { "type": "line", "who": "jun", "en": "Maya wants an iced americano. I'll have a latte with oat milk.", "kr": "Maya는 아이스 아메리카노. 난 귀리 우유 라테." },
-        { "type": "narr", "kr": "1층 카페. 바리스타가 태오를 본다." },
-        { "type": "fill", "who": "taeo", "before": "Hi, could I", "after": "an iced americano, please?", "opts": ["get", "got", "getting"], "a": 0, "kr": "안녕하세요, 아이스 아메리카노 하나 주시겠어요?", "why": "Could I 뒤에는 동사원형 — could I get ~ 은 주문할 때 가장 자연스러운 말이에요." },
-        { "type": "line", "who": "barista", "en": "Sure. Anything else?", "kr": "네. 더 필요하신 건요?" },
-        { "type": "choice", "prompt": "Jun의 라테도 주문해야 한다. 뭐라고 할까?", "opts": [
-          { "en": "And a latte with oat milk, please.", "ok": true, "reply": { "who": "barista", "en": "Got it. Name for the order?", "kr": "알겠습니다. 주문하시는 분 이름은요?" } },
-          { "en": "And latte oat milk give me.", "ok": false, "why": "명령 어순이라 무례하게 들려요. And a latte with oat milk, please." },
-          { "en": "Oat milk is latte.", "ok": false, "why": "'귀리 우유는 라테다'라는 뜻이 돼요. A latte with oat milk." }
-        ] },
-        { "type": "line", "who": "taeo", "en": "Taeo. T-A-E-O.", "kr": "태오요. T-A-E-O." },
-        { "type": "narr", "kr": "5분 뒤. 컵에 적힌 이름: TACO." },
-        { "type": "line", "who": "jun", "en": "Taco! That's your name now.", "kr": "타코! 이제 네 이름은 그거야." },
-        { "type": "speak", "who": "taeo", "en": "Very funny. Here's your latte.", "kr": "참 재밌네요. 여기 라테요." },
-        { "type": "line", "who": "maya", "en": "Thanks, Taco. Oh, Mr. Grant from Boston just emailed. He wants a call. Today.", "kr": "고마워요, 타코. 아, 보스턴의 Grant 씨가 방금 메일 보냈어요. 통화하재요. 오늘." },
-        { "type": "narr", "kr": "Jun이 조용히 속삭인다. \"Grant? 그 사람 지난 담당자를 울린 사람이야.\"" }
+        {
+          "type": "narr",
+          "kr": "10시, CEO 미팅. 태오는 고개를 들지 못한다. Diane이 웃는다."
+        },
+        {
+          "type": "line",
+          "who": "diane",
+          "en": "Welcome aboard, Taeo. Relax.",
+          "kr": "합류를 환영해요, 태오. 긴장 풀어요."
+        },
+        {
+          "type": "meaning",
+          "who": "diane",
+          "en": "I don't bite.",
+          "opts": [
+            "나 무서운 사람 아니에요",
+            "저는 음식을 씹지 않아요",
+            "조심해요, 물 수도 있어요"
+          ],
+          "a": 0,
+          "why": "말 그대로 '안 문다'가 아니라 '겁먹지 마'라는 농담이에요."
+        },
+        {
+          "type": "narr",
+          "kr": "오후 2시. 옆자리 Jun이 의자를 굴려 다가온다."
+        },
+        {
+          "type": "line",
+          "who": "jun",
+          "en": "Hey, newbie. It's your turn to get coffee for the team.",
+          "kr": "어이, 신입. 팀 커피 사 올 차례야."
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "My turn? Okay… what does everyone want?",
+          "kr": "제 차례요? 알겠어요… 다들 뭐 드세요?"
+        },
+        {
+          "type": "line",
+          "who": "jun",
+          "en": "Maya wants an iced americano. I'll have a latte with oat milk.",
+          "kr": "Maya는 아이스 아메리카노. 난 귀리 우유 라테."
+        },
+        {
+          "type": "narr",
+          "kr": "1층 카페. 바리스타가 태오를 본다."
+        },
+        {
+          "type": "fill",
+          "who": "taeo",
+          "before": "Hi, could I",
+          "after": "an iced americano, please?",
+          "opts": [
+            "get",
+            "got",
+            "getting"
+          ],
+          "a": 0,
+          "kr": "안녕하세요, 아이스 아메리카노 하나 주시겠어요?",
+          "why": "Could I 뒤에는 동사원형 — could I get ~ 은 주문할 때 가장 자연스러운 말이에요."
+        },
+        {
+          "type": "line",
+          "who": "barista",
+          "en": "Sure. Anything else?",
+          "kr": "네. 더 필요하신 건요?"
+        },
+        {
+          "type": "choice",
+          "prompt": "Jun의 라테도 주문해야 한다. 뭐라고 할까?",
+          "opts": [
+            {
+              "en": "And a latte with oat milk, please.",
+              "ok": true,
+              "reply": {
+                "who": "barista",
+                "en": "Got it. Name for the order?",
+                "kr": "알겠습니다. 주문하시는 분 이름은요?"
+              }
+            },
+            {
+              "en": "And latte oat milk give me.",
+              "ok": false,
+              "why": "한국어 순서(라테·귀리우유·주세요)를 그대로 옮긴 거예요. 영어는 '무엇을 + 어떻게' 순서로: And a latte with oat milk, please."
+            },
+            {
+              "en": "Oat milk is latte.",
+              "ok": false,
+              "why": "'귀리 우유는 라테다'라는 뜻이 돼요. A latte with oat milk."
+            }
+          ]
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "Taeo. T-A-E-O.",
+          "kr": "태오요. T-A-E-O."
+        },
+        {
+          "type": "narr",
+          "kr": "5분 뒤. 컵에 적힌 이름: TACO."
+        },
+        {
+          "type": "line",
+          "who": "jun",
+          "en": "Taco! That's your name now.",
+          "kr": "타코! 이제 네 이름은 그거야."
+        },
+        {
+          "type": "speak",
+          "who": "taeo",
+          "en": "Very funny. Here's your latte.",
+          "kr": "참 재밌네요. 여기 라테요."
+        },
+        {
+          "type": "line",
+          "who": "maya",
+          "en": "Thanks, Taco. Oh, Mr. Grant from Boston just emailed. He wants a call. Today.",
+          "kr": "고마워요, 타코. 아, 보스턴의 Grant 씨가 방금 메일 보냈어요. 통화하재요. 오늘."
+        },
+        {
+          "type": "narr",
+          "kr": "Jun이 조용히 속삭인다. \"Grant? 그 사람 지난 담당자를 울린 사람이야.\""
+        }
       ],
       "learn": [
-        { "en": "Could I get a latte, please?", "kr": "라테 하나 주시겠어요?", "note": "주문할 때 가장 자연스러운 표현" },
-        { "en": "It's your turn.", "kr": "네 차례야.", "note": "순서를 말할 때" }
+        {
+          "en": "Could I get a latte, please?",
+          "kr": "라테 하나 주시겠어요?",
+          "note": "주문할 때 가장 자연스러운 표현"
+        },
+        {
+          "en": "It's your turn.",
+          "kr": "네 차례야.",
+          "note": "순서를 말할 때"
+        }
       ],
       "cliff": "전 담당자를 울렸다는 고객 Mr. Grant. 태오의 첫 고객 통화가 시작된다."
     },
     {
-      "no": 3, "level": "A2", "title": "The Call", "titleKr": "첫 고객 통화",
+      "no": 3,
+      "level": "A2",
+      "title": "The Call",
+      "titleKr": "첫 고객 통화",
       "recap": "태오는 커피 주문 실수로 '타코'라는 별명을 얻었다. 그리고 까다로운 고객 Mr. Grant가 통화를 요청했다.",
       "scenes": [
-        { "type": "narr", "kr": "오후 4시. 화상 회의 창이 열린다. Mr. Grant는 웃지 않는다." },
-        { "type": "line", "who": "grant", "en": "Hello? Hello? Can you hear me?", "kr": "여보세요? 여보세요? 들려요?" },
-        { "type": "choice", "prompt": "잘 들린다고 말하자.", "opts": [
-          { "en": "Yes, I can hear you clearly.", "ok": true, "reply": { "who": "grant", "en": "Good. Where's Maya?", "kr": "좋아요. Maya는 어디 있죠?" } },
-          { "en": "Yes, I hear you clear.", "ok": false, "why": "'또렷하게'는 동사를 꾸미니까 clearly. can과 함께 I can hear you clearly." },
-          { "en": "Hello yes hearing.", "ok": false, "why": "단어만 나열하면 뜻이 안 돼요. Yes, I can hear you." }
-        ] },
-        { "type": "line", "who": "taeo", "en": "She's in another meeting. I'm Taeo, her new teammate.", "kr": "다른 회의 중이세요. 저는 새로 온 팀원 태오예요." },
-        { "type": "line", "who": "grant", "en": "New? Great. So why is my bill so high this month?", "kr": "새로 왔다고요? 좋네요. 그래서 이번 달 청구서가 왜 이렇게 많이 나왔죠?" },
-        { "type": "narr", "kr": "태오의 머리가 하얘진다. 전혀 모르는 질문이다." },
-        { "type": "choice", "prompt": "모르는 질문. 신뢰를 지키려면?", "opts": [
-          { "en": "Let me check and get back to you.", "ok": true, "reply": { "who": "grant", "en": "Fine. By tomorrow.", "kr": "좋아요. 내일까지요." } },
-          { "en": "I don't know. Bye.", "ok": false, "why": "모를 땐 끊는 대신 '확인하고 다시 연락드릴게요'가 신뢰를 지켜요." },
-          { "en": "Your bill is high because it is high.", "ok": false, "why": "이유가 아니라 같은 말 반복이에요. 확인 후 답하겠다고 하세요." }
-        ] },
-        { "type": "line", "who": "grant", "en": "And one more thing.", "kr": "그리고 하나 더." },
-        { "type": "meaning", "who": "grant", "en": "I'd rather talk face to face.", "opts": ["차라리 직접 만나서 얘기하고 싶어요", "얼굴 보면서 화내고 싶어요", "전화가 싫어서 끊을게요"], "a": 0, "why": "I'd rather + 동사원형 = 차라리 ~하고 싶다. face to face = 직접 만나서." },
-        { "type": "line", "who": "grant", "en": "I'm flying to Seoul on Friday. Let's meet.", "kr": "금요일에 서울로 가요. 만나죠." },
-        { "type": "speak", "who": "taeo", "en": "Sure. I'll send you the details.", "kr": "그럼요. 세부 사항 보내드릴게요." },
-        { "type": "narr", "kr": "통화가 끝나자 Jun이 의자를 휙 돌린다." },
-        { "type": "line", "who": "jun", "en": "Grant is coming to Seoul? Good luck, Taco.", "kr": "Grant가 서울에 온다고? 행운을 빈다, 타코." },
-        { "type": "narr", "kr": "그때 Maya가 태오 책상에 서류를 툭 내려놓는다. 표지에 빨간 글씨: \"Grant — 계약 해지 검토 중\"." }
+        {
+          "type": "narr",
+          "kr": "오후 4시. 화상 회의 창이 열린다. Mr. Grant는 웃지 않는다."
+        },
+        {
+          "type": "line",
+          "who": "grant",
+          "en": "Hello? Hello? Can you hear me?",
+          "kr": "여보세요? 여보세요? 들려요?"
+        },
+        {
+          "type": "choice",
+          "prompt": "잘 들린다고 말하자.",
+          "opts": [
+            {
+              "en": "Yes, I can hear you clearly.",
+              "ok": true,
+              "reply": {
+                "who": "grant",
+                "en": "Good. Where's Maya?",
+                "kr": "좋아요. Maya는 어디 있죠?"
+              }
+            },
+            {
+              "en": "Yes, I hear you clear.",
+              "ok": false,
+              "why": "'또렷하게'는 동사를 꾸미니까 clear가 아니라 clearly."
+            },
+            {
+              "en": "Hello yes hearing.",
+              "ok": false,
+              "why": "단어만 나열하면 뜻이 안 돼요. Yes, I can hear you."
+            }
+          ]
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "She's in another meeting. I'm Taeo, her new teammate.",
+          "kr": "다른 회의 중이세요. 저는 새로 온 팀원 태오예요."
+        },
+        {
+          "type": "line",
+          "who": "grant",
+          "en": "New? Great. So why is my bill so high this month?",
+          "kr": "새로 왔다고요? 좋네요. 그래서 이번 달 청구서가 왜 이렇게 많이 나왔죠?"
+        },
+        {
+          "type": "narr",
+          "kr": "태오의 머리가 하얘진다. 전혀 모르는 질문이다."
+        },
+        {
+          "type": "choice",
+          "prompt": "모르는 질문. 신뢰를 지키려면?",
+          "opts": [
+            {
+              "en": "Let me check and get back to you.",
+              "ok": true,
+              "reply": {
+                "who": "grant",
+                "en": "Fine. By tomorrow.",
+                "kr": "좋아요. 내일까지요."
+              }
+            },
+            {
+              "en": "I don't know. Bye.",
+              "ok": false,
+              "why": "모를 땐 끊는 대신 '확인하고 다시 연락드릴게요'가 신뢰를 지켜요."
+            },
+            {
+              "en": "Your bill is high because it is high.",
+              "ok": false,
+              "why": "이유가 아니라 같은 말 반복이에요. 확인 후 답하겠다고 하세요."
+            }
+          ]
+        },
+        {
+          "type": "line",
+          "who": "grant",
+          "en": "And one more thing.",
+          "kr": "그리고 하나 더."
+        },
+        {
+          "type": "meaning",
+          "who": "grant",
+          "en": "I'd rather talk face to face.",
+          "opts": [
+            "차라리 직접 만나서 얘기하고 싶어요",
+            "얼굴 보면서 화내고 싶어요",
+            "전화가 싫어서 끊을게요"
+          ],
+          "a": 0,
+          "why": "I'd rather + 동사원형 = 차라리 ~하고 싶다. face to face = 직접 만나서."
+        },
+        {
+          "type": "line",
+          "who": "grant",
+          "en": "I'm flying to Seoul on Friday. Let's meet.",
+          "kr": "금요일에 서울로 가요. 만나죠."
+        },
+        {
+          "type": "speak",
+          "who": "taeo",
+          "en": "Sure. I'll send you the details.",
+          "kr": "그럼요. 세부 사항 보내드릴게요."
+        },
+        {
+          "type": "narr",
+          "kr": "통화가 끝나자 Jun이 의자를 휙 돌린다."
+        },
+        {
+          "type": "line",
+          "who": "jun",
+          "en": "Grant is coming to Seoul? Good luck, Taco.",
+          "kr": "Grant가 서울에 온다고? 행운을 빈다, 타코."
+        },
+        {
+          "type": "narr",
+          "kr": "그때 Maya가 태오 책상에 서류를 툭 내려놓는다. 표지에 빨간 글씨: \"Grant — 계약 해지 검토 중\"."
+        }
       ],
       "learn": [
-        { "en": "Let me check and get back to you.", "kr": "확인하고 다시 연락드릴게요.", "note": "모르는 질문을 받았을 때" },
-        { "en": "I'd rather talk face to face.", "kr": "차라리 직접 만나서 얘기하고 싶어요.", "note": "I'd rather + 동사원형" }
+        {
+          "en": "Let me check and get back to you.",
+          "kr": "확인하고 다시 연락드릴게요.",
+          "note": "모르는 질문을 받았을 때"
+        },
+        {
+          "en": "I'd rather talk face to face.",
+          "kr": "차라리 직접 만나서 얘기하고 싶어요.",
+          "note": "I'd rather + 동사원형"
+        }
       ],
       "cliff": "Grant가 계약 해지를 검토 중이다. 금요일, 태오는 고객을 지킬 수 있을까?"
+    },
+    {
+      "no": 4,
+      "level": "A2",
+      "title": "The Red Folder",
+      "titleKr": "빨간 폴더의 비밀",
+      "recap": "Grant가 계약 해지를 검토 중이라는 걸 알게 된 태오. 금요일까지 청구서가 왜 올랐는지 알아내야 한다.",
+      "scenes": [
+        {
+          "type": "narr",
+          "kr": "월요일 아침. 태오 책상 위에 빨간 폴더가 그대로 놓여 있다."
+        },
+        {
+          "type": "line",
+          "who": "maya",
+          "en": "We have four days. What's the plan?",
+          "kr": "4일 남았어요. 계획이 뭐예요?"
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "First, I want to check the bill line by line.",
+          "kr": "먼저 청구서를 한 줄씩 확인하고 싶어요."
+        },
+        {
+          "type": "line",
+          "who": "maya",
+          "en": "Good. Start with the biggest number.",
+          "kr": "좋아요. 가장 큰 숫자부터 보세요."
+        },
+        {
+          "type": "narr",
+          "kr": "한 시간 뒤. 태오가 화면을 가리킨다. 서버 비용이 지난달보다 세 배다."
+        },
+        {
+          "type": "choice",
+          "prompt": "Maya에게 발견한 것을 알리자.",
+          "opts": [
+            {
+              "en": "I found something strange.",
+              "ok": true,
+              "reply": {
+                "who": "maya",
+                "en": "Show me.",
+                "kr": "보여 줘요."
+              }
+            },
+            {
+              "en": "I find something strange yesterday.",
+              "ok": false,
+              "why": "방금 찾아낸 일은 과거형 found. find는 '지금·평소'에 써요."
+            },
+            {
+              "en": "Something strange is finding me.",
+              "ok": false,
+              "why": "'이상한 게 나를 찾고 있다'가 돼요. 찾은 사람(I)이 주어예요."
+            }
+          ]
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "These ten servers run all night, every night.",
+          "kr": "이 서버 열 대가 매일 밤새 돌아가요."
+        },
+        {
+          "type": "line",
+          "who": "maya",
+          "en": "Nobody uses them at night. That's a waste.",
+          "kr": "밤엔 아무도 안 쓰는데. 낭비네요."
+        },
+        {
+          "type": "narr",
+          "kr": "그때 Jun이 커피 두 잔을 들고 온다."
+        },
+        {
+          "type": "line",
+          "who": "jun",
+          "en": "Coffee for the detective!",
+          "kr": "탐정님 커피 왔습니다!"
+        },
+        {
+          "type": "meaning",
+          "who": "jun",
+          "en": "Any luck?",
+          "opts": [
+            "뭐 좀 찾았어?",
+            "운이 좋아?",
+            "행운을 빌어"
+          ],
+          "a": 0,
+          "why": "Any luck? = '(찾던 거) 뭐 좀 됐어?' 진행 상황을 가볍게 물을 때 써요."
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "Maybe. Someone made these servers last month.",
+          "kr": "아마도. 누가 지난달에 이 서버들을 만들었어."
+        },
+        {
+          "type": "fill",
+          "who": "taeo",
+          "before": "Can you help me",
+          "after": "out who made them?",
+          "opts": [
+            "find",
+            "found",
+            "finding"
+          ],
+          "a": 0,
+          "kr": "누가 만들었는지 찾는 것 좀 도와줄래?",
+          "why": "help me + 동사원형 — help me find."
+        },
+        {
+          "type": "narr",
+          "kr": "Jun의 웃음이 사라진다. 커피를 내려놓는 손이 살짝 떨린다."
+        },
+        {
+          "type": "speak",
+          "who": "taeo",
+          "en": "Jun, are you okay?",
+          "kr": "Jun, 괜찮아?"
+        },
+        {
+          "type": "line",
+          "who": "jun",
+          "en": "Me? Sure. Totally fine.",
+          "kr": "나? 그럼. 완전 괜찮지."
+        },
+        {
+          "type": "narr",
+          "kr": "로그 화면에 서버를 만든 계정 이름이 뜬다. jun.park."
+        }
+      ],
+      "learn": [
+        {
+          "en": "I found something strange.",
+          "kr": "이상한 걸 찾았어요.",
+          "note": "방금 알아낸 걸 보고할 때(find → found)"
+        },
+        {
+          "en": "Any luck?",
+          "kr": "뭐 좀 됐어?",
+          "note": "찾던 일의 진행을 가볍게 물을 때"
+        }
+      ],
+      "cliff": "서버를 만든 사람은 바로 Jun이었다. 태오는 이걸 누구에게 말해야 할까?"
+    },
+    {
+      "no": 5,
+      "level": "A2",
+      "title": "Jun's Secret",
+      "titleKr": "Jun의 비밀",
+      "recap": "비용이 오른 원인을 쫓던 태오는 밤새 도는 서버 열 대를 만든 사람이 Jun이라는 걸 알아냈다.",
+      "scenes": [
+        {
+          "type": "narr",
+          "kr": "점심시간. 옥상 벤치에 태오와 Jun이 앉아 있다."
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "Jun, I saw your name in the logs.",
+          "kr": "Jun, 로그에서 네 이름을 봤어."
+        },
+        {
+          "type": "line",
+          "who": "jun",
+          "en": "Yeah… I made those servers for a side project.",
+          "kr": "응… 그 서버들, 사이드 프로젝트 하려고 만든 거야."
+        },
+        {
+          "type": "line",
+          "who": "jun",
+          "en": "I forgot to turn them off. It's my fault.",
+          "kr": "끄는 걸 깜빡했어. 내 잘못이야."
+        },
+        {
+          "type": "choice",
+          "prompt": "Jun을 탓하지 않고 함께 해결하자고 말하자.",
+          "opts": [
+            {
+              "en": "It's okay. Let's fix it together.",
+              "ok": true,
+              "reply": {
+                "who": "jun",
+                "en": "Really? Thanks, Taco.",
+                "kr": "정말? 고마워, 타코."
+              }
+            },
+            {
+              "en": "It's okay. Let's fixing it together.",
+              "ok": false,
+              "why": "Let's 뒤에는 동사원형 — Let's fix."
+            },
+            {
+              "en": "Okay is it. Together fix.",
+              "ok": false,
+              "why": "한국어 순서를 옮기면 뜻이 흐려져요. It's okay. Let's fix it together."
+            }
+          ]
+        },
+        {
+          "type": "line",
+          "who": "jun",
+          "en": "Should I tell Maya?",
+          "kr": "Maya한테 말해야 할까?"
+        },
+        {
+          "type": "meaning",
+          "who": "taeo",
+          "en": "Honesty is the best policy.",
+          "opts": [
+            "정직이 최선이야",
+            "정책은 정직하게 만들어야 해",
+            "보험이 제일 좋아"
+          ],
+          "a": 0,
+          "why": "영어 속담 — 솔직하게 말하는 게 결국 제일 낫다는 뜻이에요."
+        },
+        {
+          "type": "narr",
+          "kr": "오후 3시. 두 사람이 Maya 앞에 선다."
+        },
+        {
+          "type": "line",
+          "who": "jun",
+          "en": "Maya, I made a mistake. Those servers were mine.",
+          "kr": "Maya, 제가 실수했어요. 그 서버들 제 거였어요."
+        },
+        {
+          "type": "line",
+          "who": "maya",
+          "en": "Thank you for telling me. Can we turn them off today?",
+          "kr": "말해 줘서 고마워요. 오늘 끌 수 있어요?"
+        },
+        {
+          "type": "fill",
+          "who": "taeo",
+          "before": "Yes, we",
+          "after": "them off right now.",
+          "opts": [
+            "can turn",
+            "can turned",
+            "can to turn"
+          ],
+          "a": 0,
+          "kr": "네, 지금 바로 끌 수 있어요.",
+          "why": "can 뒤에는 동사원형 — can turn. to나 -ed를 붙이지 않아요."
+        },
+        {
+          "type": "line",
+          "who": "maya",
+          "en": "Great. Then we have good news for Mr. Grant.",
+          "kr": "좋아요. 그럼 Grant 씨한테 좋은 소식이 생겼네요."
+        },
+        {
+          "type": "speak",
+          "who": "taeo",
+          "en": "We will save him money every month.",
+          "kr": "그분 비용을 매달 아껴 드릴 거예요."
+        },
+        {
+          "type": "narr",
+          "kr": "목요일 밤. 태오의 휴대폰이 울린다. Maya다."
+        },
+        {
+          "type": "line",
+          "who": "maya",
+          "en": "Taeo, I have a fever. I can't come tomorrow.",
+          "kr": "태오, 저 열이 나요. 내일 못 나가요."
+        },
+        {
+          "type": "line",
+          "who": "maya",
+          "en": "You'll meet Mr. Grant alone.",
+          "kr": "Grant 씨는 혼자 만나야 해요."
+        }
+      ],
+      "learn": [
+        {
+          "en": "Let's fix it together.",
+          "kr": "같이 해결하자.",
+          "note": "상대를 탓하지 않고 함께하자고 할 때(Let's + 동사원형)"
+        },
+        {
+          "en": "It's my fault.",
+          "kr": "내 잘못이야.",
+          "note": "실수를 인정할 때"
+        }
+      ],
+      "cliff": "Maya가 아프다. 내일, 태오는 까다로운 Grant를 혼자 만나야 한다."
+    },
+    {
+      "no": 6,
+      "level": "A2",
+      "title": "Face to Face",
+      "titleKr": "혼자 만난 고객",
+      "recap": "Jun의 실수를 함께 바로잡은 태오. 하지만 Maya가 아파서 Grant와의 미팅에 혼자 나가게 됐다.",
+      "scenes": [
+        {
+          "type": "narr",
+          "kr": "금요일 오전 10시. 회의실 문을 열자 Mr. Grant가 먼저 와 있다."
+        },
+        {
+          "type": "line",
+          "who": "grant",
+          "en": "You're alone. Where's Maya?",
+          "kr": "혼자군요. Maya는요?"
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "She's sick today. I'm sorry.",
+          "kr": "오늘 아파서요. 죄송해요."
+        },
+        {
+          "type": "line",
+          "who": "grant",
+          "en": "Fine. So, do you have an answer?",
+          "kr": "알겠어요. 그래서, 답을 가져왔나요?"
+        },
+        {
+          "type": "choice",
+          "prompt": "원인을 찾았다고 자신 있게 말하자.",
+          "opts": [
+            {
+              "en": "Yes. We found the reason for the high bill.",
+              "ok": true,
+              "reply": {
+                "who": "grant",
+                "en": "Go on.",
+                "kr": "계속해요."
+              }
+            },
+            {
+              "en": "Yes. We find the reason for the high bill last week.",
+              "ok": false,
+              "why": "지난주에 찾은 일은 과거형 found."
+            },
+            {
+              "en": "Yes. The reason is finding by us.",
+              "ok": false,
+              "why": "'이유가 우리에 의해 찾는 중'이 돼요. We found the reason."
+            }
+          ]
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "Ten test servers were running all night.",
+          "kr": "테스트 서버 열 대가 밤새 돌고 있었어요."
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "We turned them off yesterday.",
+          "kr": "어제 그 서버들을 껐어요."
+        },
+        {
+          "type": "meaning",
+          "who": "grant",
+          "en": "How much will I save?",
+          "opts": [
+            "얼마나 절약하게 되죠?",
+            "얼마나 저장할 수 있죠?",
+            "얼마를 더 내야 하죠?"
+          ],
+          "a": 0,
+          "why": "save money = 돈을 아끼다. 컴퓨터의 '저장'과 같은 단어지만 여기선 절약이에요."
+        },
+        {
+          "type": "fill",
+          "who": "taeo",
+          "before": "You will save about 30 percent",
+          "after": "month.",
+          "opts": [
+            "every",
+            "all",
+            "each of"
+          ],
+          "a": 0,
+          "kr": "매달 약 30퍼센트를 절약하시게 돼요.",
+          "why": "'매달'은 every month. all month는 '한 달 내내'예요."
+        },
+        {
+          "type": "narr",
+          "kr": "Grant가 처음으로 고개를 끄덕인다. 그리고 태오를 똑바로 본다."
+        },
+        {
+          "type": "line",
+          "who": "grant",
+          "en": "Good. But I need to know one thing.",
+          "kr": "좋아요. 그런데 하나는 알아야겠어요."
+        },
+        {
+          "type": "speak",
+          "who": "taeo",
+          "en": "Of course. What is it?",
+          "kr": "물론이죠. 뭔가요?"
+        },
+        {
+          "type": "line",
+          "who": "grant",
+          "en": "Who made this mistake?",
+          "kr": "이 실수, 누가 한 거죠?"
+        },
+        {
+          "type": "narr",
+          "kr": "태오의 머릿속에 옥상에서 고개 숙이던 Jun의 얼굴이 떠오른다."
+        }
+      ],
+      "learn": [
+        {
+          "en": "We found the reason.",
+          "kr": "원인을 찾았어요.",
+          "note": "문제의 원인을 보고할 때"
+        },
+        {
+          "en": "every month",
+          "kr": "매달",
+          "note": "반복되는 기간 — all month(한 달 내내)와 구분"
+        }
+      ],
+      "cliff": "'누가 실수했죠?' Grant의 질문. 태오는 Jun의 이름을 말할까?"
+    },
+    {
+      "no": 7,
+      "level": "A2",
+      "title": "One Team",
+      "titleKr": "우리는 한 팀",
+      "recap": "Grant에게 비용 문제의 원인과 해결을 설명한 태오. 그런데 Grant가 '누가 실수했냐'고 묻는다.",
+      "scenes": [
+        {
+          "type": "narr",
+          "kr": "회의실에 잠깐 정적이 흐른다."
+        },
+        {
+          "type": "choice",
+          "prompt": "동료를 탓하지 않고 팀의 책임으로 답하자.",
+          "opts": [
+            {
+              "en": "Our team made the mistake, and we fixed it.",
+              "ok": true,
+              "reply": {
+                "who": "grant",
+                "en": "Hm. You didn't name anyone.",
+                "kr": "흠. 누구 이름도 대지 않는군요."
+              }
+            },
+            {
+              "en": "Our team make the mistake, and we fix it.",
+              "ok": false,
+              "why": "이미 끝난 일이라 과거형 made, fixed."
+            },
+            {
+              "en": "The mistake made our team.",
+              "ok": false,
+              "why": "'실수가 우리 팀을 만들었다'가 돼요. 실수한 쪽(Our team)이 주어예요."
+            }
+          ]
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "We work as one team. The mistake is ours.",
+          "kr": "저희는 한 팀으로 일해요. 실수도 저희 거예요."
+        },
+        {
+          "type": "line",
+          "who": "grant",
+          "en": "I like that. My last account manager blamed everyone.",
+          "kr": "그거 좋네요. 제 전 담당자는 모두를 탓했어요."
+        },
+        {
+          "type": "meaning",
+          "who": "grant",
+          "en": "You have my trust.",
+          "opts": [
+            "당신을 믿을게요",
+            "당신에게 돈을 맡겼어요",
+            "당신이 제 친구예요"
+          ],
+          "a": 0,
+          "why": "trust = 신뢰. You have my trust = 내 신뢰를 얻었다 → 믿겠다."
+        },
+        {
+          "type": "line",
+          "who": "grant",
+          "en": "I'll stay with Nimbus. For now.",
+          "kr": "Nimbus와 계속 가죠. 일단은요."
+        },
+        {
+          "type": "speak",
+          "who": "taeo",
+          "en": "Thank you. We won't let you down.",
+          "kr": "감사합니다. 실망시키지 않을게요."
+        },
+        {
+          "type": "narr",
+          "kr": "Grant가 나가자, 회의실 밖 복도에서 누군가 조용히 박수를 친다. Diane이다."
+        },
+        {
+          "type": "line",
+          "who": "diane",
+          "en": "I heard everything. That was brave, Taeo.",
+          "kr": "다 들었어요. 용감했어요, 태오."
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "Thank you. I was so nervous.",
+          "kr": "감사해요. 너무 긴장했어요."
+        },
+        {
+          "type": "fill",
+          "who": "diane",
+          "before": "Are you free",
+          "after": "lunch tomorrow?",
+          "opts": [
+            "for",
+            "to",
+            "at"
+          ],
+          "a": 0,
+          "kr": "내일 점심 시간 괜찮아요?",
+          "why": "free for lunch = 점심 시간이 비어 있다. 무엇을 위한 시간인지는 for."
+        },
+        {
+          "type": "line",
+          "who": "taeo",
+          "en": "Yes, I'm free.",
+          "kr": "네, 시간 돼요."
+        },
+        {
+          "type": "line",
+          "who": "diane",
+          "en": "Good. I have an offer for you.",
+          "kr": "좋아요. 당신한테 제안이 하나 있어요."
+        },
+        {
+          "type": "narr",
+          "kr": "그날 저녁, 태오의 메신저에 Jun의 메시지가 뜬다. \"고마워, 타코. 진짜로.\""
+        }
+      ],
+      "learn": [
+        {
+          "en": "We won't let you down.",
+          "kr": "실망시키지 않을게요.",
+          "note": "고객·상사에게 약속할 때"
+        },
+        {
+          "en": "Are you free for lunch?",
+          "kr": "점심 시간 괜찮아요?",
+          "note": "약속을 잡을 때 — free for + 무엇"
+        }
+      ],
+      "cliff": "CEO Diane의 '제안'은 무엇일까? 입사 첫 주를 마친 태오에게 새로운 기회가 온다."
     }
   ]
 }

@@ -205,7 +205,10 @@ function selectedPacks(): WordPack[] {
 /** CEFR 목표 레벨(종합 다음 레벨) — 단어도 i+1로 고른다 */
 function targetWordLevel(): WordLevel {
   try {
-    const t = overall().next as string;
+    // 초급(A1·A2)은 현재 레벨 단어부터 — 첫날부터 B1·B2 업무 전문어가 쏟아지던 문제.
+    // 기초가 잡힌 B1부터 한 단계 위(i+1)로 늘린다.
+    const o = overall();
+    const t = (o.level === 'A1' || o.level === 'A2' ? o.level : o.next) as string;
     return (LEVEL_ORDER.includes(t as WordLevel) ? t : 'C1') as WordLevel;
   } catch {
     return 'B1';
@@ -231,13 +234,19 @@ export function nextNewWords(n: number, target: WordLevel = targetWordLevel()): 
   const lanes = selectedPacks().map((p) =>
     p.words.filter((w) => !prog[w.id]).sort((a, b) => levelRank(a.lv, target) - levelRank(b.lv, target))
   );
+  // 난이도 층(목표 레벨 → 한 단계 아래 → …)을 먼저 채우고, 같은 층 안에서 팩을 번갈아 꺼낸다.
+  // 예전엔 팩을 무조건 번갈아서, 쉬운 단어가 없는 팩이 첫날부터 B2·C1 전문어를 내놓았다.
   const out: Word[] = [];
-  let i = 0;
-  while (out.length < n && lanes.some((l) => l.length)) {
-    const lane = lanes[i % lanes.length];
-    const w = lane.shift();
-    if (w) out.push(w);
-    i++;
+  const ranks = [...new Set(lanes.flat().map((w) => levelRank(w.lv, target)))].sort((a, b) => a - b);
+  for (const r of ranks) {
+    const tier = lanes.map((l) => l.filter((w) => levelRank(w.lv, target) === r));
+    let i = 0;
+    while (out.length < n && tier.some((l) => l.length)) {
+      const w = tier[i % tier.length].shift();
+      if (w) out.push(w);
+      i++;
+    }
+    if (out.length >= n) break;
   }
   return out;
 }
@@ -300,8 +309,26 @@ function shuffle<T>(arr: T[], seed: number): T[] {
 }
 
 /** 오답 보기 — 같은 팩·같은 품사 우선(헷갈릴 만한 것끼리), 모자라면 전체에서 */
+/** 뜻 비교용 핵심 조각 — "요약(하다)"·"요약하다"처럼 같은 뜻을 한 조각으로 */
+function meaningStems(kr: string): Set<string> {
+  return new Set(
+    kr
+      .split(/[\s,·()~/]+/)
+      .map((t) => t.replace(/[을를이가은는의에]$/, '').replace(/(하다|되다|하는|한|다)$/, ''))
+      .filter((t) => t.length >= 2)
+  );
+}
+
+/** 오답 보기가 사실상 정답인가(동의어·같은 뜻) — 예전엔 정답이 두 개로 보이는 문제가 흔했다 */
+function tooClose(a: Word, b: Word): boolean {
+  if (a.w.toLowerCase() === b.w.toLowerCase()) return true;
+  const sa = meaningStems(a.kr);
+  for (const t of meaningStems(b.kr)) if (sa.has(t)) return true;
+  return false;
+}
+
 function distractors(word: Word, field: 'kr' | 'w', seed: number): string[] {
-  const pool = allWords().filter((w) => w.id !== word.id && w[field] !== word[field]);
+  const pool = allWords().filter((w) => w.id !== word.id && w[field] !== word[field] && !tooClose(word, w));
   const same = pool.filter((w) => w.pack === word.pack && w.pos === word.pos);
   const pack = pool.filter((w) => w.pack === word.pack);
   const picks: string[] = [];

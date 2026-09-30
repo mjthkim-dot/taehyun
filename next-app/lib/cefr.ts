@@ -40,7 +40,9 @@ export function gseMid(cefr: Cefr): number {
 }
 
 export function gseToCefr(gse: number): Cefr {
-  for (const c of CEFR_ORDER) if (gse <= CEFR_GSE[c].max) return c;
+  // 구간 경계(A2 max 36 = B1 min 36)는 위 레벨로 — 예전엔 <=라서 B1 하한(36)이 A2로 보여
+  // '진도'가 방금 얻은 레벨보다 한 단계 낮게 표시됐다
+  for (const c of CEFR_ORDER) if (gse < CEFR_GSE[c].max) return c;
   return 'C2';
 }
 

@@ -27,7 +27,7 @@
           { "them": "Hi, nice to meet you. Are you Taehyun?", "kr": "안녕하세요, 반가워요. 태현 님이세요?", "task": "choose", "opts": ["Yes, I am.", "Yes, I is.", "Yes, I are."], "a": 0, "why": "I 뒤에는 am. 짧은 대답도 Yes, I am." },
           { "them": "Great. What is your role at MZC?", "kr": "좋아요. MZC에서 어떤 역할이세요?", "task": "build", "a": "I am an account manager", "extra": ["is"], "why": "주어(I) + be(am) + 무엇(an account manager)." },
           { "them": "And who is this?", "kr": "이분은 누구시죠?", "task": "choose", "opts": ["He is our cloud architect.", "He are our cloud architect.", "He am our cloud architect."], "a": 0, "why": "한 사람(he)에는 is." },
-          { "them": "Tell me a little about your team.", "kr": "팀 소개를 조금 해 주세요.", "task": "free", "prompt": "팀이 어디에 있고 몇 명인지 be동사로 두 문장 말해 보세요.", "model": "Our team is in Seoul. We are five people.", "focus": "be verb agreement (am/is/are)" }
+          { "them": "Tell me a little about your team.", "kr": "팀 소개를 조금 해 주세요.", "task": "free", "prompt": "팀이 어디에 있고 몇 명인지 be동사로 두 문장 말해 보세요.", "model": "Our team is in Seoul. There are five people on our team.", "focus": "be verb agreement (am/is/are)" }
         ]
       }
     },
@@ -56,7 +56,7 @@
         "turns": [
           { "them": "So what does MZC do exactly?", "kr": "그래서 MZC는 정확히 뭘 하나요?", "task": "choose", "opts": ["We help companies move to the cloud.", "We helps companies move to the cloud.", "We helping companies move to the cloud."], "a": 0, "why": "we는 원형 help." },
           { "them": "Who takes care of billing?", "kr": "빌링은 누가 챙기죠?", "task": "build", "a": "My colleague handles billing every month", "extra": ["handle"], "why": "my colleague = 한 명 → handles." },
-          { "them": "Does your team work on weekends?", "kr": "팀이 주말에도 일하나요?", "task": "choose", "opts": ["No, it doesn't, but our on-call engineer does.", "No, it don't, but our on-call engineer do.", "No, it isn't, but our on-call engineer is."], "a": 0, "why": "does로 물으면 doesn't/does로 답한다." },
+          { "them": "Does your team work on weekends?", "kr": "팀이 주말에도 일하나요?", "task": "choose", "opts": ["No, we don't, but our on-call engineer does.", "No, we doesn't, but our on-call engineer do.", "No, we aren't, but our on-call engineer is."], "a": 0, "why": "우리 팀 얘기는 we → don't, 엔지니어 한 명은 does. 3인칭 단수에만 -s/does." },
           { "them": "What does your monthly report include?", "kr": "월간 리포트에는 뭐가 들어가나요?", "task": "free", "prompt": "리포트가 무엇을 보여주는지 현재 시제로 한두 문장.", "model": "It shows your monthly spend and it lists the top five services.", "focus": "present simple with third-person -s" }
         ]
       }
@@ -109,7 +109,7 @@
       ],
       "builds": [
         { "kr": "저희가 오후 5시에 서비스를 복구했어요.", "a": "We fixed the service at five", "extra": ["fix"] },
-        { "kr": "고객 데이터는 영향을 받지 않았어요.", "a": "The customer data didn't change", "extra": ["changed"] }
+        { "kr": "고객 데이터는 바뀌지 않았어요.", "a": "The customer data didn't change", "extra": ["changed"] }
       ],
       "sim": {
         "who": "고객사 운영 매니저 (Mr. Choi)",
@@ -134,7 +134,7 @@
       },
       "checks": [
         { "q": "A: The file is too big. B: No problem, I ___ share a link.", "opts": ["'ll", "'m going to", "am"], "a": 0, "why": "방금 문제를 듣고 정한 해결 → will." },
-        { "q": "We ___ move to the new office next month. It's all planned.", "opts": ["will", "are going to", "go"], "a": 1, "why": "'이미 다 계획됨' → be going to." },
+        { "q": "We ___ move to the new office next month. It's all planned.", "opts": ["are go to", "are going to", "going"], "a": 1, "why": "'이미 다 계획됨' → be going to." },
         { "q": "I ___ call you back in ten minutes.", "opts": ["'ll", "going to", "calling"], "a": 0, "why": "즉석 약속 → I'll." }
       ],
       "builds": [
@@ -144,9 +144,9 @@
       "sim": {
         "who": "고객사 구매 담당 (Ms. Han)",
         "turns": [
-          { "them": "Can you send the updated quote?", "kr": "수정 견적 보내주실 수 있나요?", "task": "choose", "opts": ["Sure, I'll send it this afternoon.", "Sure, I'm sending it this afternoon yesterday.", "Sure, I send it this afternoon."], "a": 0, "why": "요청을 듣고 바로 하는 약속 → I'll." },
+          { "them": "Can you send the updated quote?", "kr": "수정 견적 보내주실 수 있나요?", "task": "choose", "opts": ["Sure, I'll send it this afternoon.", "Sure, I will sends it this afternoon.", "Sure, I send it this afternoon."], "a": 0, "why": "요청을 듣고 바로 하는 약속 → I'll." },
           { "them": "What's the plan for the migration?", "kr": "마이그레이션 계획은 어떻게 되나요?", "task": "build", "a": "We are going to start in June", "extra": ["will"], "why": "이미 세운 계획 → be going to." },
-          { "them": "Our CFO has questions about pricing.", "kr": "CFO가 가격에 질문이 있어요.", "task": "choose", "opts": ["I'll prepare a short cost summary for her.", "I'm going prepare a short cost summary for her.", "I prepare a short cost summary for her tomorrow ago."], "a": 0, "why": "방금 들은 문제에 대한 즉석 제안 → I'll + 원형." },
+          { "them": "Our CFO has questions about pricing.", "kr": "CFO가 가격에 질문이 있어요.", "task": "choose", "opts": ["I'll prepare a short cost summary for her.", "I'm going prepare a short cost summary for her.", "I will to prepare a short cost summary for her."], "a": 0, "why": "방금 들은 문제에 대한 즉석 제안 → I'll + 원형." },
           { "them": "So what are the next steps?", "kr": "그럼 다음 단계는요?", "task": "free", "prompt": "정해진 계획(be going to) 하나와 지금 하는 약속(will) 하나.", "model": "We are going to run a pilot next month, and I'll send you the schedule tomorrow.", "focus": "will vs be going to" }
         ]
       }
@@ -373,7 +373,7 @@
         "ex": [["The CTO said they were happy with the pilot.", "CTO가 파일럿에 만족한다고 했어요."], ["She asked whether we could start in May.", "5월에 시작할 수 있는지 물었어요."]]
       },
       "checks": [
-        { "q": "\"We need more time.\" → She said they ___ more time.", "opts": ["need", "needed", "will need"], "a": 1, "why": "현재 → 과거로 한 칸." },
+        { "q": "\"We need more time.\" → She said they ___ more time.", "opts": ["needs", "needed", "will needed"], "a": 1, "why": "말한 시점이 과거(said)라 시제를 한 칸 뒤로: need → needed. (지금도 사실이면 need도 쓰지만, 기본형은 한 칸 뒤로.)" },
         { "q": "\"Can you send the quote?\" → He asked if we ___ the quote.", "opts": ["can send", "could send", "sent"], "a": 1, "why": "can → could." },
         { "q": "He asked ___ the price included support.", "opts": ["if", "that", "what"], "a": 0, "why": "예/아니오 질문 전달 → asked if." }
       ],
@@ -416,7 +416,7 @@
         "turns": [
           { "them": "We're interested, but it's early days.", "kr": "관심은 있지만 아직 초기예요.", "task": "choose", "opts": ["Could you tell me when you plan to decide?", "Could you tell me when do you plan to decide?", "Could you tell me when plan you to decide?"], "a": 0, "why": "의문사 + 주어 + 동사." },
           { "them": "The budget isn't fully set yet.", "kr": "예산은 아직 확정 전이에요.", "task": "build", "a": "Do you know who approves the budget", "extra": ["does"], "why": "who가 주어일 땐 who + 동사." },
-          { "them": "We might go with another vendor.", "kr": "다른 벤더로 갈 수도 있어요.", "task": "choose", "opts": ["I was wondering what matters most to you in this decision.", "I was wondering what does matter most to you.", "I was wondering what matters most to you in this decision?"], "a": 0, "why": "평서문 속 질문 — 물음표 없이, 주어+동사." },
+          { "them": "We might go with another vendor.", "kr": "다른 벤더로 갈 수도 있어요.", "task": "choose", "opts": ["I was wondering what matters most to you in this decision.", "I was wondering what does matter most to you.", "I was wondering what is matter most to you."], "a": 0, "why": "평서문 속 질문 — 물음표 없이, 주어+동사." },
           { "them": "Any other questions?", "kr": "다른 질문 있나요?", "task": "free", "prompt": "Could you tell me / Do you know 로 정중한 질문 두 개.", "model": "Could you tell me how many users you have now, and do you know when your current contract ends?", "focus": "indirect questions (embedded word order)" }
         ]
       }
@@ -446,7 +446,7 @@
         "turns": [
           { "them": "How is the migration going?", "kr": "마이그레이션 어떻게 되고 있어요?", "task": "choose", "opts": ["We've been moving the databases all week.", "We are moving the databases since Monday.", "We've been move the databases all week."], "a": 0, "why": "이번 주 내내 계속 → have been -ing." },
           { "them": "How many services are done?", "kr": "서비스 몇 개가 끝났어요?", "task": "build", "a": "We have completed eight services", "extra": ["been"], "why": "완료 개수 → have + p.p." },
-          { "them": "Why is it taking so long?", "kr": "왜 이렇게 오래 걸려요?", "task": "choose", "opts": ["We've been waiting for security approval since Tuesday.", "We wait for security approval since Tuesday.", "We've waited for security approval since Tuesday ago."], "a": 0, "why": "화요일부터 계속 기다리는 중 → have been waiting." },
+          { "them": "Why is it taking so long?", "kr": "왜 이렇게 오래 걸려요?", "task": "choose", "opts": ["We've been waiting for security approval since Tuesday.", "We wait for security approval since Tuesday.", "We are waiting for security approval since Tuesday."], "a": 0, "why": "화요일부터 계속 기다리는 중 → have been waiting." },
           { "them": "Give me a quick summary.", "kr": "짧게 요약해 주세요.", "task": "free", "prompt": "계속해 온 것(have been -ing) 하나 + 끝낸 결과(have p.p.) 하나.", "model": "We have been testing the new setup for two weeks, and we have fixed most of the issues.", "focus": "present perfect continuous vs present perfect" }
         ]
       }

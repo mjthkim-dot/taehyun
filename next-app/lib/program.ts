@@ -49,7 +49,8 @@ const KEY = 'va_program';
  * 프로그램의 시작/초기화는 홈 화면의 구성 자체를 바꾼다(중복 CTA가 사라진다).
  * 카드 안에서 일어난 변화를 홈이 알 방법이 없어, 전역 이벤트로 알린다.
  */
-export const PROGRAM_EVENT = 'va:program';
+export { PROGRAM_EVENT } from './homeLite';
+import { PROGRAM_EVENT } from './homeLite';
 
 function announce() {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(PROGRAM_EVENT));
@@ -318,7 +319,7 @@ function coreBlock(minutes: number): ProgramBlock {
     minutes,
     mode: 'grammar',
     unitRef: { source: 'grammar', key: u.id },
-    goal: '사고 → 판단 → 조립 → 실전',
+    goal: '이해 → 고르기 → 만들기 → 실전',
   };
 }
 

@@ -3,6 +3,7 @@
 /** 홈의 '오늘의 에피소드' — 드라마 레슨으로 들어가는 단 하나의 버튼 */
 import { useEffect, useState } from 'react';
 import type { Mode } from './NavBar';
+import { primeAudio } from './SpeakButton';
 import { castOf, episodeByNo, nextEpisodeNo, requestDramaAutoplay, SERIES, watchedToday, type Episode } from '../lib/drama';
 
 export default function DramaCard({ onNavigate }: { onNavigate: (m: Mode) => void }) {
@@ -13,6 +14,7 @@ export default function DramaCard({ onNavigate }: { onNavigate: (m: Mode) => voi
   }, []);
   if (!st) return <div className="study-card dr-card" style={{ minHeight: 200 }} aria-hidden="true" />;
   const go = () => {
+    primeAudio(); // 탭 안에서 오디오 언락(iOS 첫 대사 무음 방지)
     requestDramaAutoplay();
     onNavigate('drama');
   };

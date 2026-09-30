@@ -6,7 +6,8 @@
  * 그 뒤로 홈은 '오늘의 에피소드' 하나만 권한다.
  */
 import type { Mode } from './NavBar';
-import { requestDramaAutoplay } from '../lib/drama';
+import { requestDramaAutoplay } from '../lib/homeLite';
+import { primeAudio } from './SpeakButton';
 
 export interface GuideState {
   placed: boolean;
@@ -49,6 +50,7 @@ export default function FocusGuide({ state, onNavigate }: { state: GuideState; o
         onClick={() => {
           if (step.key === 'placed') onNavigate('placement');
           else {
+            primeAudio(); // 탭 안에서 오디오 언락(iOS 첫 대사 무음 방지)
             requestDramaAutoplay();
             onNavigate('drama');
           }

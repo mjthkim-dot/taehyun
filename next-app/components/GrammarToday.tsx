@@ -10,11 +10,8 @@ import type { Mode } from './NavBar';
 import { pickTodayGrammar, grammarProgress, type GrammarUnit } from '../lib/grammar';
 import { overall } from '../lib/cefrGrowth';
 import { setUnitHandoff } from '../lib/ontology/handoff';
-import { load, store } from '../lib/state';
-import { APP_VERSION } from '../lib/version';
-import { requestDramaAutoplay } from '../lib/drama';
 
-export function GrammarTodayCard({ onNavigate }: { onNavigate: (m: Mode) => void }) {
+export default function GrammarTodayCard({ onNavigate }: { onNavigate: (m: Mode) => void }) {
   const [u, setU] = useState<GrammarUnit | null>(null);
   const [best, setBest] = useState<number | null>(null);
   useEffect(() => {
@@ -30,7 +27,7 @@ export function GrammarTodayCard({ onNavigate }: { onNavigate: (m: Mode) => void
       </div>
       <h3 className="gm-today-title">{u.title}</h3>
       <p className="muted gm-today-scene">{u.scene}</p>
-      <div className="gm-today-steps">사고 → 판단 → 조립 → 실전 대화 · 약 8분{best !== null ? ` · 최고 ${best}점` : ''}</div>
+      <div className="gm-today-steps">이해 → 고르기 → 만들기 → 실전 대화 · 약 8분{best !== null ? ` · 최고 ${best}점` : ''}</div>
       <button
         type="button"
         className="btn gm-today-go"
@@ -45,44 +42,3 @@ export function GrammarTodayCard({ onNavigate }: { onNavigate: (m: Mode) => void
   );
 }
 
-const SEEN_KEY = 'va_seen_whatsnew';
-/** 이 버전에서 알릴 것 — 버전이 바뀌면 다시 한 번 뜬다 */
-const WHATS_NEW = {
-  title: '새로 생긴 것 — 드라마 레슨',
-  body: '이제 하루 한 편, 5분 드라마로 배워요. 신입 태오와 동료들의 좌충우돌 이야기를 따라가며, 중간중간 태오의 대사를 직접 고르고 말해 보세요. 다음 화가 궁금해지게 끝나요.',
-};
-
-export function WhatsNew({ onNavigate }: { onNavigate: (m: Mode) => void }) {
-  const [show, setShow] = useState(false);
-  useEffect(() => setShow(load<string>(SEEN_KEY, '') !== APP_VERSION), []);
-  if (!show) return null;
-  const close = () => {
-    store(SEEN_KEY, APP_VERSION);
-    setShow(false);
-  };
-  return (
-    <div className="wn-card" role="status">
-      <div className="wn-top">
-        <span className="wn-badge">v{APP_VERSION}</span>
-        <b>{WHATS_NEW.title}</b>
-      </div>
-      <p>{WHATS_NEW.body}</p>
-      <div className="wn-actions">
-        <button
-          type="button"
-          className="btn primary"
-          onClick={() => {
-            close();
-            requestDramaAutoplay();
-            onNavigate('drama');
-          }}
-        >
-          1화 보기
-        </button>
-        <button type="button" className="btn ghost" onClick={close}>
-          닫기
-        </button>
-      </div>
-    </div>
-  );
-}

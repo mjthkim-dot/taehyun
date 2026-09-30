@@ -122,7 +122,7 @@ const SCREENS: Record<Mode, { title: string; render: (c: ScreenCtx) => ReactNode
   program: { title: '12주 프로그램', render: (c) => <ProgramScreen onNavigate={c.setMode} /> },
   words: { title: '단어', render: () => <WordsScreen /> },
   grammar: { title: '문법 시뮬레이션', render: () => <GrammarScreen /> },
-  drama: { title: '드라마 레슨', render: () => <DramaScreen /> },
+  drama: { title: '드라마 레슨', render: (c) => <DramaScreen onNavigate={c.setMode} /> },
   cefr: { title: 'CEFR 리포트', render: (c) => <CefrScreen onNavigate={c.setMode} onSelectLesson={c.setLessonId} /> },
   map: { title: '학습 지도', render: (c) => <LessonsGate><KnowledgeMapScreen onNavigate={c.setMode} onSelectLesson={c.setLessonId} /></LessonsGate> },
   study: { title: '레슨', render: (c) => <LessonsGate><StudyScreen lessonId={c.lessonId} onSelectLesson={c.setLessonId} /></LessonsGate> },

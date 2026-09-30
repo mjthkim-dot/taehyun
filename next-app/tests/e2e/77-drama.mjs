@@ -5,7 +5,8 @@
  *   ③ 이야기 속 참여: 답 고르기(오답이면 이유) · 뜻 알아듣기 · 따라 말하기(건너뛰기 가능)
  *   ④ 엔딩: 오늘의 표현 2개(복습 카드로) + 다음 화 예고
  *   ⑤ 홈: 가이드가 사라지고 '오늘의 에피소드'(EP 2)가 주인공
- *   ⑥ 4화부터 AI가 이어 쓴다(모킹) — 검증 통과한 원고만 재생
+ *   ⑥ 7화까지는 직접 쓴 원고, 8화부터 AI가 이어 쓴다(모킹) — 검증 통과한 원고만 재생
+ *   ⑦ 다음 화 첫머리 '지난 화 기억나요?' 복습, 엔딩은 '오늘은 여기까지'가 기본
  */
 import { BASE, check, finish, launch } from './helpers.mjs';
 
@@ -126,18 +127,31 @@ check('가이드가 사라진다', (await page.locator('.fg-card').count()) === 
 check('홈의 주인공 = 오늘의 에피소드 EP 2(완료 표시)', await page.evaluate(() => /EP 2/.test(document.querySelector('.dr-card-title')?.textContent || '') && document.querySelector('.dr-card')?.textContent.includes('완료')));
 check('지난 이야기의 예고가 훅으로', await page.evaluate(() => document.querySelector('.dr-card-hook')?.textContent.includes('CEO')));
 
-/* ⑥ AI 이어쓰기 — 2·3화는 원고, 4화부터 생성 */
-await page.evaluate(() => {
-  const p = JSON.parse(localStorage.getItem('va_drama'));
-  p.done['2'] = '2026-01-01'; p.done['3'] = '2026-01-01';
-  localStorage.setItem('va_drama', JSON.stringify(p));
-});
-await page.reload();
-await page.waitForSelector('.dr-card-title', { timeout: 15000 });
-check('다음 화 EP 4 · 새 이야기', await page.evaluate(() => document.querySelector('.dr-card-title')?.textContent.includes('EP 4')));
+/* ⑦ 2화 — 첫머리 복습 */
 await page.click('.dr-card .dr-go');
 await page.waitForSelector('.dr-log', { timeout: 20000 });
-check('AI가 4화를 써서 바로 재생', genCalls === 1 && (await page.evaluate(() => document.querySelector('.dr-ep')?.textContent.includes('금요일의 대면'))));
+// 앞에서 자동 재생을 꺼 두었으므로(설정 유지) 수동으로 넘긴다
+await untilAct();
+check('2화는 지난 화 표현 복습부터', await page.evaluate(() => document.querySelector('.dr-ask')?.textContent.includes('지난 화')));
+const recallOk = await page.evaluate(() => [...document.querySelectorAll('.dr-opt')].map((b) => b.textContent));
+check('복습 보기 3개', recallOk.length === 3);
+await page.locator('.dr-opt', { hasText: "It's my first day." }).click();
+await page.waitForSelector('.dr-note.ok', { timeout: 5000 });
+check('맞히면 기억 칭찬 + 뜻', await page.evaluate(() => document.querySelector('.dr-note.ok')?.textContent.includes('첫 출근')));
+check('복습 결과가 간격 반복에 반영(상자 증가)', await page.evaluate(() => (JSON.parse(localStorage.getItem('va_weak') || '[]').find((w) => w.en === "It's my first day.")?.box || 0) >= 1));
+
+/* ⑥ AI 이어쓰기 — 7화까지는 원고, 8화부터 생성 */
+await page.evaluate(() => {
+  const p = JSON.parse(localStorage.getItem('va_drama'));
+  for (let n = 2; n <= 7; n++) p.done[String(n)] = '2026-01-01';
+  localStorage.setItem('va_drama', JSON.stringify(p));
+});
+await page.goto(`${BASE}/app`);
+await page.waitForSelector('.dr-card-title', { timeout: 15000 });
+check('다음 화 EP 8 · 새 이야기(1~7화는 직접 쓴 원고)', await page.evaluate(() => document.querySelector('.dr-card-title')?.textContent.includes('EP 8')));
+await page.click('.dr-card .dr-go');
+await page.waitForSelector('.dr-log', { timeout: 20000 });
+check('AI가 8화를 써서 바로 재생', genCalls === 1 && (await page.evaluate(() => document.querySelector('.dr-ep')?.textContent.includes('금요일의 대면'))));
 
 await browser.close();
 finish();

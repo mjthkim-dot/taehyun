@@ -4,6 +4,7 @@
  * CEFR 배치고사 — voice-assistant/index.html 의 renderPlacement()/gradePlacement() 포팅.
  * 18문항(A1~C2 각 3문항) 객관식으로 레벨을 추정하고 프로필/스킬 시작점을 설정한다.
  */
+import { isFocusMode } from '../lib/focus';
 import { syncCefr } from '../lib/cefrGrowth';
 import { useState } from 'react';
 import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/cefr';
@@ -46,6 +47,7 @@ interface Result {
 }
 
 export default function PlacementScreen({ onDone }: { onDone?: () => void }) {
+  const focus = isFocusMode();
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [result, setResult] = useState<Result | null>(null);
 
@@ -90,21 +92,29 @@ export default function PlacementScreen({ onDone }: { onDone?: () => void }) {
         <div className="study-card" style={{ textAlign: 'center', border: '1px solid var(--primary)', padding: 22 }}>
           <div className="muted" style={{ fontSize: '0.8rem' }}>당신의 추정 레벨</div>
           <div style={{ fontSize: '2.6rem', fontWeight: 900, color: 'var(--primary-light)', margin: '4px 0' }}>{result.cefr}</div>
-          <div className="muted" style={{ fontSize: '0.82rem' }}>
-            GSE {result.gse} · {CEFR_LABEL[result.cefr]}
-          </div>
+          {/* GSE 숫자는 뺐다 — 레벨 카드의 GSE(입증 진척 기반)와 계산이 달라 화면마다 숫자가 달랐다 */}
+          <div className="muted" style={{ fontSize: '0.82rem' }}>{CEFR_LABEL[result.cefr]}</div>
           <div style={{ fontSize: '0.78rem', marginTop: 8 }}>
             정답 {result.correct} / {PLACEMENT_Q.length}
           </div>
         </div>
-        <div className="study-card" style={{ fontSize: '0.82rem', lineHeight: 1.7 }}>
-          <b>다음 단계 추천</b>
-          <br />
-          📖 레슨 로드맵에서 <b style={{ color: 'var(--primary-light)' }}>{result.cefr}</b> 유닛부터 시작
-          <br />
-          🎧 청해 · 📖 독해 · ✍️ 작문도 {result.cefr} 레벨로 자동 설정됨
-        </div>
-        <button className="start-drill-btn" onClick={onDone}>📖 내 레벨 로드맵 보기 →</button>
+        {focus ? (
+          // 집중 모드 — 숨긴 기능(레슨 로드맵·청해·독해)을 안내하지 않는다. 다음 할 일은 하나.
+          <div className="study-card" style={{ fontSize: '0.86rem', lineHeight: 1.7 }}>
+            <b>다음 단계</b>
+            <br />
+            이제 홈에서 <b>드라마 1화(5분)</b>를 보면 첫날 학습이 끝나요.
+          </div>
+        ) : (
+          <div className="study-card" style={{ fontSize: '0.82rem', lineHeight: 1.7 }}>
+            <b>다음 단계 추천</b>
+            <br />
+            📖 레슨 로드맵에서 <b style={{ color: 'var(--primary-light)' }}>{result.cefr}</b> 유닛부터 시작
+            <br />
+            🎧 청해 · 📖 독해 · ✍️ 작문도 {result.cefr} 레벨로 자동 설정됨
+          </div>
+        )}
+        <button className="start-drill-btn" onClick={onDone}>{focus ? '홈으로 — 1화 보러 가기 →' : '📖 내 레벨 로드맵 보기 →'}</button>
         <button
           className="btn"
           style={{ width: '100%', marginTop: 8 }}

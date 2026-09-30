@@ -1118,7 +1118,7 @@ export const VOCAB_DOMAINS: VocabDomain[] = [
       },
       {
         term: 'walk away',
-        kr: '(협상에서) 물러나다',
+        kr: '(협상을) 깨고 나가다, 거래를 포기하다',
         level: 'B1',
         collocations: ['walk away from the deal', 'walk-away point', 'willing to walk away'],
         example: { en: 'We need to know our walk-away point before the meeting.', kr: '미팅 전에 우리의 마지노선을 알아야 합니다.' },

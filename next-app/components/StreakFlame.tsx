@@ -83,11 +83,15 @@ export default function StreakFlame({ refreshKey = 0 }: { refreshKey?: number })
       ? st.nextMilestone
         ? `오늘 불꽃 완성! 다음 마일스톤까지 ${st.nextMilestone - st.streak}일`
         : '오늘 불꽃 완성!'
-      : st.level === 'ember'
-        ? `${st.goal - st.spoken}문장만 더 말하면 불이 붙어요`
-        : st.streak > 0
-          ? `오늘 ${st.goal}문장을 말하면 ${st.streak + 1}일째 불꽃이 이어져요`
-          : `오늘 ${st.goal}문장을 말하고 첫 불꽃을 켜보세요`;
+      : st.focus
+        ? st.streak > 0
+          ? `오늘 에피소드 한 편을 보면 ${st.streak + 1}일째 불꽃이 이어져요`
+          : '오늘 에피소드 한 편을 보고 첫 불꽃을 켜보세요'
+        : st.level === 'ember'
+          ? `${st.goal - st.spoken}문장만 더 말하면 불이 붙어요`
+          : st.streak > 0
+            ? `오늘 ${st.goal}문장을 말하면 ${st.streak + 1}일째 불꽃이 이어져요`
+            : `오늘 ${st.goal}문장을 말하고 첫 불꽃을 켜보세요`;
 
   return (
     <div className={`streak-hero${ignited ? ' ignite' : ''}`} data-level={st.level}>
@@ -99,13 +103,19 @@ export default function StreakFlame({ refreshKey = 0 }: { refreshKey?: number })
             <span>일 연속</span>
           </div>
           <div className="streak-status">{statusLine}</div>
-          {/* 발화 진행 — 불을 붙이는 연료가 무엇인지 명확하게 */}
+          {/* 발화 진행 — 불을 붙이는 연료가 무엇인지 명확하게(집중 모드에선 '오늘의 에피소드'가 연료) */}
+          {st.focus ? (
+            <div className="streak-fuel-label">{st.episode ? '오늘 에피소드 완료 ✓' : '오늘 에피소드 0/1'}</div>
+          ) : (
+          <>
           <div className="streak-fuel" role="progressbar" aria-valuenow={st.spoken} aria-valuemax={st.goal} aria-label="오늘 발화 진행">
             <div className="streak-fuel-fill" style={{ width: `${Math.min(100, (st.spoken / st.goal) * 100)}%` }} />
           </div>
           <div className="streak-fuel-label">
             오늘 발화 {st.spoken}/{st.goal}문장{freeze > 0 ? ` · ❄️ ${freeze}` : ''}
           </div>
+          </>
+          )}
         </div>
       </div>
 
