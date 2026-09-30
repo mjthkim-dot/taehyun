@@ -7,7 +7,7 @@
  *   ⑤ 홈: 가이드가 사라지고 '오늘의 에피소드'(EP 2)가 주인공
  *   ⑥ 7화까지는 직접 쓴 원고, 8화부터 AI가 이어 쓴다(모킹) — 검증 통과한 원고만 재생
  *   ⑦ 다음 화 첫머리 '지난 화 기억나요?' 복습, 엔딩은 '오늘은 여기까지'가 기본
- *   ⑧ v1.31: 틀린 문장은 복습 카드로(엔딩에 목록) + '틀린 장면 다시 풀기', 🐢 천천히 듣기(설정 유지),
+ *   ⑧ v1.31: 틀린 문장은 복습 카드로(엔딩에 목록) + '틀린 장면 다시 풀기', 재생 속도 0.6×~1.2×(설정 유지),
  *            자막을 끄면 말풍선을 눌러 한국어 보기, 틀린 문장이 다음 화 첫머리 복습에 나온다
  */
 import { BASE, check, finish, launch } from './helpers.mjs';
@@ -162,12 +162,14 @@ check('맞히면 기억 칭찬 + 뜻', await page.evaluate(() => document.queryS
 check('복습 결과가 간격 반복에 반영(상자 증가)', await page.evaluate(() => (JSON.parse(localStorage.getItem('va_weak') || '[]').find((w) => w.en === "It's my first day.")?.box || 0) >= 1));
 check('정답과 거의 같은 문장은 보기에 없다', !recallOk.some((t) => t === "Yes, it's my first day."));
 
-/* ⑧ 천천히 듣기·자막 탭 공개 */
-// 조작 버튼의 보이는 이름은 고정(음성 제어·스크린리더 이름과 같게), 상태는 aria-pressed
-const slowBtn = page.locator('.dr-top button:has-text("🐢 천천히")');
-check('천천히 버튼: 처음엔 꺼짐', (await slowBtn.getAttribute('aria-pressed')) === 'false');
-await slowBtn.click();
-check('🐢 천천히 — 켜지고 설정이 저장된다', (await slowBtn.getAttribute('aria-pressed')) === 'true' && (await page.evaluate(() => JSON.parse(localStorage.getItem('va_drama_slow')) === true)));
+/* ⑧ 재생 속도·자막 탭 공개 */
+// 속도 버튼 = 지금 속도(1×) → 누르면 0.6×~1.2× 단계가 펼쳐지고, 고르면 저장·닫힘
+const speedBtn = page.locator('.dr-top .dr-speed-btn');
+check('속도 버튼: 처음엔 1×', (await speedBtn.textContent()).trim() === '1×' && (await speedBtn.getAttribute('aria-expanded')) === 'false');
+await speedBtn.click();
+check('속도 단계 5개(0.6×~1.2×), 지금 속도에 표시', (await page.locator('.dr-speed-row [role=radio]').count()) === 5 && (await page.locator('.dr-speed-row [aria-checked=true]').textContent()).trim() === '1×');
+await page.click('.dr-speed-row [role=radio]:has-text("0.75×")');
+check('0.75× — 버튼에 표시되고 설정이 저장·단계 줄은 닫힌다', (await speedBtn.textContent()).includes('0.75×') && (await page.locator('.dr-speed-row').count()) === 0 && (await page.evaluate(() => JSON.parse(localStorage.getItem('va_drama_speed')) === 0.75)));
 const subsBtn = page.locator('.dr-top button', { hasText: /^자막$/ });
 await subsBtn.click();
 check('자막 버튼: 이름은 그대로, 상태만 꺼짐', (await subsBtn.getAttribute('aria-pressed')) === 'false');

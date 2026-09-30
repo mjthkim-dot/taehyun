@@ -67,9 +67,28 @@ const MUTE_KEY = 'va_drama_mute';
 const AUTO_KEY = 'va_drama_auto';
 const SUBS_KEY = 'va_drama_subs';
 const SLOW_KEY = 'va_drama_slow';
+const SPEED_KEY = 'va_drama_speed';
 
-/** 천천히 듣기 배속 — 앱 전체 '느리게 듣기' 설정을 따르되 드라마가 끊겨 들리지 않게 0.6 이상 */
-const slowOf = () => Math.max(0.6, Math.min(0.9, slowRate()));
+/** 재생 속도 단계 — 1×가 예전 보통 속도(0.95), 0.75×가 예전 '🐢 천천히'와 같은 빠르기 */
+export const DRAMA_SPEEDS = [0.6, 0.75, 0.9, 1, 1.2] as const;
+const SPEED_BASE = 0.95;
+const speedLabel = (v: number) => `${v}×`;
+
+/** 저장된 속도 — 없으면 예전 '천천히' 설정을 이어받고, 그것도 없으면 A1·방금 쉬워진 사용자는 0.75× */
+function initialSpeed(): number {
+  const v = load<number | null>(SPEED_KEY, null);
+  if (typeof v === 'number' && (DRAMA_SPEEDS as readonly number[]).includes(v)) return v;
+  const old = load<boolean | null>(SLOW_KEY, null);
+  if (typeof old === 'boolean') return old ? 0.75 : 1;
+  try {
+    return dramaLevel() === 'A1' || dramaAdjust() === -1 ? 0.75 : 1;
+  } catch {
+    return 1;
+  }
+}
+
+/** 같은 말풍선을 두 번 누르면 — 지금 속도보다 한 단계 더 느리게(최저 0.55) */
+const slowerOf = (speed: number) => Math.max(0.55, Math.min(slowRate(), speed - 0.25)) * SPEED_BASE;
 
 
 /** 플레이어가 도는 장면 — 원고 장면 + 첫머리 복습(recall) */
@@ -313,19 +332,11 @@ function Player({
   const [picked, setPicked] = useState<number | null>(null);
   const [subs, setSubs] = useState(() => (subsOff ? false : load<boolean>(SUBS_KEY, true)));
   const [mute, setMute] = useState(() => load<boolean>(MUTE_KEY, false));
-  // 천천히 듣기 — 초급자가 못 알아들은 대사를 느린 속도로(설정은 다음 화에도 유지)
-  // 처음 보는 A1이거나 방금 한 단계 쉬워진 사용자는 기본을 천천히(직접 고른 뒤엔 그 설정)
-  const [slow, setSlow] = useState(() => {
-    const v = load<boolean | null>(SLOW_KEY, null);
-    if (typeof v === 'boolean') return v;
-    try {
-      return dramaLevel() === 'A1' || dramaAdjust() === -1;
-    } catch {
-      return false;
-    }
-  });
-  const slowRef = useRef(slow);
-  slowRef.current = slow;
+  // 재생 속도 — 0.6×~1.2×(설정은 다음 화에도 유지). 처음 보는 A1이거나 방금 쉬워진 사용자는 0.75×
+  const [speed, setSpeed] = useState(initialSpeed);
+  const [speedOpen, setSpeedOpen] = useState(false);
+  const speedRef = useRef(speed);
+  speedRef.current = speed;
   const lastReplay = useRef<{ en: string; at: number } | null>(null);
   /** 지금 장면의 대사를 끝까지 들려줬는가(다시 듣기로 끊겼으면 이어서 들려준다) */
   const lineDone = useRef(true);
@@ -493,7 +504,9 @@ function Player({
    * 새 호출이나 장면 전환이 있으면 이전 순서는 조용히 버려진다(token).
    */
   function speakSeq(input: (string | { en: string; who?: string; rate?: number })[], then?: () => void, rateOverride?: number) {
-    const rate = rateOverride ?? (slowRef.current ? slowOf() : 0.95);
+    const rate = rateOverride ?? speedRef.current * SPEED_BASE;
+    // 빠르게 들을 땐 대사 사이 읽을 시간도 그만큼 줄인다(느릴 땐 원래 시간 이상)
+    const pace = (r: number) => Math.min(1, r / SPEED_BASE);
     // 줄마다 속도를 따로 줄 수 있다(다시 듣기로 천천히 들은 줄 뒤에 이어지는 현재 대사는 보통 속도로)
     const lines = input.map((x) => (typeof x === 'string' ? { en: x, who: 'taeo', rate } : { en: x.en, who: x.who || 'taeo', rate: x.rate ?? rate }));
     clearTimer();
@@ -501,7 +514,7 @@ function Player({
     const at = iRef.current;
     const alive = () => t === token.current && at === iRef.current;
     if (!lines.length || muteRef.current) {
-      const ms = lines.reduce((a, l) => a + lineMs(l.en) / Math.min(1, rate), 0);
+      const ms = lines.reduce((a, l) => a + lineMs(l.en) / pace(l.rate), 0);
       timer.current = setTimeout(() => alive() && then?.(), ms);
       return;
     }
@@ -517,7 +530,7 @@ function Player({
       let done = false;
       const startedAt = Date.now();
       // 음성이 곧바로 실패해도(키 없는 기기·음성 없음) 대사를 읽을 최소 시간은 지킨다 — 소리 없이 휙휙 넘어가지 않게
-      const minMs = lineMs(en) * 0.7;
+      const minMs = (lineMs(en) * 0.7) / Math.max(1, r / SPEED_BASE);
       const go = () => {
         if (done) return;
         done = true;
@@ -528,7 +541,7 @@ function Player({
       // 인물마다 다른 목소리(예전엔 모두 같은 남성 목소리 하나)
       speakText(en, 'en-US', r, go, voiceOf(who));
       // 안전장치 — onend를 안 주는 기기에서도 멈추지 않게
-      setTimeout(go, (lineMs(en) * 2) / Math.min(1, r) + 3000);
+      setTimeout(go, (lineMs(en) * 2) / pace(r) + 3000);
     };
     next();
   }
@@ -550,7 +563,7 @@ function Player({
           : [];
     const lineWait = cur && cur.type === 'line' && tail.length ? 700 + (subs ? cur.kr.length * 30 : 0) : 600;
     speakSeq(
-      [{ en, who, rate: again ? slowOf() : undefined }, ...tail],
+      [{ en, who, rate: again ? slowerOf(speedRef.current) : undefined }, ...tail],
       () => {
         lineDone.current = true;
         pendingVoice.current = [];
@@ -669,16 +682,14 @@ function Player({
         </button>
         <button
           type="button"
-          onClick={() => {
-            const v = !slow;
-            store(SLOW_KEY, v);
-            setSlow(v);
-            slowRef.current = v;
-          }}
-          aria-pressed={slow}
-          className={`mini-btn${slow ? ' active' : ''}`}
+          onClick={() => setSpeedOpen((o) => !o)}
+          aria-expanded={speedOpen}
+          aria-controls="dr-speed-row"
+          aria-label={`재생 속도 ${speedLabel(speed)}`}
+          className={`mini-btn dr-speed-btn${speed !== 1 ? ' active' : ''}`}
         >
-          🐢 천천히
+          {speed < 1 ? '🐢 ' : speed > 1 ? '⚡ ' : ''}
+          {speedLabel(speed)}
         </button>
         <button
           type="button"
@@ -697,6 +708,28 @@ function Player({
         >
           {mute ? '🔇' : '🔊'}
         </button>
+        {speedOpen && (
+          <div id="dr-speed-row" className="dr-speed-row" role="radiogroup" aria-label="재생 속도">
+            {DRAMA_SPEEDS.map((v) => (
+              <button
+                key={v}
+                type="button"
+                role="radio"
+                aria-checked={speed === v}
+                className={`mini-btn${speed === v ? ' active' : ''}`}
+                onClick={() => {
+                  store(SPEED_KEY, v);
+                  setSpeed(v);
+                  speedRef.current = v;
+                  setSpeedOpen(false);
+                }}
+              >
+                {speedLabel(v)}
+              </button>
+            ))}
+            <span className="dr-speed-hint">다음 대사부터 적용돼요</span>
+          </div>
+        )}
       </div>
       <div className="dr-ep">
         {review ? '표현 복습' : practice ? `EP ${ep.no} · 틀린 장면 다시 풀기` : `EP ${ep.no} · ${ep.titleKr}`}
@@ -999,7 +1032,7 @@ function Ending({
         )}
         {levelChange === -1 && (
           <p className="dr-msg">
-            이번 화들이 조금 어려웠죠? {nextIsAi ? '다음 AI 화부터는 한 단계 쉬운 영어로 써 드릴게요. ' : ''}자막을 켜 두고 🐢 천천히 들어도 좋아요.
+            이번 화들이 조금 어려웠죠? {nextIsAi ? '다음 AI 화부터는 한 단계 쉬운 영어로 써 드릴게요. ' : ''}자막을 켜 두고 속도를 0.75×로 낮춰 들어도 좋아요.
           </p>
         )}
         {levelChange === 1 && <p className="dr-msg">이해도가 아주 좋아요! {nextIsAi ? '다음 AI 화부터 한 단계 어려운 영어로 써 드릴게요.' : '이대로 쭉 가요.'}</p>}
@@ -1345,7 +1378,7 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
             // 너무 어려웠으면 다음 화는 자막을 켜 둔다(듣기 발판)
             if (lc === -1) {
               store(SUBS_KEY, true);
-              store(SLOW_KEY, true);
+              if (load<number>(SPEED_KEY, 1) > 0.75) store(SPEED_KEY, 0.75);
             }
             setLevelChange(lc);
             setResult(r);
@@ -1426,7 +1459,7 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
             ✍️ 작가가 EP {nextNo}를 쓰는 중이에요.
           </p>
         )}
-        <p className="dr-tip">말풍선을 누르면 다시 듣기, 한 번 더 누르면 천천히 들려요.</p>
+        <p className="dr-tip">재생 중 위쪽 속도 버튼(1×)으로 0.6×~1.2× 조절, 말풍선을 누르면 다시 듣기(한 번 더 누르면 더 천천히).</p>
         {noKeyWall ? (
           <>
             <p className="dr-msg">EP {nextNo}부터는 AI 작가가 이어서 써요 — AI를 연결하면 볼 수 있어요.</p>
