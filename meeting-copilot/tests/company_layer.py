@@ -146,7 +146,33 @@ switch("acme")
 check("ipaas 묶음 재적재(115 → 140)", glossary_count() == 140, str(glossary_count()))
 check("고아 postings 0", orphans() == 0)
 
-print("\n■ 4. 공개 코드에 실명 고객사 없음")
+print("\n■ 4. 새 회사 초안 도구 — 결정적 부분(네트워크 없이)")
+sys.path.insert(0, str(ROOT / "tools"))
+import re  # noqa: E402
+import new_company  # noqa: E402
+fake = {"aliases": ["Initech Co"], "domain_pack": "ipaas", "vocab": ["Initech Flow"],
+        "product_terms": ["Initech Flow", "Initech Hub"], "competitors": ["Globex", "Umbrella (US)"],
+        "notes": [{"key": "korea", "title": "Initech 한국 시장 현황", "text": "2024 지사 설립",
+                   "keywords": "Seoul office"},
+                  {"key": "why", "title": "이직 사유 — Why Initech [초안]",
+                   "text": "성장 가속\n[CONFIRM: 내 경험 한 줄]", "keywords": ""}],
+        "golden": [{"q": "What's our presence in Korea?", "note_key": "korea"},
+                   {"q": "Why us?", "note_key": "why"}, {"q": "orphan", "note_key": "nope"}],
+        "check": ["2024 지사 설립"]}
+doc = new_company.build_file("Initech", "initech", "AE", fake,
+                             [{"topic": "korea", "sources": [{"title": "t", "uri": "u1"}]}])
+kw = doc["notes"][0]["text"].split("[검색어]")[1]
+check("모델 검색어 + 기본 면접관 검색어 병합", "Seoul office" in kw and "go-to-market" in kw, kw[:70])
+check("질의 확장 규칙이 모두 컴파일(괄호 든 경쟁사명 이스케이프)",
+      all(re.compile(p) for p, _ in doc["triggers"]) and len(doc["triggers"]) == 2)
+check("골든 질문은 존재하는 노트에만 연결", [g["q"] for g in doc["golden"]]
+      == ["What's our presence in Korea?", "Why us?"], str(doc["golden"]))
+check("도메인 묶음은 아는 이름만", doc["domain_packs"] == ["ipaas"])
+check("초안 표시·대본 없음(검수 전 Tier A 금지)", doc["_draft"] is True and doc["units"] == [])
+check("음성 어휘에 회사명·제품·경쟁사", all(w in doc["vocab"] for w in
+      ["Initech", "Initech Co", "Initech Hub", "Globex"]))
+
+print("\n■ 5. 공개 코드에 실명 고객사 없음")
 import re  # noqa: E402
 # 패턴 자체가 이 파일에 평문으로 있으면 스스로 걸린다 — rot13·유니코드 이스케이프로 둔다
 import codecs  # noqa: E402

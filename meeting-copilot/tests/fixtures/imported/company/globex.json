@@ -17,7 +17,7 @@
  ],
  "triggers": [
   [
-   "\\b(product line|your product|our product)\\b",
+   "\\b(product lines?|your products?|our products?)\\b",
    "Globex Lake 데이터 플랫폼 제품"
   ]
  ],

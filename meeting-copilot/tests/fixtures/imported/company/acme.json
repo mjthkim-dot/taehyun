@@ -20,7 +20,7 @@
  ],
  "triggers": [
   [
-   "\\b(product line|your product|our product)\\b",
+   "\\b(product lines?|your products?|our products?)\\b",
    "Acme Flow Recipe Hub 제품 라인업"
   ]
  ],

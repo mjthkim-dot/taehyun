@@ -53,8 +53,11 @@ EXPANSIONS: list[tuple[str, str]] = [
      "한국 테리토리 전략 시장 진단 온프렘 계열사 자율성 규제 비치헤드 L3 L4 공백"),
     # 시장
     (r"\b(korean market|market in korea|korea opportunity|territory)\b"
-     r"|\bwhat.{0,16}\bsee\b.{0,20}\bmarket\b",
-     "korea market opportunity AI native production PoC customer pain 한국 시장"),
+     r"|\bwhat.{0,16}\bsee\b.{0,20}\bmarket\b"
+     # "go-to-market structure in South Korea", "presence in Korea" — 순서가 뒤집힌 표현(v6.5)
+     r"|\b(korea|korean)\b.{0,40}\b(market|go-to-market|gtm|footprint|presence|team|office)\b"
+     r"|\b(market|go-to-market|gtm|footprint|presence|team|office)\b.{0,40}\b(korea|korean)\b",
+     "korea market opportunity AI native production PoC customer pain 한국 시장 현황 presence"),
 ]
 
 _COMPILED = [(re.compile(p, re.I), t) for p, t in EXPANSIONS]
@@ -75,10 +78,19 @@ def _company_rules() -> list[tuple[re.Pattern, str]]:
     who = (alt + "|") if alt else ""
     rules = [
         (r"\b(motivating|motivates|why (a )?change|why (are you )?(looking|leaving))\b"
-         rf"|\bwhy ({who}us|this company|here|now)\b|\breason for (the )?(change|move)\b",
+         rf"|\bwhy ({who}us|this company|here|now)\b|\breason for (the )?(change|move)\b"
+         # "Why are you interested in joining X", "what attracts you to us" — 'why X'가
+         # 없는 동기 질문(v6.5 실측: 레퍼런스 카드로 샜다)
+         r"|\b(interested in (joining|working)|want to (join|work (at|for|with|here)))\b"
+         r"|\b(attracts?|attracted|drew|draws|excites?) you\b",
          f"why {nm.lower()} why leave motivation career move 이직 사유 platform scale consultants"),
-        (r"\b(product line|product portfolio|your product|our product)\b",
+        (r"\b(product lines?|product portfolio|your products?|our products?)\b",
          f"{nm} 제품 product platform"),
+        # "What do you know about us / our company?" — 면접 첫 질문의 단골.
+        # 템플릿의 '회사·재무 팩트' 노트 어휘로 잇는다(v6.5 실측: 이 질문이 Tier C였다).
+        (rf"\bwhat do you know about (us|our company|the company|{who}our business)\b"
+         r"|\b(researched|research on|know about) (us|our company)\b",
+         f"{nm} 회사 재무 팩트 company financials revenue growth customers news"),
     ] + company.triggers()
     out = []
     for p, t in rules:
