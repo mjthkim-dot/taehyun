@@ -14,7 +14,8 @@ import { useLessonStore } from '../store/useLessonStore';
 import { speakText } from './SpeakButton';
 import { MicIcon, SpeakerIcon } from './icons';
 import { haptic } from '../lib/haptics';
-import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
+import { recordAndTranscribe, STT_PROPER_NOUNS, whisperAvailable } from '../lib/stt';
+import { blockingReason, gateMessage } from '../lib/sttQuality';
 import dynamic from 'next/dynamic';
 
 /** 발음 훈련(최소대립쌍 49쌍)은 진단이 뜬 뒤에야 필요하다 — 첫 진입 번들에서 뺀다.
@@ -192,8 +193,13 @@ export default function SpeakingPractice({
     setListening(true);
     setSttState('recording');
     try {
-      const { text, reason, peak, audio, durationMs, voiceOnsetMs } = await recordAndTranscribe({
-        prompt: currentSentence,
+      const res = await recordAndTranscribe({
+        // 인식 힌트에 목표 문장을 넣지 않는다 — 넣으면 전사가 목표 쪽으로 끌려가 틀려도 맞게 적힌다.
+        // 고유명사만 알려 주고, 같은 소리에 같은 전사가 나오도록 temperature 0.
+        prompt: STT_PROPER_NOUNS,
+        temperature: 0,
+        detail: 'words',
+        targetEn: currentSentence,
         onState: (st) => setSttState(st),
         onLevel: (rms) => setMicLevel(Math.min(1, rms * 12)),
         // 말하는 동안 글자가 흐르게 — 채점은 아래 Whisper 결과로만 한다
@@ -206,7 +212,15 @@ export default function SpeakingPractice({
       setListening(false);
       setMicLevel(0);
       stopWhisperRef.current = null;
+      const { text, reason, peak, audio, durationMs, voiceOnsetMs } = res;
       setClip(audio ?? null);
+      // 품질 게이트 — 무음 환각·불명확·에코·서버 혼잡은 채점하지 않는다('틀린 진단'을 막는다).
+      // 세그먼트 없는 빈 전사는 아래 기존 처리(마이크 안내·브라우저 인식 재시도)로 간다.
+      const block = blockingReason(res);
+      if (block) {
+        setSttHint(gateMessage(block));
+        return true;
+      }
       if (text) {
         setSttHint('');
         setUserSpeech(text);

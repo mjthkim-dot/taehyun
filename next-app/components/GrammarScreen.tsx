@@ -10,7 +10,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { speakText, stopSpeaking } from './SpeakButton';
 import { haptic } from '../lib/haptics';
 import { bumpSpoken, groqKey } from '../lib/state';
-import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
+import { recordAndTranscribe, STT_PROPER_NOUNS, whisperAvailable } from '../lib/stt';
+import { blockingReason, gateMessage } from '../lib/sttQuality';
 import { overall } from '../lib/cefrGrowth';
 import { takeUnitHandoff } from '../lib/ontology/handoff';
 import type { Cefr } from '../lib/cefr';
@@ -172,8 +173,11 @@ function SpeakTurn({ unit, turn, onDone }: { unit: GrammarUnit; turn: Extract<GT
     setGrade(null);
     setState('listening');
     try {
-      const { text } = await recordAndTranscribe({
-        prompt: turn.model,
+      const res = await recordAndTranscribe({
+        // 모범 답안을 힌트로 넣지 않는다 — 전사가 모범 쪽으로 끌려가 AI 채점이 후해진다. 고유명사만, temperature 0
+        prompt: STT_PROPER_NOUNS,
+        temperature: 0,
+        detail: 'segments',
         language: 'en',
         silenceMs: 2500,
         maxMs: 45000,
@@ -186,7 +190,14 @@ function SpeakTurn({ unit, turn, onDone }: { unit: GrammarUnit; turn: Extract<GT
         },
       });
       stopRef.current = null;
-      const t = (text || '').trim();
+      // 품질 게이트 — 무음 환각·불명확·서버 혼잡은 채점에 넘기지 않는다(세그먼트 없는 빈 전사는 아래 기존 안내)
+      const block = blockingReason(res);
+      if (block) {
+        setErr(gateMessage(block));
+        setState('idle');
+        return;
+      }
+      const t = (res.text || '').trim();
       if (!t) {
         setErr('소리가 잡히지 않았어요. 마이크를 누르고 다시 말해 보세요.');
         setState('idle');

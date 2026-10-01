@@ -97,6 +97,7 @@ export default function PitchScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
     setErr('');
     try {
       const res = await recordAndTranscribe({
+        detail: 'words', // 단어 간격 기준 WPM·긴 멈춤(lib/fluency.ts)
         // 긴 발화에서는 생각하느라 2~3초 쉬는 것이 정상이다 — 자동 종료를 끄고
         // 사용자가 직접 멈춘다. 안 그러면 문장 중간에 끊긴다.
         silenceMs: 0,
@@ -122,7 +123,7 @@ export default function PitchScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
         return;
       }
 
-      const m = analyzePitch(res.text, res.durationMs ?? 0, res.pauses ?? []);
+      const m = analyzePitch(res.text, res.durationMs ?? 0, res.pauses ?? [], res.words);
       setTranscript(res.text);
       setMetrics(m);
       setStage('result');

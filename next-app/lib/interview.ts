@@ -16,6 +16,7 @@ import { recordSkillResult } from './cefrGrowth';
 import { load, store } from './state';
 import { groqKoJson, hasHangul } from './aiGuard';
 import { recordMistake, sanitizeMistakeType } from './transfer';
+import { wordsToMetrics, type FluencyWord } from './fluency';
 
 /** 질문별 답변 가이드 — 일반론이 아니라 내 커리어 재료가 매핑된 "뭐라고 말하지"의 답 */
 export interface AnswerGuide {
@@ -108,7 +109,11 @@ export interface DeliveryMetrics {
   hasResult: boolean;
 }
 
-export function deliveryMetrics(text: string, durationMs?: number | null): DeliveryMetrics {
+/**
+ * sttWords: Whisper 단어 타임스탬프가 있으면 WPM을 lib/fluency.ts에 위임한다(단어 간격 기준).
+ * 없으면 기존처럼 녹음 길이 기준 — 텍스트 입력 답변은 null.
+ */
+export function deliveryMetrics(text: string, durationMs?: number | null, sttWords?: FluencyWord[]): DeliveryMetrics {
   const t = ` ${text.toLowerCase().replace(/[^a-z0-9$%' ]+/g, ' ')} `;
   const words = text.trim().split(/\s+/).filter(Boolean).length;
   const fillers: string[] = [];
@@ -116,9 +121,10 @@ export function deliveryMetrics(text: string, durationMs?: number | null): Deliv
     const m = t.split(` ${f} `).length - 1;
     for (let i = 0; i < m; i++) fillers.push(f);
   }
+  const fromWords = sttWords && sttWords.length && durationMs && durationMs > 3000 ? wordsToMetrics(sttWords, undefined, durationMs) : null;
   return {
     words,
-    wpm: durationMs && durationMs > 3000 ? Math.round(words / (durationMs / 60000)) : null,
+    wpm: fromWords ? fromWords.wpm : durationMs && durationMs > 3000 ? Math.round(words / (durationMs / 60000)) : null,
     fillerCount: fillers.length,
     fillers: [...new Set(fillers)],
     hasNumber: /\d|\$|%|percent|million|thousand|hundred|dozen/.test(t),

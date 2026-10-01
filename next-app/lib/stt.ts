@@ -12,6 +12,8 @@
  * 일정 시간 조용하면 자동으로 멈춘다(사용자가 버튼을 두 번 누르지 않아도 되게).
  */
 import { groqKey, SERVER_GROQ_SENTINEL } from './state';
+import { assessQuality, type SttQuality } from './sttQuality';
+import { pausesFromWords, wordsToMetrics, type FluencyMetrics, type FluencyWord } from './fluency';
 
 /** 무음이 이만큼 이어지면 발화가 끝난 것으로 본다 */
 const SILENCE_MS = 1200;
@@ -23,15 +25,42 @@ const MAX_MS = 30_000;
 const NO_DETECT_MS = 8000;
 /** 이 값보다 크면 '말하는 중'으로 본다. 마이크 감도 편차를 감안한 보수적 기준. */
 const RMS_THRESHOLD = 0.012;
+/** 429를 받았을 때 Retry-After를 따르되 이 이상은 기다리지 않는다(학습 흐름 보호) */
+const RETRY_AFTER_MAX_MS = 8000;
+/** Retry-After 헤더가 없는 429의 기본 대기 */
+const RETRY_AFTER_DEFAULT_MS = 3000;
+
+/**
+ * 채점 경로의 인식 힌트 — **고유명사만**. 목표 문장을 힌트로 넣으면 Whisper가 전사를
+ * 그쪽으로 끌어당겨(프롬프트 편향) 틀리게 말해도 맞게 받아써 점수가 부푼다. 드라마
+ * 인물·회사명처럼 사전에 없는 말만 알려 준다(tests/fixtures/stt-golden.json이 유/무 차이를 고정).
+ */
+export const STT_PROPER_NOUNS = 'Taeo, Maya, Jun, Diane, Mr. Grant, Nimbus.';
 
 export type SttState = 'recording' | 'transcribing';
+export type SttDetail = 'none' | 'segments' | 'words';
+export type SttLanguage = 'en' | 'ko' | 'auto';
+
+export interface SttWord extends FluencyWord {}
+export interface SttSegment {
+  start: number;
+  end: number;
+  text?: string;
+  avg_logprob: number;
+  no_speech_prob: number;
+  compression_ratio: number;
+}
+export type { SttQuality } from './sttQuality';
 
 export interface SttResult {
   text: string;
   /** 어느 경로로 인식했는지 — 진단·폴백 안내에 쓴다 */
   via: 'whisper' | 'webspeech';
-  /** 결과가 비었을 때 원인을 구분한다(무음인지, 레벨 감지가 아예 안 됐는지) */
-  reason?: 'ok' | 'no-audio' | 'silent' | 'empty-result';
+  /**
+   * 결과가 비었을 때 원인을 구분한다(무음인지, 레벨 감지가 아예 안 됐는지).
+   * busy = 서버가 바쁘다(429 재시도 후에도), record-only = 녹음만 하고 전사하지 않은 호출.
+   */
+  reason?: 'ok' | 'no-audio' | 'silent' | 'empty-result' | 'busy' | 'record-only';
   /** 녹음 중 관측된 최대 입력 레벨 — 마이크가 죽었는지 판단하는 근거 */
   peak?: number;
   /**
@@ -54,9 +83,74 @@ export interface SttResult {
    * 레벨 감지가 안 된 환경(무음·권한 문제)에서는 undefined.
    */
   voiceOnsetMs?: number;
+  /** Whisper가 잰 오디오 길이(초) — detail을 요청했을 때만 */
+  duration?: number;
+  /** 단어 타임스탬프(detail: 'words') — WPM·멈춤·절 내부 멈춤의 원천 */
+  words?: SttWord[];
+  /** 세그먼트 확신도(detail: 'segments' | 'words') — 품질 게이트의 원천 */
+  segments?: SttSegment[];
+  /** 품질 게이트 결과 — Whisper 경로는 항상 채운다(세그먼트가 없으면 폴백 판정) */
+  quality?: SttQuality;
+  /** words가 있을 때 미리 계산한 유창성 지표(targetEn을 주면 절 경계 반영) */
+  fluency?: FluencyMetrics;
+  /** pauses가 어디서 왔나 — 단어 타임스탬프(300ms 기준) 또는 레벨 감지(1000ms 기준) */
+  pauseSource?: 'words' | 'rms';
 }
 
 export class SttError extends Error {}
+
+/** transcribe 옵션 — 모든 필드 선택. 예전 (blob, prompt, language) 호출도 그대로 된다. */
+export interface TranscribeOptions {
+  /** 인식 힌트. 채점 경로는 STT_PROPER_NOUNS만 넘긴다 */
+  prompt?: string;
+  /** 'auto'는 서버가 upstream에 language를 보내지 않는다(회화 탭 전용) */
+  language?: SttLanguage;
+  /** none(기본) = {text}만, segments = 게이트용, words = 지표용 */
+  detail?: SttDetail;
+  /** 채점 경로는 0 — 같은 소리에 같은 전사 */
+  temperature?: number;
+  /** 직전에 스피커로 나간 TTS 텍스트 — 되울림(echo) 게이트. 따라 말하기 경로에서는 넘기지 말 것 */
+  lastTtsText?: string;
+  /** 절 경계 계산용 목표 문장(fluency.clauseInternalPauses) */
+  targetEn?: string;
+}
+
+export interface TranscribeOutput {
+  text: string;
+  duration?: number;
+  words?: SttWord[];
+  segments?: SttSegment[];
+  quality: SttQuality;
+  /** 429를 두 번 받아 포기했으면 'busy' */
+  reason?: 'ok' | 'busy';
+}
+
+/** 마이크 API가 있는가(키와 무관) — 키 없는 기기의 '녹음만' 경로 가능 여부 */
+export function micAvailable(): boolean {
+  if (typeof window === 'undefined') return false;
+  return !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined';
+}
+
+/**
+ * iOS 동기 언락 — 마이크 버튼의 onClick **안에서** 호출해 AudioContext를 만든다.
+ * getUserMedia를 await한 뒤에 만들면 사용자 제스처 밖이라 iOS가 'suspended'로 두고,
+ * 레벨이 전부 0으로 읽혀 모든 음향 지표(voiceOnsetMs·pauses)가 무효가 된다(canDetect=false).
+ * 여기서 만든 컨텍스트를 recordAndTranscribe({ audioCtx })로 넘기면 그 녹음이 끝날 때 닫는다 —
+ * 매 클릭마다 새로 만들 것(iOS는 동시에 열 수 있는 컨텍스트 수가 적다).
+ */
+export function createUnlockedAudioContext(): AudioContext | null {
+  if (typeof window === 'undefined') return null;
+  const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!Ctx) return null;
+  try {
+    const ctx = new Ctx();
+    // 제스처 안이라 동기적으로 깨어난다 — 결과는 기다리지 않는다(기다리면 제스처가 끝난다)
+    void ctx.resume?.().catch(() => {});
+    return ctx;
+  } catch {
+    return null;
+  }
+}
 
 /** 이 기기에서 Whisper 경로를 쓸 수 있는가(마이크 API + 키). */
 export function whisperAvailable(): boolean {
@@ -182,13 +276,34 @@ export async function recordAndTranscribe(opts: {
   silenceMs?: number;
   /** 경과 시간을 알려 준다(타이머 표시용) */
   onElapsed?: (ms: number) => void;
-  /** 어느 언어로 받아쓸지. 지정하지 않으면 Whisper가 **자동 감지**한다 —
-   * 회화 마이크가 이 경로라서 한국어로 말해도 한글로 받아써진다(이중언어 회화의 전제).
-   * "한국어로 묻기"는 짧은 한국어 인식 정확도를 위해 'ko'를 명시한다. */
-  language?: 'en' | 'ko';
+  /** 어느 언어로 받아쓸지. 지정하지 않으면 서버가 **영어로 고정**한다(학습 기본).
+   * 'auto'를 주면 서버가 upstream에 language를 보내지 않아 Whisper가 감지한다 — 회화 탭
+   * (한국어로 말해도 한글로 받아써지는 이중언어 회화)만 쓴다. "한국어로 묻기"는 'ko'. */
+  language?: SttLanguage;
   /** 호출하면 즉시 녹음을 끝낸다 */
   registerStop?: (stop: () => void) => void;
+  /** none(기본) = 텍스트만, segments = 품질 게이트, words = 유창성 지표까지 */
+  detail?: SttDetail;
+  /** 채점 경로는 0으로 고정한다 */
+  temperature?: number;
+  /** 직전 TTS 텍스트 — 스피커 누출(echo) 게이트. 따라 말하기 경로에서는 넘기지 말 것 */
+  lastTtsText?: string;
+  /** 절 경계 계산용 목표 문장 — fluency.clauseInternalPauses */
+  targetEn?: string;
+  /**
+   * onClick 안에서 createUnlockedAudioContext()로 만든 컨텍스트(iOS 동기 언락).
+   * 넘기면 녹음이 끝날 때 여기서 닫는다 — 재사용하지 말고 매 호출 새로 만든다.
+   */
+  audioCtx?: AudioContext | null;
+  /**
+   * 녹음만 하고 전사하지 않는다 — 키도 Web Speech도 없는 기기(iOS PWA)의 '자기확인 + 녹음 A/B'
+   * 경로. Blob·durationMs·voiceOnsetMs·pauses(RMS)만 채우고 text는 빈 문자열, reason 'record-only'.
+   */
+  recordOnly?: boolean;
 } = {}): Promise<SttResult> {
+  // 직전 TTS(브라우저 합성)가 아직 나오고 있으면 멈추고 잠깐 기다린다 — 스피커 소리가
+  // 녹음 첫머리에 섞이면 echo 게이트가 걸린다. Groq 오디오는 호출부의 stopSpeaking()이 멈춘다.
+  await ensureSynthStopped();
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   const mimeType = pickMimeType();
   const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
@@ -208,19 +323,23 @@ export async function recordAndTranscribe(opts: {
   };
 
   // ── 무음 감지: 오디오 레벨을 재서 말이 끝났는지 판단한다 ──
+  // 호출자가 onClick 안에서 만든 컨텍스트가 있으면 그것을 쓴다(iOS 동기 언락) — 없으면 여기서 만든다.
   const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  const audioCtx = Ctx ? new Ctx() : null;
+  const audioCtx = opts.audioCtx ?? (Ctx ? new Ctx() : null);
   let analyser: AnalyserNode | null = null;
   if (audioCtx) {
     // getUserMedia를 기다린 뒤라 이미 사용자 제스처 밖이다 — iOS/Chrome은 이때
     // AudioContext를 'suspended'로 만든다. 그러면 분석값이 전부 0이라 영원히
     // '무음'으로 판정돼 녹음이 통째로 버려진다(실제로 발생한 결함). 반드시 깨운다.
-    try {
-      await audioCtx.resume?.();
-    } catch {
-      /* 구형 구현엔 resume이 없을 수 있다 — 아래 state 확인으로 판단 */
+    // iOS는 전화·시리 뒤에 'interrupted'(표준 밖 상태)로도 둔다 — suspended와 같게 다룬다.
+    for (let attempt = 0; attempt < 2 && !ctxRunning(audioCtx); attempt++) {
+      try {
+        await audioCtx.resume?.();
+      } catch {
+        /* 구형 구현엔 resume이 없을 수 있다 — 아래 state 확인으로 판단 */
+      }
     }
-    if (audioCtx.state !== 'suspended') {
+    if (ctxRunning(audioCtx)) {
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 1024;
       audioCtx.createMediaStreamSource(stream).connect(analyser);
@@ -307,21 +426,71 @@ export async function recordAndTranscribe(opts: {
   // 조용한 마이크·suspended 컨텍스트에서 아무 일도 일어나지 않는다(실제 결함).
   const durationMs = Date.now() - started;
   const voiceOnsetMs = voiceStartAt ? voiceStartAt - started : undefined;
-  if (blob.size < 1200) return { text: '', via: 'whisper', reason: 'no-audio', peak, durationMs, pauses, voiceOnsetMs };
+  if (blob.size < 1200) return { text: '', via: 'whisper', reason: 'no-audio', peak, durationMs, pauses, voiceOnsetMs, pauseSource: 'rms' };
+
+  // 녹음만 — 키 없는 기기의 자기확인·A/B 비교 경로. 전사 없이 소리와 시간 지표만 돌려준다.
+  if (opts.recordOnly) {
+    return { text: '', via: 'whisper', reason: 'record-only', audio: blob, durationMs, pauses, voiceOnsetMs, peak, pauseSource: 'rms' };
+  }
 
   opts.onState?.('transcribing');
-  const text = await transcribe(blob, opts.prompt, opts.language);
+  const out = await transcribe(blob, {
+    prompt: opts.prompt,
+    language: opts.language,
+    detail: opts.detail,
+    temperature: opts.temperature,
+    lastTtsText: opts.lastTtsText,
+    targetEn: opts.targetEn,
+  });
+  const text = out.text;
+  // 멈춤은 단어 타임스탬프가 있으면 그것으로(300ms 기준), 없으면 레벨 감지(1초 기준)로
+  const wordPauses = out.words?.length ? pausesFromWords(out.words) : null;
+  const fluency = out.words?.length ? wordsToMetrics(out.words, opts.targetEn, durationMs) : undefined;
   return {
     text,
     via: 'whisper',
     audio: blob,
     durationMs,
-    pauses,
+    pauses: wordPauses ?? pauses,
+    pauseSource: wordPauses ? 'words' : 'rms',
     voiceOnsetMs,
-    // 소리는 잡혔는데 텍스트가 비면 '들리지 않은 것', 레벨 자체가 낮았으면 '무음'
-    reason: text ? 'ok' : peak > RMS_THRESHOLD ? 'empty-result' : 'silent',
+    // 서버가 바쁘면 'busy', 소리는 잡혔는데 텍스트가 비면 '들리지 않은 것', 레벨 자체가 낮았으면 '무음'
+    reason: out.reason === 'busy' ? 'busy' : text ? 'ok' : peak > RMS_THRESHOLD ? 'empty-result' : 'silent',
     peak,
+    duration: out.duration,
+    words: out.words,
+    segments: out.segments,
+    quality: out.quality,
+    fluency,
   };
+}
+
+/** AudioContext가 실제로 돌고 있나 — iOS의 'interrupted'는 suspended와 같이 '아니오' */
+function ctxRunning(ctx: AudioContext): boolean {
+  const st = ctx.state as string;
+  return st !== 'suspended' && st !== 'interrupted' && st !== 'closed';
+}
+
+/** 브라우저 합성 음성이 끝나길 잠깐 기다린다(최대 500ms) — 녹음 첫머리에 스피커 소리가 섞이지 않게 */
+async function ensureSynthStopped(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const synth = window.speechSynthesis;
+  if (!synth) return;
+  try {
+    if (!synth.speaking && !synth.pending) return;
+    synth.cancel();
+  } catch {
+    return;
+  }
+  const until = Date.now() + 500;
+  while (Date.now() < until) {
+    await new Promise((r) => setTimeout(r, 50));
+    try {
+      if (!synth.speaking) return;
+    } catch {
+      return;
+    }
+  }
 }
 
 /** MIME 타입에 맞는 파일명 — Whisper는 확장자로 포맷을 판별하므로 거짓말하면 안 된다. */
@@ -333,16 +502,28 @@ function fileNameFor(type: string): string {
   return 'speech.webm';
 }
 
-/** 녹음된 오디오를 서버 프록시로 보내 텍스트를 받는다. */
-export async function transcribe(blob: Blob, prompt?: string, language?: 'en' | 'ko'): Promise<string> {
-  const form = new FormData();
-  form.append('audio', blob, fileNameFor(blob.type || ''));
-  const key = localKeyOrUndefined();
-  if (key) form.append('key', key);
-  if (prompt) form.append('prompt', prompt);
-  if (language) form.append('language', language);
+/**
+ * 녹음된 오디오를 서버 프록시로 보내 텍스트를 받는다.
+ *
+ * 두 가지 호출 형태:
+ *   transcribe(blob, prompt?, language?)  → string              (예전 호출부 호환)
+ *   transcribe(blob, { detail, language, lastTtsText, … }) → TranscribeOutput (words·segments·quality)
+ *
+ * 429(Groq 분당 한도 또는 앱 자체 한도)는 Retry-After(최대 8초)만큼 **한 번** 기다렸다 재시도하고,
+ * 그래도 429면 문자열 형태는 SttError('busy'), 객체 형태는 reason 'busy'로 돌려준다 —
+ * 연속 녹음(역할극)이 분당 한도에 닿아도 학습 흐름이 끊기지 않게.
+ */
+export async function transcribe(blob: Blob, prompt?: string, language?: SttLanguage): Promise<string>;
+export async function transcribe(blob: Blob, opts: TranscribeOptions): Promise<TranscribeOutput>;
+export async function transcribe(blob: Blob, promptOrOpts?: string | TranscribeOptions, language?: SttLanguage): Promise<string | TranscribeOutput> {
+  const asObject = typeof promptOrOpts === 'object' && promptOrOpts !== null;
+  const opts: TranscribeOptions = asObject ? (promptOrOpts as TranscribeOptions) : { prompt: promptOrOpts as string | undefined, language };
 
-  const resp = await fetch('/app/api/stt', { method: 'POST', body: form });
+  const resp = await postWithRetry(() => buildForm(blob, opts));
+  if (resp.status === 429) {
+    if (!asObject) throw new SttError('busy');
+    return { text: '', reason: 'busy', quality: assessQuality({ text: '', reason: 'busy' }) };
+  }
   if (!resp.ok) {
     let msg = `HTTP ${resp.status}`;
     try {
@@ -352,6 +533,47 @@ export async function transcribe(blob: Blob, prompt?: string, language?: 'en' | 
     }
     throw new SttError(msg);
   }
-  const data = await resp.json();
-  return String(data.text || '').trim();
+  const data = (await resp.json().catch(() => ({}))) as { text?: string; duration?: number; words?: SttWord[]; segments?: SttSegment[] };
+  const text = String(data.text || '').trim();
+  if (!asObject) return text;
+
+  const out: TranscribeOutput = { text, reason: 'ok', quality: { ok: true, reason: null, logprobMean: 0 } };
+  if (typeof data.duration === 'number') out.duration = data.duration;
+  if (Array.isArray(data.words)) out.words = data.words.filter((w) => w && typeof w.start === 'number' && typeof w.end === 'number');
+  if (Array.isArray(data.segments)) out.segments = data.segments;
+  out.quality = assessQuality({ text, segments: out.segments }, opts.lastTtsText);
+  return out;
+}
+
+function buildForm(blob: Blob, opts: TranscribeOptions): FormData {
+  const form = new FormData();
+  form.append('audio', blob, fileNameFor(blob.type || ''));
+  const key = localKeyOrUndefined();
+  if (key) form.append('key', key);
+  if (opts.prompt) form.append('prompt', opts.prompt);
+  if (opts.language) form.append('language', opts.language);
+  if (opts.detail && opts.detail !== 'none') form.append('detail', opts.detail);
+  if (typeof opts.temperature === 'number') form.append('temperature', String(opts.temperature));
+  return form;
+}
+
+/** Retry-After 헤더(초 또는 HTTP 날짜)를 대기 ms로 — 없으면 기본, 상한 8초 */
+export function retryAfterMs(header: string | null): number {
+  if (!header) return RETRY_AFTER_DEFAULT_MS;
+  const sec = Number(header);
+  let ms: number;
+  if (Number.isFinite(sec)) ms = sec * 1000;
+  else {
+    const at = Date.parse(header);
+    ms = Number.isFinite(at) ? at - Date.now() : RETRY_AFTER_DEFAULT_MS;
+  }
+  return Math.min(RETRY_AFTER_MAX_MS, Math.max(0, Math.round(ms)));
+}
+
+/** 429면 Retry-After만큼 한 번 기다렸다 다시 보낸다. FormData는 재사용할 수 없어 매번 새로 만든다. */
+async function postWithRetry(makeForm: () => FormData): Promise<Response> {
+  const resp = await fetch('/app/api/stt', { method: 'POST', body: makeForm() });
+  if (resp.status !== 429) return resp;
+  await new Promise((r) => setTimeout(r, retryAfterMs(resp.headers.get('Retry-After'))));
+  return fetch('/app/api/stt', { method: 'POST', body: makeForm() });
 }

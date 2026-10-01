@@ -10,10 +10,11 @@ import '../app/screens.css';
 import { useEffect, useRef, useState } from 'react';
 import { downloadBackup, restoreBackup, dataSummary, eraseAllData, BACKUP_SCOPE_NOTE } from '../lib/backup';
 import { flagList, resetFlags, setFlag } from '../lib/flags';
+import { NAVIGATE_EVENT } from '../lib/state';
 
 /**
  * '고급 ▾' 접힘(M1) — 설정류는 집중 모드에 새 화면을 만들지 않고 전부 이 한 섹션(#adv-section) 안에 둔다.
- * 지금은 '실험 기능 되돌리기' 토글 목록. M0의 '소리 점검' 버튼도 같은 섹션에 들어온다(통합 시 합친다).
+ * '소리 점검'(마이크·스피커·AI 키 단계별 확인)과 '실험 기능 되돌리기' 토글 목록.
  */
 function AdvancedSection() {
   const [flags, setFlags] = useState(() => flagList());
@@ -26,6 +27,14 @@ function AdvancedSection() {
     <details className="bk-adv" id="adv-section">
       <summary className="bk-adv-sum">고급 ▾{changed ? <span className="bk-adv-badge">{changed}개 꺼짐</span> : null}</summary>
       <div className="bk-adv-body">
+        <button
+          type="button"
+          className="btn bk-btn bk-btn-outline bk-adv-audiocheck"
+          onClick={() => window.dispatchEvent(new CustomEvent(NAVIGATE_EVENT, { detail: 'audiocheck' }))}
+        >
+          🎙 소리 점검
+        </button>
+        <div className="bk-note">마이크·스피커·AI 키가 제대로 이어지는지 단계별로 확인해요.</div>
         <div className="bk-adv-title">🧪 실험 기능 되돌리기</div>
         <p className="bk-adv-desc">새로 들어온 말하기 기능이 불편하면 하나씩 끌 수 있어요. 끄면 예전 방식으로 돌아갑니다.</p>
         <ul className="bk-flags" aria-label="실험 기능">

@@ -14,6 +14,7 @@ import { create } from 'zustand';
 import { addPronLapses, bumpSpoken } from '../lib/state';
 import { diagnose, type PronIssue } from '../lib/pronunciation';
 import { logAttempt } from '../lib/reviewEngine';
+import { alignedScore } from '../lib/align';
 
 /** 시도 로그에 함께 남길 메타 — 측정 가능한 호출부(Whisper 경로)만 채운다 */
 export interface AttemptMeta {
@@ -53,64 +54,16 @@ export interface LessonState {
   reset: () => void;
 }
 
-function normWords(s: string) {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9\s']/g, ' ')
-    .split(/\s+/)
-    .filter(Boolean);
-}
-
 /**
  * 목표 문장 대비 발화 정확도(0~100)와 단어별 일치 여부.
- * 순서를 고려한 LCS(최장 공통 부분 수열)로 측정 — 빠뜨린/잘못 발음한 단어를
- * 목표 문장 순서 그대로 색깔로 보여줄 수 있도록 단어별 매칭 정보도 함께 반환한다.
+ * 계산은 lib/align.ts(alignedScore)에 있다 — 원고·스토어를 끌고 오지 않는 순수 모듈이라
+ * 단어 탭·드라마도 같은 함수를 쓴다. 여기는 기존 호출부를 위한 얇은 래퍼(같은 결과·타입).
  */
 export function computeAccuracy(
   target: string,
   spoken: string
 ): { score: number; diff: WordDiff[]; missed: string[] } {
-  const a = normWords(target);
-  const b = normWords(spoken);
-  if (!a.length || !b.length) {
-    return { score: 0, diff: a.map((w) => ({ w, ok: false })), missed: a };
-  }
-
-  const dp: number[][] = Array.from({ length: a.length + 1 }, () =>
-    new Array(b.length + 1).fill(0)
-  );
-  for (let i = 1; i <= a.length; i++) {
-    for (let j = 1; j <= b.length; j++) {
-      dp[i][j] =
-        a[i - 1] === b[j - 1]
-          ? dp[i - 1][j - 1] + 1
-          : Math.max(dp[i - 1][j], dp[i][j - 1]);
-    }
-  }
-
-  // dp 테이블을 거슬러 올라가며 어느 목표 단어가 발화에서 실제로 매칭됐는지 표시
-  const matched = new Array(a.length).fill(false);
-  let i = a.length;
-  let j = b.length;
-  while (i > 0 && j > 0) {
-    if (a[i - 1] === b[j - 1]) {
-      matched[i - 1] = true;
-      i--;
-      j--;
-    } else if (dp[i - 1][j] >= dp[i][j - 1]) {
-      i--;
-    } else {
-      j--;
-    }
-  }
-
-  const lcs = dp[a.length][b.length];
-  const recall = lcs / a.length;
-  const precision = lcs / b.length;
-  const f1 = (2 * recall * precision) / (recall + precision || 1);
-  const diff = a.map((w, idx) => ({ w, ok: matched[idx] }));
-  const missed = a.filter((_, idx) => !matched[idx]);
-  return { score: Math.round(f1 * 100), diff, missed };
+  return alignedScore(target, spoken);
 }
 
 export const useLessonStore = create<LessonState>((set) => ({

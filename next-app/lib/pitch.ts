@@ -19,6 +19,7 @@
  */
 import { load, store } from './state';
 import { HANGUL_RE } from './aiGuard';
+import { countWords, FILLER_RE, pausesFromWords, wordsToMetrics, type FluencyWord } from './fluency';
 
 export interface PitchTopic {
   key: string;
@@ -118,21 +119,23 @@ export interface PitchMetrics {
   longPauses: number;
 }
 
-/** 한국어 화자가 영어로 길게 말할 때 급증하는 채움말들. */
-const FILLER_RE = /\b(um+|uh+|er+|ah+|hmm+|like|you know|i mean|kind of|sort of|actually|basically|so yeah)\b/gi;
-
-/** 기기에서 계산하는 지표 — AI 키가 없어도 여기까지는 나온다. */
-export function analyzePitch(transcript: string, durationMs: number, pauses: number[] = []): PitchMetrics {
-  const words = (transcript.match(/[A-Za-z']+/g) || []).length;
+/**
+ * 기기에서 계산하는 지표 — AI 키가 없어도 여기까지는 나온다.
+ * Whisper 단어 타임스탬프(words)가 있으면 WPM·긴 멈춤을 lib/fluency.ts에 위임한다 —
+ * 녹음 길이(앞뒤 침묵 포함)와 레벨 감지 대신 실제 단어 간격으로 잰다. 없으면 기존 계산 그대로.
+ */
+export function analyzePitch(transcript: string, durationMs: number, pauses: number[] = [], words?: FluencyWord[]): PitchMetrics {
+  const wordCount = countWords(transcript);
   const seconds = Math.max(1, Math.round(durationMs / 1000));
   const found = transcript.match(FILLER_RE) || [];
+  const fromWords = words && words.length ? wordsToMetrics(words, undefined, durationMs) : null;
   return {
     seconds,
-    words,
-    wpm: Math.round((words / seconds) * 60),
+    words: wordCount,
+    wpm: fromWords ? fromWords.wpm : Math.round((wordCount / seconds) * 60),
     fillers: found.length,
     fillerList: [...new Set(found.map((f) => f.toLowerCase()))].slice(0, 6),
-    longPauses: pauses.filter((p) => p >= 3000).length,
+    longPauses: (fromWords ? pausesFromWords(words!, 3000) : pauses.filter((p) => p >= 3000)).length,
   };
 }
 

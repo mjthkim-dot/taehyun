@@ -72,7 +72,11 @@ await page.addInitScript(() => {
 await page.route('**/app/api/tts*', (r) => r.fulfill({ status: 404, contentType: 'application/json', body: '{}' }));
 const SAID = ["It's my first day, so I am nervous.", 'I am work in cloud sales.', 'Thank you so much.', 'Yes, I will hang in there.', 'See you tomorrow.'];
 let sttN = 0;
-await page.route('**/app/api/stt', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: SAID[sttN++ % SAID.length] }) }));
+let sttBody = '';
+await page.route('**/app/api/stt', (r) => {
+  sttBody = r.request().postData() || '';
+  return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: SAID[sttN++ % SAID.length] }) });
+});
 let sysSeen = '';
 let talkCalls = 0;
 await page.route('**/app/api/groq', (r) => {
@@ -119,6 +123,10 @@ for (let t = 1; t <= 5; t++) {
   if (t === 2) check('틀린 말은 더 자연스러운 문장으로 고쳐 준다', await page.evaluate(() => document.querySelector('.dt-fix')?.textContent.includes('I work in cloud sales.')));
 }
 check('대답 5/5', await page.evaluate(() => document.querySelector('.dr-ep')?.textContent.includes('5/5')));
+// M0 소리 레일 — 회화는 이중언어라 언어 자동 감지(auto), 게이트용 세그먼트만(단어 타임스탬프 없음), 힌트는 고유명사만
+check('회화 STT는 language auto', /name="language"\r?\n\r?\nauto/.test(sttBody), sttBody.slice(0, 0) || 'language 필드 확인');
+check('회화 STT는 segments만(words 아님)', /name="detail"\r?\n\r?\nsegments/.test(sttBody) && !/name="detail"\r?\n\r?\nwords/.test(sttBody));
+check('회화 STT 힌트는 고유명사만(모범 문장 없음)', sttBody.includes('Nimbus') && !sttBody.includes("It's my first day"));
 check('5번 대답하면 마이크 대신 마무리 버튼', (await page.locator('.dr-mic').count()) === 0);
 await page.click('button:has-text("대화 마치기")');
 await page.waitForSelector('.dr-end-title', { timeout: 5000 });

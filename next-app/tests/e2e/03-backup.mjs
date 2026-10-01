@@ -69,6 +69,11 @@ await page2.click('#adv-section summary');
 check('펼치면 실험 기능 토글 8개(전부 켜짐)', (await page2.locator('#adv-section .bk-flag input').count()) === 8 && (await page2.evaluate(() => [...document.querySelectorAll('#adv-section .bk-flag input')].every((i) => i.checked))));
 await page2.click('#adv-section .bk-flag:has-text("줄거리") input');
 check('토글을 끄면 va_flags에 그 키만 저장', await page2.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('va_flags') || '{}')) === '{"retell":false}'));
+// M0 소리 레일 — 설정·점검류는 백업 화면 하단 '고급 ▾' 접힘 하나 안에만(새 화면·feat-card 없음)
+await page2.waitForSelector('.bk-adv-audiocheck', { timeout: 5000 });
+await page2.click('.bk-adv-audiocheck');
+await page2.waitForFunction(() => !!document.querySelector('.study-card h3') && document.querySelector('.study-card h3').textContent.includes('음성 진단'), null, { timeout: 8000 });
+check("'소리 점검' 버튼이 음성 진단 화면으로 간다", true);
 
 fs.rmSync(tmp, { force: true });
 fs.rmSync(bad, { force: true });

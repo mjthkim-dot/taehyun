@@ -5,6 +5,7 @@
  */
 import { load, store } from './state';
 import { donePatterns, STAGE_PATTERNS, type NativePattern } from './maturity';
+import { countWords, wordsToMetrics, type FluencyWord } from './fluency';
 
 export interface WeeklyTestResult {
   /** YYYY-MM-DD */
@@ -18,6 +19,17 @@ export interface WeeklyTestResult {
 
 const KEY = 'va_weekly_tests';
 const MAX = 26; // 반년치
+
+/**
+ * 시험 지표(단어 수·초·WPM). Whisper 단어 타임스탬프가 있으면 WPM을 lib/fluency.ts에
+ * 위임하고(단어 간격 기준), 없으면 예전 그대로 전사 단어 수 ÷ 녹음 길이.
+ */
+export function weeklyMetrics(text: string, durationMs: number, sttWords?: FluencyWord[]): { words: number; seconds: number; wpm: number } {
+  const words = countWords(text);
+  const seconds = Math.round(durationMs / 1000);
+  const wpm = sttWords && sttWords.length ? wordsToMetrics(sttWords, undefined, durationMs).wpm : seconds > 0 ? Math.round((words / seconds) * 60) : 0;
+  return { words, seconds, wpm };
+}
 
 export function getWeeklyTests(): WeeklyTestResult[] {
   return load<WeeklyTestResult[]>(KEY, []);

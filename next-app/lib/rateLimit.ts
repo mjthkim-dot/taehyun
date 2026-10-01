@@ -44,10 +44,15 @@ export function clientIp(headers: Headers): string {
   return headers.get('x-real-ip') || 'unknown';
 }
 
-/** 429 응답 본문 — 두 라우트에서 같은 형태를 쓴다. */
-export function tooManyRequests() {
+/**
+ * 429 응답 — 라우트들이 같은 형태를 쓴다.
+ * Retry-After를 붙인다: 클라이언트(lib/stt.ts)가 이 값만큼 기다렸다 한 번 더 시도한다.
+ * 예전엔 헤더가 없어 Groq의 429와 앱 자체 한도를 구분 못 했고, 연속 녹음(역할극 20~25회/일)이
+ * 분당 한도에 걸리면 그냥 실패로 끝났다.
+ */
+export function tooManyRequests(retryAfterSec = 5) {
   return Response.json(
     { error: { message: '요청이 너무 잦아요. 잠시 후 다시 시도해주세요.' } },
-    { status: 429 }
+    { status: 429, headers: { 'Retry-After': String(Math.max(1, Math.round(retryAfterSec))) } }
   );
 }

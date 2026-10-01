@@ -10,7 +10,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dialogue } from '../lib/lessons';
 import { computeAccuracy, type WordDiff } from '../store/useLessonStore';
-import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
+import { recordAndTranscribe, STT_PROPER_NOUNS, whisperAvailable } from '../lib/stt';
+import { blockingReason, gateMessage } from '../lib/sttQuality';
 import { diagnose, type PronIssue } from '../lib/pronunciation';
 import { useSlowRate } from './SpeechRate';
 import VoiceCompare from './MyVoice';
@@ -342,8 +343,11 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
     setListening(true);
     setPhase('recording');
     try {
-      const { text, reason, audio } = await recordAndTranscribe({
-        prompt: dialogue.lines[stepRef.current]?.en,
+      const res = await recordAndTranscribe({
+        // 인식 힌트에 목표 대사를 넣지 않는다(전사가 그쪽으로 끌려가 점수가 부푼다) — 고유명사만, temperature 0
+        prompt: STT_PROPER_NOUNS,
+        temperature: 0,
+        detail: 'segments',
         onState: (st) => setPhase(st),
         // 말하는 동안 글자가 보이게 — 채점은 Whisper 결과로만 한다
         onPartial: (t) => setInterim(t),
@@ -354,7 +358,14 @@ function RolePlayMode({ dialogue, lessonId, rate }: { dialogue: Dialogue; lesson
       setPhase('idle');
       setListening(false);
       stopWhisperRef.current = null;
+      const { text, reason, audio } = res;
       setClip(audio ?? null);
+      // 품질 게이트 — 무음 환각·불명확·서버 혼잡은 채점하지 않는다(세그먼트 없는 빈 전사는 기존 처리로)
+      const block = blockingReason(res);
+      if (block) {
+        setMicHint(gateMessage(block));
+        return true;
+      }
       if (text) {
         scoreLine(text);
         return true;

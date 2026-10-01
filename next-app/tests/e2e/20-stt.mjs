@@ -76,7 +76,11 @@ await page.waitForFunction((t) => (document.querySelector('.transcript p')?.text
 
 check('Whisper 경로로 인식 호출', sttCalls === 1, String(sttCalls));
 check('인식 결과가 발화로 반영', (await page.evaluate(() => document.querySelector('.transcript p')?.textContent || '')).includes(target.slice(0, 12)));
-check('인식 힌트로 연습 문장 전송', sentPrompt.includes(target.slice(0, 12)), target.slice(0, 24));
+// M0 소리 레일에서 고정값을 바꿨다: 예전엔 '연습 문장이 힌트로 전송'을 검증했지만, 목표 문장을
+// Whisper 힌트로 주면 전사가 그쪽으로 끌려가 틀리게 말해도 맞게 받아써진다(프롬프트 편향 —
+// tests/unit/sttGolden.test.ts가 유/무 FAR 차이를 고정). 채점 경로는 고유명사만 보낸다.
+check('인식 힌트에 연습 문장을 넣지 않음(고유명사만)', !sentPrompt.includes(target.slice(0, 12)) && sentPrompt.includes('Nimbus'), target.slice(0, 24));
+check('채점 경로는 temperature 0 · 단어 타임스탬프 요청', /name="temperature"\r?\n\r?\n0/.test(sentPrompt) && /name="detail"\r?\n\r?\nwords/.test(sentPrompt));
 check('오디오가 실제로 전송됨', sentPrompt.includes('speech.webm'));
 await page.waitForSelector('.score', { timeout: 10000 });
 check('인식 결과로 채점까지 이어짐', /정확도 \d+점/.test(await page.evaluate(() => document.querySelector('.score')?.textContent || '')));
@@ -392,6 +396,114 @@ await quiet.waitForSelector('.mission-practice .mic', { timeout: 15000 });
 await quiet.click('.mission-practice .mic');
 await quiet.waitForFunction(() => (document.body.textContent || '').includes('소리가'), { timeout: 20000 });
 check('무음이면 원인을 화면에 안내', (await quiet.evaluate(() => document.body.textContent || '')).includes('소리가'));
+
+/* ── ⑦ M0 소리 레일: verbose_json(words·segments) 응답도 채점까지 이어진다 ──
+   채점 경로는 detail=words로 단어 타임스탬프·세그먼트 확신도를 받는다. 응답 모양이 {text}에서
+   {text, duration, words, segments}로 바뀌어도 점수가 그대로 렌더돼야 한다. */
+const verboseFor = (text) => {
+  const toks = text.split(/\s+/).filter(Boolean);
+  const words = toks.map((w, i) => ({ word: w, start: 0.3 + i * 0.32, end: 0.3 + i * 0.32 + 0.25 }));
+  return {
+    text,
+    duration: 0.6 + toks.length * 0.32,
+    words,
+    segments: [{ start: 0, end: 0.6 + toks.length * 0.32, text, avg_logprob: -0.2, no_speech_prob: 0.02, compression_ratio: 1.3 }],
+  };
+};
+const verbose = await browser.newPage();
+verbose.on('pageerror', (e) => console.log('  [pageerror]', e.message));
+await verbose.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ valid: true }) }));
+await verbose.route('**/app/api/groq', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{}' } }] }) }));
+let verboseTarget = '';
+await verbose.route('**/app/api/stt', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(verboseFor(verboseTarget)) }));
+await seedKey(verbose);
+await verbose.addInitScript(MIC_STUB);
+await verbose.goto(`${BASE}/app`);
+await verbose.waitForSelector('.mission-practice .mic', { timeout: 15000 });
+verboseTarget = await verbose.evaluate(() => document.querySelector('.mission-practice .target')?.textContent?.trim() || '');
+await verbose.click('.mission-practice .mic');
+await verbose.waitForSelector('.score', { timeout: 15000 });
+check('verbose_json 응답(words·segments)으로도 채점까지 이어짐', /정확도 \d+점/.test(await verbose.evaluate(() => document.querySelector('.score')?.textContent || '')));
+await verbose.close();
+
+/* ── ⑧ 품질 게이트: 무음 환각(no_speech_prob 높음)은 채점하지 않고 안내한다 ── */
+const halluc = await browser.newPage();
+halluc.on('pageerror', (e) => console.log('  [pageerror]', e.message));
+await halluc.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ valid: true }) }));
+await halluc.route('**/app/api/groq', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{}' } }] }) }));
+await halluc.route('**/app/api/stt', (r) =>
+  r.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      text: 'Thank you.',
+      duration: 1.1,
+      words: [{ word: 'Thank', start: 0.1, end: 0.4 }, { word: 'you.', start: 0.45, end: 0.7 }],
+      segments: [{ start: 0, end: 1.1, text: 'Thank you.', avg_logprob: -0.9, no_speech_prob: 0.92, compression_ratio: 1.1 }],
+    }),
+  })
+);
+await seedKey(halluc);
+await halluc.addInitScript(MIC_STUB);
+await halluc.goto(`${BASE}/app`);
+await halluc.waitForSelector('.mission-practice .mic', { timeout: 15000 });
+await halluc.click('.mission-practice .mic');
+await halluc.waitForFunction(() => (document.body.textContent || '').includes('소리가 잘 안 잡혔어요'), null, { timeout: 20000 });
+check('무음 환각은 게이트 안내("소리가 잘 안 잡혔어요")', true);
+check('무음 환각은 채점하지 않는다(점수 없음)', (await halluc.locator('.score').count()) === 0);
+await halluc.close();
+
+/* ── ⑨ 429 Retry-After: 한 번 기다렸다 재시도해 성공한다 ──
+   연속 녹음이 Groq 분당 한도(또는 앱 자체 한도)에 닿으면 서버가 429 + Retry-After를 돌려준다.
+   클라이언트는 그만큼(≤8초) 기다렸다 **한 번** 다시 보내고, 성공하면 학습이 끊기지 않는다. */
+const busy = await browser.newPage();
+busy.on('pageerror', (e) => console.log('  [pageerror]', e.message));
+await busy.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ valid: true }) }));
+await busy.route('**/app/api/groq', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{}' } }] }) }));
+let busyCalls = 0;
+let busyFirstAt = 0;
+let busySecondAt = 0;
+let busyTarget = '';
+await busy.route('**/app/api/stt', (r) => {
+  busyCalls++;
+  if (busyCalls === 1) {
+    busyFirstAt = Date.now();
+    return r.fulfill({ status: 429, contentType: 'application/json', headers: { 'Retry-After': '1' }, body: JSON.stringify({ error: { message: '요청이 너무 잦아요.' } }) });
+  }
+  busySecondAt = Date.now();
+  return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: busyTarget }) });
+});
+await seedKey(busy);
+await busy.addInitScript(MIC_STUB);
+await busy.goto(`${BASE}/app`);
+await busy.waitForSelector('.mission-practice .mic', { timeout: 15000 });
+busyTarget = await busy.evaluate(() => document.querySelector('.mission-practice .target')?.textContent?.trim() || '');
+await busy.click('.mission-practice .mic');
+await busy.waitForSelector('.score', { timeout: 20000 });
+check('429면 한 번 재시도한다(호출 2회)', busyCalls === 2, String(busyCalls));
+check('Retry-After(1초)만큼 기다렸다 재시도', busySecondAt - busyFirstAt >= 900, `${busySecondAt - busyFirstAt}ms`);
+check('재시도가 성공하면 채점까지 이어짐', /정확도 \d+점/.test(await busy.evaluate(() => document.querySelector('.score')?.textContent || '')));
+await busy.close();
+
+/* ── ⑩ 429가 두 번이면 포기하고 '서버가 바빠요'를 안내한다(무한 대기 없음) ── */
+const busy2 = await browser.newPage();
+busy2.on('pageerror', (e) => console.log('  [pageerror]', e.message));
+await busy2.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ valid: true }) }));
+await busy2.route('**/app/api/groq', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{}' } }] }) }));
+let busy2Calls = 0;
+await busy2.route('**/app/api/stt', (r) => {
+  busy2Calls++;
+  return r.fulfill({ status: 429, contentType: 'application/json', headers: { 'Retry-After': '1' }, body: JSON.stringify({ error: { message: '요청이 너무 잦아요.' } }) });
+});
+await seedKey(busy2);
+await busy2.addInitScript(MIC_STUB);
+await busy2.goto(`${BASE}/app`);
+await busy2.waitForSelector('.mission-practice .mic', { timeout: 15000 });
+await busy2.click('.mission-practice .mic');
+await busy2.waitForFunction(() => (document.body.textContent || '').includes('서버가 바빠요'), null, { timeout: 20000 });
+check('429가 두 번이면 "잠시 후 다시(서버가 바빠요)" 안내', true);
+check('재시도는 한 번만(호출 2회)', busy2Calls === 2, String(busy2Calls));
+await busy2.close();
 
 await browser.close();
 finish('20-stt');

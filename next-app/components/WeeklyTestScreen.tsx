@@ -11,7 +11,7 @@ import '../app/screens.css';
 import { todayKey } from '../lib/dates';
 import { useEffect, useRef, useState } from 'react';
 import type { Mode } from './NavBar';
-import { patternsForTest, recordWeeklyTest, lastWeeklyTest, type WeeklyTestResult } from '../lib/weeklyTest';
+import { patternsForTest, recordWeeklyTest, lastWeeklyTest, weeklyMetrics, type WeeklyTestResult } from '../lib/weeklyTest';
 import { detectPatternUse, PATTERN_STEMS } from '../lib/transfer';
 import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
 import { markPracticedToday, bumpSpoken } from '../lib/state';
@@ -37,6 +37,7 @@ export default function WeeklyTestScreen({ onNavigate }: { onNavigate: (m: Mode)
     setStage('speaking');
     try {
       const res = await recordAndTranscribe({
+        detail: 'words', // 단어 간격 기준 WPM(lib/fluency.ts)
         maxMs: TEST_MS + 15000,
         silenceMs: 0, // 스스로 멈추거나 시간이 다 될 때까지
         onElapsed: (ms) => {
@@ -56,9 +57,8 @@ export default function WeeklyTestScreen({ onNavigate }: { onNavigate: (m: Mode)
         setStage('intro');
         return;
       }
-      const words = (res.text.match(/[A-Za-z']+/g) || []).length;
-      const seconds = Math.round((res.durationMs ?? TEST_MS) / 1000);
-      const wpm = seconds > 0 ? Math.round((words / seconds) * 60) : 0;
+      // 단어 타임스탬프가 있으면 WPM은 단어 간격 기준(lib/fluency.ts) — 없으면 예전 계산
+      const { words, seconds, wpm } = weeklyMetrics(res.text, res.durationMs ?? TEST_MS, res.words);
       const used = detectPatternUse(res.text, patterns.map((p) => p.key));
       const record: WeeklyTestResult = { date: todayKey(), seconds, words, wpm, used };
       recordWeeklyTest(record);

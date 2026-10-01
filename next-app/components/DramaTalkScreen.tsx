@@ -17,7 +17,7 @@ import { primeAudio, speakText, stopSpeaking } from './SpeakButton';
 import TtsDegradedChip from './TtsDegradedChip';
 import { bumpSpoken, groqKey, load, markPracticedToday, slowRate } from '../lib/state';
 import { browserSttAvailable, listenOnce } from '../lib/browserStt';
-import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
+import { recordAndTranscribe, STT_PROPER_NOUNS, whisperAvailable } from '../lib/stt';
 import { groqKoJson } from '../lib/aiGuard';
 import { castOf, gradeRecycled, requestDramaAutoplay, speakMatch } from '../lib/drama';
 import { saveFixes, talkSetup, talkSystemPrompt, TALK_TURNS, usedExpressions, validateTalk, voiceOf, type TalkReply } from '../lib/dramaTalk';
@@ -241,7 +241,11 @@ export default function DramaTalkScreen({ onNavigate }: { onNavigate?: (m: Mode)
       const text = useWhisper
         ? (
             await recordAndTranscribe({
-              prompt: 'Taeo, Maya, Jun, Diane, Mr. Grant, Nimbus.',
+              prompt: STT_PROPER_NOUNS,
+              // 이중언어 회화 — 한국어로 말해도 한글로 받아써지도록 언어 자동 감지(예전엔 서버가 영어로 고정했다).
+              // 세그먼트만 받는다(게이트용) — 회화는 WPM을 재지 않으므로 단어 타임스탬프는 불필요.
+              language: 'auto',
+              detail: 'segments',
               silenceMs: 1800,
               maxMs: 20000,
               registerStop: (f) => (stopRec.current = f),
