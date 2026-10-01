@@ -21,15 +21,46 @@ export interface MinimalPair {
   bKr: string;
   /** a가 들어간 실전 문장 — 훈련이 곧바로 업무 발화가 되도록 */
   sentence: { en: string; kr: string };
+  /**
+   * 기능 부하(functional load) — 이 대립이 뜻을 가르는 단어 짝을 얼마나 많이 만드는가.
+   * Catford/Brown의 FL 순위와 Munro & Derwing의 '고FL 하나가 저FL 두셋보다 이해도에
+   * 더 크게 작용한다'는 결과를 따라, 소리 커리큘럼(lib/soundTrack.ts)이 high부터 투입한다.
+   * 축 단위로 매긴 값이라 같은 축의 쌍은 같은 값을 가진다(buildPairs에서 자동 부여).
+   */
+  fl?: FunctionalLoad;
 }
 
-const PAIRS: Partial<Record<LapseKey, MinimalPair[]>> = {
+export type FunctionalLoad = 'high' | 'mid' | 'low';
+
+/** 축별 기능 부하 — r/l·f/p·v/b·유성/무성·장단모음·애/에·어말 자음은 high, th·z·sh·ch는 mid. */
+export const FUNCTIONAL_LOAD: Partial<Record<LapseKey, FunctionalLoad>> = {
+  'r-l': 'high',
+  'f-p': 'high',
+  'v-b': 'high',
+  voicing: 'high',
+  'vowel-long': 'high',
+  'vowel-ae-e': 'high',
+  'final-consonant': 'high',
+  th: 'mid',
+  'z-s': 'mid',
+  'sh-s': 'mid',
+  'ch-j': 'mid',
+};
+
+export function functionalLoadOf(key: string): FunctionalLoad {
+  return FUNCTIONAL_LOAD[key as LapseKey] ?? 'low';
+}
+
+/** 원본 — fl은 아래 buildPairs가 축 기준으로 채운다(쌍마다 손으로 적으면 어긋난다). */
+const RAW: Partial<Record<LapseKey, MinimalPair[]>> = {
   'r-l': [
     { a: 'right', b: 'light', aKr: '맞는', bKr: '가벼운/빛', sentence: { en: "You're right about the timeline.", kr: '일정에 대해서는 말씀이 맞습니다.' } },
     { a: 'cloud', b: 'crowd', aKr: '클라우드', bKr: '군중', sentence: { en: "We're moving the workloads to the cloud this quarter.", kr: '이번 분기에 워크로드를 클라우드로 옮깁니다.' } },
     { a: 'collect', b: 'correct', aKr: '수집하다', bKr: '올바른', sentence: { en: 'We collect usage logs from every node.', kr: '모든 노드에서 사용 로그를 수집합니다.' } },
     { a: 'rate', b: 'late', aKr: '비율', bKr: '늦은', sentence: { en: 'The renewal rate went up last quarter.', kr: '지난 분기에 갱신율이 올랐습니다.' } },
     { a: 'arrive', b: 'alive', aKr: '도착하다', bKr: '살아 있는', sentence: { en: 'The signed contract should arrive by Friday.', kr: '서명된 계약서는 금요일까지 도착할 겁니다.' } },
+    { a: 'wrong', b: 'long', aKr: '틀린', bKr: '긴', sentence: { en: 'Sorry, I sent the wrong file.', kr: '죄송합니다, 파일을 잘못 보냈습니다.' } },
+    { a: 'read', b: 'lead', aKr: '읽다', bKr: '이끌다', sentence: { en: 'Please read the email first.', kr: '먼저 이메일을 읽어 주세요.' } },
   ],
   'f-p': [
     { a: 'file', b: 'pile', aKr: '파일', bKr: '더미', sentence: { en: "I'll send the file right after this call.", kr: '통화 끝나고 바로 파일 보내드릴게요.' } },
@@ -37,6 +68,7 @@ const PAIRS: Partial<Record<LapseKey, MinimalPair[]>> = {
     { a: 'fast', b: 'past', aKr: '빠른', bKr: '과거', sentence: { en: 'The rollout was faster than we expected.', kr: '배포가 예상보다 빨랐습니다.' } },
     { a: 'coffee', b: 'copy', aKr: '커피', bKr: '사본', sentence: { en: 'Shall we grab coffee before the demo?', kr: '데모 전에 커피 한잔 할까요?' } },
     { a: 'feel', b: 'peel', aKr: '느끼다', bKr: '껍질을 벗기다', sentence: { en: 'I feel confident we can close this quarter.', kr: '이번 분기에 마무리할 수 있다고 봅니다.' } },
+    { a: 'full', b: 'pull', aKr: '가득 찬', bKr: '당기다', sentence: { en: 'The disk is almost full.', kr: '디스크가 거의 다 찼습니다.' } },
   ],
   'v-b': [
     { a: 'very', b: 'berry', aKr: '매우', bKr: '베리', sentence: { en: 'That would be very helpful, thank you.', kr: '그렇게 해주시면 큰 도움이 됩니다, 감사합니다.' } },
@@ -63,6 +95,8 @@ const PAIRS: Partial<Record<LapseKey, MinimalPair[]>> = {
     { a: 'ship', b: 'sip', aKr: '출시하다', bKr: '홀짝이다', sentence: { en: 'We ship updates every two weeks.', kr: '저희는 2주마다 업데이트를 내보냅니다.' } },
     { a: 'sheet', b: 'seat', aKr: '시트/표', bKr: '좌석', sentence: { en: "I'll share the sheet with the numbers.", kr: '숫자가 담긴 시트를 공유드릴게요.' } },
     { a: 'shift', b: 'sift', aKr: '변화', bKr: '거르다', sentence: { en: "There's been a shift in their priorities.", kr: '그쪽 우선순위에 변화가 있었습니다.' } },
+    { a: 'show', b: 'so', aKr: '보여주다', bKr: '그래서', sentence: { en: 'Let me show you the demo.', kr: '데모를 보여드리겠습니다.' } },
+    { a: 'short', b: 'sort', aKr: '짧은', bKr: '분류하다', sentence: { en: "Let's keep the meeting short.", kr: '회의는 짧게 하시죠.' } },
   ],
   'ch-j': [
     { a: 'cheap', b: 'jeep', aKr: '저렴한', bKr: '지프', sentence: { en: "The entry tier isn't cheap, but it scales well.", kr: '엔트리 등급이 저렴하진 않지만 확장성이 좋습니다.' } },
@@ -74,11 +108,13 @@ const PAIRS: Partial<Record<LapseKey, MinimalPair[]>> = {
     { a: 'leave', b: 'live', aKr: '남기다', bKr: '살다', sentence: { en: "I'll leave the deck with you to review.", kr: '검토하시도록 자료를 남겨드리겠습니다.' } },
     { a: 'feel', b: 'fill', aKr: '느끼다', bKr: '채우다', sentence: { en: 'Let me know how you feel about the terms.', kr: '조건에 대해 어떻게 생각하시는지 알려주세요.' } },
     { a: 'least', b: 'list', aKr: '최소한', bKr: '목록', sentence: { en: 'At least three teams are already using it.', kr: '최소 세 팀이 이미 사용 중입니다.' } },
+    { a: 'seat', b: 'sit', aKr: '좌석', bKr: '앉다', sentence: { en: 'Please take a seat.', kr: '앉으세요.' } },
   ],
   'vowel-ae-e': [
     { a: 'bad', b: 'bed', aKr: '나쁜', bKr: '침대', sentence: { en: "The latency isn't bad at all for this region.", kr: '이 리전 기준으로는 지연이 전혀 나쁘지 않습니다.' } },
     { a: 'sand', b: 'send', aKr: '모래', bKr: '보내다', sentence: { en: "I'll send the revised quote today.", kr: '수정 견적서를 오늘 보내드리겠습니다.' } },
     { a: 'end', b: 'and', aKr: '끝', bKr: '그리고', sentence: { en: "Let's wrap this up by the end of the month.", kr: '이번 달 안으로 마무리하시죠.' } },
+    { a: 'had', b: 'head', aKr: '가졌다', bKr: '머리', sentence: { en: 'We had a good meeting yesterday.', kr: '어제 좋은 회의를 했습니다.' } },
   ],
   vowel: [
     { a: 'bug', b: 'bag', aKr: '버그', bKr: '가방', sentence: { en: 'We fixed that bug in last night’s release.', kr: '그 버그는 어젯밤 릴리스에서 고쳤습니다.' } },
@@ -90,13 +126,38 @@ const PAIRS: Partial<Record<LapseKey, MinimalPair[]>> = {
     { a: 'right', b: 'ride', aKr: '맞는', bKr: '타다', sentence: { en: "That's the right approach for your team size.", kr: '팀 규모를 보면 그 방식이 맞습니다.' } },
     { a: 'lock', b: 'log', aKr: '잠그다', bKr: '기록', sentence: { en: "Let's lock the scope before we price it.", kr: '가격을 내기 전에 범위를 확정하시죠.' } },
     { a: 'card', b: 'cart', aKr: '카드', bKr: '카트', sentence: { en: 'We can put it on the corporate card.', kr: '법인 카드로 결제할 수 있습니다.' } },
+    // 어말 자음·자음군(ㅡ 삽입) — 1주차 소리 커리큘럼이 먼저 쓰는 A1/A2 단어
+    { a: 'need', b: 'neat', aKr: '필요하다', bKr: '깔끔한', sentence: { en: 'We need the data by Monday.', kr: '월요일까지 데이터가 필요합니다.' } },
+    { a: 'hard', b: 'heart', aKr: '어려운', bKr: '심장', sentence: { en: 'The first month was hard.', kr: '첫 달은 힘들었습니다.' } },
+    { a: 'test', b: 'text', aKr: '테스트', bKr: '문자', sentence: { en: 'We can test it this week.', kr: '이번 주에 테스트할 수 있습니다.' } },
+    { a: 'site', b: 'side', aKr: '사이트', bKr: '쪽', sentence: { en: 'Please check the site first.', kr: '먼저 사이트를 확인해 주세요.' } },
   ],
   voicing: [
     { a: 'bag', b: 'back', aKr: '가방', bKr: '뒤로', sentence: { en: 'Could you bring that back to your team?', kr: '그 건을 팀에 다시 전달해 주실 수 있을까요?' } },
     { a: 'seed', b: 'seat', aKr: '씨앗', bKr: '좌석', sentence: { en: 'We added ten more seats to the plan.', kr: '플랜에 좌석 10개를 추가했습니다.' } },
     { a: 'proved', b: 'proof', aKr: '입증했다', bKr: '증거', sentence: { en: 'The pilot proved the performance claims.', kr: '파일럿에서 성능 수치가 입증됐습니다.' } },
+    { a: 'pay', b: 'bay', aKr: '지불하다', bKr: '만(灣)', sentence: { en: 'You pay only for what you use.', kr: '쓴 만큼만 비용을 내시면 됩니다.' } },
   ],
 };
+
+function buildPairs(raw: typeof RAW): Partial<Record<LapseKey, MinimalPair[]>> {
+  const out: Partial<Record<LapseKey, MinimalPair[]>> = {};
+  for (const [key, list] of Object.entries(raw) as [LapseKey, MinimalPair[]][]) {
+    out[key] = list.map((p) => ({ ...p, fl: p.fl ?? functionalLoadOf(key) }));
+  }
+  return out;
+}
+
+const PAIRS = buildPairs(RAW);
+
+/** 모든 쌍을 축 이름과 함께 평탄하게 — 커리큘럼·검사가 세거나 고를 때 쓴다. */
+export function allPairs(): (MinimalPair & { axis: LapseKey })[] {
+  const out: (MinimalPair & { axis: LapseKey })[] = [];
+  for (const [axis, list] of Object.entries(PAIRS) as [LapseKey, MinimalPair[]][]) {
+    for (const p of list) out.push({ ...p, axis });
+  }
+  return out;
+}
 
 /** 이 축에 훈련 세트가 있는가 — 없는 축(누락·기타)은 버튼을 감춘다. */
 export function hasDrill(key: string): boolean {
