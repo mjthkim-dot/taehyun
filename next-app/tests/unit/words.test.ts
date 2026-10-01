@@ -1,21 +1,38 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import bank from '../../data/wordBank.json';
 import {
   allWords, clozeOf, dueWords, getPacks, gradeWord, makeQuiz, nextNewWords, newQuotaLeft, progress,
   quizKindFor, setWordConfig, todayQueue, wordStats, wordStatsBySituation, INTERVAL_DAYS,
+  AI_EXCLUDED_PACKS, bumpWordsSpoken, generateMoreWords, speakQuizAvailable, speakScore, wordsSpokenToday, SPEAK_PASS, WORDS_SPEAK_GOAL,
 } from '../../lib/words';
 import { wordsGradedToday } from '../../lib/wordProgress';
 import { SITUATION_BY_ID, rootOf } from '../../lib/ontology/schema';
+import { KONGLISH_RULES } from '../../lib/l1Grammar';
+import { VOCAB_DOMAINS } from '../../lib/domainVocab';
+
+const ROOT = path.resolve(__dirname, '../..');
+type RawBank = { packs: { id: string; words: string[][] }[] };
+const RAW = bank as RawBank;
 
 beforeEach(() => localStorage.clear());
 
 describe('단어 뱅크', () => {
   test('모든 원본 항목은 6칸(단어·품사·뜻·레벨·예문·예문뜻)', () => {
-    for (const p of (bank as { packs: { words: unknown[][] }[] }).packs) for (const w of p.words) expect(w.length).toBe(6);
+    for (const p of RAW.packs) for (const w of p.words) expect(w.length).toBe(6);
   });
-  test('500개 이상, 팩 13+직무 6', () => {
+  test('500개 이상, 팩 16(M8: konglish·numbers 추가)+직무 연어 팩', () => {
     expect(allWords().length).toBeGreaterThanOrEqual(500);
-    expect(getPacks().length).toBeGreaterThanOrEqual(19);
+    expect(RAW.packs.length).toBe(16);
+    expect(getPacks().length).toBe(RAW.packs.length + VOCAB_DOMAINS.length);
+  });
+  test('lib/words.ts 머리 주석의 팩·단어 수가 JSON과 같다(낡은 수치를 두지 않는다)', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'lib/words.ts'), 'utf8');
+    const m = src.match(/wordBank\.json\((\d+)개 상황 팩 (\d+)개/);
+    expect(m, '머리 주석 "data/wordBank.json(N개 상황 팩 M개"').toBeTruthy();
+    expect(Number(m![1])).toBe(RAW.packs.length);
+    expect(Number(m![2])).toBe(RAW.packs.reduce((a, p) => a + p.words.length, 0));
   });
   test('단어 id는 유일하다', () => {
     const ids = allWords().map((w) => w.id);
@@ -153,6 +170,172 @@ describe('오답 보기 — 정답과 같은 뜻은 쓰지 않는다', () => {
       for (const [k, o] of q.options.entries()) if (k !== q.answer && [...stems(o)].some((t) => right.has(t))) bad++;
     }
     expect(bad).toBe(0);
+  });
+});
+
+describe('M8 콩글리시·숫자 팩', () => {
+  test('basics 다음에 konglish·numbers, 각 10개(6칸 튜플), 중복 정리 뒤에도 10개', () => {
+    const ids = RAW.packs.map((p) => p.id);
+    expect(ids.slice(0, 3)).toEqual(['basics', 'konglish', 'numbers']);
+    for (const id of ['konglish', 'numbers']) {
+      const raw = RAW.packs.find((p) => p.id === id)!;
+      expect(raw.words.length).toBe(10);
+      for (const w of raw.words) expect(w.length).toBe(6);
+      // 팩을 가로지르는 중복 정리(dedupeAcrossPacks)가 한 장도 지우지 않는다
+      expect(getPacks().find((p) => p.id === id)!.words.length).toBe(10);
+      // 노출 순서도 basics 다음
+      expect(getPacks().findIndex((p) => p.id === id)).toBeLessThanOrEqual(2);
+    }
+  });
+  test('뱅크 전체에 같은 표제어(같은 뜻)가 두 번 없다 — 새 팩이 중복을 들여오지 않았다', () => {
+    const key = (w: string) => w.toLowerCase().replace(/-/g, ' ').replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+    const seen = new Map<string, string>();
+    for (const w of allWords().filter((x) => x.pack === 'konglish' || x.pack === 'numbers')) {
+      expect(seen.has(key(w.w)), w.id).toBe(false);
+      seen.set(key(w.w), w.id);
+    }
+  });
+  test('콩글리시 팩은 회화 교정 규칙(lib/l1Grammar KONGLISH_RULES)과 같은 10개 집합', () => {
+    // 규칙 id ↔ 바른 영어 표제어
+    const expectHead: Record<string, string> = {
+      'hand-phone': 'cell phone', notebook: 'laptop', aircon: 'AC', remocon: 'remote', handle: 'steering wheel',
+      'after-service': 'warranty', sns: 'social media', 'one-room': 'studio', 'manner-mode': 'silent mode', event: 'promotion',
+    };
+    expect(KONGLISH_RULES.map((r) => r.id).sort()).toEqual(Object.keys(expectHead).sort());
+    const heads = getPacks().find((p) => p.id === 'konglish')!.words.map((w) => w.w);
+    expect(heads.sort()).toEqual(Object.values(expectHead).sort());
+    // 표제어는 바른 영어, 뜻에는 콩글리시가 괄호로
+    for (const w of getPacks().find((p) => p.id === 'konglish')!.words) {
+      expect(w.kr, w.id).toMatch(/\(콩글리시: .+\)/);
+      expect(w.lv === 'A1' || w.lv === 'A2', w.id).toBe(true);
+    }
+  });
+  test('숫자 팩 — A1·A2, 예문은 자연스러운 한 문장(표제어 포함), 가격·일정·SLA·용량이 모두 있다', () => {
+    const ws = getPacks().find((p) => p.id === 'numbers')!.words;
+    for (const w of ws) {
+      expect(w.lv === 'A1' || w.lv === 'A2', w.id).toBe(true);
+      expect(w.ex.toLowerCase(), w.id).toContain(w.w.toLowerCase());
+      expect(w.ex.split(/[.!?]\s/).length, w.id).toBe(1);
+    }
+    const all = ws.map((w) => w.w).join(' | ');
+    for (const needle of ['dollars', 'next week', 'percent', 'terabytes', 'gigabytes', 'quarter', 'people', 'korea time', 'version']) expect(all.toLowerCase(), needle).toContain(needle);
+  });
+  test('두 팩은 AI로 늘리지 않는다', async () => {
+    expect([...AI_EXCLUDED_PACKS].sort()).toEqual(['konglish', 'numbers']);
+    localStorage.setItem('va_groq_key', JSON.stringify('gsk_test_key'));
+    expect(await generateMoreWords('konglish')).toBe(0);
+    expect(await generateMoreWords('numbers')).toBe(0);
+  });
+});
+
+describe('M8 말하기 문항(quizKindFor speak)', () => {
+  test('받아쓰기가 가능하면 상자 2·4는 speak — 다른 상자 분포는 그대로', () => {
+    expect(quizKindFor(2, 0, true)).toBe('speak');
+    expect(quizKindFor(2, 1, true)).toBe('speak');
+    expect(quizKindFor(4, 0, true)).toBe('speak');
+    expect(quizKindFor(4, 2, true)).toBe('speak');
+    for (const box of [0, 1, 3, 5, 6]) for (const seed of [0, 1, 2]) expect(quizKindFor(box, seed, true), `box ${box}`).toBe(quizKindFor(box, seed, false));
+    expect(quizKindFor(0, 0, true)).toBe('meaning');
+    expect(quizKindFor(3, 1, true)).toBe('cloze');
+    expect(quizKindFor(5, 1, true)).toBe('listen');
+  });
+  test('STT가 불가하면(단위 테스트 환경 = 마이크·브라우저 인식 없음) 기존 유형', () => {
+    expect(speakQuizAvailable()).toBe(false);
+    expect(quizKindFor(2, 0)).toBe('meaning');
+    expect(quizKindFor(2, 1)).toBe('reverse');
+    expect(['cloze', 'listen', 'reverse']).toContain(quizKindFor(4, 1));
+    expect(quizKindFor(2, 0, false)).toBe('meaning');
+    expect(quizKindFor(4, 0, false)).toBe('cloze');
+  });
+  test('플래그 wordSpeak가 꺼져 있으면 STT가 있어도 speak가 아니다', async () => {
+    localStorage.setItem('va_flags', JSON.stringify({ wordSpeak: false }));
+    vi.resetModules();
+    vi.doMock('../../lib/stt', () => ({ whisperAvailable: () => true, STT_PROPER_NOUNS: '' }));
+    vi.doMock('../../lib/browserStt', () => ({ browserSttAvailable: () => true }));
+    const fresh = await import('../../lib/words');
+    expect(fresh.speakQuizAvailable()).toBe(false);
+    expect(fresh.quizKindFor(2, 0)).toBe('meaning');
+    localStorage.removeItem('va_flags');
+    vi.resetModules();
+    const on = await import('../../lib/words');
+    expect(on.speakQuizAvailable()).toBe(true);
+    expect(on.quizKindFor(2, 0)).toBe('speak');
+    expect(on.quizKindFor(4, 0)).toBe('speak');
+    expect(on.quizKindFor(3, 0)).toBe('reverse');
+    vi.doUnmock('../../lib/stt');
+    vi.doUnmock('../../lib/browserStt');
+    vi.resetModules();
+  });
+  test('makeQuiz speak — 뜻·예문 번역을 묻고 보기는 없다', () => {
+    const w = allWords().find((x) => x.pack === 'numbers')!;
+    const q = makeQuiz(w, 'speak', 3);
+    expect(q.kind).toBe('speak');
+    expect(q.prompt).toBe(w.kr);
+    expect(q.sub).toBe(w.exKr);
+    expect(q.options).toEqual([]);
+    expect(q.answer).toBe(-1);
+  });
+  test('speakScore — 예문 일치 ≥60 통과, 표제어 포함 +10(최대 100), 빈 발화 0', () => {
+    const w = { w: 'warranty', ex: 'Is the laptop still under warranty?' };
+    expect(speakScore(w, 'is the laptop still under warranty').score).toBe(100);
+    expect(speakScore(w, '').score).toBe(0);
+    expect(speakScore(w, '').pass).toBe(false);
+    // 표제어가 들어가면 같은 일치도라도 10점 더
+    const withHead = speakScore(w, 'the laptop under warranty');
+    const noHead = speakScore({ w: 'laptop', ex: w.ex }, 'is the still under warranty');
+    expect(withHead.hasHead).toBe(true);
+    expect(noHead.hasHead).toBe(false);
+    expect(withHead.pass).toBe(true);
+    expect(SPEAK_PASS).toBe(60);
+    // 전혀 다른 말은 실패
+    expect(speakScore(w, 'good morning everyone').pass).toBe(false);
+    // 여러 단어 표제어도 순서대로 들어 있어야 한다
+    expect(speakScore({ w: 'two terabytes', ex: 'You get two terabytes of storage.' }, 'you get two terabytes of storage').hasHead).toBe(true);
+    expect(speakScore({ w: 'two terabytes', ex: 'You get two terabytes of storage.' }, 'you get terabytes two of storage').hasHead).toBe(false);
+  });
+  test("'오늘 말한 단어' 카운터는 일별(va_words_spoken)", () => {
+    expect(WORDS_SPEAK_GOAL).toBe(4);
+    expect(wordsSpokenToday()).toBe(0);
+    expect(bumpWordsSpoken()).toBe(1);
+    expect(bumpWordsSpoken()).toBe(2);
+    expect(wordsSpokenToday()).toBe(2);
+    localStorage.setItem('va_words_spoken', JSON.stringify({ date: '2000-01-01', count: 9 }));
+    expect(wordsSpokenToday()).toBe(0);
+    localStorage.setItem('va_words_spoken', JSON.stringify({ date: 'x', count: 'bad' }));
+    expect(wordsSpokenToday()).toBe(0);
+  });
+});
+
+describe('M8 번들 — 단어 탭 정적 import 그래프에 원고가 없다', () => {
+  /** 상대 import만 따라가는 작은 그래프 탐색(tests/perf/words-chunk.mjs는 빌드 산출물로 같은 것을 본다) */
+  function graph(entry: string): string[] {
+    const seen = new Set<string>();
+    const resolve = (from: string, spec: string) => {
+      const base = path.resolve(path.dirname(from), spec);
+      for (const c of [base, `${base}.ts`, `${base}.tsx`, `${base}.json`, path.join(base, 'index.ts')]) if (fs.existsSync(c) && fs.statSync(c).isFile()) return c;
+      return null;
+    };
+    const walk = (f: string) => {
+      if (seen.has(f)) return;
+      seen.add(f);
+      if (f.endsWith('.json')) return;
+      const src = fs.readFileSync(f, 'utf8');
+      for (const m of src.matchAll(/(?:from|import\()\s*['"](\.[^'"]+)['"]/g)) {
+        const r = resolve(f, m[1]);
+        if (r) walk(r);
+      }
+    };
+    walk(path.join(ROOT, entry));
+    return [...seen].map((f) => path.relative(ROOT, f));
+  }
+  test('WordsScreen·SpeakQuiz·lib/words가 dramaSeed·lib/drama·habits·dailyMission을 끌고 오지 않는다', () => {
+    const files = graph('components/WordsScreen.tsx').concat(graph('components/words/SpeakQuiz.tsx'), graph('lib/words.ts'));
+    expect(files).toContain('lib/align.ts');
+    expect(files.some((f) => f === 'components/words/SpeakQuiz.tsx')).toBe(true);
+    for (const bad of ['data/dramaSeed.json', 'lib/drama.ts', 'lib/habits.ts', 'lib/dailyMission.ts', 'store/useLessonStore.ts']) expect(files, bad).not.toContain(bad);
+  });
+  test('lib/align은 아무것도 import하지 않는다(채점이 원고를 끌고 오지 않게)', () => {
+    expect(graph('lib/align.ts')).toEqual(['lib/align.ts']);
   });
 });
 

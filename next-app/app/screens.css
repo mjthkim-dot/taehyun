@@ -5741,4 +5741,139 @@
   flex-direction: column;
   gap: 8px;
   padding: 4px 0 8px;
+/* ── M8: 단어 '예문 말하기' 문항(components/words/SpeakQuiz) — .wq-speak-* ──
+ * 카드는 기존 .wd-q 위에 얹고, 마이크는 듣기 문항(.wd-listen)과 같은 크기·질감으로 — 단어 탭 안에서
+ * 같은 문법으로 보이게. 터치 대상 44px 이상, 390px 폭에서 가로 넘침 없음. */
+.wq-speak {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.wq-speak-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.wq-speak-goal {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+.wq-speak-card {
+  gap: 10px;
+}
+.wq-speak-kr {
+  font-size: clamp(1.3rem, 6.5vw, 1.8rem);
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.wq-speak-exkr {
+  font-size: 0.98rem;
+  line-height: 1.5;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.wq-speak-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.wq-speak-hint b {
+  color: var(--primary-dk);
+}
+.wq-speak-ex {
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.55;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--surface2);
+  overflow-wrap: anywhere;
+}
+.wq-speak-ex .ok {
+  color: var(--green);
+}
+.wq-speak-ex .miss {
+  color: var(--red);
+  text-decoration: underline dotted;
+}
+.wq-speak-ex.pass {
+  background: var(--green-soft);
+}
+.wq-speak-said {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.wq-speak-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+}
+.wq-speak-actions .btn {
+  min-height: 48px;
+  flex: 1;
+}
+.wq-speak-mic {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  border: none;
+  font-size: 2rem;
+  color: var(--on-primary);
+  background: var(--grad-primary);
+  box-shadow: 0 6px 0 var(--lip-primary), 0 18px 30px -12px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+.wq-speak-mic.on {
+  animation: gm-pulse 1.4s ease-in-out infinite;
+}
+.wq-speak-mic:active {
+  transform: translateY(5px);
+  box-shadow: none;
+}
+.wq-speak-mic:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+.wq-speak-pass {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--green);
+}
+.wq-speak-skip {
+  align-self: center;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.wq-speak-self {
+  min-height: 48px;
+}
+.wq-speak-msg {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-align: center;
+}
+.wq-speak-loading {
+  min-height: 150px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }

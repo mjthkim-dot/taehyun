@@ -9,11 +9,14 @@ import '../app/screens.css';
  * 세 화면: 허브(오늘의 단어·상황 팩) → 세션(3D 플립 카드 + 4지선다) → 완료 요약.
  * 세션은 복습 먼저, 그다음 신규. 신규 단어는 먼저 카드로 "만나고"(앞면 영어 →
  * 탭하면 3D로 뒤집혀 뜻·예문) 곧바로 뜻 고르기로 확인한다. 오답은 3문제 뒤에 다시.
+ * 상자 2·4 복습은 '예문 말하기'(M8, components/words/SpeakQuiz — 받아쓰기 코드라 dynamic).
  */
+import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { speakText, stopSpeaking } from './SpeakButton';
 import { haptic } from '../lib/haptics';
 import {
+  AI_EXCLUDED_PACKS,
   DAILY_CHOICES,
   generateMoreWords,
   getPacks,
@@ -30,10 +33,14 @@ import {
   wordStats,
   type QueueItem,
   type Quiz,
+  type SpeakQuizResult,
   type Word,
   type WordPack,
 } from '../lib/words';
 import { groqKey } from '../lib/state';
+
+// 말하기 문항 — 녹음·받아쓰기·비교 재생 코드는 문항이 나올 때만 받는다
+const SpeakQuiz = dynamic(() => import('./words/SpeakQuiz'), { ssr: false, loading: () => <div className="wd-q wq-speak-loading">🎙 준비 중…</div> });
 
 type View = 'hub' | 'session' | 'done' | 'pack';
 
@@ -169,6 +176,23 @@ export default function WordsScreen() {
     if (ok) timer.current = setTimeout(() => goNext(nextSteps), 650);
   }
 
+  /**
+   * 말하기 문항 결과 — 채점·재출제는 고르기(choose)와 같은 규칙. 다음으로 넘어가는 건 SpeakQuiz가
+   * 정한다(통과: 원어민 재생 뒤 저절로 onNext, 실패: '다음' 버튼) — 여기선 타이머를 걸지 않는다.
+   */
+  function speakGraded(ok: boolean, _r: SpeakQuizResult) {
+    if (!cur) return;
+    gradeWord(cur.item.word.id, ok, { retry: cur.retry });
+    setResult((r) => ({ ok: r.ok + (ok && !cur.retry ? 1 : 0), total: r.total + (cur.retry ? 0 : 1), fresh: r.fresh }));
+    let nextSteps = steps;
+    if (!ok && !cur.retry) {
+      nextSteps = steps.slice();
+      nextSteps.splice(Math.min(idx + 4, nextSteps.length), 0, { item: { ...cur.item, kind: 'review' }, met: true, retry: true });
+      setSteps(nextSteps);
+    }
+    pendingSteps.current = nextSteps;
+  }
+
   const pendingSteps = useRef<Step[] | null>(null);
   const revealRef = useRef<HTMLDivElement | null>(null);
   function goNext(nextSteps = pendingSteps.current || steps) {
@@ -244,6 +268,14 @@ export default function WordsScreen() {
                 {flipped ? '외웠어요 → 확인 문제' : '뜻을 봤어요 →'}
               </button>
             </div>
+          </div>
+        ) : quiz && quiz.kind === 'speak' ? (
+          <div className="wd-stage">
+            <div className={`wd-tag${cur.retry ? ' retry' : ''}`}>
+              {cur.retry ? '다시 한 번' : '말해 보기'}
+              {!cur.retry && box > 0 && <span className="wd-box"> · 상자 {box}</span>}
+            </div>
+            <SpeakQuiz key={`${idx}-${w.id}`} word={w} retry={cur.retry} onGrade={speakGraded} onNext={() => goNext()} />
           </div>
         ) : quiz ? (
           <div className="wd-stage">
@@ -348,7 +380,7 @@ export default function WordsScreen() {
               </p>
             </div>
           </div>
-          {groqKey() && (
+          {groqKey() && !AI_EXCLUDED_PACKS.has(p.id) && (
             <button type="button" className="btn wd-gen" disabled={genBusy} onClick={() => void genMore(p)}>
               {genBusy ? 'AI가 이 상황의 단어를 고르는 중…' : '✨ 이 상황 단어 20개 더 만들기'}
             </button>

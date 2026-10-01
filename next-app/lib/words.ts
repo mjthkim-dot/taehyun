@@ -1,15 +1,18 @@
 /**
  * 상황별 단어 엔진 — "단어를 최대한 많이, 여러 상황을 고려해서".
  *
- * 콘텐츠: data/wordBank.json(13개 상황 팩 449개, 단어마다 예문·뜻·레벨) +
- * domainVocab(직무 연어 61개)을 하나의 뱅크로 합치고, 모든 단어에 온톨로지의
- * 상황 id를 붙인다(학습 지도가 상황별 단어 숙련도를 읽는다). 뱅크가 바닥나면
- * 팩마다 AI가 이미 아는 단어를 빼고 20개씩 더 만든다 — 사실상 무제한.
+ * 콘텐츠: data/wordBank.json(16개 상황 팩 575개, 단어마다 예문·뜻·레벨 — 수치는
+ * tests/unit/words.test.ts가 JSON과 대조한다) + domainVocab(직무 연어 61개)을 하나의
+ * 뱅크로 합치고, 모든 단어에 온톨로지의 상황 id를 붙인다(학습 지도가 상황별 단어
+ * 숙련도를 읽는다). 뱅크가 바닥나면 팩마다 AI가 이미 아는 단어를 빼고 20개씩 더
+ * 만든다 — 사실상 무제한(콩글리시·숫자 팩은 정해진 집합이라 AI로 늘리지 않는다).
  *
  * 학습 방식(많이 외우기 위한 설계):
  *   ① 간격 반복(Leitner 7상자: 당일·1·3·7·16·35·90일) — 잊기 직전에만 다시 본다
  *   ② 하루 신규 할당량(10/20/30/50) — 많이 외우되 복습이 폭발하지 않게
  *   ③ 상자가 오를수록 문제가 어려워진다 — 뜻 고르기 → 영어 고르기 → 예문 빈칸 → 듣고 뜻
+ *      + 상자 2·4에선 **예문 말하기**(M8) — 단어 탭이 발화 0이던 것을 하루 4~8발화로.
+ *      받아쓰기 경로(Whisper 또는 브라우저 인식)가 없거나 플래그가 꺼져 있으면 예전 유형 그대로
  *   ④ 상황 인터리빙 — 고른 팩들을 번갈아 꺼내 같은 상황만 반복하지 않는다
  *   ⑤ 오답은 세션 안에서 3문제 뒤에 다시 — 틀린 채로 끝나지 않는다
  */
@@ -21,6 +24,10 @@ import { groqKoJson, hasHangul } from './aiGuard';
 import { WORD_LOG_KEY, WORD_PROGRESS_KEY, wordLog, type WordDayLog } from './wordProgress';
 import { overall } from './cefrGrowth';
 import { isFocusMode } from './focus';
+import { whisperAvailable } from './stt';
+import { browserSttAvailable } from './browserStt';
+import { isOn } from './flags';
+import { alignedScore, normWords, type AlignedWord } from './align';
 
 export type WordLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
 
@@ -70,8 +77,13 @@ export interface WordConfig {
 export const DAILY_CHOICES = [10, 20, 30, 50];
 export const INTERVAL_DAYS = [0, 1, 3, 7, 16, 35, 90];
 export const MASTER_BOX = 5;
+/** AI로 늘리지 않는 팩 — 콩글리시(교정 규칙 lib/l1Grammar와 같은 10개)·숫자(가격·일정·SLA·용량)는 정해진 집합이다 */
+export const AI_EXCLUDED_PACKS: ReadonlySet<string> = new Set(['konglish', 'numbers']);
+/** '오늘 말한 단어 n/4' — 말하기 문항 하루 목표(상자 2·4 복습이 하루 4~8개쯤 돌아온다) */
+export const WORDS_SPEAK_GOAL = 4;
 const CFG_KEY = 'va_words_cfg';
 const EXTRA_KEY = 'va_words_extra';
+const SPOKEN_KEY = 'va_words_spoken';
 const LEVEL_ORDER: WordLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1'];
 
 type RawWord = [string, string, string, string, string, string];
@@ -195,6 +207,20 @@ export function wordConfig(): WordConfig {
 
 export function setWordConfig(c: Partial<WordConfig>) {
   store(CFG_KEY, { ...wordConfig(), ...c });
+}
+
+/* ── 오늘 말한 단어(말하기 문항 카운터) — va_words_spoken { date, count }, 날이 바뀌면 0부터 ── */
+
+export function wordsSpokenToday(): number {
+  const v = load<{ date?: unknown; count?: unknown }>(SPOKEN_KEY, {});
+  return v && v.date === todayKey() && typeof v.count === 'number' && Number.isFinite(v.count) ? Math.max(0, Math.floor(v.count)) : 0;
+}
+
+/** 말하기 문항에서 단어 하나를 소리 내어 말했다(채점 여부와 무관, 문항당 한 번). 올린 뒤의 값을 돌려준다. */
+export function bumpWordsSpoken(): number {
+  const n = wordsSpokenToday() + 1;
+  store(SPOKEN_KEY, { date: todayKey(), count: n });
+  return n;
 }
 
 export function progress(): Record<string, WordState> {
@@ -353,7 +379,7 @@ export function todayQueue(maxReview = 60): QueueItem[] {
 
 /* ── 문제 ── */
 
-export type QuizKind = 'meaning' | 'reverse' | 'cloze' | 'listen';
+export type QuizKind = 'meaning' | 'reverse' | 'cloze' | 'listen' | 'speak';
 
 export interface Quiz {
   kind: QuizKind;
@@ -362,12 +388,60 @@ export interface Quiz {
   prompt: string;
   /** 보조(예문 번역 등) */
   sub?: string;
+  /** 4지선다 보기 — 말하기 문항은 비어 있다(answer -1) */
   options: string[];
   answer: number;
 }
 
-/** 상자가 오를수록 어렵게 */
-export function quizKindFor(box: number, seed = 0): QuizKind {
+/** 말하기 문항 결과(components/words/SpeakQuiz → WordsScreen → 시도 로그) */
+export interface SpeakQuizResult {
+  /** 표제어 */
+  w: string;
+  /** 말해야 했던 예문 */
+  ex: string;
+  /** 받아쓴 발화(자기확인이면 빈 문자열) */
+  said: string;
+  /** 0~100(자기확인이면 null) */
+  score: number | null;
+  /** 시도 횟수(1~2) */
+  tries: number;
+}
+
+/** 말하기 통과선(0~100) — 드라마 따라 말하기와 같은 LCS F1 60점 */
+export const SPEAK_PASS = 60;
+/** 표제어를 제대로 말했으면 +10 — 문장 전체가 조금 흔들려도 핵심 단어가 나왔으면 통과에 가깝게 */
+export const SPEAK_HEADWORD_BONUS = 10;
+
+/**
+ * 말하기 채점 — 예문 대비 발화 일치도(lib/align, 원고 import 없음). 표제어가 발화 안에
+ * 순서대로 들어 있으면 +10(최대 100). 통과는 ≥ SPEAK_PASS.
+ */
+export function speakScore(word: Pick<Word, 'w' | 'ex'>, said: string): { score: number; pass: boolean; hasHead: boolean; diff: AlignedWord[] } {
+  const a = alignedScore(word.ex, said);
+  const head = normWords(word.w).join(' ');
+  const hasHead = !!head && ` ${normWords(said).join(' ')} `.includes(` ${head} `);
+  const score = a.score > 0 && hasHead ? Math.min(100, a.score + SPEAK_HEADWORD_BONUS) : a.score;
+  return { score, pass: score >= SPEAK_PASS, hasHead, diff: a.diff };
+}
+
+/**
+ * 말하기 문항을 낼 수 있는가 — 받아쓰기 경로(Whisper 또는 브라우저 인식)가 하나라도 있고
+ * 실험 플래그 'wordSpeak'가 켜져 있을 때. 서버 렌더·단위 테스트(마이크 없음)에선 false.
+ */
+export function speakQuizAvailable(): boolean {
+  try {
+    return isOn('wordSpeak') && (whisperAvailable() || browserSttAvailable());
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 상자가 오를수록 어렵게. 상자 2·4는 **예문 말하기**(M8) — 받아쓰기가 안 되는 기기·플래그 꺼짐이면
+ * 예전 유형 그대로(canSpeak는 테스트·호출부가 미리 계산해 넘길 수 있다). 다른 상자의 분포는 불변.
+ */
+export function quizKindFor(box: number, seed = 0, canSpeak: boolean = speakQuizAvailable()): QuizKind {
+  if ((box === 2 || box === 4) && canSpeak) return 'speak';
   if (box <= 1) return 'meaning';
   if (box === 2) return seed % 2 ? 'reverse' : 'meaning';
   if (box === 3) return seed % 2 ? 'cloze' : 'reverse';
@@ -439,6 +513,8 @@ export function clozeOf(word: Word): string | null {
 }
 
 export function makeQuiz(word: Word, kind: QuizKind, seed = Date.now() % 1000): Quiz {
+  // 말하기: 한국어 뜻 + 예문 번역을 보고 영어 예문을 말한다 — 보기가 없고 채점은 SpeakQuiz(alignedScore)가 한다
+  if (kind === 'speak') return { kind, word, prompt: word.kr, sub: word.exKr, options: [], answer: -1 };
   let k = kind;
   const cloze = k === 'cloze' ? clozeOf(word) : null;
   if (k === 'cloze' && !cloze) k = 'reverse';
@@ -540,7 +616,8 @@ export function wordStatsBySituation(rootOf: (id: string) => string): Record<str
 
 export async function generateMoreWords(packId: string, n = 20): Promise<number> {
   const p = getPacks().find((x) => x.id === packId);
-  if (!p) return 0;
+  // 콩글리시·숫자 팩은 정해진 집합 — AI가 '비슷한 것'을 지어내면 교정 규칙(l1Grammar)과 어긋난다
+  if (!p || AI_EXCLUDED_PACKS.has(packId)) return 0;
   const known = p.words.map((w) => w.w).slice(-120).join(', ');
   const target = targetWordLevel();
   const sys = `너는 한국인 IT 클라우드 영업 담당자(메가존클라우드 AM)를 위한 영어 단어장 편집자다.
