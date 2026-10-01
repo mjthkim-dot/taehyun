@@ -184,6 +184,12 @@ export async function POST(req: NextRequest) {
         continue;
       }
       if (resp.status === 401) detail = 'API 키가 올바르지 않습니다.';
+      // 한도(429)는 Groq의 Retry-After를 그대로 전달 — 클라이언트가 그만큼(≤10초) 한 번 기다렸다가
+      // 재시도하고, 그래도 안 되면 브라우저 음성으로 내려간다(M1). 헤더가 없으면 2초.
+      if (resp.status === 429) {
+        const ra = resp.headers.get('retry-after') || '2';
+        return Response.json({ error: { message: detail } }, { status: 429, headers: { 'Retry-After': ra } });
+      }
       return Response.json({ error: { message: detail } }, { status: resp.status });
     }
     ttsModelIdx = idx;

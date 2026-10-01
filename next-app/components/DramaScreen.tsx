@@ -18,6 +18,7 @@ import '../app/screens.css';
 import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Mode } from './NavBar';
 import { primeAudio, speakText, stopSpeaking } from './SpeakButton';
+import TtsDegradedChip from './TtsDegradedChip';
 import { haptic } from '../lib/haptics';
 import { addWeakItem, BACK_EVENT, bumpSpoken, calcStreak, gradeWeakItem, groqKey, load, slowRate, store } from '../lib/state';
 import { browserSttAvailable, listenOnce } from '../lib/browserStt';
@@ -658,6 +659,7 @@ function Player({
 
   return (
     <div className="screen dr-screen">
+      <TtsDegradedChip />
       <div className="dr-top">
         <div className="dr-prog" role="progressbar" aria-label="에피소드 진행" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
           <span style={{ width: `${pct}%` }} />

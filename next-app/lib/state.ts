@@ -13,22 +13,34 @@ export const NAVIGATE_EVENT = 'va:navigate';
 /** 저장 실패(용량 초과)를 앱에 알리는 신호 — 조용히 데이터를 잃지 않기 위해. */
 export const STORAGE_FULL_EVENT = 'va:storage-full';
 
-/** 용량이 부족할 때 먼저 버려도 되는 것들(오래된 기록 순). 학습 진도는 건드리지 않는다. */
-const EVICTABLE = [
-  // AI가 다시 만들 수 있는 캐시부터(지워도 학습 기록은 그대로)
+/**
+ * 용량이 부족할 때 먼저 버려도 되는 것들(앞에서부터 순서대로). 학습 진도는 건드리지 않는다.
+ * 순서는 M1에서 확정 — 이후 모듈은 키를 등록만 한다(순서 변경 금지).
+ * 밖(절대 지우지 않음): va_attempt_daily(일별 집계 — 로그가 지워져도 추이는 남는다), va_growth,
+ * va_flags, va_day_gov, va_diag, va_sound_track, va_speak_goal, va_baseline — NEVER_EVICT 참조.
+ */
+export const EVICTABLE = [
+  // ① AI·합성이 다시 만들 수 있는 캐시부터(지워도 학습 기록은 그대로)
   'va_depth_cache',
   'va_gloss_cache',
   'va_ladder_cache',
+  'va_tts_meta', // TTS 캐시 적중률 카운터(지표일 뿐)
   'va_grammar_variants',
   'va_dlg_variants',
   'va_drama_resume', // 이어 보기(없으면 처음부터 보면 된다)
-  // 그다음 오래된 기록
+  'va_dispute_log', // 채점 이의 제기 기록
+  // ② 그다음 오래된 기록(최근 것은 집계에 이미 반영돼 있다)
   'va_chat_logs',
   'va_ask_history',
   'va_sessions',
+  'va_retell', // 리텔 원문 기록
+  'va_recall_speak', // 말로 떠올리기 기록
   'va_spoken_log',
-  'va_attempt_log',
+  'va_attempt_log', // 시도 로그 — 접힌 집계(va_attempt_daily)는 남는다
 ];
+
+/** 용량 부족에도 지우지 않는 키(문서화 + 테스트 고정) — 지표·설정·기준선 */
+export const NEVER_EVICT = ['va_attempt_daily', 'va_growth', 'va_flags', 'va_day_gov', 'va_diag', 'va_sound_track', 'va_speak_goal', 'va_baseline'] as const;
 
 export function store(key: string, val: unknown) {
   try {
@@ -213,9 +225,13 @@ export function calcStreak() {
   return streak;
 }
 
-/* ── 간격 반복(SM-2 근사) — 틀린 문장 자동 복습 ── */
-export const SRS_INTERVAL_DAYS: Record<number, number> = { 0: 0, 1: 1, 2: 3, 3: 7, 4: 16, 5: 35 };
-export const SRS_MAX_BOX = 5;
+/* ── 간격 반복(SM-2 근사) — 틀린 문장 자동 복습 ──
+ * M1: 상자를 5→8로 늘렸다(35일 상한이면 석 달 뒤엔 모든 카드가 35일마다 돌아와 복습 큐가 넘친다).
+ * 6:70·7:120·8:180일. '외웠다' 판정(isMastered)은 그대로 box≥5 — 화면·상한 규칙이 그 기준을 쓴다. */
+export const SRS_INTERVAL_DAYS: Record<number, number> = { 0: 0, 1: 1, 2: 3, 3: 7, 4: 16, 5: 35, 6: 70, 7: 120, 8: 180 };
+export const SRS_MAX_BOX = 8;
+/** 숙달 판정 기준 상자(이 이상이면 '외운 카드') */
+export const SRS_MASTER_BOX = 5;
 export const SRS_LEECH_THRESHOLD = 4;
 
 export interface WeakItem {
@@ -237,7 +253,7 @@ export function isLeech(w: WeakItem) {
 }
 
 export function isMastered(w: WeakItem) {
-  return (w.box || 0) >= SRS_MAX_BOX;
+  return (w.box || 0) >= SRS_MASTER_BOX;
 }
 
 /** 복습 카드 전체 — 빈 칸(null)·영어 없는 항목은 걸러 낸다(손상값 하나로 화면이 깨지지 않게) */
@@ -578,5 +594,26 @@ export function setSlowRate(r: number) {
 
 /** 값이 바뀌면 화면들이 즉시 따라오도록 알린다(같은 탭 안에서는 storage 이벤트가 안 온다) */
 export const SLOW_RATE_EVENT = 'va:slow-rate';
+
+/* ── 발화 목표(경량 읽기, M1) ──
+ * va_speak_goal은 M3(회상 말하기·하루 목표 적응)가 쓴다. 홈(lib/homeLite)은 habits를 import할 수
+ * 없어(habits→homeLite 순환) 목표값만 여기서 읽는다. 쓰기는 M3의 몫 — 여기선 모양만 정한다:
+ *   { goal: 1~35(정수), kind: 'scored'(채점 가능 발화만 셈) | 'self'(자기확인 포함) } */
+export const SPEAK_GOAL_KEY = 'va_speak_goal';
+export const SPEAK_GOAL_DEFAULT = 10;
+export const SPEAK_GOAL_MAX = 35;
+
+export interface SpeakGoalLite {
+  goal: number;
+  kind: 'scored' | 'self';
+}
+
+/** 저장값의 goal·kind만 읽는다(다른 필드는 무시). 없거나 어긋나면 기본 {goal:10, kind:'scored'}. */
+export function speakGoalLite(): SpeakGoalLite {
+  const v = load<Partial<SpeakGoalLite> | null>(SPEAK_GOAL_KEY, null);
+  const goal = v && typeof v.goal === 'number' && Number.isFinite(v.goal) ? Math.min(SPEAK_GOAL_MAX, Math.max(1, Math.round(v.goal))) : SPEAK_GOAL_DEFAULT;
+  const kind = v && v.kind === 'self' ? 'self' : 'scored';
+  return { goal, kind };
+}
 
 export { CEFR_GSE, CEFR_ORDER, gseMid, gseToCefr, scaffoldFor };

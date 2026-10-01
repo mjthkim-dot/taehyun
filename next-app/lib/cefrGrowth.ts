@@ -41,7 +41,14 @@ export const SKILL_LABEL: Record<SkillKey, { name: string; icon: string }> = {
   writing: { name: '쓰기', icon: '✍️' },
 };
 
-export type EvidenceSrc = 'listening' | 'reading' | 'writing' | 'talk' | 'interview' | 'drill' | 'placement';
+/**
+ * 증거 출처 — M1에서 집중 모드 발화 증거 셋을 더했다(모두 레벨 입증에 센다):
+ *   retell(엔딩 줄거리 다시 말하기, M5) · dtalk(드라마 인물과 회화, M6) · drama-blind(자막 없이 다시 듣기 이해도).
+ * 허용목록은 sanitize가 같은 배열을 본다 — 새 출처를 더하면 여기 한 곳만 고친다.
+ */
+export const EVIDENCE_SRCS = ['listening', 'reading', 'writing', 'talk', 'interview', 'drill', 'placement', 'retell', 'dtalk', 'drama-blind'] as const;
+export type EvidenceSrc = (typeof EVIDENCE_SRCS)[number];
+export const isEvidenceSrc = (v: unknown): v is EvidenceSrc => typeof v === 'string' && (EVIDENCE_SRCS as readonly string[]).includes(v);
 
 export interface Evidence {
   t: number;

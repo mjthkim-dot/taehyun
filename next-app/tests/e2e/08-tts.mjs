@@ -39,5 +39,40 @@ check('긴 응답이 여러 TTS 요청으로 분할', ttsTexts.length >= 2, `req
 check('모든 TTS 요청이 200자 이하', ttsTexts.every((t) => t.length <= 200), ttsTexts.map((t) => t.length).join(','));
 check('분할 조각을 합치면 원문 커버', ttsTexts.join(' ').length >= LONG.length * 0.9, `${ttsTexts.join(' ').length}/${LONG.length}`);
 
+/* ── M1: 한도(429) → Retry-After 한 번 대기 → 그래도 429면 기기 음성 폴백 + 상단 칩 ── */
+const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+const p2 = await ctx.newPage();
+p2.on('pageerror', (e) => console.log('  [pageerror]', e.message));
+await p2.addInitScript(() => {
+  localStorage.setItem('va_onboarded', 'true');
+  localStorage.setItem('va_groq_key', JSON.stringify('gsk_test_key'));
+  localStorage.setItem('va_placed', JSON.stringify({ cefr: 'A2', gse: 30, ts: Date.now() }));
+  // 소리는 켜 둔다(음소거면 TTS를 아예 부르지 않는다)
+});
+await p2.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"valid":true}' }));
+await p2.route('**/app/api/groq', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{}' } }] }) }));
+let tts429 = 0;
+const ttsAt = [];
+await p2.route('**/app/api/tts*', (r) => {
+  tts429++;
+  ttsAt.push(Date.now());
+  return r.fulfill({ status: 429, contentType: 'application/json', headers: { 'Retry-After': '1' }, body: JSON.stringify({ error: { message: 'Rate limit reached' } }) });
+});
+await p2.goto(`${BASE}/app`);
+await p2.waitForSelector('.fg-cta', { timeout: 15000 });
+await p2.click('.fg-cta');
+await p2.waitForSelector('.dr-log', { timeout: 15000 });
+const chip = await p2.waitForSelector('.tts-chip', { timeout: 20000 }).then(() => true).catch(() => false);
+check('429 두 번(재시도 후)이면 상단에 "기기 음성" 칩', chip && (await p2.evaluate(() => document.querySelector('.tts-chip')?.textContent?.includes('기기 음성'))));
+check('Retry-After(1초)만큼 한 번 기다렸다 재시도한다', tts429 >= 2 && ttsAt.length >= 2 && ttsAt[1] - ttsAt[0] >= 900, `calls=${tts429} gap=${ttsAt[1] - ttsAt[0]}`);
+check('드라마는 멈추지 않는다(폴백 뒤에도 대화 기록이 흐른다)', (await p2.locator('.dr-log .dr-line, .dr-log .dr-narr').count()) >= 1);
+check('va_tts_meta에 miss·tts429가 쌓인다', await p2.evaluate(() => {
+  const m = JSON.parse(localStorage.getItem('va_tts_meta') || '{}');
+  const today = Object.values(m)[0] || {};
+  return (today.miss || 0) >= 1 && (today.tts429 || 0) >= 1;
+}));
+check('va_diag에도 tts429', await p2.evaluate(() => Object.values(JSON.parse(localStorage.getItem('va_diag') || '{}')).some((d) => (d.tts429 || 0) >= 1)));
+await ctx.close();
+
 await browser.close();
 finish('08-tts');

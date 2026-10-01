@@ -254,8 +254,11 @@ export function dramaAdjust(): number {
 export interface RecallItem {
   en: string;
   kr: string;
+  /** 보기(고르기 모드) — speak 모드에서는 비어 있을 수 있다(M3가 말로 떠올리게 한다) */
   opts: string[];
   a: number;
+  /** 회상 방식 — 없으면 'choice'(기존 저장본과 호환). M3가 'speak'을 만든다 */
+  mode?: 'speak' | 'choice';
 }
 
 const lessonNo = (lesson: unknown): number => {
@@ -367,8 +370,11 @@ export { DRAMA_AUTOPLAY_KEY, requestDramaAutoplay } from './homeLite';
 /* ── 이어 보기 — 통화·알림으로 잠깐 나가도 처음부터 다시 보지 않게(감사 v1.31 모바일 #1) ── */
 const RESUME_KEY = 'va_drama_resume';
 const RESUME_TTL = 24 * 3600 * 1000;
+/** 저장본 판 — 모양이 바뀔 때 올린다. 판이 다르면 이어 보기를 버린다(옛 모양을 억지로 읽다 깨지지 않게) */
+export const RESUME_VERSION = 2;
 
 export interface ResumeState {
+  v: typeof RESUME_VERSION;
   no: number;
   /** 다음에 보여 줄 장면 번호(플레이어 장면 기준 — 첫머리 복습 포함) */
   i: number;
@@ -393,20 +399,32 @@ function okLogItem(x: unknown): boolean {
   return false;
 }
 
+/** 회상 문항 모양 — mode 'speak'은 보기(opts/a)가 없어도 된다(M1: 산출형 회상이 저장돼도 이어 보기가 살아남게) */
 function okRecall(x: unknown): x is RecallItem {
   const r = x as Partial<RecallItem> | null;
-  return !!r && str(r.en) && typeof r.kr === 'string' && Array.isArray(r.opts) && r.opts.every((o) => typeof o === 'string') && Number.isInteger(r.a) && (r.a as number) >= 0 && (r.a as number) < r.opts.length;
+  if (!r || !str(r.en) || typeof r.kr !== 'string') return false;
+  if (r.mode !== undefined && r.mode !== 'speak' && r.mode !== 'choice') return false;
+  const optsOk = Array.isArray(r.opts) && r.opts.every((o) => typeof o === 'string');
+  if (r.mode === 'speak') return r.opts === undefined || optsOk;
+  return optsOk && Number.isInteger(r.a) && (r.a as number) >= 0 && (r.a as number) < (r.opts as string[]).length;
+}
+
+/** speak 모드 문항은 보기가 비어 있을 수 있다 — 타입(opts/a 필수)에 맞춰 채운다 */
+function normRecall(r: RecallItem): RecallItem {
+  return r.mode === 'speak' ? { ...r, opts: Array.isArray(r.opts) ? r.opts : [], a: Number.isInteger(r.a) ? r.a : 0 } : r;
 }
 
 export function loadResume(no: number): ResumeState | null {
   const r = load<Partial<ResumeState> | null>(RESUME_KEY, null);
-  if (!r || r.no !== no || typeof r.i !== 'number' || r.i <= 0 || !Array.isArray(r.log) || !Array.isArray(r.rc)) return null;
+  if (!r || r.v !== RESUME_VERSION) return null;
+  if (r.no !== no || typeof r.i !== 'number' || r.i <= 0 || !Array.isArray(r.log) || !Array.isArray(r.rc)) return null;
   if (typeof r.at !== 'number' || Date.now() - r.at > RESUME_TTL) return null;
   if (!r.log.every(okLogItem) || !r.rc.every(okRecall)) {
     clearResume();
     return null;
   }
   return {
+    v: RESUME_VERSION,
     no,
     i: r.i,
     ok: Number(r.ok) || 0,
@@ -414,13 +432,14 @@ export function loadResume(no: number): ResumeState | null {
     log: r.log,
     missed: Array.isArray(r.missed) ? r.missed.filter((m) => m && str(m.en) && str(m.kr)) : [],
     retryIdx: Array.isArray(r.retryIdx) ? r.retryIdx.filter((n) => Number.isInteger(n)) : [],
-    rc: r.rc,
+    rc: r.rc.map(normRecall),
     at: r.at,
   };
 }
 
-export function saveResume(r: Omit<ResumeState, 'at'>) {
-  store(RESUME_KEY, { ...r, at: Date.now() });
+/** 판(v)과 시각(at)은 여기서 붙인다 — 호출부는 진행 상태만 넘긴다 */
+export function saveResume(r: Omit<ResumeState, 'at' | 'v'> & { v?: typeof RESUME_VERSION }) {
+  store(RESUME_KEY, { ...r, v: RESUME_VERSION, at: Date.now() });
 }
 
 export function clearResume() {

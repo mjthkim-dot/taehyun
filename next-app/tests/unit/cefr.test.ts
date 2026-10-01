@@ -116,3 +116,22 @@ describe('단어도 CEFR 목표 레벨부터', () => {
     expect(lv.filter((x) => x === 'B2').length).toBeGreaterThanOrEqual(10);
   });
 });
+
+describe('M1 — 집중 모드 발화 증거(retell·dtalk·drama-blind)는 레벨 입증에 센다', () => {
+  test('리텔 2회 + 회화 1회(70점↑)로 말하기 B1 입증, 자막 없이 듣기는 듣기 증거', async () => {
+    const { EVIDENCE_SRCS, isEvidenceSrc } = await import('../../lib/cefrGrowth');
+    expect(EVIDENCE_SRCS).toEqual(expect.arrayContaining(['retell', 'dtalk', 'drama-blind']));
+    expect(isEvidenceSrc('retell')).toBe(true);
+    expect(isEvidenceSrc('hacker')).toBe(false);
+    place('A2');
+    recordSkillResult('speaking', 'B1', 80, 'retell');
+    recordSkillResult('speaking', 'B1', 75, 'retell');
+    expect(skillLevel('speaking').level).toBe('A2');
+    recordSkillResult('speaking', 'B1', 90, 'dtalk');
+    expect(skillLevel('speaking').level).toBe('B1');
+    for (let i = 0; i < 3; i++) recordSkillResult('listening', 'B1', 85, 'drama-blind');
+    expect(skillLevel('listening').level).toBe('B1');
+    const ev = JSON.parse(localStorage.getItem('va_cefr_evidence') || '[]') as { src: string; counts: boolean }[];
+    expect(ev.every((e) => e.counts)).toBe(true);
+  });
+});

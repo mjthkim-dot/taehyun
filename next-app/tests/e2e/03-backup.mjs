@@ -62,6 +62,14 @@ await page2.setInputFiles('input[type=file]', bad);
 await page2.waitForTimeout(400);
 check('타 앱 백업 거부', !!(await page2.evaluate(() => document.querySelector('.bk-msg.err'))));
 
+/* M1: '고급 ▾' 접힘 하나(#adv-section) 안에 실험 기능 토글 — 기본은 접혀 있고, 녹음 안내 문구가 있다 */
+check('녹음은 백업에 포함되지 않음 안내', await page2.evaluate(() => document.body.innerText.includes('녹음') && document.body.innerText.includes('포함되지 않')));
+check('고급 ▾ 접힘(#adv-section)이 기본 닫힘', (await page2.locator('#adv-section').count()) === 1 && !(await page2.evaluate(() => document.querySelector('#adv-section')?.open)));
+await page2.click('#adv-section summary');
+check('펼치면 실험 기능 토글 8개(전부 켜짐)', (await page2.locator('#adv-section .bk-flag input').count()) === 8 && (await page2.evaluate(() => [...document.querySelectorAll('#adv-section .bk-flag input')].every((i) => i.checked))));
+await page2.click('#adv-section .bk-flag:has-text("줄거리") input');
+check('토글을 끄면 va_flags에 그 키만 저장', await page2.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('va_flags') || '{}')) === '{"retell":false}'));
+
 fs.rmSync(tmp, { force: true });
 fs.rmSync(bad, { force: true });
 await browser.close();

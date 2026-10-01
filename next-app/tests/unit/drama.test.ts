@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import seed from '../../data/dramaSeed.json';
 import { allEpisodes, completeEpisode, INTERACTIVE, nextEpisodeNo, validateEpisode, watched, watchedToday, type Episode } from '../../lib/drama';
-import { load } from '../../lib/state';
+import { gradeWeakItem, load, SRS_INTERVAL_DAYS, SRS_MAX_BOX, srsDue, dueWeak, isMastered, weakItems } from '../../lib/state';
 import { startProgram, todayPlan } from '../../lib/program';
 
 beforeEach(() => localStorage.clear());
@@ -282,5 +282,72 @@ describe('간격 반복 시뮬레이션 — 표현 복습이 box 1에서 멈추�
     const strong = cards.filter((w) => w.box >= 3).length;
     expect(cards.length).toBe(eps.length * 2);
     expect(strong / cards.length).toBeGreaterThan(0.5);
+  });
+});
+
+describe('M1 — 간격 반복 8상자·이어 보기 판·말하기 회상', () => {
+  test('상자 6~8의 간격은 70·120·180일, 숙달 판정은 그대로 box≥5', () => {
+    expect(SRS_MAX_BOX).toBe(8);
+    expect(SRS_INTERVAL_DAYS).toMatchObject({ 6: 70, 7: 120, 8: 180 });
+    localStorage.setItem('va_weak', JSON.stringify([{ en: 'Hang in there.', kr: '힘내요', box: 5, lapses: 0, due: 0 }]));
+    const w0 = weakItems()[0];
+    expect(isMastered(w0)).toBe(true);
+    gradeWeakItem('Hang in there.', 'good');
+    const w = weakItems()[0];
+    expect(w.box).toBe(6);
+    expect(Math.round((w.due - Date.now()) / 86400000)).toBe(70);
+    expect(dueWeak().length).toBe(0);
+    later(69);
+    expect(dueWeak().length).toBe(0);
+    later(71);
+    expect(dueWeak().length).toBe(1); // 70일 뒤 다시 기한
+    gradeWeakItem('Hang in there.', 'good');
+    gradeWeakItem('Hang in there.', 'good');
+    gradeWeakItem('Hang in there.', 'good'); // 8에서 멈춘다
+    expect(weakItems()[0].box).toBe(8);
+    expect(Math.round((weakItems()[0].due - Date.now()) / 86400000)).toBe(180);
+    expect(Math.round((srsDue(9) - Date.now()) / 86400000)).toBe(180);
+  });
+  test('300일 시뮬 — 매번 맞히면 카드가 8상자(누적 252일)까지 가고 기한이 한 달 밖으로 밀린다', async () => {
+    const { reviewItems, gradeRecall } = await import('../../lib/drama');
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const start = new Date('2026-10-01T09:00:00').getTime();
+    for (let day = 0; day < 300; day++) {
+      vi.setSystemTime(start + day * 86400000);
+      if (day < eps.length) completeEpisode(eps[day], 90, 3);
+      for (const it of reviewItems(20)) gradeRecall(it.en, true);
+    }
+    const cards = load<{ cat?: string; box: number; due: number }[]>('va_weak', []).filter((w) => w.cat === '드라마');
+    expect(cards.length).toBe(eps.length * 2);
+    expect(cards.every((w) => w.box >= 6)).toBe(true);
+    expect(cards.some((w) => w.box === 8)).toBe(true);
+    expect(Math.min(...cards.map((w) => w.due)) - Date.now()).toBeGreaterThan(30 * 86400000);
+  });
+  test('이어 보기 판(v)이 다르면 null — 옛 저장본·판 없음·다른 판 모두', async () => {
+    const { loadResume, saveResume, RESUME_VERSION } = await import('../../lib/drama');
+    expect(RESUME_VERSION).toBe(2);
+    const base = { no: 2, i: 3, ok: 1, asked: 1, log: [{ kind: 'narr', kr: '해설' }], missed: [], retryIdx: [], rc: [], at: Date.now() };
+    localStorage.setItem('va_drama_resume', JSON.stringify(base));
+    expect(loadResume(2)).toBeNull();
+    localStorage.setItem('va_drama_resume', JSON.stringify({ ...base, v: 1 }));
+    expect(loadResume(2)).toBeNull();
+    localStorage.setItem('va_drama_resume', JSON.stringify({ ...base, v: 2 }));
+    expect(loadResume(2)?.i).toBe(3);
+    saveResume({ no: 2, i: 4, ok: 0, asked: 0, log: [], missed: [], retryIdx: [], rc: [] });
+    expect(load<{ v?: number }>('va_drama_resume', {}).v).toBe(2);
+    expect(loadResume(2)?.v).toBe(2);
+  });
+  test('speak 모드 회상(rc)은 보기 없이 저장 → 복원 통과, choice는 여전히 보기·정답 필수', async () => {
+    const { loadResume, saveResume } = await import('../../lib/drama');
+    saveResume({ no: 2, i: 2, ok: 0, asked: 0, log: [], missed: [], retryIdx: [], rc: [{ en: 'Hang in there.', kr: '힘내요', mode: 'speak' } as never] });
+    const r = loadResume(2);
+    expect(r).not.toBeNull();
+    expect(r!.rc[0]).toMatchObject({ en: 'Hang in there.', mode: 'speak', opts: [], a: 0 });
+    saveResume({ no: 2, i: 2, ok: 0, asked: 0, log: [], missed: [], retryIdx: [], rc: [{ en: 'Hang in there.', kr: '힘내요', opts: ['Hang in there.', 'See you.', 'No problem.'], a: 0, mode: 'choice' }] });
+    expect(loadResume(2)!.rc[0].mode).toBe('choice');
+    saveResume({ no: 2, i: 2, ok: 0, asked: 0, log: [], missed: [], retryIdx: [], rc: [{ en: 'Hang in there.', kr: '힘내요', mode: 'choice' } as never] });
+    expect(loadResume(2)).toBeNull(); // choice인데 보기가 없다 → 버린다
+    saveResume({ no: 2, i: 2, ok: 0, asked: 0, log: [], missed: [], retryIdx: [], rc: [{ en: 'Hang in there.', kr: '힘내요', mode: 'sing' } as never] });
+    expect(loadResume(2)).toBeNull(); // 모르는 모드
   });
 });

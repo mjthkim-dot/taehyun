@@ -46,3 +46,20 @@ describe('인물 목소리 대체', () => {
     expect(calls[0].voice).toBe('austin');
   });
 });
+
+describe('M1 — 한도(429)는 Retry-After를 그대로 전달', () => {
+  test('Groq가 429 + Retry-After 7이면 클라이언트도 429 + Retry-After 7', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ error: { message: 'Rate limit reached' } }), { status: 429, headers: { 'Retry-After': '7' } }));
+    const { POST } = await import('../../app/api/tts/route');
+    const r = await POST(req('austin'));
+    expect(r.status).toBe(429);
+    expect(r.headers.get('Retry-After')).toBe('7');
+  });
+  test('Retry-After가 없으면 기본 2초', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ error: { message: 'Rate limit reached' } }), { status: 429 }));
+    const { POST } = await import('../../app/api/tts/route');
+    const r = await POST(req('austin'));
+    expect(r.status).toBe(429);
+    expect(r.headers.get('Retry-After')).toBe('2');
+  });
+});

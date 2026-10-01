@@ -14,6 +14,7 @@ import '../app/screens.css';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Mode } from './NavBar';
 import { primeAudio, speakText, stopSpeaking } from './SpeakButton';
+import TtsDegradedChip from './TtsDegradedChip';
 import { bumpSpoken, groqKey, load, markPracticedToday, slowRate } from '../lib/state';
 import { browserSttAvailable, listenOnce } from '../lib/browserStt';
 import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
@@ -398,6 +399,7 @@ export default function DramaTalkScreen({ onNavigate }: { onNavigate?: (m: Mode)
   const waitingMe = !busy && last?.role === 'partner' && !over;
   return (
     <div className="screen dr-screen">
+      <TtsDegradedChip />
       <div className="dr-top">
         <div className="dr-prog" aria-label={`대답 ${myTurns}/${TALK_TURNS}`}>
           <span style={{ width: `${(myTurns / TALK_TURNS) * 100}%` }} />

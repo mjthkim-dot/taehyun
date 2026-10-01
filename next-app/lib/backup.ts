@@ -21,6 +21,13 @@ const EXCLUDED_KEYS = new Set(['va_groq_key']);
 /** va_* 외에 추가로 백업할 키. */
 const EXTRA_KEYS = ['theme'];
 
+/**
+ * 백업은 localStorage(va_*)만 담는다 — IndexedDB의 녹음(기준선·월간·리텔·드라마·오늘 질문)과
+ * TTS 음성 캐시는 파일에 들어가지 않는다(수 MB 음성을 JSON에 넣으면 파일이 커지고 복원이 느려진다).
+ * 화면 안내 문구는 여기 한 곳에서 가져간다(M1).
+ */
+export const BACKUP_SCOPE_NOTE = '🎙 녹음(기준선·월간·드라마)은 백업에 포함되지 않아요 — 이 기기에만 남습니다. 점수·기록은 백업에 들어가요.';
+
 export interface BackupFile {
   app: string;
   format: number;
@@ -118,6 +125,8 @@ export function restoreBackup(text: string): RestoreResult {
   let restored = 0;
   for (const [k, v] of Object.entries(b.data)) {
     // 허용된 키만 복원 — 백업 파일을 통해 임의 키/비밀키가 심기지 않게 한다.
+    // (M1의 새 키 va_retell·va_attempt_daily·va_flags·va_day_gov·va_growth·va_sound_track·va_recall_speak·
+    //  va_baseline·va_diag·va_speak_goal·va_ear도 같은 규칙으로 들어오고, 모양은 아래 sanitizeStorage가 본다)
     const allowed = (k.startsWith('va_') && /^va_[a-z0-9_]+$/.test(k) && !EXCLUDED_KEYS.has(k)) || EXTRA_KEYS.includes(k);
     if (!allowed || typeof v !== 'string') continue;
     // 학습 값은 JSON이어야 한다 — 읽을 수 없는 값은 들이지 않는다(홈이 깨지는 원인)

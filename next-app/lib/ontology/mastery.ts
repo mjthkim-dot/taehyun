@@ -11,7 +11,8 @@
  * 이 투영 덕에 "미션에서 5개 표현을 정착시켰다"는 사실이 같은 상황의 코스 유닛
  * 점수에도 반영된다 — 학습이 화면을 넘어 이어진다.
  */
-import { load, getPhrases, type WeakItem, SRS_MAX_BOX, getLessonStats, getDoneHomework } from '../state';
+// 숙달 점수의 분모는 SRS_MASTER_BOX(5) — M1에서 상자가 8까지 늘었지만 '외웠다'의 기준은 그대로 box≥5(100점)다
+import { load, getPhrases, type WeakItem, SRS_MASTER_BOX, getLessonStats, getDoneHomework } from '../state';
 import { getAttempts } from '../reviewEngine';
 import { donePatterns } from '../maturity';
 import { seenScenarios } from '../realCourse';
@@ -90,7 +91,7 @@ function expressionScores(g: Graph): Record<string, ExpressionMastery> {
     const w = weak.get(k);
     if (w) {
       ev.push('srs');
-      score = Math.max(score, Math.round(((w.box || 0) / SRS_MAX_BOX) * 100));
+      score = Math.max(score, Math.min(100, Math.round(((w.box || 0) / SRS_MASTER_BOX) * 100)));
       if ((w.lapses || 0) >= 3) ev.push('lapse');
     }
     const sp = spoken.get(k);
@@ -152,7 +153,7 @@ export function buildLearnerModel(g: Graph): LearnerModel {
   const pattern: Record<string, number> = {};
   for (const p of g.patterns) {
     const box = psrs.get(p.key);
-    pattern[p.key] = done.has(p.key) ? Math.max(60, Math.round(((box ?? 1) / SRS_MAX_BOX) * 100)) : 0;
+    pattern[p.key] = done.has(p.key) ? Math.max(60, Math.min(100, Math.round(((box ?? 1) / SRS_MASTER_BOX) * 100))) : 0;
   }
 
   const unit: Record<string, UnitMastery> = {};

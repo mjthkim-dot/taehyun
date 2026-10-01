@@ -117,8 +117,9 @@ export function episodeLite(no: number): EpisodeLite | null {
 
 /** 이어 볼 기록이 있는가(홈 버튼 문구용 — 자세한 검증은 재생할 때) */
 export function dramaResumeExists(no: number): boolean {
-  const r = load<{ no?: number; i?: number; at?: number } | null>('va_drama_resume', null);
-  return !!r && r.no === no && typeof r.i === 'number' && r.i > 0 && typeof r.at === 'number' && Date.now() - r.at < 24 * 3600 * 1000;
+  const r = load<{ v?: number; no?: number; i?: number; at?: number } | null>('va_drama_resume', null);
+  // v는 lib/drama RESUME_VERSION(2)과 같아야 한다 — 다른 판은 재생 때 버려지므로 홈도 '이어 보기'라 하지 않는다
+  return !!r && r.v === 2 && r.no === no && typeof r.i === 'number' && r.i > 0 && typeof r.at === 'number' && Date.now() - r.at < 24 * 3600 * 1000;
 }
 
 export function dramaWatchedCount(): number {

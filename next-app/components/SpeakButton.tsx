@@ -15,6 +15,36 @@
  * 키가 없거나 합성에 실패하면 브라우저 내장 음성으로 폴백한다.
  */
 import { speechRate, groqKey, SERVER_GROQ_SENTINEL } from '../lib/state';
+import { bumpDiag, bumpTtsMeta } from '../lib/diag';
+
+/** idb 캐시 모듈은 합성할 때만 지연 로딩 — 홈 카드(DramaCard)가 이 파일을 쓰므로 홈 첫 청크에 idb를 넣지 않는다 */
+let storageMod: Promise<typeof import('../lib/storage')> | null = null;
+const storage = () =>
+  (storageMod ||= import('../lib/storage').catch((e) => {
+    storageMod = null; // 청크를 못 받았으면(오프라인) 다음에 다시 시도
+    throw e;
+  }));
+
+/**
+ * 신경망 음성이 한도(429)·네트워크로 막혀 브라우저 음성으로 내려갔음을 알리는 전역 신호(M1).
+ * 드라마·회화 화면이 상단에 작은 칩('🔈 지금은 기기 음성으로')을 띄운다. 다시 성공하면 TTS_RESTORED_EVENT.
+ */
+export const TTS_DEGRADED_EVENT = 'va:tts-degraded';
+export const TTS_RESTORED_EVENT = 'va:tts-restored';
+let ttsDegraded = false;
+/** 지금 기기 음성으로 내려가 있나(칩이 늦게 마운트돼도 상태를 알 수 있게) */
+export function isTtsDegraded(): boolean {
+  return ttsDegraded;
+}
+function setDegraded(on: boolean) {
+  if (ttsDegraded === on || typeof window === 'undefined') return;
+  ttsDegraded = on;
+  try {
+    window.dispatchEvent(new CustomEvent(on ? TTS_DEGRADED_EVENT : TTS_RESTORED_EVENT));
+  } catch {
+    /* 구형 브라우저 */
+  }
+}
 
 /** AI 내레이터 기본 보이스(Orpheus). */
 export const GROQ_TTS_VOICE = 'austin';
@@ -282,18 +312,66 @@ const ttsInflight = new Map<string, Promise<string | null>>(); // 진행 중인 
 const TTS_HEADER_TIMEOUT_MS = 8000;
 const TTS_BODY_TIMEOUT_MS = 30000;
 
+/** 429 재시도 대기 상한 — 이보다 길면 기다리지 않고 바로 브라우저 음성으로 */
+const TTS_RETRY_MAX_MS = 10000;
+const TTS_RETRY_DEFAULT_MS = 2000;
+
+/** Retry-After(초 또는 HTTP 날짜) → ms. 없거나 못 읽으면 기본 2초, 상한 10초 */
+export function retryAfterMs(header: string | null, now = Date.now()): number {
+  if (!header) return TTS_RETRY_DEFAULT_MS;
+  const sec = Number(header);
+  let ms = Number.isFinite(sec) ? sec * 1000 : Date.parse(header) - now;
+  if (!Number.isFinite(ms) || ms < 0) ms = TTS_RETRY_DEFAULT_MS;
+  return Math.min(TTS_RETRY_MAX_MS, ms);
+}
+
+/** 서버 TTS 한 번 호출 — 헤더 8초/본문 30초 타임아웃. 네트워크 오류는 null */
+async function requestTts(input: string, voice: string, key: string): Promise<Response | null> {
+  const controller = new AbortController();
+  let timer = setTimeout(() => controller.abort(), TTS_HEADER_TIMEOUT_MS);
+  try {
+    const resp = await fetch('/app/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: input, voice, key: key === SERVER_GROQ_SENTINEL ? undefined : key }),
+      signal: controller.signal,
+    });
+    // 헤더가 도착했으면 본문 다운로드용 긴 타이머로 교체
+    clearTimeout(timer);
+    timer = setTimeout(() => controller.abort(), TTS_BODY_TIMEOUT_MS);
+    if (!resp.ok) return resp;
+    const blob = await resp.blob();
+    // 빈/손상 응답(예: rate-limit 직전의 잘린 본문)을 캐싱하면 재생 시 onended가 오지
+    // 않아 그 줄에서 영영 멈춘다 — 유효한 오디오만 돌려준다.
+    if (!blob || blob.size < 256) return null;
+    return new Response(blob, { status: 200, headers: { 'Content-Type': blob.type || 'audio/wav' } });
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Groq에서 음성을 받아 objectURL을 돌려준다(캐시). 실패·타임아웃 시 null.
  * 문장 앞에 감정 디렉션 태그를 붙여 Orpheus가 사람처럼 감정을 실어 발화하게 한다.
  * 속도는 재생 단계에서 음높이를 유지한 채(preservesPitch) 조절하므로 여기선 속도 무관하게
  * 한 번만 합성해 캐싱한다.
+ *
+ * M1 — 캐시는 두 겹: 메모리(objectURL) → IndexedDB('tts', LRU 300). 미스일 때만 합성하고 결과를
+ * idb에 넣어 두므로 같은 대사를 내일 다시 들어도 합성 한도(10/분·100/일)를 쓰지 않는다.
+ * 429면 Retry-After(≤10초)만큼 한 번 기다렸다 재시도, 그래도 안 되면 null(호출부가 브라우저 음성으로)
+ * + 'va:tts-degraded' 신호. 적중/미스/합성/429는 va_tts_meta에 일별로 센다.
  */
 export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE, opts?: { tagless?: boolean }): Promise<string | null> {
   const key = groqKey();
   if (!key) return null;
   const cacheKey = `${voice}:${opts?.tagless ? 'flat:' : ''}${text}`;
   const cached = ttsCache.get(cacheKey);
-  if (cached) return cached;
+  if (cached) {
+    bumpTtsMeta('hit');
+    return cached;
+  }
   // 같은 문장을 동시에(미리받기 + 실제재생) 두 번 요청하면 호출이 두 배가 돼 rate-limit에
   // 걸리고, 그러면 그 줄에서 폴백/멈춤이 난다. 진행 중인 요청이 있으면 그걸 함께 기다린다.
   const pending = ttsInflight.get(cacheKey);
@@ -304,31 +382,38 @@ export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE, opts?: 
   const tag = opts?.tagless ? '' : emotionDirectionTag(text);
   const input = tag ? `${tag} ${text}` : text;
   const job = (async (): Promise<string | null> => {
-    const controller = new AbortController();
-    let timer = setTimeout(() => controller.abort(), TTS_HEADER_TIMEOUT_MS);
-    try {
-      const resp = await fetch('/app/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: input, voice, key: key === SERVER_GROQ_SENTINEL ? undefined : key }),
-        signal: controller.signal,
-      });
-      // 헤더가 도착했으면 본문 다운로드용 긴 타이머로 교체
-      clearTimeout(timer);
-      timer = setTimeout(() => controller.abort(), TTS_BODY_TIMEOUT_MS);
-      if (!resp.ok) return null;
-      const blob = await resp.blob();
-      // 빈/손상 응답(예: rate-limit 직전의 잘린 본문)을 캐싱하면 재생 시 onended가 오지
-      // 않아 그 줄에서 영영 멈춘다 — 유효한 오디오만 캐싱한다.
-      if (!blob || blob.size < 256) return null;
-      const url = URL.createObjectURL(blob);
+    // ① idb 캐시(사설 모드 등 idb 불가 → null → 합성)
+    const st = await storage().catch(() => null);
+    const idbKey = st ? st.ttsKey(voice, !!opts?.tagless, text) : '';
+    const hit = st ? await st.getTts(idbKey) : null;
+    if (hit) {
+      const url = URL.createObjectURL(hit.blob);
       ttsCache.set(cacheKey, url);
+      bumpTtsMeta('hit');
       return url;
-    } catch {
-      return null;
-    } finally {
-      clearTimeout(timer);
     }
+    bumpTtsMeta('miss');
+    // ② 합성(429면 Retry-After만큼 한 번 대기 후 재시도)
+    let resp = await requestTts(input, voice, key);
+    if (resp && resp.status === 429) {
+      bumpTtsMeta('tts429');
+      bumpDiag('tts429');
+      await new Promise((r) => setTimeout(r, retryAfterMs(resp!.headers.get('retry-after'))));
+      resp = await requestTts(input, voice, key);
+      if (resp && resp.status === 429) bumpTtsMeta('tts429');
+    }
+    if (!resp || !resp.ok) {
+      // 키가 틀린 경우(401)는 '저하'가 아니라 설정 문제 — 칩을 띄우지 않는다
+      if (!resp || resp.status !== 401) setDegraded(true);
+      return null;
+    }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    ttsCache.set(cacheKey, url);
+    bumpTtsMeta('synth');
+    setDegraded(false);
+    if (st) void st.putTts(idbKey, blob, blob.type || 'audio/wav');
+    return url;
   })();
   ttsInflight.set(cacheKey, job);
   try {

@@ -8,7 +8,52 @@ import '../app/screens.css';
  * 내보내고, 다른 기기/브라우저에서 그 파일로 복원한다. 로직은 lib/backup.ts.
  */
 import { useEffect, useRef, useState } from 'react';
-import { downloadBackup, restoreBackup, dataSummary, eraseAllData } from '../lib/backup';
+import { downloadBackup, restoreBackup, dataSummary, eraseAllData, BACKUP_SCOPE_NOTE } from '../lib/backup';
+import { flagList, resetFlags, setFlag } from '../lib/flags';
+
+/**
+ * '고급 ▾' 접힘(M1) — 설정류는 집중 모드에 새 화면을 만들지 않고 전부 이 한 섹션(#adv-section) 안에 둔다.
+ * 지금은 '실험 기능 되돌리기' 토글 목록. M0의 '소리 점검' 버튼도 같은 섹션에 들어온다(통합 시 합친다).
+ */
+function AdvancedSection() {
+  const [flags, setFlags] = useState(() => flagList());
+  const changed = flags.filter((f) => f.on !== f.def).length;
+  const toggle = (key: string, on: boolean) => {
+    setFlag(key, on);
+    setFlags(flagList());
+  };
+  return (
+    <details className="bk-adv" id="adv-section">
+      <summary className="bk-adv-sum">고급 ▾{changed ? <span className="bk-adv-badge">{changed}개 꺼짐</span> : null}</summary>
+      <div className="bk-adv-body">
+        <div className="bk-adv-title">🧪 실험 기능 되돌리기</div>
+        <p className="bk-adv-desc">새로 들어온 말하기 기능이 불편하면 하나씩 끌 수 있어요. 끄면 예전 방식으로 돌아갑니다.</p>
+        <ul className="bk-flags" aria-label="실험 기능">
+          {flags.map((f) => (
+            <li key={f.key} className="bk-flag">
+              <label className="bk-flag-label">
+                <input type="checkbox" role="switch" checked={f.on} aria-checked={f.on} onChange={(e) => toggle(f.key, e.target.checked)} />
+                <span>{f.label}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+        {changed > 0 && (
+          <button
+            type="button"
+            className="btn bk-btn bk-btn-outline bk-flags-reset"
+            onClick={() => {
+              resetFlags();
+              setFlags(flagList());
+            }}
+          >
+            모두 기본값으로
+          </button>
+        )}
+      </div>
+    </details>
+  );
+}
 
 export default function BackupScreen() {
   const [ready, setReady] = useState(false);
@@ -103,6 +148,7 @@ export default function BackupScreen() {
         <div className="bk-note">
           🔑 Groq API 키는 보안을 위해 백업 파일에 포함되지 않아요 — 복원 후 회화 탭에서 한 번만 다시 등록하면 됩니다.
         </div>
+        <div className="bk-note bk-note-rec">{BACKUP_SCOPE_NOTE}</div>
 
         <button
           type="button"
@@ -116,6 +162,8 @@ export default function BackupScreen() {
         >
           🗑 모든 데이터 삭제
         </button>
+
+        <AdvancedSection />
       </div>
     </div>
   );

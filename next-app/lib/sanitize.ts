@@ -7,6 +7,8 @@
  * 모양이 틀린 항목만 걸러 낸다. 모양이 통째로 틀린 값(객체 자리에 문자열 등)만 지운다.
  */
 
+import { isEvidenceSrc } from './cefrGrowth';
+
 /** 객체여야 하는 키 — 문자열·숫자·배열이면 지운다 */
 const OBJECT_KEYS = new Set([
   'va_profile',
@@ -22,13 +24,25 @@ const OBJECT_KEYS = new Set([
   'va_daycount',
   'va_spoken_log',
   'va_xp',
+  // M1 — 발화 기반 키(날짜 사전·설정)
+  'va_attempt_daily',
+  'va_flags',
+  'va_day_gov',
+  'va_growth',
+  'va_sound_track',
+  'va_diag',
+  'va_tts_meta',
+  'va_speak_goal',
 ]);
 
-/** 값이 전부 객체여야 하는 사전(단어 진도·문법 진도·레슨 통계) — 빈 칸만 걸러 낸다 */
-const DICT_OF_OBJECTS = new Set(['va_words', 'va_grammar', 'va_stats']);
+/** 객체든 배열이든 되지만 원시값이면 지우는 키 — 모양을 가진 모듈(M3·M5·M10·M11)이 아직 정하지 않은 기록 */
+const STRUCT_KEYS = new Set(['va_retell', 'va_recall_speak', 'va_baseline', 'va_ear']);
+
+/** 값이 전부 객체여야 하는 사전(단어 진도·문법 진도·레슨 통계·일별 집계·진단) — 빈 칸만 걸러 낸다 */
+const DICT_OF_OBJECTS = new Set(['va_words', 'va_grammar', 'va_stats', 'va_attempt_daily', 'va_diag', 'va_tts_meta']);
 
 /** 배열 항목이 객체여야 하는 키 — null·문자열 항목을 걸러 낸다 */
-const ARRAY_OF_OBJECTS = new Set(['va_weak', 'va_cefr_evidence', 'va_drama_eps', 'va_phrases', 'va_sessions', 'va_chat_logs', 'va_ask_history', 'va_pron']);
+const ARRAY_OF_OBJECTS = new Set(['va_weak', 'va_cefr_evidence', 'va_drama_eps', 'va_phrases', 'va_sessions', 'va_chat_logs', 'va_ask_history', 'va_pron', 'va_attempt_log']);
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
@@ -67,13 +81,20 @@ export function sanitizeStorage(): number {
       if (v !== null) drop(k);
       continue;
     }
+    if (STRUCT_KEYS.has(k) && !isObj(v) && !Array.isArray(v)) {
+      if (v !== null) drop(k);
+      continue;
+    }
     if (Array.isArray(v)) {
       let keep = ARRAY_OF_OBJECTS.has(k) ? v.filter(isObj) : v.filter((x) => x !== null && x !== undefined);
       // 항목 모양까지 — 생성 원고는 화 번호·장면·표현이, 레벨 증거는 기능·레벨·점수가 있어야 한다
       if (k === 'va_drama_eps') keep = keep.filter((e) => isObj(e) && Number.isInteger(e.no) && Array.isArray(e.scenes) && Array.isArray(e.learn));
+      // 레벨 증거는 출처(src)도 허용목록 안이어야 한다 — 모르는 출처가 레벨을 올리지 않게(M1)
       if (k === 'va_cefr_evidence')
-        keep = keep.filter((e) => isObj(e) && ['speaking', 'listening', 'reading', 'writing'].includes(String(e.skill)) && ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].includes(String(e.level)) && typeof e.score === 'number');
+        keep = keep.filter((e) => isObj(e) && ['speaking', 'listening', 'reading', 'writing'].includes(String(e.skill)) && ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].includes(String(e.level)) && typeof e.score === 'number' && isEvidenceSrc(e.src));
       if (k === 'va_weak') keep = keep.filter((w) => isObj(w) && typeof w.en === 'string');
+      // 시도 로그 한 줄은 시각·문장·점수가 있어야 집계할 수 있다
+      if (k === 'va_attempt_log') keep = keep.filter((a) => isObj(a) && typeof a.t === 'number' && typeof a.en === 'string' && typeof a.score === 'number');
       if (keep.length !== v.length) set(k, keep);
       continue;
     }
@@ -82,10 +103,22 @@ export function sanitizeStorage(): number {
       const out: Record<string, unknown> = {};
       let bad = false;
       for (const [kk, vv] of Object.entries(v)) {
-        if (isObj(vv)) out[kk] = vv;
+        // 일별 집계는 시도 수(n)가 숫자여야 한다
+        if (isObj(vv) && (k !== 'va_attempt_daily' || typeof vv.n === 'number')) out[kk] = vv;
         else bad = true;
       }
       if (bad) set(k, out);
+    } else if (k === 'va_flags') {
+      // 플래그는 불리언만 — 다른 값은 '켜짐/꺼짐'을 알 수 없으니 뺀다
+      const out: Record<string, unknown> = {};
+      let bad = false;
+      for (const [kk, vv] of Object.entries(v)) {
+        if (typeof vv === 'boolean') out[kk] = vv;
+        else bad = true;
+      }
+      if (bad) set(k, out);
+    } else if (k === 'va_speak_goal') {
+      if (typeof v.goal !== 'number') drop(k);
     } else if (k === 'va_words_extra') {
       const out: Record<string, unknown> = {};
       let bad = false;
@@ -103,7 +136,8 @@ export function sanitizeStorage(): number {
       if (!Array.isArray(v.history)) set(k, { ...v, history: [] });
     } else if (k === 'va_drama_resume') {
       // 이어 보기 — 모양이 어긋나면 통째로 버린다(처음부터 다시 보면 된다)
-      if (typeof v.no !== 'number' || typeof v.i !== 'number' || !Array.isArray(v.log) || !Array.isArray(v.rc)) drop(k);
+      // v(판)는 lib/drama RESUME_VERSION(2) — 옛 판은 재생 때 어차피 버려진다
+      if (v.v !== 2 || typeof v.no !== 'number' || typeof v.i !== 'number' || !Array.isArray(v.log) || !Array.isArray(v.rc)) drop(k);
     } else if (k === 'va_drama') {
       if (!isObj(v.done) || (v.score !== undefined && !isObj(v.score))) drop(k);
     }

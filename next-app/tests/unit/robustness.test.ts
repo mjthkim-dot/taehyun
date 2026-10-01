@@ -89,3 +89,95 @@ describe('알림 문구 — 집중 모드는 드라마로', () => {
     expect(reminderBody(0, false)).toContain('미션');
   });
 });
+
+describe('M1 — 새 키 모양 검사(복원 허용목록)', () => {
+  test('일별 집계·플래그·진단·발화 목표·기록 키의 어긋난 값만 걷어 낸다', () => {
+    localStorage.setItem('va_attempt_daily', JSON.stringify({ '2026-09-01': { n: 3, passed: 1 }, '2026-09-02': null, '2026-09-03': { passed: 1 }, '2026-09-04': 'x' }));
+    localStorage.setItem('va_flags', JSON.stringify({ retell: false, hvpt: 'off', decoder: 1 }));
+    localStorage.setItem('va_diag', JSON.stringify({ '2026-09-01': { tts429: 2 }, bad: 5 }));
+    localStorage.setItem('va_tts_meta', JSON.stringify({ '2026-09-01': { hit: 2 }, bad: [] }));
+    localStorage.setItem('va_speak_goal', JSON.stringify({ goal: 'ten' }));
+    localStorage.setItem('va_day_gov', JSON.stringify('busy'));
+    localStorage.setItem('va_growth', JSON.stringify([1, 2]));
+    localStorage.setItem('va_sound_track', JSON.stringify({ axis: 'r-l' }));
+    localStorage.setItem('va_retell', JSON.stringify('nope'));
+    localStorage.setItem('va_recall_speak', JSON.stringify([null, { en: 'ok' }]));
+    localStorage.setItem('va_baseline', JSON.stringify({ at: 1 }));
+    localStorage.setItem('va_ear', JSON.stringify(3));
+    localStorage.setItem('va_attempt_log', JSON.stringify([null, { t: 1, en: 'a', score: 80, quality: 'echo' }, { t: 'x' }, 'str']));
+    localStorage.setItem('va_drama_resume', JSON.stringify({ no: 2, i: 3, log: [], rc: [] })); // v 없음(옛 판)
+    const fixed = sanitizeStorage();
+    expect(fixed).toBeGreaterThanOrEqual(9);
+    expect(Object.keys(load<Record<string, unknown>>('va_attempt_daily', {}))).toEqual(['2026-09-01']);
+    expect(load<Record<string, unknown>>('va_flags', {})).toEqual({ retell: false });
+    expect(Object.keys(load<Record<string, unknown>>('va_diag', {}))).toEqual(['2026-09-01']);
+    expect(Object.keys(load<Record<string, unknown>>('va_tts_meta', {}))).toEqual(['2026-09-01']);
+    expect(localStorage.getItem('va_speak_goal')).toBeNull();
+    expect(localStorage.getItem('va_day_gov')).toBeNull();
+    expect(localStorage.getItem('va_growth')).toBeNull();
+    expect(load<Record<string, unknown>>('va_sound_track', {})).toEqual({ axis: 'r-l' }); // 모양 맞으면 그대로
+    expect(localStorage.getItem('va_retell')).toBeNull();
+    expect(load<unknown[]>('va_recall_speak', [])).toEqual([{ en: 'ok' }]);
+    expect(load<Record<string, unknown>>('va_baseline', {})).toEqual({ at: 1 });
+    expect(localStorage.getItem('va_ear')).toBeNull();
+    expect(load<unknown[]>('va_attempt_log', [])).toEqual([{ t: 1, en: 'a', score: 80, quality: 'echo' }]);
+    expect(localStorage.getItem('va_drama_resume')).toBeNull();
+    expect(sanitizeStorage()).toBe(0);
+  });
+  test('레벨 증거 출처(src) 허용목록 — 새 출처(retell·dtalk·drama-blind)는 살리고 모르는 출처는 뺀다', () => {
+    const ev = (src: string) => ({ t: 1, skill: 'speaking', level: 'B1', score: 90, src, counts: true });
+    localStorage.setItem('va_cefr_evidence', JSON.stringify([ev('retell'), ev('dtalk'), ev('drama-blind'), ev('talk'), ev('hacker'), { ...ev('talk'), src: undefined }]));
+    sanitizeStorage();
+    expect(load<{ src: string }[]>('va_cefr_evidence', []).map((e) => e.src)).toEqual(['retell', 'dtalk', 'drama-blind', 'talk']);
+  });
+  test('백업 복원은 새 키를 받아들이고 녹음 안내 문구가 있다', async () => {
+    const { restoreBackup, BACKUP_SCOPE_NOTE } = await import('../../lib/backup');
+    const data: Record<string, string> = {};
+    for (const k of ['va_retell', 'va_attempt_daily', 'va_flags', 'va_day_gov', 'va_growth', 'va_sound_track', 'va_recall_speak', 'va_baseline', 'va_diag', 'va_speak_goal', 'va_ear'])
+      data[k] = JSON.stringify(k === 'va_speak_goal' ? { goal: 12, kind: 'scored' } : k === 'va_flags' ? { retell: false } : {});
+    data.va_groq_key = JSON.stringify('gsk_leak');
+    const r = restoreBackup(JSON.stringify({ app: 'my-english-coach', format: 1, exportedAt: 'x', data }));
+    expect(r.ok).toBe(true);
+    expect(r.restored).toBe(11);
+    expect(localStorage.getItem('va_groq_key')).toBeNull();
+    expect(load<{ goal: number }>('va_speak_goal', { goal: 0 }).goal).toBe(12);
+    expect(BACKUP_SCOPE_NOTE).toContain('녹음');
+    expect(BACKUP_SCOPE_NOTE).toContain('포함되지 않');
+  });
+});
+
+describe('M1 — 발화 목표 경량 읽기(speakGoalLite)', () => {
+  test('기본 {goal:10, kind:"scored"}, 저장값은 goal·kind만 읽고 범위(1~35)로 자른다', async () => {
+    const { speakGoalLite } = await import('../../lib/state');
+    expect(speakGoalLite()).toEqual({ goal: 10, kind: 'scored' });
+    localStorage.setItem('va_speak_goal', JSON.stringify({ goal: 14, kind: 'self', adaptedAt: 1, extra: true }));
+    expect(speakGoalLite()).toEqual({ goal: 14, kind: 'self' });
+    localStorage.setItem('va_speak_goal', JSON.stringify({ goal: 99, kind: 'weird' }));
+    expect(speakGoalLite()).toEqual({ goal: 35, kind: 'scored' });
+    localStorage.setItem('va_speak_goal', JSON.stringify('x'));
+    expect(speakGoalLite()).toEqual({ goal: 10, kind: 'scored' });
+  });
+});
+
+describe('M1 — 진단 카운터(va_diag)·TTS 지표(va_tts_meta)', () => {
+  test('오늘 날짜에 누적, 모양 복원, 90일 보존', async () => {
+    const { bumpDiag, diagLog, diagSum, bumpTtsMeta, ttsMetaToday } = await import('../../lib/diag');
+    const old: Record<string, unknown> = {};
+    for (let i = 0; i < 95; i++) old[`2020-01-${String((i % 28) + 1).padStart(2, '0')}-${i}`] = { tts429: 1 };
+    localStorage.setItem('va_diag', JSON.stringify(old));
+    bumpDiag('tts429');
+    bumpDiag('tts429');
+    bumpDiag('recSaveFail');
+    bumpDiag('newReason');
+    const days = Object.keys(diagLog());
+    expect(days.length).toBe(90);
+    const today = days[days.length - 1];
+    expect(diagLog()[today]).toEqual({ canDetectFail: 0, stt429: 0, tts429: 2, recSaveFail: 1 });
+    expect(diagSum(7).tts429).toBe(2);
+    bumpTtsMeta('hit');
+    bumpTtsMeta('miss');
+    bumpTtsMeta('synth');
+    bumpTtsMeta('hit');
+    expect(ttsMetaToday()).toEqual({ hit: 2, miss: 1, synth: 1, tts429: 0 });
+  });
+});
