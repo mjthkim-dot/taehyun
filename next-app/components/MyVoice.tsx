@@ -61,13 +61,23 @@ export default function VoiceCompare({
   sentence,
   clip,
   lang = 'en-US',
+  labels,
+  voice,
+  rate: rateProp,
 }: {
   sentence: string;
   clip: Blob | null;
   lang?: string;
+  /** 버튼 문구 — 역할극(M2)은 '태오 ▶ / 내 소리 ▶'처럼 인물 이름을 쓴다 */
+  labels?: { native: string; mine: string; title?: string };
+  /** 원어민 쪽 목소리(Groq Orpheus 이름, lib/drama voiceOf) — 없으면 기본 목소리 */
+  voice?: string;
+  /** 원어민 재생 속도 — 없으면 '느리게 듣기' 설정값 */
+  rate?: number;
 }) {
   const url = useClipUrl(clip);
-  const rate = useSlowRate();
+  const slow = useSlowRate();
+  const rate = rateProp ?? slow;
   const [playing, setPlaying] = useState<'none' | 'native' | 'mine'>('none');
 
   useEffect(() => () => stopMyVoice(), []);
@@ -77,7 +87,7 @@ export default function VoiceCompare({
   function playNative() {
     stopMyVoice();
     setPlaying('native');
-    speakText(sentence, lang, rate);
+    speakText(sentence, lang, rate, undefined, voice);
     // 재생 종료 시점을 정확히 알기 어려운 경로(TTS 프록시·음성합성)라
     // 강조 표시는 잠시 뒤 스스로 풀리게 둔다
     window.setTimeout(() => setPlaying((p) => (p === 'native' ? 'none' : p)), 2500);
@@ -96,13 +106,13 @@ export default function VoiceCompare({
 
   return (
     <div className="vcmp">
-      <div className="vcmp-label">번갈아 들어보기</div>
+      <div className="vcmp-label">{labels?.title ?? '번갈아 들어보기'}</div>
       <div className="vcmp-row">
         <button type="button" className={`vcmp-btn${playing === 'native' ? ' on' : ''}`} onClick={playNative}>
-          🔊 원어민
+          {labels?.native ?? '🔊 원어민'}
         </button>
         <button type="button" className={`vcmp-btn${playing === 'mine' ? ' on' : ''}`} onClick={playMine}>
-          🎤 내 발음
+          {labels?.mine ?? '🎤 내 발음'}
         </button>
       </div>
     </div>

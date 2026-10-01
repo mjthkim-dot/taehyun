@@ -14,16 +14,29 @@ import '../app/screens.css';
  *  - 말풍선 다시 듣기·음소거가 자동 재생을 멈춰 세우지 않는다
  *  - 다음 화 첫머리에 '지난 화 기억나요?' — 드라마 표현의 간격 반복 복습
  *  - AI 원고가 실패·오류여도 무한 로딩·영구 막힘이 없다
+ *
+ * M2 역할극(내가 태오): 태오 대사(line/speak) 전부 + 지정 상대 대사(lib/dramaSeedMine)는 RoleStep이 맡는다.
+ *  - 말풍선은 components/drama/Bubble.tsx, 역할극은 components/drama/RoleStep.tsx(dynamic), 엔딩 추가 카드는
+ *    components/drama/EndingExtras.tsx(레지스트리). 이 파일은 분기·슬롯·넘어가기 카운터만 가진다.
+ *  - 역할극 장면에서는 자동 흐름이 멈추고 결과 뒤 '다음'으로 이어진다. 플래그 rolePlay가 꺼지면 예전 동작
+ *    (태오 대사 자동 재생, speak 장면만 따라 말하기·넘어가기 무제한).
+ *  - 엔딩 직전 '방금 60점 미만' 최대 2개를 한국어만 보고 다시 말한다(세션 내 재소환, src 'recall-inline').
  */
 import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import type { Mode } from './NavBar';
 import { primeAudio, speakText, stopSpeaking } from './SpeakButton';
 import TtsDegradedChip from './TtsDegradedChip';
+import Bubble, { type LogItem } from './drama/Bubble';
+import EndingExtras from './drama/EndingExtras';
 import { haptic } from '../lib/haptics';
-import { addWeakItem, BACK_EVENT, bumpSpoken, calcStreak, gradeWeakItem, groqKey, load, slowRate, store } from '../lib/state';
-import { browserSttAvailable, listenOnce } from '../lib/browserStt';
+import { BACK_EVENT, calcStreak, gradeWeakItem, groqKey, load, slowRate, store } from '../lib/state';
+import { browserSttAvailable } from '../lib/browserStt';
 import { DRAMA_REQ_KEY, markDramaPracticeToday, setDramaPlaying, type DramaRequest } from '../lib/homeLite';
-import { recordAndTranscribe, whisperAvailable } from '../lib/stt';
+import { whisperAvailable } from '../lib/stt';
+import { isOn } from '../lib/flags';
+import { todayKey } from '../lib/dates';
+import { recallInlineItems, SHADOW_MAX, SKIP_MAX, speakStatsFrom, sttPath, type RoleMode, type RoleResult } from '../lib/roleStep';
 import { evidenceLog, overall, PASS_SCORE, PASSES_NEEDED } from '../lib/cefrGrowth';
 import {
   allEpisodes,
@@ -50,6 +63,7 @@ import {
   prefetchEpisode,
   recallItems,
   reviewItems,
+  roleTargets,
   saveResume,
   SERIES,
   SERIES_KR,
@@ -61,8 +75,13 @@ import {
   type MissedItem,
   type RecallItem,
   type ResumeState,
+  type RoleTarget,
   type Scene,
+  type SpeakStats,
 } from '../lib/drama';
+
+// 역할극 한 줄 — 녹음·채점·비교 재생까지 들어 있어 무겁다. 역할극 장면에 닿을 때 받는다.
+const RoleStep = dynamic(() => import('./drama/RoleStep'), { ssr: false, loading: () => <div className="dr-act rs-loading">🎙 준비 중…</div> });
 
 const MUTE_KEY = 'va_drama_mute';
 const AUTO_KEY = 'va_drama_auto';
@@ -92,11 +111,8 @@ function initialSpeed(): number {
 const slowerOf = (speed: number) => Math.max(0.55, Math.min(slowRate(), speed - 0.25)) * SPEED_BASE;
 
 
-/** 플레이어가 도는 장면 — 원고 장면 + 첫머리 복습(recall) */
-type PScene = Scene | ({ type: 'recall' } & RecallItem);
-
-/** 화면에 쌓이는 대화 기록 한 줄 */
-type LogItem = { kind: 'narr'; kr: string } | { kind: 'line'; who: string; en: string; kr: string } | { kind: 'note'; ok: boolean; text: string };
+/** 플레이어가 도는 장면 — 원고 장면 + 첫머리 복습(recall) + 엔딩 직전 재소환(recallInline, M2) */
+type PScene = Scene | ({ type: 'recall' } & RecallItem) | { type: 'recallInline'; idx: number; who: string; en: string; kr: string };
 
 function shuffleIdx(n: number, seed: number): number[] {
   const idx = Array.from({ length: n }, (_, i) => i);
@@ -115,161 +131,7 @@ export { speakMatch } from '../lib/drama';
 /** 대사 한 줄을 읽는 데 필요한 시간(음소거·추정용) */
 const lineMs = (en: string) => en.split(/\s+/).length * 380 + 700;
 
-function Bubble({ item, subs, onReplay }: { item: LogItem; subs: boolean; onReplay: (en: string, who?: string) => void }) {
-  // 자막을 꺼 둔 채 들을 때 — 못 알아들은 말풍선만 눌러서 한국어를 볼 수 있다(듣기 먼저, 뜻은 나중)
-  const [reveal, setReveal] = useState(false);
-  if (item.kind === 'narr') return <div className="dr-narr">{item.kr}</div>;
-  if (item.kind === 'note') return <div className={`dr-note${item.ok ? ' ok' : ''}`}>{item.text}</div>;
-  const c = castOf(item.who);
-  const me = item.who === 'taeo';
-  const showKr = (subs || reveal) && !!item.kr;
-  return (
-    <div className={`dr-line${me ? ' me' : ''}`}>
-      {!me && <span className="dr-av" aria-hidden="true">{c.icon}</span>}
-      <button
-        type="button"
-        className="dr-bub"
-        onClick={() => {
-          setReveal(true);
-          onReplay(item.en, item.who);
-        }}
-      >
-        {/* 접근성 이름 = 보이는 내용 그대로(인물·영어·자막) — 예전엔 aria-label이 자막을 덮어 한국어가 읽히지 않았다 */}
-        <span className={me ? 'sr-only' : 'dr-name'}>{c.name}</span>
-        <span className="dr-en" lang="en">
-          {item.en}
-        </span>
-        {showKr && <span className="dr-kr">{item.kr}</span>}
-        <span className="sr-only">(다시 듣기)</span>
-      </button>
-      {me && <span className="dr-av" aria-hidden="true">{c.icon}</span>}
-    </div>
-  );
-}
-
-/** 따라 말하기 — 선택(보너스). 문장을 먼저 들려주고, 말하면 얼마나 비슷했는지 알려준다 */
-function SpeakStep({ scene, onDone, play }: { scene: Extract<Scene, { type: 'speak' }>; onDone: (said: string | null, match: number) => void; play: (en: string) => void }) {
-  const [st, setSt] = useState<'idle' | 'rec' | 'wait' | 'heard'>('idle');
-  const [msg, setMsg] = useState('');
-  const [heard, setHeard] = useState<{ text: string; m: number } | null>(null);
-  const stop = useRef<(() => void) | null>(null);
-  const cancelled = useRef(false);
-  // 키가 있으면 Whisper, 없으면 브라우저 내장 받아쓰기, 둘 다 없으면 '말했어요 ✓' 자기 확인
-  const useWhisper = whisperAvailable() && !!groqKey();
-  const canVoice = useWhisper || browserSttAvailable();
-
-  useEffect(() => {
-    // 무엇을 말할지 먼저 들려준다(예전엔 한 번도 소리로 들려주지 않았다)
-    play(scene.en);
-    return () => {
-      cancelled.current = true;
-      stop.current?.();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function rec() {
-    cancelled.current = false;
-    stopSpeaking();
-    setSt('rec');
-    setMsg('');
-    try {
-      // 받아쓰기 힌트엔 목표 문장을 넣지 않는다 — 넣으면 받아쓰기가 목표 쪽으로 끌려가 일치도가 부풀었다.
-      // 고유명사만 알려 준다.
-      const text = useWhisper
-        ? (
-            await recordAndTranscribe({
-              prompt: 'Taeo, Maya, Jun, Diane, Mr. Grant, Nimbus.',
-              language: 'en',
-              silenceMs: 1800,
-              maxMs: 15000,
-              registerStop: (f) => (stop.current = f),
-              onState: (s) => {
-                if (s === 'transcribing') setSt('wait');
-              },
-            })
-          ).text
-        : await listenOnce({ lang: 'en-US', maxMs: 12000, registerStop: (f) => (stop.current = f) });
-      stop.current = null;
-      // 녹음 중에 '넘어가기'를 눌렀으면 결과를 버린다(예전엔 그래도 반영돼 대사가 중복됐다)
-      if (cancelled.current) return;
-      const said = (text || '').trim();
-      if (!said) {
-        setMsg('소리가 안 잡혔어요. 한 번 더 해볼까요?');
-        setSt('idle');
-        return;
-      }
-      bumpSpoken();
-      setHeard({ text: said, m: speakMatch(scene.en, said) });
-      setSt('heard');
-    } catch {
-      stop.current = null;
-      if (cancelled.current) return;
-      setMsg('녹음이나 받아 적기에 실패했어요. 한 번 더 하거나 넘어가도 괜찮아요.');
-      setSt('idle');
-    }
-  }
-
-  const verdict = heard ? (heard.m >= 0.7 ? '좋아요! 거의 똑같이 말했어요 🎉' : heard.m >= 0.4 ? '비슷해요 — 한 번 더 들어보고 말해 볼까요?' : '조금 달라요 — 천천히 한 번 더 들어볼까요?') : '';
-
-  return (
-    <div className="dr-act">
-      <div className="dr-ask">🎙 태오가 되어 말해 보세요</div>
-      <button type="button" className="dr-target" onClick={() => play(scene.en)}>
-        <span className="dr-en">🔊 {scene.en}</span>
-        <span className="dr-kr">{scene.kr}</span>
-      </button>
-      {heard && (
-        <div className={`dr-note${heard.m >= 0.7 ? ' ok' : ''}`}>
-          내가 한 말: “{heard.text}” · {verdict}
-        </div>
-      )}
-      {canVoice && st !== 'heard' && (
-        <button type="button" className={`dr-mic${st === 'rec' ? ' on' : ''}`} disabled={st === 'wait'} onClick={() => (st === 'rec' ? stop.current?.() : void rec())} aria-label={st === 'rec' ? '말하기 끝' : '말하기'}>
-          {st === 'rec' ? '⏹' : st === 'wait' ? '…' : '🎙'}
-        </button>
-      )}
-      {msg && <p className="dr-msg">{msg}</p>}
-      {st === 'heard' && heard ? (
-        <div className="dr-row">
-          <button type="button" className="btn" onClick={() => { setHeard(null); setSt('idle'); }}>
-            다시 말하기
-          </button>
-          <button type="button" className="btn primary" onClick={() => onDone(heard.text, heard.m)}>
-            계속
-          </button>
-        </div>
-      ) : (
-        <>
-          {!canVoice && (
-            // 받아쓰기를 못 쓰는 기기 — 소리 내어 말했다고 스스로 확인(말한 문장 수에 센다)
-            <button
-              type="button"
-              className="btn primary"
-              onClick={() => {
-                bumpSpoken();
-                onDone(scene.en, 1);
-              }}
-            >
-              🗣 소리 내어 말했어요 ✓
-            </button>
-          )}
-          <button
-            type="button"
-            className="dr-skip"
-            onClick={() => {
-              cancelled.current = true;
-              stop.current?.();
-              onDone(null, 0);
-            }}
-          >
-            말하지 않고 넘어가기
-          </button>
-        </>
-      )}
-    </div>
-  );
-}
+// 말풍선(Bubble)은 components/drama/Bubble.tsx로, 따라 말하기(SpeakStep)는 components/drama/RoleStep.tsx로 옮겼다(M2).
 
 export interface PlayResult {
   score: number;
@@ -280,6 +142,8 @@ export interface PlayResult {
   retry: Scene[];
   /** 문항 레벨별 성적(원고의 B1 문항 → B1 듣기 증거) */
   byLevel: LevelStats;
+  /** 역할극 집계(M2) — 역할극이 없던 세션(복습·다시 풀기)은 undefined */
+  speakStats?: SpeakStats;
 }
 
 /** 참여 장면의 정답 문장과 그 뜻(복습 카드용) */
@@ -307,6 +171,7 @@ function Player({
   review,
   resume,
   subsOff,
+  dayState,
 }: {
   ep: Episode;
   onEnd: (r: PlayResult) => void;
@@ -316,15 +181,70 @@ function Player({
   /** 이어 보기 — 지난번 멈춘 장면부터(기록·점수 그대로) */
   resume?: ResumeState | null;
   subsOff?: boolean;
+  /**
+   * 하루 상태(M4 dayState가 채운다 — 지금은 아무도 넘기지 않는다):
+   * quiet(조용히 — 역할극이 입모양 모드, 넘어가기 무제한) · returning(복귀 첫날 — 넘어가기 무제한)
+   */
+  dayState?: { quiet?: boolean; returning?: boolean };
 }) {
   // 첫머리 복습 — 지난 화 표현 떠올리기(간격 반복). 이어 볼 때는 그때 문항 그대로(장면 번호가 어긋나지 않게)
   const rc = useMemo<RecallItem[]>(() => (review ? review : practice ? [] : resume ? resume.rc : recallItems(ep.no)), [ep, practice, resume, review]);
-  const scenes = useMemo<PScene[]>(() => {
+  const baseScenes = useMemo<PScene[]>(() => {
     if (review) return [{ type: 'narr', kr: `표현 복습 — 지난 화들에서 배운 표현 ${review.length}개를 떠올려 봐요.` } as Scene, ...review.map((r) => ({ type: 'recall' as const, ...r }))];
     if (practice || !rc.length) return ep.scenes;
     return [{ type: 'narr', kr: '지난 화 기억나요? 표현 하나만 떠올려 보고 시작해요.' } as Scene, ...rc.map((r) => ({ type: 'recall' as const, ...r })), { type: 'narr', kr: `EP ${ep.no} · ${ep.titleKr}` } as Scene, ...ep.scenes];
   }, [ep, practice, rc, review]);
+  /** 엔딩 직전 재소환 장면(M2) — 마지막 장면을 지날 때 '방금 60점 미만' 최대 2개를 덧붙인다 */
+  const [extra, setExtra] = useState<PScene[]>([]);
+  const scenes = useMemo<PScene[]>(() => (extra.length ? [...baseScenes, ...extra] : baseScenes), [baseScenes, extra]);
   const saveProgress = !practice && !review;
+  /** 플레이어 장면 번호 → 원고 장면 번호(첫머리 복습 블록만큼 밀린다). 복습 세션은 역할극 없음(-1) */
+  const sceneOffset = review ? -1 : practice || !rc.length ? 0 : rc.length + 2;
+
+  // ── 역할극(M2) ──
+  // 플래그가 꺼지면 예전 동작: 태오 대사는 자동 재생, speak 장면만 따라 말하기(넘어가기 무제한)
+  const rolePlay = !practice && !review && !subsOff && isOn('rolePlay');
+  const path = sttPath({ whisper: whisperAvailable(), webSpeech: browserSttAvailable() });
+  const keyless = path === 'self';
+  const quiet = !!dayState?.quiet;
+  const roleMap = useMemo(() => {
+    const m = new Map<number, RoleTarget>();
+    if (review) return m;
+    if (rolePlay) for (const t of roleTargets(ep)) m.set(t.idx, t);
+    else ep.scenes.forEach((sc, idx) => sc.type === 'speak' && m.set(idx, { idx, who: sc.who, en: sc.en, kr: sc.kr, kind: 'role', afterQuiz: false }));
+    return m;
+  }, [ep, rolePlay, review]);
+  /** 지정 상대 대사의 영어(길게 누르기 표시용) */
+  const mineEns = useMemo(() => new Set([...roleMap.values()].filter((t) => t.kind === 'mine').map((t) => t.en)), [roleMap]);
+  /**
+   * 이 플레이어 장면이 역할극인가 — role: 태오 대사(조용히면 입모양), mine: 키 없음이면 섀도잉 기본(ON),
+   * 키 있음이면 보통 재생(말풍선 길게 누르기). 뜻·빈칸 문항에 지정된 상대 줄은 퀴즈 뒤에 붙는다(afterQuiz).
+   */
+  const roleOf = (k: number): { t: RoleTarget; mode: RoleMode } | null => {
+    const sc = scenes[k];
+    if (!sc) return null;
+    if (sc.type === 'recallInline') return { t: { idx: sc.idx, who: sc.who, en: sc.en, kr: sc.kr, kind: 'role', afterQuiz: false }, mode: 'role' };
+    if (sceneOffset < 0) return null;
+    const t = roleMap.get(k - sceneOffset);
+    if (!t) return null;
+    if (t.kind === 'role') return sc.type === 'line' || sc.type === 'speak' ? { t, mode: quiet ? 'lip' : 'role' } : null;
+    if (sc.type !== 'line' || path === 'whisper') return null;
+    return { t, mode: quiet ? 'lip' : 'shadow' };
+  };
+  /** 역할극 결과 모음 — 집계(speakStats)·재소환 후보 */
+  const roleResults = useRef<RoleResult[]>([]);
+  const [skips, setSkips] = useState(0);
+  const skipsRef = useRef(0);
+  const [shadows, setShadows] = useState(0);
+  /** 길게 누른 상대 대사(키 있음) — 섀도잉이 열려 있는 동안 흐름을 멈춘다 */
+  const [shadowOf, setShadowOf] = useState<{ who: string; en: string; kr: string; idx: number } | null>(null);
+  const shadowRef = useRef(shadowOf);
+  shadowRef.current = shadowOf;
+  /** 뜻·빈칸 문항이 끝난 직후 붙는 지정 상대 대사(키 없음 섀도잉) */
+  const [postQuiz, setPostQuiz] = useState<RoleTarget | null>(null);
+  const postQuizRef = useRef(postQuiz);
+  postQuizRef.current = postQuiz;
+  const inlineDone = useRef(false);
 
   const [i, setI] = useState(() => (resume ? Math.min(resume.i, scenes.length - 1) : 0));
   const [log, setLog] = useState<LogItem[]>(() => (resume ? (resume.log as LogItem[]) : []));
@@ -351,6 +271,8 @@ function Player({
   const endRef = useRef<HTMLDivElement | null>(null);
   const scene = scenes[i];
   const total = scenes.length;
+  const totalRef = useRef(total);
+  totalRef.current = total;
   const okRef = useRef(resume ? resume.ok : 0);
   const askedRef = useRef(resume ? resume.asked : 0);
   const byLevelRef = useRef<LevelStats>({});
@@ -434,13 +356,31 @@ function Player({
     token.current++;
     setPicked(null);
     const cur = iRef.current;
-    if (cur + 1 >= total) {
+    if (cur + 1 >= totalRef.current) {
+      // 엔딩 직전 재소환(M2) — 방금 60점 미만 최대 2개를 한국어만 보고 다시(한 번만 붙인다)
+      if (rolePlay && !inlineDone.current) {
+        inlineDone.current = true;
+        const items = recallInlineItems(roleResults.current);
+        if (items.length) {
+          setExtra(items.map((x) => ({ type: 'recallInline' as const, idx: x.sceneIdx, who: x.who, en: x.en, kr: x.kr })));
+          setI(cur + 1);
+          return;
+        }
+      }
       if (ended.current) return;
       ended.current = true;
       stopSpeaking();
       const score = askedRef.current ? Math.round((okRef.current / askedRef.current) * 100) : 100;
       if (saveProgress) clearResume();
-      onEnd({ score, asked: askedRef.current, ok: okRef.current, missed: missedRef.current, retry: retryRef.current, byLevel: byLevelRef.current });
+      onEnd({
+        score,
+        asked: askedRef.current,
+        ok: okRef.current,
+        missed: missedRef.current,
+        retry: retryRef.current,
+        byLevel: byLevelRef.current,
+        speakStats: roleResults.current.length ? speakStatsFrom(roleResults.current) : undefined,
+      });
       return;
     }
     setI(cur + 1);
@@ -450,7 +390,8 @@ function Player({
 
   /** 이어 보기 저장 — nextI부터 다시 보면 되는 상태(그 전 장면의 기록·점수는 확정) */
   function snapshot(nextI: number) {
-    if (!saveProgress || nextI <= 0 || nextI >= total) return;
+    // 재소환 장면(extra)은 저장하지 않는다 — 다시 열면 엔딩으로 간다
+    if (!saveProgress || nextI <= 0 || nextI >= baseScenes.length) return;
     saveResume({
       no: ep.no,
       i: nextI,
@@ -468,7 +409,7 @@ function Player({
       if (document.visibilityState !== 'hidden' && !ended.current) return;
       if (ended.current) return;
       const sc = scenes[iRef.current];
-      const unanswered = !!sc && (INTERACTIVE.has(sc.type) || sc.type === 'recall') && pickedRef.current === null;
+      const unanswered = !!sc && (INTERACTIVE.has(sc.type) || sc.type === 'recall' || !!roleOf(iRef.current)) && pickedRef.current === null;
       snapshot(unanswered ? iRef.current : iRef.current + 1);
     };
     const onHide = () => {
@@ -483,10 +424,12 @@ function Player({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** 지금 장면에서 기다렸다가 넘어가도 되는가(자동 재생 켜짐 + 내 차례가 아니거나 이미 답함) */
+  /** 지금 장면에서 기다렸다가 넘어가도 되는가(자동 재생 켜짐 + 내 차례가 아니거나 이미 답함 + 섀도잉·퀴즈 뒤 역할극이 열려 있지 않음) */
   const canFlow = () => {
     const sc = scenes[iRef.current];
-    return autoRef.current && !!sc && (!INTERACTIVE.has(sc.type) && sc.type !== 'recall' ? true : pickedRef.current !== null);
+    if (shadowRef.current || postQuizRef.current) return false;
+    const mine = !!sc && (INTERACTIVE.has(sc.type) || sc.type === 'recall' || !!roleOf(iRef.current));
+    return autoRef.current && !!sc && (!mine ? true : pickedRef.current !== null);
   };
 
   /** ms 뒤 다음으로(그 사이 장면이 바뀌었거나 멈췄으면 무시) */
@@ -576,6 +519,7 @@ function Player({
   // 장면 도착 — 해설·대사는 기록에 올리고 소리 낸 뒤 자동으로 넘어간다
   useEffect(() => {
     if (!scene) return;
+    if (roleOf(i)) return; // 역할극(M2) — 듣기·녹음·결과는 RoleStep이 맡고, 결과 뒤 '다음'으로 이어진다
     if (scene.type === 'narr') {
       push({ kind: 'narr', kr: scene.kr });
       if (autoRef.current) scheduleNext(Math.max(2200, scene.kr.length * 70));
@@ -634,11 +578,75 @@ function Player({
     setPicked(k);
     focusAfter.current = true;
     push(...items);
+    // 뜻·빈칸 문항에 지정된 상대 대사(키 없음) — 퀴즈가 끝난 직후 섀도잉을 붙인다(퀴즈 자체는 그대로)
+    const t = sceneOffset >= 0 ? roleMap.get(iRef.current - sceneOffset) : undefined;
+    if (t && t.kind === 'mine' && t.afterQuiz && path !== 'whisper' && !quiet) {
+      postQuizRef.current = t;
+      setPostQuiz(t);
+    }
     pendingVoice.current = voiceLines.map((x) => (typeof x === 'string' ? { en: x, who: 'taeo' } : x));
     speakSeq(voiceLines, () => {
       pendingVoice.current = [];
       if (canFlow()) scheduleNext(good ? 1400 : 3400);
     });
+  }
+
+  /** 역할극 한 줄이 끝났다(M2) — 이해도 합산·기록·말풍선 추가, 결과 뒤 '다음'(자동이면 잠시 뒤 저절로) */
+  function onRoleDone(r: RoleResult, t: { who: string; en: string; kr: string }, o: { counts: boolean; inline?: boolean; optIn?: boolean; noLine?: boolean } = { counts: true }) {
+    roleResults.current.push(r);
+    if (r.skipped && r.mode !== 'shadow' && !o.inline) {
+      skipsRef.current += 1;
+      setSkips(skipsRef.current);
+    }
+    if (!r.skipped && o.counts && !o.inline) {
+      // 60점 통과 = 그 문항 정답(이해도 분자·분모, 지난 표현 재등장 채점)
+      askedRef.current += 1;
+      if (r.passed) okRef.current += 1;
+      const st = (byLevelRef.current[ep.level] ||= { asked: 0, ok: 0 });
+      st.asked += 1;
+      if (r.passed) st.ok += 1;
+      try {
+        gradeRecycled(t.en, r.passed, ep.no);
+      } catch {
+        /* 복습 기록 실패는 재생을 막지 않는다 */
+      }
+    }
+    const items: LogItem[] = [];
+    if (o.inline) {
+      items.push({ kind: 'note', ok: r.passed, text: r.skipped ? `재소환 — “${t.en}” 다음에 다시` : `재소환 “${t.en}” · ${r.self ? (r.passed ? '말했어요 ✓' : '다음에 다시') : `${r.score}점`}` });
+    } else if (!o.optIn) {
+      // 퀴즈 뒤에 붙은 줄(noLine)은 말풍선이 이미 올라가 있다 — 결과 노트만
+      if (!o.noLine) items.push({ kind: 'line', who: t.who, en: t.en, kr: t.kr });
+      if (r.skipped) items.push({ kind: 'note', ok: false, text: o.noLine ? '같이 말하기는 넘어갔어요.' : '넘어갔어요 — 내일 복습에 넣어 둘게요.' });
+      else if (!r.self) items.push({ kind: 'note', ok: r.passed, text: `${r.mode === 'shadow' ? '같이 말하기' : '내 발화'} ${r.score}점${r.missed.length ? ` · 다시: ${r.missed.slice(0, 3).join(', ')}` : ''}${r.disputed ? ' · 채점 이의 접수' : ''}` });
+    } else if (!r.skipped) {
+      items.push({ kind: 'note', ok: r.passed, text: `같이 말하기 “${t.en}” · ${r.self ? '완료 ✓' : `${r.score}점`}` });
+    }
+    focusAfter.current = true;
+    if (items.length) push(...items);
+    if (o.optIn) {
+      setShadows((n) => n + 1);
+      shadowRef.current = null;
+      setShadowOf(null);
+    } else if (postQuizRef.current && !o.inline && r.sceneIdx === postQuizRef.current.idx && t.who !== 'taeo') {
+      postQuizRef.current = null;
+      setPostQuiz(null);
+    } else {
+      pickedRef.current = 0;
+      setPicked(0);
+    }
+    if (canFlow()) scheduleNext(r.skipped ? 600 : 900);
+  }
+
+  /** 상대 대사 길게 누르기(키 있음) — 같이 말하기. 화당 4회 */
+  function openShadow(item: Extract<LogItem, { kind: 'line' }>) {
+    if (!rolePlay || item.who === 'taeo' || shadows >= SHADOW_MAX || shadowRef.current) return;
+    clearTimer();
+    token.current++;
+    stopSpeaking();
+    const idx = Math.max(0, ep.scenes.findIndex((sc) => sc.type === 'line' && sc.en === item.en));
+    shadowRef.current = { who: item.who, en: item.en, kr: item.kr, idx };
+    setShadowOf(shadowRef.current);
   }
 
   function toggleAuto() {
@@ -654,8 +662,12 @@ function Player({
     if (canFlow()) scheduleNext(600);
   }
 
-  const isAct = !!scene && (INTERACTIVE.has(scene.type) || scene.type === 'recall');
+  const role = roleOf(i);
+  const isAct = !!scene && (INTERACTIVE.has(scene.type) || scene.type === 'recall' || !!role);
   const pct = Math.round((i / total) * 100);
+  const roleRate = speed * SPEED_BASE;
+  const skipPolicy = { keyless, returning: !!dayState?.returning, quiet };
+  const canLongPress = rolePlay && path === 'whisper' && shadows < SHADOW_MAX && !shadowOf;
 
   return (
     <div className="screen dr-screen">
@@ -739,7 +751,14 @@ function Player({
 
       <div className="dr-log" aria-live="polite" ref={logBoxRef}>
         {log.map((it, k) => (
-          <Bubble key={k} item={it} subs={subs} onReplay={replay} />
+          <Bubble
+            key={k}
+            item={it}
+            subs={subs}
+            onReplay={replay}
+            onLongPress={canLongPress && it.kind === 'line' && it.who !== 'taeo' ? openShadow : undefined}
+            mark={canLongPress && it.kind === 'line' && mineEns.has(it.en) ? '👄' : undefined}
+          />
         ))}
 
         {scene?.type === 'recall' && picked === null && (
@@ -860,17 +879,55 @@ function Player({
           </div>
         )}
 
-        {scene?.type === 'speak' && picked === null && (
-          <SpeakStep
-            key={i}
-            scene={scene}
-            play={(en) => speakSeq([en])}
-            onDone={(said, m) => {
-              const items: LogItem[] = [{ kind: 'line', who: 'taeo', en: scene.en, kr: scene.kr }];
-              // 많이 다르게 말했으면 그 문장을 복습 카드로(내일부터) — 결과를 버리지 않는다
-              if (said && m < 0.4 && !practice && !review) addWeakItem({ en: scene.en, kr: scene.kr, cat: '드라마', lesson: `drama:${ep.no}` }, 1);
-              afterAnswer(0, true, items, []);
+        {role && picked === null && (
+          <RoleStep
+            key={`${i}-${role.mode}`}
+            scene={{ idx: role.t.idx, who: role.t.who, en: role.t.en, kr: role.t.kr }}
+            epNo={ep.no}
+            mode={role.mode}
+            recall={scene?.type === 'recallInline'}
+            maxSkips={rolePlay ? SKIP_MAX : Infinity}
+            skipsUsed={skips}
+            skipPolicy={skipPolicy}
+            rate={roleRate}
+            speed={speed}
+            mute={mute}
+            onSlowHint={() => {
+              store(SPEED_KEY, 0.75);
+              setSpeed(0.75);
+              speedRef.current = 0.75;
             }}
+            onDone={(r) => onRoleDone(r, role.t, { counts: true, inline: scene?.type === 'recallInline' })}
+          />
+        )}
+        {postQuiz && picked !== null && !role && (
+          <RoleStep
+            key={`pq-${i}`}
+            scene={{ idx: postQuiz.idx, who: postQuiz.who, en: postQuiz.en, kr: postQuiz.kr }}
+            epNo={ep.no}
+            mode="shadow"
+            maxSkips={Infinity}
+            skipsUsed={skips}
+            skipPolicy={skipPolicy}
+            rate={roleRate}
+            speed={speed}
+            mute={mute}
+            onDone={(r) => onRoleDone(r, postQuiz, { counts: true, noLine: true })}
+          />
+        )}
+        {shadowOf && (
+          <RoleStep
+            key={`sh-${shadowOf.idx}-${shadows}`}
+            scene={shadowOf}
+            epNo={ep.no}
+            mode="shadow"
+            maxSkips={Infinity}
+            skipsUsed={0}
+            skipPolicy={skipPolicy}
+            rate={roleRate}
+            speed={speed}
+            mute={mute}
+            onDone={(r) => onRoleDone(r, shadowOf, { counts: mineEns.has(shadowOf.en), optIn: true })}
           />
         )}
         {/* 끝 표시 겸 여백 — 아래 고정 바(다음·자동 재생) 높이만큼 비워 마지막 대사가 바 뒤에 숨지 않게 */}
@@ -883,6 +940,8 @@ function Player({
       )}
 
       {(!isAct || picked !== null) &&
+        !shadowOf &&
+        !postQuiz &&
         (auto ? (
           <button type="button" className="dr-playing" onClick={toggleAuto} aria-label="자동 재생 멈추기">
             <span className="dr-eq" aria-hidden="true">
@@ -1012,6 +1071,10 @@ function Ending({
   }, []);
   const canRetry = result.retry.length > 0 && !retried;
   const nextEpInfo = episodeByNo(nextNo);
+  const endingCtx = useMemo(
+    () => ({ ep, dateKey: todayKey(), keyless: !whisperAvailable() && !browserSttAvailable(), speak: result.speakStats }),
+    [ep, result.speakStats]
+  );
   const nextIsAi = !nextEpInfo || !!nextEpInfo.ai;
   return (
     <div className="screen dr-screen">
@@ -1027,6 +1090,14 @@ function Ending({
             🎯 듣기 {growth.next} 입증 {growth.n}/{PASSES_NEEDED} — 드라마의 {growth.next} 문항을 맞히면 쌓여요
           </p>
         )}
+        {!retried && result.speakStats && (
+          <p className="dr-speak-sum" role="status">
+            🎙 발화 {result.speakStats.spoken} · 통과 {result.speakStats.passed}
+            {result.speakStats.skipped > 0 && ` · 넘어감 ${result.speakStats.skipped}`}
+          </p>
+        )}
+        {/* 엔딩 추가 카드(M2 레지스트리) — 이해도 아래. M3 회상·M5 리텔·M7/M9 소리 카드·M10/M11 조건부 카드가 등록한다 */}
+        {!retried && <EndingExtras ctx={endingCtx} />}
         {retried && (
           <p className="dr-msg" role="status">
             다시 풀기 {retried.ok}/{retried.total} — {retried.ok === retried.total ? '이제 다 맞혔어요! 👏' : '틀린 문장은 복습 카드에 남겨 뒀어요.'}
@@ -1376,7 +1447,7 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
             } catch {
               /* 미지원 브라우저 */
             }
-            const { levelChange: lc } = completeEpisode(ep, r.score, r.asked, r.missed, r.byLevel);
+            const { levelChange: lc } = completeEpisode(ep, r.score, r.asked, r.missed, r.byLevel, r.speakStats);
             // 너무 어려웠으면 다음 화는 자막을 켜 둔다(듣기 발판)
             if (lc === -1) {
               store(SUBS_KEY, true);

@@ -13,7 +13,13 @@ import { CEFR_ORDER as CEFR_LEVELS } from './cefr';
 import { todayKey } from './dates';
 import { markDramaPracticeToday, migrateDramaOnce } from './homeLite';
 import { groqKoJson, hasHangul } from './aiGuard';
+import { GROQ_MODEL } from './groq';
+import { acceptByProfile, validateProfile, wordRangeFor } from './validateProfile';
+import { mineLines } from './dramaSeedMine';
 import type { Cefr } from './cefr';
+
+// 채점 래퍼는 lib/align.ts(원고 import 0)에 있다 — 여기서는 re-export만(단어 탭 청크에 원고가 딸려 오지 않게)
+export { alignedScore, type AlignedScore, type AlignedWord } from './align';
 
 export interface CastMember {
   id: string;
@@ -40,6 +46,8 @@ export interface Episode {
   learn: { en: string; kr: string; note: string }[];
   cliff: string;
   ai?: boolean;
+  /** 리텔 키워드 4개(한국어, M5) — AI 화의 소프트 필드. 시드 화는 lib/dramaSeedMine.KEYWORDS */
+  keywords?: string[];
 }
 
 interface SeedData {
@@ -82,6 +90,8 @@ interface DramaProgress {
   hist: number[];
   /** 난이도 보정 -1(한 단계 쉽게) · 0 · +1(한 단계 어렵게) */
   adj: number;
+  /** 화 번호 → 역할극 집계(M2, 마지막 시청분) */
+  speak: Record<string, SpeakStats>;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -95,7 +105,8 @@ function prog(): DramaProgress {
   const score = isObj(p.score) ? (p.score as Record<string, number>) : {};
   const hist = Array.isArray(p.hist) ? p.hist.filter((n) => typeof n === 'number') : [];
   const adj = p.adj === -1 || p.adj === 1 ? p.adj : 0;
-  return { done, score, hist, adj };
+  const speak = isObj(p.speak) ? (p.speak as Record<string, SpeakStats>) : {};
+  return { done, score, hist, adj, speak };
 }
 
 function isEpisodeLike(e: unknown): e is Episode {
@@ -178,9 +189,26 @@ export const LEVEL_DOWN_AVG = 50;
 /** 문항 레벨별 성적 — 원고의 윗단계(예: B1) 문항으로 다음 레벨 듣기 증거를 따로 쌓는다 */
 export type LevelStats = Record<string, { asked: number; ok: number }>;
 
-export function completeEpisode(ep: Episode, score: number, asked = 0, missed: MissedItem[] = [], byLevel: LevelStats = {}): { levelChange: -1 | 0 | 1 } {
+/** 역할극 집계(M2) — 화를 마칠 때 lib/roleStep.speakStatsFrom으로 만들어 넘긴다 */
+export interface SpeakStats {
+  spoken: number;
+  passed: number;
+  lapsesTop: { key: string; count: number }[];
+  disputed: number;
+  skipped: number;
+}
+
+/** 화 번호 → 마지막으로 본 때의 역할극 집계(없으면 null) — 진도·엔딩 카드가 읽는다 */
+export function episodeSpeakStats(no: number): SpeakStats | null {
+  const v = prog().speak[String(no)];
+  return v && typeof v.spoken === 'number' ? v : null;
+}
+
+export function completeEpisode(ep: Episode, score: number, asked = 0, missed: MissedItem[] = [], byLevel: LevelStats = {}, speakStats?: SpeakStats): { levelChange: -1 | 0 | 1 } {
   const p = prog();
   const first = !p.done[String(ep.no)];
+  // 역할극 집계는 마지막 시청분만(용량 — 화당 한 줄)
+  if (speakStats) p.speak[String(ep.no)] = { spoken: speakStats.spoken, passed: speakStats.passed, lapsesTop: speakStats.lapsesTop.slice(0, 3), disputed: speakStats.disputed, skipped: speakStats.skipped };
   // 다시 본 화는 처음 본 날짜를 유지한다(예전엔 덮어써서 '오늘 완료'로 잘못 표시됐다)
   if (first) p.done[String(ep.no)] = todayKey();
   p.score[String(ep.no)] = Math.max(p.score[String(ep.no)] ?? 0, Math.round(score));
@@ -467,12 +495,52 @@ function sceneTexts(s: Scene): string[] {
   return [];
 }
 
-/** 참여 문항의 정답 문장(뜻·빈칸·고르기) */
-function answerTexts(s: Scene): string[] {
+/**
+ * 참여 문항의 정답 문장(뜻·빈칸·고르기) + **태오 대사(line·speak)** — M2부터 태오 대사는 전부 역할극이라
+ * '내가 말해야 하는 문장'이고, 60점 통과가 곧 문항 정답(gradeRecycled·asked/ok 합산)이다.
+ * shadow=true면 지정 상대 대사(섀도잉 줄)도 포함한다 — 호출부가 mineLines로 가려서 넘긴다.
+ */
+export function answerTexts(s: Scene, shadow = false): string[] {
   if (s.type === 'meaning') return [s.en];
   if (s.type === 'fill') return [fillFull(s)];
   if (s.type === 'choice') return s.opts.filter((o) => o.ok).map((o) => o.en);
+  if (s.type === 'speak') return [s.en];
+  if (s.type === 'line') return s.who === 'taeo' || shadow ? [s.en] : [];
   return [];
+}
+
+/** 역할극 대상 한 줄 — role: 태오 대사(내가 태오), mine: 지정 상대 대사(키 없음 섀도잉 기본·키 있음 길게 누르기) */
+export interface RoleTarget {
+  /** 원고 장면 번호(ep.scenes 기준) */
+  idx: number;
+  who: string;
+  en: string;
+  kr: string;
+  kind: 'role' | 'mine';
+  /** 상대 대사가 뜻·빈칸 문항이면 그 퀴즈가 끝난 직후 역할극을 붙인다(퀴즈는 유지) */
+  afterQuiz: boolean;
+}
+
+/**
+ * 이 화의 역할극 대상 전부 — 태오 line/speak 장면 + lib/dramaSeedMine 지정 상대 대사.
+ * 플레이어(DramaScreen)가 장면 번호로 찾아 RoleStep을 렌더한다. 원고 JSON은 손대지 않는다.
+ */
+export function roleTargets(ep: Episode): RoleTarget[] {
+  const out: RoleTarget[] = [];
+  ep.scenes.forEach((s, idx) => {
+    if ((s.type === 'line' || s.type === 'speak') && s.who === 'taeo') out.push({ idx, who: 'taeo', en: s.en, kr: s.kr, kind: 'role', afterQuiz: false });
+  });
+  for (const m of mineLines(ep.no)) {
+    if (out.some((t) => t.idx === m.idx)) continue;
+    const sc = ep.scenes[m.idx];
+    out.push({ idx: m.idx, who: m.who, en: m.en, kr: m.kr, kind: 'mine', afterQuiz: !!sc && sc.type !== 'line' });
+  }
+  return out.sort((a, b) => a.idx - b.idx);
+}
+
+/** 역할극으로 '물어본' 문장 수 — 이해도 분모 계산용(태오 line/speak + 지정 상대 대사) */
+export function roleAnswerCount(ep: Episode): number {
+  return roleTargets(ep).length;
 }
 
 const contains = (hay: string, needle: string) => ` ${normEn(hay)} `.includes(` ${normEn(needle)} `);
@@ -524,7 +592,7 @@ export function validateEpisode(d: unknown, no: number, want?: string, recycle: 
   if (!learn.every((l) => texts.some((t) => contains(t, l.en)))) return null;
   // 지난 표현 재등장 — 참여 문항 정답 중 하나에(이야기 속 간격 반복)
   if (recycle.length) {
-    const answers = scenes.flatMap(answerTexts);
+    const answers = scenes.flatMap((s) => answerTexts(s));
     if (!recycle.some((r) => answers.some((a) => contains(a, r)))) return null;
   }
   // 요청한 레벨보다 눈에 띄게 어려운 원고는 거부(초급자가 긴 문장에 지치지 않게)
@@ -532,7 +600,11 @@ export function validateEpisode(d: unknown, no: number, want?: string, recycle: 
   const lineWords = scenes.filter((s): s is Extract<Scene, { type: 'line' }> => s.type === 'line').map((s) => s.en.split(/\s+/).length);
   const cap = LEVEL_MAX_WORDS[lv];
   if (cap && lineWords.length && lineWords.reduce((a, b) => a + b, 0) / lineWords.length > cap) return null;
-  return { no, level: lv, title: x.title, titleKr: String(x.titleKr), recap: String(x.recap || ''), scenes, learn, cliff: String(x.cliff), ai: true };
+  // 리텔 키워드(M5) — 소프트: 한국어 문자열 4개면 싣고, 아니면 뺀다(없어도 원고는 받는다)
+  const kw = Array.isArray(x.keywords) ? x.keywords.filter((k): k is string => typeof k === 'string' && hasHangul(k)).slice(0, 4) : [];
+  const ep: Episode = { no, level: lv, title: x.title, titleKr: String(x.titleKr), recap: String(x.recap || ''), scenes, learn, cliff: String(x.cliff), ai: true };
+  if (kw.length === 4) ep.keywords = kw;
+  return ep;
 }
 
 /** 레벨별 대사 평균 단어 수 상한(가이드보다 여유 있게 — 이걸 넘으면 레벨이 안 맞는 원고) */
@@ -587,6 +659,7 @@ async function writeEpisode(no: number, level: Cefr): Promise<Episode | null> {
   const cast = CAST.map((c) => `${c.id}(${c.name}): ${c.desc}`).join('\n');
   // 지난 화에서 배운(또는 틀린) 표현 — 새 상황에서 다시 쓰게 해 이야기 속 간격 반복이 되게 한다
   const recycle = recycleCandidates(no);
+  const [profileLo, profileHi] = wordRangeFor(level);
   const recycleRule = recycle.length
     ? `- 복습 표현(학습자가 지난 화에서 배웠거나 틀린 것): ${recycle.map((r) => `"${r.en}"(${r.kr})`).join(', ')}\n  → 이 중 최소 1개를 이번 화 참여 문항의 정답(태오의 대사)으로, 다른 상황에서 자연스럽게 다시 쓰게 하라. learn에는 넣지 말 것.\n`
     : '';
@@ -605,9 +678,12 @@ ${story}
   "fill"(who, before, after, opts 영어 3개, a, kr 전체 번역, why 한국어)
   "speak"(who:"taeo", en, kr — 태오가 소리 내어 말할 한 문장)
 - 참여 문항은 이야기 흐름 속 태오의 대사여야 한다(시험 문제처럼 떼어 내지 말 것).
+- 태오(학습자 역할)의 line/speak 대사를 **5줄 이상** 넣고, 상대 대사와 교대로 배치하라(학습자가 태오 대사를 전부 직접 말한다).
+  태오 대사 한 줄의 단어 수: ${profileLo}~${profileHi}단어(축약은 한 단어).
 ${recycleRule}- learn: 이번 화 새 핵심 표현 2개 {en, kr, note(언제 쓰는지 한국어 짧게)} — 두 표현 모두 이번 화 대사나 문항에 그대로 나와야 한다.
+- keywords: 이번 화를 다시 말할 때 쓸 핵심 키워드 4개(한국어, 인물·사건·감정·결말 순).
 - recap: 직전 화까지 한 줄 요약(한국어). cliff: 다음 화가 궁금해지는 한 줄(한국어).
-JSON만: {"level":"${level}","title":"영어 제목","titleKr":"한국어 제목","recap":"","scenes":[...],"learn":[...],"cliff":""}`;
+JSON만: {"level":"${level}","title":"영어 제목","titleKr":"한국어 제목","recap":"","scenes":[...],"learn":[...],"keywords":["","","",""],"cliff":""}`;
   // 네트워크·429·키 오류는 예외로 올라온다 — 삼키고 null(예전엔 '쓰는 중' 스피너가 영원히 돌았다).
   // 느린 응답도 60초에서 끊는다(검증 실패 시 한 번 더 쓰므로 두 번 분량).
   let ep: Episode | null = null;
@@ -626,7 +702,12 @@ JSON만: {"level":"${level}","title":"영어 제목","titleKr":"한국어 제목
         { temperature: 0.9, maxTokens: 4000 },
         (d) => {
           // 레벨은 요청한 값으로 고정·검사(AI가 적어 낸 레벨을 믿지 않는다), 지난 표현 재등장도 검사
-          return validateEpisode(d, no, level, attempt++ === 0 ? recycleEns : []);
+          const k = attempt++;
+          const v = validateEpisode(d, no, level, k === 0 ? recycleEns : []);
+          if (!v) return null;
+          // 역할극 분량(태오 대사 ≥5줄·단어 수) — gpt-oss 첫 시도만 하드, 재시도·폴백 모델은 경고만.
+          // 실제 모델은 서버 폴백 체인이 정하므로 기본 모델(GROQ_MODEL) 기준으로 판단한다.
+          return acceptByProfile(validateProfile(GROQ_MODEL, v, k)) ? v : null;
         }
       ),
       new Promise<null>((res) => {

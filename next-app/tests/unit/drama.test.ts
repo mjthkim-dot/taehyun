@@ -351,3 +351,91 @@ describe('M1 — 간격 반복 8상자·이어 보기 판·말하기 회상', ()
     expect(loadResume(2)).toBeNull(); // 모르는 모드
   });
 });
+
+describe('M2 — 역할극: answerTexts·speakStats·validateProfile·엔딩 카드 레지스트리', () => {
+  test('answerTexts에 태오 line/speak가 들어가고, 지정 상대 대사는 shadow=true일 때만', async () => {
+    const { answerTexts, roleTargets } = await import('../../lib/drama');
+    const { mineLines } = await import('../../lib/dramaSeedMine');
+    const ep1 = eps[0];
+    const taeo = ep1.scenes.filter((s) => (s.type === 'line' || s.type === 'speak') && s.who === 'taeo');
+    expect(taeo.length).toBeGreaterThanOrEqual(3);
+    for (const s of taeo) expect(answerTexts(s)).toEqual([(s as { en: string }).en]);
+    const diane = ep1.scenes.find((s) => s.type === 'line' && s.who !== 'taeo')!;
+    expect(answerTexts(diane)).toEqual([]);
+    expect(answerTexts(diane, true)).toEqual([(diane as { en: string }).en]);
+    // roleTargets = 태오 line/speak 전부 + 지정 상대 대사(장면 번호 순, 중복 없음)
+    const targets = roleTargets(ep1);
+    const roleIdx = targets.filter((t) => t.kind === 'role').map((t) => t.idx);
+    expect(roleIdx).toEqual(ep1.scenes.map((s, i) => ((s.type === 'line' || s.type === 'speak') && s.who === 'taeo' ? i : -1)).filter((i) => i >= 0));
+    expect(targets.filter((t) => t.kind === 'mine').map((t) => t.idx)).toEqual(mineLines(1).map((m) => m.idx));
+    expect(new Set(targets.map((t) => t.idx)).size).toBe(targets.length);
+    expect(targets.map((t) => t.idx)).toEqual([...targets.map((t) => t.idx)].sort((a, b) => a - b));
+    // 뜻·빈칸 문항에 지정된 상대 줄은 afterQuiz(퀴즈 뒤에 붙는다)
+    for (const t of targets) expect(t.afterQuiz).toBe(t.kind === 'mine' && ep1.scenes[t.idx].type !== 'line');
+    // 7화 전부 화당 역할극 대상 ≥ 6(태오 ≥1 + 상대 ≥5)
+    for (const e of eps) expect(roleTargets(e).length, `EP${e.no}`).toBeGreaterThanOrEqual(6);
+  });
+  test('alignedScore를 drama.ts에서 re-export(결과는 lib/align과 동일)', async () => {
+    const { alignedScore } = await import('../../lib/drama');
+    const { alignedScore: a } = await import('../../lib/align');
+    expect(alignedScore('We found it.', 'we found it')).toEqual(a('We found it.', 'we found it'));
+  });
+  test('speakStats → completeEpisode(선택 인자) → episodeSpeakStats로 읽힌다(없으면 null, 기존 호출은 그대로)', async () => {
+    const { episodeSpeakStats } = await import('../../lib/drama');
+    expect(episodeSpeakStats(1)).toBeNull();
+    completeEpisode(eps[0], 80, 3);
+    expect(episodeSpeakStats(1)).toBeNull();
+    const stats = { spoken: 7, passed: 5, lapsesTop: [{ key: 'r-l', count: 2 }], disputed: 1, skipped: 1 };
+    completeEpisode(eps[0], 90, 3, [], {}, stats);
+    expect(episodeSpeakStats(1)).toEqual(stats);
+    expect(nextEpisodeNo()).toBe(2);
+  });
+  test('validateProfile — gpt-oss 첫 시도만 하드(태오 ≥5줄·A1/A2 5~8단어), 재시도·다른 모델은 소프트', async () => {
+    const { validateProfile, acceptByProfile, taeoLines } = await import('../../lib/validateProfile');
+    // 원고 1화는 태오 줄이 4개 → 역할극 분량 미달(AI 화에만 적용되는 기준)
+    expect(taeoLines(eps[0]).length).toBe(4);
+    const r0 = validateProfile('openai/gpt-oss-120b', eps[0], 0);
+    expect(r0.ok).toBe(false);
+    expect(r0.hard).toBe(true);
+    expect(acceptByProfile(r0)).toBe(false);
+    const r1 = validateProfile('openai/gpt-oss-120b', eps[0], 1);
+    expect(r1.hard).toBe(false);
+    expect(acceptByProfile(r1)).toBe(true);
+    expect(acceptByProfile(validateProfile('qwen/qwen3-32b', eps[0], 0))).toBe(true);
+    expect(acceptByProfile(validateProfile('llama-3.1-8b-instant', eps[0], 0))).toBe(true);
+    // 5줄·평균 5~8단어면 통과
+    const good = { level: 'A2', scenes: Array.from({ length: 5 }, (_, k) => ({ type: 'line' as const, who: 'taeo', en: `I can do this ${k} times today.`, kr: '뜻' })) };
+    expect(validateProfile('openai/gpt-oss-120b', good, 0).ok).toBe(true);
+    // B1+는 7~12단어
+    const b1 = { level: 'B1', scenes: good.scenes.map((s) => ({ ...s, en: 'Could we go over the invoice line by line this afternoon?' })) };
+    expect(validateProfile('openai/gpt-oss-120b', b1, 0).ok).toBe(true);
+    expect(validateProfile('openai/gpt-oss-120b', { ...b1, level: 'A2' }, 0).ok).toBe(false); // A2엔 길다
+  });
+  test('validateEpisode — keywords 4개(한국어)는 소프트 필드로 실리고, 모자라면 뺀다', () => {
+    const ok = validateEpisode({ ...eps[0], keywords: ['첫 출근', '엘리베이터', '긴장', 'CEO가 Diane'] }, 8);
+    expect(ok?.keywords).toEqual(['첫 출근', '엘리베이터', '긴장', 'CEO가 Diane']);
+    expect(validateEpisode({ ...eps[0], keywords: ['하나', 2, 'three'] }, 8)?.keywords).toBeUndefined();
+    expect(validateEpisode(eps[0], 8)?.keywords).toBeUndefined();
+  });
+  test('엔딩 카드 레지스트리 — order 정렬, basic 3장까지 기본, 나머지는 조금 더 ▾, when() false·오류는 제외', async () => {
+    const { registerEndingCard, endingCards, splitEndingCards, clearEndingCards, BASIC_MAX } = await import('../../components/drama/endingRegistry');
+    clearEndingCards();
+    const C = () => null;
+    const ctx = { ep: eps[0], dateKey: '2026-10-01', keyless: false };
+    registerEndingCard({ id: 'retell', order: 10, basic: true, when: () => true, Component: C });
+    registerEndingCard({ id: 'recall', order: 20, basic: true, when: () => true, Component: C });
+    registerEndingCard({ id: 'sound', order: 50, basic: false, when: () => true, Component: C });
+    registerEndingCard({ id: 'season', order: 80, basic: true, when: () => false, Component: C });
+    registerEndingCard({ id: 'dplus7', order: 70, basic: true, when: () => true, Component: C });
+    registerEndingCard({ id: 'boom', order: 5, basic: true, when: () => { throw new Error('x'); }, Component: C });
+    registerEndingCard({ id: 'extra', order: 60, basic: true, when: () => true, Component: C });
+    registerEndingCard({ id: 'retell', order: 10, basic: true, when: () => true, Component: C }); // 같은 id 재등록 = 덮어쓰기
+    expect(endingCards().map((c) => c.id)).toEqual(['boom', 'retell', 'recall', 'sound', 'extra', 'dplus7', 'season']);
+    const { basic, more } = splitEndingCards(endingCards(), ctx);
+    expect(BASIC_MAX).toBe(3);
+    expect(basic.map((c) => c.id)).toEqual(['retell', 'recall', 'extra']); // basic 3장(order 순), boom은 오류·season은 when false
+    expect(more.map((c) => c.id)).toEqual(['sound', 'dplus7']); // 비기본 + 기본 초과분
+    clearEndingCards();
+    expect(splitEndingCards(endingCards(), ctx)).toEqual({ basic: [], more: [] }); // 카드 0개여도 동작
+  });
+});

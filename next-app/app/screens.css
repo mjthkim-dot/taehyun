@@ -5741,6 +5741,7 @@
   flex-direction: column;
   gap: 8px;
   padding: 4px 0 8px;
+}
 /* ── M8: 단어 '예문 말하기' 문항(components/words/SpeakQuiz) — .wq-speak-* ──
  * 카드는 기존 .wd-q 위에 얹고, 마이크는 듣기 문항(.wd-listen)과 같은 크기·질감으로 — 단어 탭 안에서
  * 같은 문법으로 보이게. 터치 대상 44px 이상, 390px 폭에서 가로 넘침 없음. */
@@ -5876,4 +5877,241 @@
   min-height: 150px;
   color: var(--text-muted);
   font-size: 0.9rem;
+}
+
+/* ══ M2 역할극 — .rs-*(RoleStep) · .bb-*(말풍선) · .ee-*(엔딩 카드 레지스트리) ══
+   터치 대상 44px 이상, 390px 폭에서 가로 넘침 없음(긴 영어는 줄바꿈). */
+.dr-speak-sum {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin: 4px 0 0;
+}
+.bb-pressable .dr-bub {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.bb-mark {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  align-self: flex-end;
+}
+.bb-extra {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.rs-root {
+  border-color: var(--primary);
+  overflow-wrap: anywhere;
+}
+.rs-root.rs-shadow {
+  border-style: dashed;
+}
+.rs-loading {
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+.rs-stage {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.rs-stage-box,
+.rs-result,
+.rs-self,
+.rs-lip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rs-status {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+.rs-kr {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+.rs-kr.big {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.rs-en {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.5;
+  margin: 0;
+}
+/* 영어 플래시 — 1.5초만 보였다 사라진다(2차 시도부터는 kr만) */
+.rs-flash {
+  min-height: 1.6em;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.5;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--primary-soft);
+  opacity: 0.35;
+  transition: opacity 0.25s ease;
+}
+.rs-flash.on {
+  opacity: 1;
+}
+.rs-level {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface2);
+  overflow: hidden;
+}
+.rs-level span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-origin: left;
+  background: var(--primary);
+  transition: transform 0.15s linear;
+}
+.rs-mic {
+  width: 64px;
+  height: 64px;
+  font-size: 1.5rem;
+}
+.rs-skip {
+  min-height: 44px;
+  align-self: center;
+}
+.rs-skip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.rs-gate {
+  margin: 0;
+}
+/* 결과 카드 — 길게 누르면 '이 채점이 틀렸어요' */
+.rs-result {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 107, 112, 0.08);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.rs-result.ok {
+  background: var(--green-soft);
+}
+.rs-score {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.rs-score b {
+  font-size: 1.05rem;
+  color: var(--text);
+}
+.rs-diff {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.rs-w.ok {
+  color: var(--green, #1f9d55);
+}
+.rs-w.bad {
+  color: #e0434b;
+  text-decoration: underline wavy;
+  text-underline-offset: 3px;
+}
+.rs-said {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+.rs-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 10px;
+  border-radius: 12px;
+  background: var(--surface2);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.rs-chip-tip {
+  font-weight: 400;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.rs-msg {
+  font-size: 0.84rem;
+  font-weight: 700;
+  margin: 0;
+}
+.rs-dispute,
+.rs-slow-hint {
+  min-height: 44px;
+  border-radius: 12px;
+  font-size: 0.84rem;
+}
+.rs-slow-hint {
+  border: 1px dashed var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.rs-row .btn {
+  min-height: 48px;
+}
+.rs-hint {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin: 0;
+  text-align: center;
+}
+.rs-lip-ok {
+  min-height: 48px;
+}
+/* 엔딩 추가 카드 */
+.ee-root {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+.ee-card {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--surface2);
+}
+.ee-more {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ee-more-btn {
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rs-flash,
+  .rs-level span {
+    transition: none;
+  }
 }

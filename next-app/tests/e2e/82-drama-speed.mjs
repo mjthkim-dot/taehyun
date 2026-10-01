@@ -16,6 +16,8 @@ async function open(seed) {
     localStorage.setItem('va_onboarded', 'true');
     localStorage.setItem('va_placed', JSON.stringify({ cefr: 'A2', gse: 30, ts: 1 }));
     localStorage.setItem('va_drama_auto', 'true');
+    // M2: 역할극 장면(태오 대사)에서는 자동 흐름이 멈춘다 — 이 검사는 자동 재생 said 순서를 보므로 rolePlay off 경로로 고정(역할극은 83-roleplay)
+    localStorage.setItem('va_flags', JSON.stringify({ rolePlay: false }));
     for (const [k, v] of Object.entries(seed)) if (localStorage.getItem(k) === null) localStorage.setItem(k, v);
     window.__said = [];
     let cur = null;

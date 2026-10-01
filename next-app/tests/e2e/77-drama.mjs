@@ -44,6 +44,9 @@ await page.addInitScript(() => {
   localStorage.setItem('va_onboarded', 'true');
   localStorage.setItem('va_groq_key', JSON.stringify('gsk_test_key'));
   localStorage.setItem('va_drama_mute', 'true');
+  // M2: 역할극(rolePlay)이 켜지면 태오 대사마다 흐름이 멈춰 녹음한다 — 이 파일은 예전 흐름(자동 재생·.dr-next 진행·
+  // speak 장면 건너뛰기)을 검증하므로 플래그 off 경로로 고정한다. 역할극 흐름은 83-roleplay가 본다.
+  localStorage.setItem('va_flags', JSON.stringify({ rolePlay: false }));
   if (!localStorage.getItem('va_placed')) localStorage.setItem('va_placed', JSON.stringify({ cefr: 'A2', gse: 30, ts: Date.now() }));
 });
 await page.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"valid":true}' }));
