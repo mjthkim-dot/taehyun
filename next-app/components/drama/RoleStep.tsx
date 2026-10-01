@@ -20,8 +20,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import VoiceCompare from '../MyVoice';
 import { speakText, stopSpeaking } from '../SpeakButton';
-import { castOf, voiceOf } from '../../lib/drama';
-import { alignedScore } from '../../lib/align';
+import { castNameKo, voiceOf, withWa } from '../../lib/drama';
+import { alignedScore, displayDiff } from '../../lib/align';
 import { diagnose, type PronIssue } from '../../lib/pronunciation';
 import { rhythmChip } from '../../lib/rhythm';
 import { recordAndTranscribe, STT_PROPER_NOUNS, whisperAvailable, micAvailable, type SttResult, type SttWord } from '../../lib/stt';
@@ -172,7 +172,8 @@ export default function RoleStep({
   const modelStart = useRef(0);
   const modelMs = useRef(0);
   const finished = useRef(false);
-  const name = castOf(scene.who).name;
+  // UI 문구는 한국어 이름(태오 ▶ · 마야와 같이 말하기) — 원고 cast.name은 영어 표기다
+  const name = castNameKo(scene.who);
   const subsOn = subsMode ? subsMode !== 'off' : true;
 
   const later = (fn: () => void, ms: number) => {
@@ -526,7 +527,7 @@ export default function RoleStep({
   const unlimited = unlimitedSkips(policy) || !Number.isFinite(maxSkips);
   const skipOk = unlimited || canSkip(skipsUsed, policy, maxSkips);
   const skipLabel = unlimited ? '말하지 않고 넘어가기' : `넘어가기 (${Math.min(skipsUsed + 1, maxSkips)}/${maxSkips})`;
-  const label = mode === 'shadow' ? `👄 ${name}와 같이 말하기` : mode === 'lip' ? '🤫 입으로만 따라 하기' : recall ? '🔁 방금 그 대사, 한국어만 보고' : '🎙 태오가 되어 말해 보세요';
+  const label = mode === 'shadow' ? `👄 ${withWa(name)} 같이 말하기` : mode === 'lip' ? '🤫 입으로만 따라 하기' : recall ? '🔁 방금 그 대사, 한국어만 보고' : '🎙 태오가 되어 말해 보세요';
   const compareLabels = { native: `${name} ▶`, mine: '내 소리 ▶', title: '번갈아 들어보기' };
 
   const skipBtn = (
@@ -539,7 +540,8 @@ export default function RoleStep({
   function renderResult() {
     if (!heard) return null;
     const pass = disputed || isPass(heard.score);
-    const retryOk = mode === 'role' && !recall && canRetry(tries, heard.score);
+    // 이의 제기로 통과 처리된 카드엔 '한 번 더'를 내지 않는다(자기확인 통과 — 다시 시키면 이의 제기가 무의미)
+    const retryOk = !disputed && mode === 'role' && !recall && canRetry(tries, heard.score);
     const longSentence = wordCount(scene.en) >= buildupMinWords;
     const r = { score: heard.score, skipped: false, disputed, mode, self: false };
     return (
@@ -560,7 +562,7 @@ export default function RoleStep({
         </div>
         {heard.diff.length > 0 ? (
           <p className="rs-diff" lang="en">
-            {heard.diff.map((d, k) => (
+            {displayDiff(target, heard.diff).map((d, k) => (
               <span key={k} className={d.ok ? 'rs-w ok' : 'rs-w bad'}>
                 {d.w}
               </span>
@@ -699,7 +701,7 @@ export default function RoleStep({
             <span style={{ transform: `scaleX(${phase === 'rec' ? level : 0})` }} />
           </div>
           <p className="rs-status" role="status">
-            {phase === 'wait' ? '… 듣고 있어요(변환 중)' : mode === 'shadow' ? `🎙 ${name}와 동시에 말하세요` : '🎙 말씀하세요 — 말이 끝나면 저절로 멈춰요'}
+            {phase === 'wait' ? '… 듣고 있어요(변환 중)' : mode === 'shadow' ? `🎙 ${withWa(name)} 동시에 말하세요` : '🎙 말씀하세요 — 말이 끝나면 저절로 멈춰요'}
           </p>
           <button type="button" className="dr-mic on rs-mic" disabled={phase === 'wait'} onClick={() => stopRec.current?.()} aria-label="말하기 끝">
             {phase === 'wait' ? '…' : '⏹'}

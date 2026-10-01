@@ -91,9 +91,12 @@ async function answerQuizIfAny(page) {
 /**
  * 플레이어를 끝까지 돈다. 역할극(.rs-root)이 나오면 onRole(page, mode, n)을 부른다 — 그 안에서 결과까지 처리해야 한다.
  */
-async function drive(page, onRole, { maxLoops = 120 } = {}) {
+async function drive(page, onRole, { budgetMs = 240000 } = {}) {
   let n = 0;
-  for (let g = 0; g < maxLoops; g++) {
+  // 예산은 반복 횟수가 아니라 시간으로 — 음소거 자동 재생은 1화 한 바퀴에 실제 시간 1분 이상이 걸려서(대사당 lineMs)
+  // 예전 120회(≈30초) 상한으로는 두 번째 역할극 뒤에서 루프가 끝나 엔딩(.dr-end)·재소환에 닿지 못했다.
+  const deadline = Date.now() + budgetMs;
+  while (Date.now() < deadline) {
     if (await page.locator('.dr-end').count()) return n;
     const role = page.locator('.rs-root');
     if (await role.count()) {
@@ -163,7 +166,7 @@ async function drive(page, onRole, { maxLoops = 120 } = {}) {
       await page.click('.rs-next');
     }
   });
-  check('통과 카드: 초록, 단어 전부 맞음(3), 칩 1개, 내 소리 ▶ / 태오 ▶', !!firstCard && firstCard.ok && firstCard.words === 3 && firstCard.bad === 0 && firstCard.chips === 1 && firstCard.cmp.some((t) => t.includes('내 소리')) && firstCard.cmp.some((t) => t.includes('태오')), JSON.stringify(firstCard));
+  check('통과 카드: 초록, 단어 전부 맞음(3), 칩 1개, 내 소리 ▶ / 태오 ▶', !!firstCard && firstCard.ok && firstCard.words === 3 && firstCard.bad === 0 && firstCard.chips === 1 && firstCard.cmp.some((t) => t.includes('내 소리')) && firstCard.cmp.some((t) => t.includes('태오')), JSON.stringify({ ...firstCard, body: undefined })); // body(멀티파트 수 KB)는 다음 check가 본다 — 진단 출력에선 뺀다
   check('채점 경로 전송: 고유명사 프롬프트만·detail=words·temperature 0', !!firstCard && /Taeo, Maya/.test(firstCard.body) && !/broken/.test(firstCard.body) && /name="detail"\r?\n\r?\nwords/.test(firstCard.body) && /name="temperature"\r?\n\r?\n0/.test(firstCard.body));
   check('길게 누르기 → 이의 제기 → 자기확인 통과(초록·한 번 더 없음)', disputeOk);
   check('엔딩 직전 재소환 — 방금 60점 미만을 한국어만 보고 다시(플래시 없음)', recallSeen);

@@ -66,6 +66,22 @@ export function castOf(who: string): CastMember {
   return CAST.find((c) => c.id === who) || { id: who, name: who.charAt(0).toUpperCase() + who.slice(1), icon: '🙂', desc: '' };
 }
 
+/**
+ * 화면 문구용 한국어 인물 이름 — 원고(dramaSeed.json)의 cast.name은 영어 표기(Taeo)라
+ * '태오 ▶'·'태오의 목소리' 같은 한국어 UI 문구에 그대로 쓰면 'Taeo ▶'가 된다. 원고에 없는 인물은 영어 이름 그대로.
+ */
+const CAST_KO: Record<string, string> = { taeo: '태오', maya: '마야', jun: '준', diane: '다이앤', grant: '그랜트 씨' };
+export function castNameKo(who: string): string {
+  return CAST_KO[who] || castOf(who).name;
+}
+
+/** 이름 뒤 '와/과' — 받침이 있으면 '과'(준과), 없으면 '와'(태오와). 한글이 아니면 '와' */
+export function withWa(name: string): string {
+  const c = name.charCodeAt(name.length - 1);
+  const hangul = c >= 0xac00 && c <= 0xd7a3;
+  return `${name}${hangul && (c - 0xac00) % 28 ? '과' : '와'}`;
+}
+
 export const INTERACTIVE = new Set(['choice', 'meaning', 'fill', 'speak']);
 
 /**

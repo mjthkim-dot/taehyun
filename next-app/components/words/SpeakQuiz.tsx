@@ -23,7 +23,7 @@ import { useEffect, useRef, useState } from 'react';
 import { speakText, stopSpeaking } from '../SpeakButton';
 import VoiceCompare from '../MyVoice';
 import { haptic } from '../../lib/haptics';
-import type { AlignedWord } from '../../lib/align';
+import { displayDiff, type AlignedWord } from '../../lib/align';
 import { recordAndTranscribe, STT_PROPER_NOUNS, whisperAvailable } from '../../lib/stt';
 import { browserSttAvailable, listenOnce } from '../../lib/browserStt';
 import { blockingReason, gateMessage } from '../../lib/sttQuality';
@@ -130,7 +130,8 @@ export default function SpeakQuiz({ word, retry, onGrade, onNext }: SpeakQuizPro
     countOnce();
     setSaid(text);
     setScore(s.score);
-    setDiff(s.diff);
+    // 화면엔 원문 토큰(대소문자·문장부호 그대로) — 정규화된 소문자 단어를 보여 주면 예문이 달라 보인다
+    setDiff(displayDiff(word.ex, s.diff));
     setTries(t);
     setMsg('');
     const r: SpeakQuizResult = { w: word.w, ex: word.ex, said: text, score: s.score, tries: t };

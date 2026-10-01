@@ -16,14 +16,13 @@ import '../app/screens.css';
  *  - AI 원고가 실패·오류여도 무한 로딩·영구 막힘이 없다
  *
  * M2 역할극(내가 태오): 태오 대사(line/speak) 전부 + 지정 상대 대사(lib/dramaSeedMine)는 RoleStep이 맡는다.
- *  - 말풍선은 components/drama/Bubble.tsx, 역할극은 components/drama/RoleStep.tsx(dynamic), 엔딩 추가 카드는
+ *  - 말풍선은 components/drama/Bubble.tsx, 역할극은 components/drama/RoleStep.tsx(따로 받는 청크, 미리 받기), 엔딩 추가 카드는
  *    components/drama/EndingExtras.tsx(레지스트리). 이 파일은 분기·슬롯·넘어가기 카운터만 가진다.
  *  - 역할극 장면에서는 자동 흐름이 멈추고 결과 뒤 '다음'으로 이어진다. 플래그 rolePlay가 꺼지면 예전 동작
  *    (태오 대사 자동 재생, speak 장면만 따라 말하기·넘어가기 무제한).
  *  - 엔딩 직전 '방금 60점 미만' 최대 2개를 한국어만 보고 다시 말한다(세션 내 재소환, src 'recall-inline').
  */
-import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import dynamic from 'next/dynamic';
+import { Component, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import type { Mode } from './NavBar';
 import { primeAudio, speakText, stopSpeaking } from './SpeakButton';
 import TtsDegradedChip from './TtsDegradedChip';
@@ -80,8 +79,35 @@ import {
   type SpeakStats,
 } from '../lib/drama';
 
-// 역할극 한 줄 — 녹음·채점·비교 재생까지 들어 있어 무겁다. 역할극 장면에 닿을 때 받는다.
-const RoleStep = dynamic(() => import('./drama/RoleStep'), { ssr: false, loading: () => <div className="dr-act rs-loading">🎙 준비 중…</div> });
+// 역할극 한 줄 — 녹음·채점·비교 재생까지 들어 있어 무겁다. 첫 화면 번들에 넣지 않고 따로 받는다.
+// next/dynamic(React.lazy)은 청크를 미리 받아 둬도 처음 그릴 때 한 번은 서스펜드해 '준비 중…'(문항 문구 없음)이
+// 끼었다 — 내 차례가 오는 순간 문구가 비는 셈이라, 받은 모듈을 여기 캐시해 두고 이미 있으면 바로 그린다.
+type RoleStepComp = typeof import('./drama/RoleStep').default;
+let roleStepMod: RoleStepComp | null = null;
+let roleStepLoad: Promise<RoleStepComp | null> | null = null;
+function loadRoleStep(): Promise<RoleStepComp | null> {
+  if (roleStepMod) return Promise.resolve(roleStepMod);
+  if (!roleStepLoad)
+    roleStepLoad = import('./drama/RoleStep')
+      .then((m) => (roleStepMod = m.default))
+      .catch(() => {
+        roleStepLoad = null; // 오프라인 등으로 실패하면 다음 장면에서 다시 시도
+        return null;
+      });
+  return roleStepLoad;
+}
+function RoleStep(props: ComponentProps<RoleStepComp>) {
+  const [Comp, setComp] = useState<RoleStepComp | null>(() => roleStepMod);
+  useEffect(() => {
+    if (Comp) return;
+    let on = true;
+    void loadRoleStep().then((c) => on && c && setComp(() => c));
+    return () => {
+      on = false;
+    };
+  }, [Comp]);
+  return Comp ? <Comp {...props} /> : <div className="dr-act rs-loading">🎙 준비 중…</div>;
+}
 
 const MUTE_KEY = 'va_drama_mute';
 const AUTO_KEY = 'va_drama_auto';
@@ -306,6 +332,11 @@ function Player({
     },
     []
   );
+  // 역할극 청크를 첫 역할극 장면에 닿을 때야 받으면 내 차례에 '준비 중…'(문항 문구 없음)이 끼었다
+  // (플래그 off의 speak 장면은 예전엔 인라인 SpeakStep이라 바로 떴다). 이 화에 역할극 장면이 있으면 재생 시작과 함께 미리 받는다.
+  useEffect(() => {
+    if (roleMap.size) void loadRoleStep();
+  }, [roleMap]);
   useEffect(() => {
     const sc = endRef.current?.closest('.app-content') as HTMLElement | null;
     if (!sc) return;

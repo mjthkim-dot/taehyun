@@ -71,3 +71,26 @@ export function alignedScore(target: string, said: string): AlignedScore {
   const missed = a.filter((_, idx) => !matched[idx]);
   return { score: Math.round(f1 * 100), diff, missed };
 }
+
+/**
+ * 화면용 diff — alignedScore.diff는 정규화된 소문자 단어("i'll")라 학습자에게 그대로 보이면 원문과 달라진다.
+ * 원문을 공백 단위로 다시 나눠 각 토큰("I'll", "broken?")에 해당하는 정규화 단어들의 일치 여부를 묶는다
+ * (토큰 안의 단어가 하나라도 틀리면 그 토큰은 틀림). 정규화 단어가 없는 토큰("—")은 앞 토큰에 붙인다.
+ * 개수가 맞지 않으면(이론상 없음) 원래 diff를 그대로 돌려준다.
+ */
+export function displayDiff(target: string, diff: AlignedWord[]): AlignedWord[] {
+  const out: AlignedWord[] = [];
+  let k = 0;
+  for (const tok of target.split(/\s+/).filter(Boolean)) {
+    const n = normWords(tok).length;
+    if (!n) {
+      if (out.length) out[out.length - 1] = { ...out[out.length - 1], w: `${out[out.length - 1].w} ${tok}` };
+      continue;
+    }
+    const part = diff.slice(k, k + n);
+    if (part.length < n) return diff;
+    k += n;
+    out.push({ w: tok, ok: part.every((d) => d.ok) });
+  }
+  return k === diff.length ? out : diff;
+}
