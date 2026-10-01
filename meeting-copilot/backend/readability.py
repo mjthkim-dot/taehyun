@@ -11,6 +11,10 @@ import re
 
 # 어려워 보여도 이 사용자에겐 일상 용어 — 세일즈·클라우드 도메인
 DOMAIN = {
+    # 영업 면접의 기본 어휘 — 사용자가 매일 쓰는 말(v6.6, 답변 은행 초안 실측에서 오탐)
+    "stakeholder", "stakeholders", "competitor", "competitors", "discovery", "opportunity",
+    "opportunities", "renewal", "renewals", "procurement", "qualification", "territory",
+    "onboarding", "expansion", "differentiator", "differentiators", "objection", "objections",
     "enterprise", "integration", "automation", "orchestration", "pipeline", "opportunity",
     "opportunities", "customer", "customers", "governance", "architecture", "infrastructure",
     "modernization", "methodology", "salesforce", "megazonecloud", "megazone", "workato",

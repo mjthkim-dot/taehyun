@@ -301,6 +301,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _ndjson(self, objs) -> None:
+        """생성 없는 응답(Tier A·C)을 NDJSON 한 덩어리로. Content-Length를 붙인다 —
+        길이도 chunked도 없으면 keep-alive 연결에서 브라우저 리더가 끝을 모른 채
+        연결이 닫힐 때까지 기다린다(v6.6 실측: 선준비 응답이 '완료'되지 않았다)."""
+        body = b"".join((json.dumps(o, ensure_ascii=False) + "\n").encode() for o in objs)
+        self.send_response(200)
+        self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+        self.wfile.flush()
+        self._status = 200
+
     def do_OPTIONS(self):
         self.send_response(204)
         self.send_header("Content-Length", "0")
@@ -452,6 +466,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._json(200, {"questions": mock.questions(n), "company": company.name(),
                              "voices": llm.TTS_VOICES, "accents": list(llm.TTS_ACCENTS),
                              "tts": bool(llm.GEMINI_API_KEY)})
+            return
+        # 📝 답변 은행 — 대본 목록(초안 포함). 개인 데이터라 인증 뒤.
+        if path == "/api/units":
+            raw = units.load(force=True)
+            cur = company.slug()
+            out = []
+            for i, u in enumerate(raw):
+                c = str(u.get("company") or "")
+                r = units._render(u)
+                out.append({**r, "idx": i, "active": (not c or c == cur),
+                            "leaks": units.leaks(r)})
+            self._json(200, {"units": out, "company": company.name(), "path": str(units.UNITS_PATH),
+                             "stats": units.stats()})
             return
         if path == "/api/mock/history":
             self._json(200, {"sessions": mock.history()})
@@ -650,6 +677,74 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(wav)
             self._status = 200
             return
+        # 📝 답변 은행 — 승인/수정/삭제. 파일을 통째로 다시 쓴다(개인 자료, 로컬).
+        if path == "/api/units":
+            raw = units.load(force=True)
+            try:
+                idx = int(req.get("idx"))
+                u = raw[idx]
+            except (TypeError, ValueError, IndexError):
+                self._json(400, {"error": "idx가 잘못됐습니다."})
+                return
+            op = str(req.get("op") or "update")
+            if op == "delete":
+                raw.pop(idx)
+            else:
+                for k in ("answer_en_30s", "answer_en_90s", "gist", "strategy", "note_title"):
+                    if k in req and isinstance(req[k], str):
+                        u[k] = req[k].strip()
+                if "intent_tags" in req and isinstance(req["intent_tags"], list):
+                    u["intent_tags"] = [str(t).strip().lower() for t in req["intent_tags"] if str(t).strip()][:6]
+                if "reviewed" in req:
+                    u["reviewed"] = bool(req["reviewed"])
+                    if u["reviewed"]:
+                        u["draft"] = False
+                        u["reviewed_at"] = time.strftime("%Y-%m-%d")
+                # 승인하는 순간 기계 검사를 한 번 더 — 고친 문장이 길이·숫자 규칙을 어길 수 있다
+                if u.get("reviewed"):
+                    import readability
+                    probs = readability.check(u.get("answer_en_30s") or "", 55)
+                    if u.get("answer_en_90s"):
+                        probs += [f"90초: {p}" for p in readability.check(u["answer_en_90s"], 160)]
+                    u["checks"] = probs
+            units.UNITS_PATH.write_text(json.dumps(raw, ensure_ascii=False, indent=1), encoding="utf-8")
+            units.load(force=True)
+            self._json(200, {"ok": True, "stats": units.stats()})
+            return
+        if path == "/api/units/draft":
+            # 초안 만들기 — 예상 질문 전부, 수 분. 사용자가 눌렀을 때만(자동 없음).
+            import subprocess
+            if not llm.GEMINI_API_KEY:
+                self._json(400, {"error": "GEMINI_API_KEY가 필요합니다."})
+                return
+            try:
+                r = subprocess.run([sys.executable, str(APP_DIR / "tools" / "draft_units.py")]
+                                   + (["--force"] if req.get("force") else []),
+                                   capture_output=True, text=True, timeout=1500)
+                log, rc = (r.stdout + r.stderr)[-3000:], r.returncode
+            except subprocess.TimeoutExpired:
+                log, rc = "시간 초과(25분)", 1
+            units.load(force=True)
+            self._json(200 if rc == 0 else 500, {"ok": rc == 0, "log": log, "stats": units.stats()})
+            return
+        # 🔮 예상 후속 질문 — 방금 답을 들은 면접관이 이어 물을 것 2개 (fast 레인, bg)
+        if path == "/api/followups":
+            q_, en_ = str(req.get("q") or "").strip(), str(req.get("en") or "").strip()
+            if not q_ or not en_:
+                self._json(400, {"error": "q, en이 필요합니다."})
+                return
+            preset = req.get("preset") if req.get("preset") in ("meeting", "interview") else "interview"
+            try:
+                out = llm.chat_once([{"role": "user", "content": prompts.build_followups(q_, en_, preset)}],
+                                    json_mode=True, temperature=0.3, max_tokens=120, fast=True,
+                                    kind="prefetch", bg=True)
+                fu = json.loads(out).get("followups") or []
+            except Exception as e:  # noqa: BLE001
+                self._json(503, {"error": str(e)[:100], "followups": []})
+                return
+            fu = [str(x).strip() for x in fu if str(x).strip()][:2]
+            self._json(200, {"followups": fu})
+            return
         if path == "/api/mock/report":
             self._json(200, {"saved": mock.save(req)})
             return
@@ -747,10 +842,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
             # 본답변 세대 표식 — 더 새로운 본답변이 시작되면 이전 스트림은
             # _stream 루프에서 스스로 종료한다 (단일 사용자 로컬 앱 전제)
+            # 🔮 선준비(prefetch)는 세대를 올리지 않는다 — 지금 읽고 있는 답을 끊으면 안 된다.
             global SUGGEST_GEN
-            SUGGEST_GEN += 1
-            _my_gen = SUGGEST_GEN
-            self._stream_cancel = lambda: SUGGEST_GEN != _my_gen
+            prefetch = bool(req.get("prefetch"))
+            if not prefetch:
+                SUGGEST_GEN += 1
+                _my_gen = SUGGEST_GEN
+                self._stream_cancel = lambda: SUGGEST_GEN != _my_gen
             built = prompts.build_suggest(
                 said, str(req.get("context") or "")[-3000:],
                 req.get("intent", "reply"), req.get("cefr", "B1"), store=store,
@@ -759,40 +857,28 @@ class Handler(http.server.BaseHTTPRequestHandler):
             # LLM을 부르지 않으므로 문장이 매번 같고, 첫 화면까지 ~0초다.
             if built["tier"] == "A" and built.get("unit"):
                 a = prompts.build_tier_a(built["unit"], str(req.get("depth") or "30s"))
-                self.send_response(200)
-                self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
-                self.end_headers()
-                for obj in ({"meta": {"tier": "A", "sources": built["sources"],
-                                      "rag_used": True,
-                                      "unit_title": a["note_title"],
-                                      "has_90s": a["has_90s"],
-                                      "known_numbers": a["known_numbers"],
-                                      "has_placeholder": False}},
-                            {"message": {"content": f"EN: {a['en']}\n===\n"
-                                         f"META: 요지={a['gist']} | 전략={a['strategy']}"}},
-                            {"done": True}):
-                    self.wfile.write((json.dumps(obj, ensure_ascii=False) + "\n").encode())
-                self.wfile.flush()
-                self._status = 200
+                self._ndjson(({"meta": {"tier": "A", "sources": built["sources"],
+                                        "rag_used": True,
+                                        "unit_title": a["note_title"],
+                                        "has_90s": a["has_90s"],
+                                        "known_numbers": a["known_numbers"],
+                                        "has_placeholder": False}},
+                              {"message": {"content": f"EN: {a['en']}\n===\n"
+                                           f"META: 요지={a['gist']} | 전략={a['strategy']}"}},
+                              {"done": True}))
                 return
             # Tier C — 근거를 못 찾았다. 여기서 생성하면 그대로 발화된다.
             # LLM을 아예 부르지 않는다: 환각 0 · 지연 0 · 토큰 0.
             if built["tier"] == "C" and req.get("intent") == "reply":
                 c = prompts.build_tier_c(said, store=store)
                 _log_miss(said, user)
-                self.send_response(200)
-                self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
-                self.end_headers()
-                for obj in ({"meta": {"tier": "C", "sources": [],
-                                      "rag_used": False, "facts": c["facts"],
-                                      "known_numbers": c["known_numbers"],
-                                      "has_placeholder": False}},
-                            {"message": {"content": f"EN: {c['en']}\n===\n"
-                                         f"META: 요지={c['gist']} | 전략={c['strategy']}"}},
-                            {"done": True}):
-                    self.wfile.write((json.dumps(obj, ensure_ascii=False) + "\n").encode())
-                self.wfile.flush()
-                self._status = 200
+                self._ndjson(({"meta": {"tier": "C", "sources": [],
+                                        "rag_used": False, "facts": c["facts"],
+                                        "known_numbers": c["known_numbers"],
+                                        "has_placeholder": False}},
+                              {"message": {"content": f"EN: {c['en']}\n===\n"
+                                           f"META: 요지={c['gist']} | 전략={c['strategy']}"}},
+                              {"done": True}))
                 return
             # ⏳시간 벌기·되묻기는 정의상 1~2문장 즉답 — fast 레인(lite 모델)으로
             # 보내 첫 토큰을 앞당긴다. 나머지는 main 레인 유지(발표형 품질).
@@ -807,7 +893,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                           "material": grounding.material_of(built["hits"])}
             _stream(self, [{"role": "user", "content": built["prompt"]}], 0.4,
                     700 if quick else (400 if built.get("followup") else 2400), fast=quick,
-                    kind="suggest", bg=bool(req.get("bg")), ground=ground,
+                    kind="prefetch" if prefetch else "suggest", bg=bool(req.get("bg")), ground=ground,
                     meta={"sources": built["sources"],
                           "phrases": built["phrases"],
                           "rag_used": built["rag_used"],

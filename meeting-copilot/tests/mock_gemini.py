@@ -42,6 +42,12 @@ def make_text(payload, model):
         return json.dumps({"expressions":[{"en":f"Phrase {i}.","ko":f"표현{i}","why":"t"} for i in range(1,11)],
                            "missed":[],"questions":["When is the deadline?"],
                            "lesson_questions":["'circle back' 관용구를 연습하고 싶어요"]}, ensure_ascii=False)
+    if '"followups"' in user:
+        return json.dumps({"followups": ["How long did that take?", "What was the result of that?"]})
+    if '"flag"' in user and "ANSWER SENTENCES" in user:
+        return json.dumps({"flag": []})
+    if '"tags"' in user:
+        return json.dumps({"tags": ["biggest deal", "largest contract"]})
     if "무슨 주제를 논의 중인지" in user:
         return "가격과 총소유비용 논의"
     # 생성 재현 규칙: ① 자료가 있으면 자료 문장을 그대로 활용(뱃지 검증용)

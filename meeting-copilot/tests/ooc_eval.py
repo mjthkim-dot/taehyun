@@ -21,7 +21,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-BASE = "http://localhost:3799"
+BASE = os.environ.get("MC_BASE", "http://localhost:3799")
 TS = Path(__file__).with_name("ooc-eval.ts")
 SPEAK_TS = Path(__file__).with_name("speakability.ts")
 REPORT = Path(__file__).resolve().parent.parent.parent / "docs" / "REPORT.md"

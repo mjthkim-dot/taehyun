@@ -656,6 +656,58 @@ console.log('\n■ v6.4 실시간 인식(Gemini Live) — 기본 엔진 · 키 �
     if (/503/.test(errs[i]) && /stt\/live|Service Unavailable/.test(errs[i])) errs.splice(i, 1);
 }
 
+console.log('\n■ v6.6 답변 은행 · 예상 후속 선준비 · 따라 읽기 · 면접 복기');
+{
+  const errsBefore = errs.length;
+  // 답변 은행 API — 목록(빈 환경이면 빈 배열)·잘못된 idx 400·패널 렌더
+  const ub = await p.evaluate(async () => {
+    const g = await (await fetch('/api/units')).json();
+    const bad = await fetch('/api/units', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idx: 999, reviewed: true }) });
+    return { list: Array.isArray(g.units), n: g.units.length, badStatus: bad.status };
+  });
+  check('답변 은행 API — 목록 · 잘못된 idx는 400', ub.list && ub.badStatus === 400, JSON.stringify(ub));
+  await p.click('.tab[data-v="lib"]');
+  await p.waitForFunction(() => /대본|초안 만들기|불러오기/.test(document.querySelector('#units-list')?.textContent || ''), { timeout: 5000 }).catch(() => {});
+  const panel = await p.evaluate(() => ({ txt: document.querySelector('#units-list').textContent.slice(0, 60), btn: !!document.querySelector('#units-draft') }));
+  check('📝 답변 은행 패널 — 초안 만들기 버튼 · 상태 문구', panel.btn && /대본|초안/.test(panel.txt), panel.txt);
+  await p.click('.tab[data-v="live"]');
+  // 예상 후속 → 선준비 → 실제 후속이 오면 네트워크 없이 그 자리에서
+  await p.evaluate(() => { document.querySelector('#preset').value = 'interview'; applyPreset(); gov.tier = 'paid';
+    prefetch.items = []; prefetch.seq = 0; });
+  await p.evaluate(() => { addUtterance('Okay, sure.', '나'); addUtterance('Walk me through the biggest deal you closed and what made it work?', '상대'); });
+  await p.waitForFunction(() => document.querySelectorAll('#c-next .fq').length >= 1, { timeout: 15000 }).catch(() => {});
+  const chips = await p.evaluate(() => [...document.querySelectorAll('#c-next .fq')].map(e => e.textContent));
+  check('본답변 뒤 예상 후속 질문 표시(2개)', chips.length === 2 && /How long did that take/.test(chips[0]), chips.join(' | '));
+  await p.waitForFunction(() => prefetch.items.length && prefetch.items.every(x => x.done), { timeout: 20000 }).catch(() => {});
+  const served = await p.evaluate(async () => {
+    const before = mainRaw;
+    let netCalls = 0; const of = window.fetch; window.fetch = (...a) => { if (String(a[0]).includes('/api/suggest')) netCalls++; return of(...a); };
+    const ok = servePrefetched('So how long did that take?', false);
+    window.fetch = of;
+    return { ok, pre: document.querySelector('#card').classList.contains('prefetched'), changed: mainRaw !== before, netCalls,
+             en: document.querySelector('#c-answers .en')?.textContent.slice(0, 40) };
+  });
+  check('실제 후속이 예측과 같으면 미리 준비한 답을 즉시(네트워크 0)', served.ok && served.pre && served.changed && served.netCalls === 0, JSON.stringify(served));
+  // 📖 따라 읽기 — 말한 만큼 옅게, 다음 줄 강조
+  const rl = await p.evaluate(() => { document.body.classList.add('prompter');
+    renderCard('EN: I lead deals / from first call / to close. / Then I expand / team by team.');
+    ra.key = '';
+    readAlong('I lead deals from first call', false);
+    const st = [...document.querySelectorAll('#c-answers .lrow.primary .en .seg')].map(e => e.classList.contains('done') ? 'D' : e.classList.contains('cur') ? 'C' : '.').join('');
+    readAlong('I lead deals from first call um to close then I expand', true);
+    const st2 = [...document.querySelectorAll('#c-answers .lrow.primary .en .seg')].map(e => e.classList.contains('done') ? 'D' : e.classList.contains('cur') ? 'C' : '.').join('');
+    return { st, st2 }; });
+  check('따라 읽기 — 읽은 조각 D, 다음 조각 C', rl.st === 'DDC..' && rl.st2 === 'DDDDC', JSON.stringify(rl));
+  // 📋 면접 복기 — 경로·위험 집계
+  const db = await p.evaluate(() => { debrief.turns = []; debrief.cur = null;
+    debriefTurn('Why us?'); debrief.cur.tier = 'B'; markUnverified(['999M']);
+    debriefTurn('What is your favorite pizza?'); debrief.cur.tier = 'C';
+    return debriefText(); });
+  check('면접 복기 — 질문 수·경로·표시된 위험·대본 없음 목록', /질문 2개/.test(db) && /생성 1/.test(db) && /대본 없음 1/.test(db) && /pizza/.test(db) && /숫자 1/.test(db), db.slice(0, 80));
+  await p.evaluate(() => { debrief.turns = []; debrief.cur = null; prefetch.items = []; paintNext(); });
+  for (let i = errs.length - 1; i >= errsBefore; i--) if (/400 \(Bad Request\)|HTTP 400 \/api\/units/.test(errs[i])) errs.splice(i, 1);
+}
+
 console.log('\n■ v6.5 근거 확인 — 자료에 없는 구체적 주장은 점선 밑줄(지우지 않음)');
 {
   const g = await p.evaluate(() => {

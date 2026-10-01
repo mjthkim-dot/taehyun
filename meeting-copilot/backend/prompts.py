@@ -661,6 +661,21 @@ def build_opener(said: str, intent: str = "reply", preset: str = "interview") ->
             "Contractions fine. Plain text, the sentence only.")
 
 
+def build_followups(question: str, answer_en: str, preset: str = "interview") -> str:
+    """예상 후속 질문 2개 — 방금 답변을 들은 면접관이 바로 이어 물을 법한 것.
+
+    왜: 후속 질문이 가장 어렵다 — 자료에 없는 수치·사유를 캐묻고(§60 날조 위험),
+    첫 질문보다 빨리 온다. 미리 답을 만들어 두면(prefetch) 실제로 오는 순간 0초에 뜬다.
+    또 화면에 '예상 후속'으로 보여 주면 읽는 사람이 마음의 준비를 한다."""
+    who = "hiring manager" if preset == "interview" else "counterpart"
+    return (f"A {who} asked: \"{question[:400]}\"\n"
+            f"The candidate answered: \"{answer_en[:700]}\"\n\n"
+            "Predict the 2 most likely NEXT questions this interviewer will ask right after "
+            "hearing that answer — probing follow-ups on what was just said (a detail, a number, "
+            "a reason, the result), not new topics. Short, spoken English, exactly as they would say it.\n"
+            "JSON only: {\"followups\": [\"...\", \"...\"]}")
+
+
 def build_translate_batch(texts: list[str]) -> str:
     """번역 배칭 — 문장 2~3개를 1회 호출로 (무료 티어 RPM 절약).
 

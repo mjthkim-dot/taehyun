@@ -225,6 +225,15 @@
   #c-tierc ul{margin:5px 0 0;padding-left:16px}
   #c-tierc li{margin:2px 0;color:var(--sub)}
   /* Tier A — 검수된 대본. 지어낸 문장이 아니라는 사실을 눈으로 확인시킨다 */
+  .unit{border:1px solid rgba(128,128,128,.25);border-radius:10px;padding:8px 10px;margin:8px 0;background:var(--panel2)}
+  .unit .uq{font-weight:800;font-size:12.5px}
+  .unit .badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:6px;margin-left:6px;background:rgba(128,128,128,.25)}
+  .unit .badge.ok{background:rgba(82,196,26,.25)} .unit .badge.warn{background:rgba(246,183,60,.3)} .unit .badge.block{background:rgba(255,77,79,.3)}
+  .unit .chk{color:#F6B73C;font-size:11px;margin:4px 0}
+  .unit textarea{min-height:64px;font-size:12.5px;width:100%;box-sizing:border-box;margin-top:4px}
+  .unit .meta{font-size:11px;color:var(--sub);margin-top:4px}
+  .unit .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px}
+  .unit input.tags{flex:1;min-width:160px;font-size:11.5px}
   #mock-box{margin:6px 8px;padding:8px 10px;border-radius:10px;font-size:12.5px;
     background:rgba(114,46,209,.10);border:1px solid rgba(114,46,209,.35)}
   #mock-box .mock-row{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:6px}
@@ -275,6 +284,14 @@
   body.them-speaking #card.spec #c-answers::before{
     content:"🎧 질문 듣는 중 — 끝나면 답이 확정됩니다";display:block;
     font-size:10.5px;color:var(--accent);margin-bottom:6px}
+  #c-next{font-size:11px;color:var(--sub);margin-top:5px;line-height:1.5}
+  #c-next .fq{display:inline-block;margin:2px 6px 0 0;padding:1px 7px;border-radius:8px;background:rgba(128,128,128,.18)}
+  #c-next .fq.ready{background:rgba(82,196,26,.2)}
+  .pre-tag{display:none;font-size:9.5px;font-weight:800;color:#0B1410;background:#52c41a;border-radius:4px;padding:2px 4px;flex:none}
+  #card.prefetched .pre-tag{display:inline-block}
+  /* 📖 따라 읽기 — 내 마이크가 들은 만큼 읽은 줄은 옅게, 다음 줄은 강조 */
+  body.prompter .seg.done{opacity:.42}
+  body.prompter .seg.cur{background:rgba(255,255,255,.07);border-left:3px solid var(--accent);padding-left:6px!important;border-radius:4px}
   .seg.unsup{text-decoration:underline dotted #F6B73C;text-decoration-thickness:2px;
     text-underline-offset:4px;opacity:.7}
   .unsup-note{font-size:10.5px;color:#F6B73C;margin-bottom:4px}
@@ -491,7 +508,7 @@
   <span class="brand">🗣 미팅</span>
   <!-- 버전 칩: "지금 브라우저에 떠 있는 UI가 어느 버전인가"를 즉시 판별 —
        git pull 후 재기동/새로고침 누락을 눈으로 잡는다. 릴리스마다 올린다. -->
-  <span class="ver" id="app-ver">v6.5</span>
+  <span class="ver" id="app-ver">v6.6</span>
   <button class="btn" id="btn-listen" title="듣기 시작/정지 (Space로 카드 고정)">▶</button>
   <button class="btn" id="btn-stop" title="세션 종료 — 요약 + 내 자료로 적재">⏹</button>
   <button class="btn" id="btn-pip" title="오버레이 — Zoom·Meet 위에 항상 떠 있는 작은 창 (Chrome)">🪟</button>
@@ -622,6 +639,7 @@
     <div id="card">
       <div class="head">
         <span class="gist" id="c-gist"></span>
+        <span class="pre-tag" title="예상 후속 질문으로 미리 만들어 둔 답 — 네트워크 없이 바로">미리 준비한 답</span>
         <span class="spec-tag" title="말이 끝나기 전에 미리 생성 중">미리</span>
         <span id="c-wait">생성 중…</span>
         <button id="c-prompter" title="프롬프터 (한 줄씩)" onclick="togglePrompter()">≡</button>
@@ -639,6 +657,7 @@
       <div id="c-answers"></div>
       <div id="c-tierc"></div>
       <div id="c-src"></div>
+      <div id="c-next" style="display:none"></div>
     </div>
   </div>
 
@@ -652,6 +671,17 @@
        회사를 바꾸면 그 회사 노트·대본·용어로 <b>다시 적재</b>합니다(1~2분).
        <b>다른 지원 회사 이름이 들어간 대본은 읽히지 않고</b>, 생성된 답변에 나오면 빨갛게 표시됩니다.</p>
     <div id="company-box" class="note">불러오는 중…</div>
+
+    <h3>📝 답변 은행 (검수한 대본 = 0.7초에 뜨는 답)</h3>
+    <p>예상 질문마다 <b>내 자료로 만든 대본 초안</b>입니다. 읽고 고치고 <b>[승인]</b>하면
+       그 질문에는 생성 없이 이 문장이 그대로 뜹니다(0.7초 · 문장 고정 · 지어냄 0).
+       승인 전 초안은 한 번도 화면에 뜨지 않습니다. ⚠️는 기계 검사(길이·난이도·숫자·근거)가 잡은 것 — 고친 뒤 승인하세요.</p>
+    <div class="mock-row">
+      <button class="go ghost" id="units-draft">초안 만들기 (예상 질문 전부 · 수 분)</button>
+      <label><input type="checkbox" id="units-only-todo" checked> 미승인만 보기</label>
+      <span id="units-stat"></span>
+    </div>
+    <div id="units-list" class="note">불러오는 중…</div>
 
     <h3>🧩 코드를 Claude에 보내기</h3>
     <p>앱 소스를 <b>붙여넣기 좋은 조각</b>으로 나눠 복사합니다. 조각을 순서대로
@@ -1465,10 +1495,12 @@ function markUnsupported(flags){
     body.insertBefore(d, body.firstChild);
   }
   lastUnsup = flags.length;
+  if(debrief.cur) debrief.cur.unsup += flags.length;
 }
 let lastUnsup = 0;
 function markUnverified(spans, why){
   if(!spans.length) return;
+  if(debrief.cur){ if(why && /회사/.test(why)) debrief.cur.wrong += spans.length; else debrief.cur.nums += spans.length; }
   why = why || '내 자료에 없는 숫자입니다 — 확인 전에는 읽지 마세요';
   for(const en of document.querySelectorAll('#c-answers .en')){
     let html = en.innerHTML;
@@ -1537,7 +1569,7 @@ function renderCard(raw){
 }
 let lastTier = '';
 function renderSources(meta){
-  if(meta?.tier) lastTier = meta.tier;
+  if(meta?.tier){ lastTier = meta.tier; if(debrief.cur) debrief.cur.tier = meta.tier; }
   lastPhrases = meta?.phrases || [];
   knownNumbers = (meta?.known_numbers || []).map(numKey);
   renderTierC(meta);
@@ -1600,6 +1632,8 @@ function fireOpener(said, intent){
 
 async function suggest(said, intent, auto, speculative, retried, depth){
   if(auto && pinned) return;
+  // 🔮 미리 준비한 답이 있으면 그걸로 — 네트워크 0, 지연 0
+  if(intent === 'reply' && !depth && servePrefetched(said, speculative)) return;
   if(!auto && pinned){ pinned = false; $('#c-pin').classList.remove('on'); }
   if(!speculative){ specTries = 0; specGaps = []; specLastAt = 0; }
   // 0.85: 투기 답변 재사용 문턱 — 짧은 질문(8단어)에서 마지막 1어절만
@@ -1612,7 +1646,8 @@ async function suggest(said, intent, auto, speculative, retried, depth){
   if(suggestAbort) suggestAbort.abort();
   const card = $('#card');
   card.style.display = 'block';
-  card.classList.remove('stale');            // 새 생성 시작 — 낡음 표시 해제
+  card.classList.remove('stale', 'prefetched');   // 새 생성 시작 — 낡음·선준비 표시 해제
+  if(!speculative && intent === 'reply') debriefTurn(said);
   card.classList.toggle('spec', !!speculative);
   suggestAbort = new AbortController();
   const sig = suggestAbort.signal;
@@ -1656,6 +1691,7 @@ async function suggest(said, intent, auto, speculative, retried, depth){
       return;
     }
     if(speculative) specDone = said; else card.classList.remove('spec');
+    if(raw.trim() && !speculative) planFollowups(said, raw);
   }catch(e){
     if(e.name!=='AbortError'){
       $('#c-gist').textContent = '⚠️ ' + e.message;
@@ -1673,6 +1709,132 @@ async function suggest(said, intent, auto, speculative, retried, depth){
     }
   }
 }
+// ════════════════════════════════════════════════════════════
+//  🔮 예상 후속 질문 + 선준비 (v6.6)
+//  본답변이 끝나면 (1) 면접관이 이어 물을 질문 2개를 예측해 카드 아래에 보여 주고
+//  (2) 그 답을 낮은 우선순위로 미리 만들어 둔다. 실제 후속 질문이 예측과 같으면
+//  (겹침 ≥ 0.85 + 끝 낱말 일치) 네트워크 없이 그 자리에서 뜬다 — "미리 준비한 답".
+//  후속 질문은 첫 질문보다 빨리 오고 자료에 없는 것을 캐묻는다(§60) — 가장 어려운 순간을
+//  가장 빠르게 만든다. 유료 티어·여유 있을 때만(투기와 같은 예산 규칙).
+// ════════════════════════════════════════════════════════════
+const prefetch = {items: [], seq: 0};
+function paintNext(){
+  const el = $('#c-next'); if(!el) return;
+  const cur = prefetch.items.filter(x => x.seq === prefetch.seq);
+  if(!cur.length){ el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'block';
+  el.innerHTML = '🔮 예상 후속: ' + cur.map(x => `<span class="fq ${x.done ? 'ready' : ''}" title="${x.done ? '답 준비됨 — 이 질문이 오면 바로 뜹니다' : '답 준비 중…'}">${esc(x.q)}</span>`).join('');
+}
+async function planFollowups(said, raw){
+  if(appPreset() !== 'interview' || gov.tier !== 'paid') return;
+  if(gov.rpmHeadroom('main') < 0.4 || gov.rpdBlocked()) return;
+  const en = (raw.split('===')[0].replace(/^EN:\s*/,'') || '').replace(/\s*\/\s*/g,' ').trim();
+  if(en.split(/\s+/).length < 8) return;
+  const seq = ++prefetch.seq;
+  let fu = [];
+  try{
+    const r = await fetch('/api/followups', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({q: said, en, preset: appPreset()})});
+    fu = (await r.json()).followups || [];
+  }catch{ return; }
+  if(seq !== prefetch.seq) return;                       // 그 사이 다음 질문이 왔다
+  for(const q of fu){
+    if(prefetch.items.some(x => covers(x.q, q) >= 0.9)) continue;
+    const item = {q, seq, raw:'', meta:null, verify:[], done:false};
+    prefetch.items.push(item);
+    prefetchAnswer(item);
+  }
+  while(prefetch.items.length > 4) prefetch.items.shift();
+  paintNext();
+}
+async function prefetchAnswer(item){
+  const context = log.slice(-7).map(l=>`${l.who==='나'?'Me':'Them'}: ${l.text}`).join('\n');
+  try{
+    const res = await fetch('/api/suggest', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({said:item.q, context, intent:'reply', cefr:$('#cefr').value, preset:appPreset(),
+                            depth:'30s', bg:true, prefetch:1})});
+    if(!res.ok) return;
+    const rd = res.body.getReader(), dec = new TextDecoder(); let buf = '';
+    for(;;){
+      const {done, value} = await rd.read(); if(done) break;
+      buf += dec.decode(value, {stream:true});
+      const lines = buf.split('\n'); buf = lines.pop();
+      for(const ln of lines){ if(!ln.trim()) continue; try{ const o = JSON.parse(ln);
+        if(o.dropped) return;
+        if(o.meta) item.meta = o.meta; else if(o.verify) item.verify.push(o.verify);
+        else if(o.message?.content) item.raw += o.message.content; }catch{} }
+    }
+    if(item.raw.trim() && /EN:/.test(item.raw)){ item.done = true; paintNext(); }
+  }catch{}
+}
+// 앞머리 군말("So, …", "And …", "Okay, …")은 질문의 뜻을 바꾸지 않는다 — 짧은 후속 질문(5~6단어)은
+// 군말 하나로도 겹침이 0.83까지 떨어져 준비한 답을 못 쓴다(v6.6 실측)
+const stripLead = t => t.replace(/^(?:(?:so|and|okay|ok|alright|right|great|well|sure|now|then|also)[,\s]+)+/i, '');
+function servePrefetched(said, speculative){
+  const q = stripLead(said);
+  const hit = prefetch.items.find(x => x.done && covers(x.q, q) >= 0.8 && tailOk(x.q, q));
+  if(!hit) return false;
+  if(suggestAbort){ suggestAbort.abort(); suggestAbort = null; }
+  const card = $('#card');
+  card.style.display = 'block';
+  card.classList.remove('gen','slow','stale','opened','spec'); card.classList.add('prefetched');
+  clearTimeout(genSlowTimer);
+  lastSaid = said; mainRaw = hit.raw;
+  specKey = said; specDone = said;                       // 확정 자막이 와도 다시 만들지 않게
+  if(!speculative) debriefTurn(said, true);
+  $('#c-gist').textContent = said.length > 46 ? said.slice(0,46)+'…' : said;
+  renderSources(hit.meta); renderCard(hit.raw);
+  for(const v of hit.verify){
+    if(v.unsupported) markUnsupported(v.unsupported);
+    markUnverified(v.unverified||[]);
+    markUnverified(v.wrong_company||[], '다른 지원 회사 이름입니다 — 읽지 말고 건너뛰세요');
+  }
+  prefetch.items = prefetch.items.filter(x => x !== hit);
+  paintNext();
+  setTimeout(() => card.classList.remove('prefetched'), 4000);
+  if(!speculative) planFollowups(said, hit.raw);         // 그 다음 후속도 미리
+  return true;
+}
+
+// ════════════════════════════════════════════════════════════
+//  📖 따라 읽기 (v6.6) — 내 마이크가 들은 만큼 읽은 줄은 옅게, 다음 줄은 강조
+//  카메라를 보다 화면으로 눈을 돌렸을 때 어디까지 읽었는지 바로 찾게 한다.
+//  정렬: 말한 낱말을 카드 낱말과 순서대로 맞춘다(한두 낱말 건너뛰기 허용).
+// ════════════════════════════════════════════════════════════
+const ra = {key:'', base:[], ptr:0, segs:[], words:[]};
+const raWords = t => t.toLowerCase().replace(/[^a-z0-9' ]+/g,' ').split(/\s+/).filter(Boolean);
+function raBuild(){
+  const row = document.querySelector('#c-answers .lrow.primary') || document.querySelector('#c-answers .lrow');
+  const segs = row ? [...row.querySelectorAll('.en .seg')] : [];
+  const key = segs.map(e=>e.textContent).join('|');
+  if(key === ra.key) return;
+  ra.key = key; ra.base = []; ra.ptr = 0;
+  let i = 0;
+  ra.segs = segs.map(el => { const w = raWords(el.textContent); const s = {el, from:i, to:i+w.length}; i += w.length; return s; });
+  ra.words = ra.segs.flatMap(s => raWords(s.el.textContent));
+  segs.forEach(e => e.classList.remove('done','cur'));
+}
+function readAlong(text, isFinal){
+  if(!document.body.classList.contains('prompter')) return;
+  raBuild();
+  if(!ra.words.length) return;
+  const spoken = ra.base.concat(raWords(text));
+  let i = 0, j = 0;
+  while(i < ra.words.length && j < spoken.length){
+    if(ra.words[i] === spoken[j]){ i++; j++; continue; }
+    if(spoken[j+1] === ra.words[i] || spoken[j+2] === ra.words[i]){ j++; continue; }   // 말에 낱말이 더 있음
+    if(ra.words[i+1] === spoken[j] || ra.words[i+2] === spoken[j]){ i++; continue; }   // 카드 낱말을 건너뜀
+    j++;
+  }
+  if(isFinal) ra.base = spoken.slice(-80);
+  if(i < ra.ptr && !isFinal) return;                     // 되돌아가지 않는다(인식 흔들림)
+  ra.ptr = Math.max(ra.ptr, i);
+  for(const s of ra.segs){
+    s.el.classList.toggle('done', s.to <= ra.ptr);
+    s.el.classList.toggle('cur', s.from <= ra.ptr && ra.ptr < s.to);
+  }
+}
+
 $('#c-close').onclick = ()=>{ $('#card').style.display='none'; pinned=false; $('#c-pin').classList.remove('on'); };
 $('#c-pin').onclick = ()=>{ pinned = !pinned; $('#c-pin').classList.toggle('on', pinned); };
 // 첫 클릭은 즉시 나간다(실시간이 핵심). 300ms 안에 또 누르면 이전 요청을 이어
@@ -1981,7 +2143,11 @@ class LiveStt {
         this.lastInterim = fixNames(sc.interimInputTranscription.text || '');
         showInterim(this.lastInterim);
       }
-      if(sc.interimInputTranscription && this.who === '나' && mock.on) mock.meActiveAt = Date.now();
+      if(sc.interimInputTranscription && this.who === '나'){
+        if(mock.on) mock.meActiveAt = Date.now();
+        readAlong(sc.interimInputTranscription.text || '', false);
+      }
+      if(sc.inputTranscription && this.who === '나') readAlong(sc.inputTranscription.text || '', true);
       if(sc.inputTranscription) this.onFinal(sc.inputTranscription.text || '');
       if(paused && ws === this.ws) this.swap();
     };
@@ -2630,6 +2796,29 @@ $('#btn-listen').onclick = async ()=>{
   if(em === 'web') $('#status-txt').textContent = '듣는 중 — 상대 발언이 자막으로 표시됩니다';
 };
 
+// ── 📋 면접 복기 (v6.6) — 질문마다 경로·표시된 위험을 모아 ⏹ 때 한 장으로 ──
+const debrief = {turns: [], cur: null};
+function debriefTurn(q, prefetched){
+  if(appPreset() !== 'interview') return;
+  const last = debrief.turns[debrief.turns.length-1];
+  if(last && covers(last.q, q) >= 0.85){ debrief.cur = last; return; }   // 같은 질문(확정 자막 재발사)
+  debrief.cur = {q, at: now(), tier: '', nums: 0, wrong: 0, unsup: 0, prefetched: !!prefetched};
+  debrief.turns.push(debrief.cur);
+}
+function debriefText(){
+  const t = debrief.turns; if(!t.length) return '';
+  const cnt = k => t.filter(x => x.tier === k).length;
+  const flagged = t.filter(x => x.nums || x.wrong || x.unsup);
+  const misses = t.filter(x => x.tier === 'C');
+  const L = [`📋 면접 복기 — 질문 ${t.length}개 · 검수 대본 ${cnt('A')} · 생성 ${cnt('B')} · 대본 없음 ${cnt('C')} · 미리 준비한 답 ${t.filter(x=>x.prefetched).length}`];
+  if(misses.length){ L.push('📭 자료가 없어 답을 만들지 못한 질문 — 노트를 넣으면 다음엔 답이 뜹니다:');
+    misses.forEach(x => L.push(`   · ${x.q}`)); }
+  if(flagged.length){ L.push('⚠️ 읽지 말라고 표시된 곳이 있던 질문 — 답변 은행에서 대본을 만들어 두세요:');
+    flagged.forEach(x => L.push(`   · ${x.q}  (숫자 ${x.nums} · 다른 회사 ${x.wrong} · 근거 없음 ${x.unsup})`)); }
+  if(!misses.length && !flagged.length) L.push('✅ 표시된 위험 없음');
+  return L.join('\n');
+}
+
 // ── ⏹ 세션 종료: 요약 + 자료로 적재 ──
 $('#btn-stop').onclick = async ()=>{
   if(!log.length){ $('#status-txt').textContent='아직 기록된 대화가 없습니다'; return; }
@@ -2643,6 +2832,9 @@ $('#btn-stop').onclick = async ()=>{
     await streamChat('/api/summary',{transcript: log.map(l=>`${l.who}: ${l.text}`).join('\n'), mode:'full'},
       tk=>{ out += tk; });
   }catch(e){ out = '요약 실패: '+e.message; }
+  const dbf = debriefText();
+  if(dbf) out = dbf + '\n\n' + out;
+  debrief.turns = []; debrief.cur = null; prefetch.items = []; paintNext();
   const lines = log.map(l=>`${l.who}: ${l.text}`);
   try{
     const r = await postJSON('/api/session/archive', {meeting:name, lines:log});
@@ -2696,7 +2888,7 @@ document.querySelectorAll('.tab').forEach(t=>{
     paintLive();
     $('#view-lib').classList.toggle('hidden', t.dataset.v !== 'lib');
     $('#view-rev').classList.toggle('hidden', t.dataset.v !== 'rev');
-    if(t.dataset.v === 'lib'){ refreshStats(); paintCompany(); }
+    if(t.dataset.v === 'lib'){ refreshStats(); paintCompany(); paintUnits(); }
     if(t.dataset.v === 'rev') loadCards();
   };
 });
@@ -2981,6 +3173,75 @@ async function paintCompany(){
     paintCompany(); bootData();
   };
 }
+
+// 📝 답변 은행 — 초안 읽고·고치고·승인
+async function paintUnits(){
+  const box = $('#units-list'); if(!box) return;
+  let d;
+  try{ d = await (await fetch('/api/units')).json(); }catch(e){ box.textContent = '불러오기 실패: ' + e.message; return; }
+  const us = d.units || [];
+  const onlyTodo = $('#units-only-todo').checked;
+  const shown = us.filter(u => !onlyTodo || !u.reviewed);
+  const st = d.stats || {};
+  $('#units-stat').textContent = `대본 ${us.length}개 · 승인 ${us.filter(u=>u.reviewed).length} · 초안 ${us.filter(u=>u.draft && !u.reviewed).length}`
+    + (st.blocked_other_company ? ` · 다른 회사 이름으로 차단 ${st.blocked_other_company}` : '');
+  if(!us.length){ box.innerHTML = '대본이 없습니다 — <b>[초안 만들기]</b>를 누르세요 (GEMINI_API_KEY 필요).'; return; }
+  if(!shown.length){ box.textContent = '미승인 대본이 없습니다 — 전부 승인됐습니다 🎉'; return; }
+  box.innerHTML = shown.map(u => {
+    const badge = u.leaks?.length ? `<span class="badge block">다른 회사 이름: ${esc(u.leaks.join(', '))}</span>`
+      : u.reviewed ? '<span class="badge ok">승인됨</span>'
+      : (u.checks?.length ? `<span class="badge warn">⚠️ 확인 ${u.checks.length}</span>` : '<span class="badge">초안</span>');
+    const co = u.company ? `<span class="badge">${esc(u.company)} 전용</span>` : '<span class="badge">공통</span>';
+    return `<div class="unit" data-idx="${u.idx}">
+      <div class="uq">${esc(u.question || u.note_title || '')}${badge}${co}</div>
+      <div class="meta">근거 노트: ${esc(u.note_title||'')}${u.sources?.length ? ' · ' + esc(u.sources.join(' · ')) : ''}${u.made ? ' · ' + esc(u.made) : ''}</div>
+      ${(u.checks||[]).map(c => `<div class="chk">⚠️ ${esc(c)}</div>`).join('')}
+      <div class="meta">30초 판본 — 소리 내어 읽어 보세요 (${(u.answer_en_30s||'').split(/\s+/).filter(Boolean).length}단어)</div>
+      <textarea class="a30">${esc(u.answer_en_30s||'')}</textarea>
+      <details><summary class="meta">90초 판본 (${(u.answer_en_90s||'').split(/\s+/).filter(Boolean).length}단어) · 요지 · 발동 조건</summary>
+        <textarea class="a90">${esc(u.answer_en_90s||'')}</textarea>
+        <div class="row"><span class="meta">요지</span><input class="gist" value="${esc(u.gist||'')}" style="flex:1"></div>
+        <div class="row"><span class="meta" title="면접관 질문에 이 구 중 하나가 있어야 이 대본이 뜹니다">발동 구(쉼표로)</span><input class="tags" value="${esc((u.intent_tags||[]).join(', '))}"></div>
+      </details>
+      <div class="row">
+        <button class="go" data-act="approve">${u.reviewed ? '다시 승인' : '✅ 승인 (그대로 읽어도 됨)'}</button>
+        <button class="go ghost" data-act="save">저장만</button>
+        ${u.reviewed ? '<button class="go ghost" data-act="unapprove">승인 취소</button>' : ''}
+        <button class="go ghost" data-act="say">🔊 들어보기</button>
+        <button class="go ghost" data-act="delete">삭제</button>
+        <span class="meta u-st"></span>
+      </div>
+    </div>`; }).join('');
+  box.querySelectorAll('.unit [data-act]').forEach(btn => btn.onclick = async ()=>{
+    const el = btn.closest('.unit'), idx = +el.dataset.idx, act = btn.dataset.act, st = el.querySelector('.u-st');
+    if(act === 'say'){ speak(el.querySelector('.a30').value.replace(/\s*\/\s*/g, ', ')); return; }
+    if(act === 'delete' && !confirm('이 대본을 삭제할까요?')) return;
+    const body = act === 'delete' ? {idx, op:'delete'} : {idx,
+      answer_en_30s: el.querySelector('.a30').value, answer_en_90s: el.querySelector('.a90').value,
+      gist: el.querySelector('.gist').value, intent_tags: el.querySelector('.tags').value.split(',').map(t=>t.trim()).filter(Boolean),
+      ...(act === 'approve' ? {reviewed:true} : act === 'unapprove' ? {reviewed:false} : {})};
+    st.textContent = '⏳';
+    try{
+      const r = await fetch('/api/units', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      const j = await r.json(); if(!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      st.textContent = act === 'approve' ? '✅ 승인 — 이제 이 질문에는 이 문장이 그대로 뜹니다' : act === 'delete' ? '삭제됨' : '저장됨';
+      setTimeout(paintUnits, 600);
+    }catch(e){ st.textContent = '❌ ' + e.message; }
+  });
+}
+$('#units-only-todo').onchange = paintUnits;
+$('#units-draft').onclick = async ()=>{
+  const b = $('#units-draft');
+  if(!confirm('예상 질문 전부의 대본 초안을 만듭니다 (문항당 약 6초 · 수 분). 이미 초안이 있는 질문은 건너뜁니다. 계속할까요?')) return;
+  b.disabled = true; b.textContent = '⏳ 초안 만드는 중… (수 분 — 이 화면을 떠나도 됩니다)';
+  try{
+    const r = await fetch('/api/units/draft', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+    const j = await r.json();
+    $('#units-list').innerHTML = `<pre>${esc((j.log||'').slice(-1500))}</pre>`;
+    if(r.ok) setTimeout(paintUnits, 800);
+  }catch(e){ $('#units-list').textContent = '❌ ' + e.message; }
+  b.disabled = false; b.textContent = '초안 만들기 (예상 질문 전부 · 수 분)';
+};
 
 $('#sync-go').onclick = async ()=>{
   localStorage.setItem(SYNC_KEY, $('#sync-pages').value);

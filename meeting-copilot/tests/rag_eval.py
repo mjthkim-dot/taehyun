@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """tests/rag-eval.ts와 같은 케이스를 돌리는 파이썬 러너 (node/deno 없이 검증용)."""
 import json
+import os
 import re
 import sys
 import urllib.parse
 import urllib.request
 
-BASE = "http://localhost:3799"
+BASE = os.environ.get("MC_BASE", "http://localhost:3799")
 TS = (__file__).replace("rag_eval.py", "rag-eval.ts")
 
 

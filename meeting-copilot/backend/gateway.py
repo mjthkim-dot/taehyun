@@ -78,13 +78,14 @@ _rotate_trace()
 
 # 우선순위 — 숫자가 작을수록 먼저. 클릭 제안이 최우선(사람이 기다리며 보고 있다).
 _PRIO = {"suggest": 0, "translate": 1, "summary_final": 1, "assets": 2,
-         "suggest_bg": 2, "verify": 2, "summary": 3}
+         "suggest_bg": 2, "verify": 2, "prefetch": 3, "summary": 3}
 # 밀리면 버리는 유형 → 최대 대기 초. 지연된 한줄 요약은 무가치하고, 낡은 투기
 # 제안은 클라이언트가 이미 abort한 뒤라 발사해봐야 토큰만 태운다 (내성 시뮬 실측:
 # 폭주 구간에 투기 제안이 큐에서 250초 살아남아 번역까지 밀어냈다).
 _DROP_AFTER = {"summary": GW_DROP_S, "suggest_bg": GW_BG_DROP_S,
                "suggest": 60.0,   # 클릭도 60초 넘으면 좀비(사용자는 이미 다음 클릭) — 회수만
-               "verify": 6.0}     # 근거 확인은 늦으면 이미 읽은 뒤라 무가치
+               "verify": 6.0,     # 근거 확인은 늦으면 이미 읽은 뒤라 무가치
+               "prefetch": 12.0}  # 예상 후속 질문 선준비 — 밀리면 어차피 다음 질문이 온 뒤
 
 
 class Dropped(Exception):
