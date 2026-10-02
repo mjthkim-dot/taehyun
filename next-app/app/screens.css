@@ -6912,3 +6912,318 @@
   font-size: 0.8rem;
   font-weight: 700;
 }
+/* ── M7 소리 디코더(.sd-*) · 말풍선 '원어민 소리' 줄(.bb-sound) ── */
+.bb-sound {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+.bb-sound-lbl {
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.sd-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.sd-title {
+  font-size: 0.92rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.sd-meta,
+.sd-tip,
+.sd-ex-en,
+.sd-ex-kr,
+.sd-say-hint,
+.sd-said,
+.sd-fb,
+.sd-pass,
+.sd-status {
+  margin: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+.sd-kind {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface2);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+.sd-kr,
+.sd-tip,
+.sd-ex-kr {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+.sd-ex {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--surface2);
+}
+.sd-ex-en {
+  font-weight: 800;
+}
+.sd-listen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sd-both,
+.sd-rec,
+.sd-self,
+.sd-stop {
+  min-height: 44px;
+  width: 100%;
+}
+.sd-one,
+.sd-q-play {
+  min-height: 44px;
+}
+.sd-quiz,
+.sd-say,
+.sd-done {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sd-q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.sd-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sd-opt {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.sd-opt.ok {
+  border-color: var(--green);
+  background: var(--green-soft);
+  color: var(--green-dk);
+}
+.sd-opt.bad {
+  border-color: var(--red);
+}
+.sd-opt:disabled {
+  cursor: default;
+}
+.sd-fb {
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.sd-fb.ok,
+.sd-pass {
+  color: var(--green-dk);
+  font-weight: 800;
+}
+.sd-said {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
+/* ── M9 소리 구분 HVPT(.hv-*) · 진도 '소리 축 TOP3' ── */
+.hv-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.hv-title {
+  font-size: 0.92rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.hv-week {
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.hv-hint,
+.hv-drop,
+.hv-note,
+.hv-score,
+.hv-mastered,
+.hv-say-hint,
+.hv-say-en,
+.hv-status,
+.hv-verdict {
+  margin: 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.hv-hint,
+.hv-drop,
+.hv-note {
+  font-size: 0.84rem;
+}
+.hv-note,
+.hv-status {
+  color: var(--text-muted);
+}
+.hv-drop {
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--surface2);
+}
+.hv-start,
+.hv-next,
+.hv-to-say,
+.hv-rec,
+.hv-stop {
+  min-height: 44px;
+  width: 100%;
+}
+.hv-replay,
+.hv-say-play {
+  min-height: 44px;
+}
+.hv-q,
+.hv-result,
+.hv-say,
+.hv-done {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.hv-q-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.hv-count {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.hv-opts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.hv-opt {
+  min-height: 64px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.hv-opt b {
+  font-size: 1.05rem;
+}
+.hv-opt-en {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.hv-opt.ok {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+.hv-opt.bad {
+  border-color: var(--red);
+}
+.hv-opt:disabled {
+  cursor: default;
+}
+.hv-fb {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 800;
+}
+.hv-ok,
+.hv-score.ok,
+.hv-verdict.ok {
+  color: var(--green-dk);
+}
+.hv-bad {
+  color: var(--red);
+}
+.hv-score,
+.hv-verdict {
+  font-weight: 800;
+}
+.hv-say-en {
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.hv-takes {
+  margin: 0;
+  padding-left: 1.1em;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+.hv-axis-week,
+.hv-axis-note {
+  margin: 0 0 8px;
+  font-size: 0.84rem;
+}
+.hv-axis-list {
+  margin: 0;
+  padding-left: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hv-axis-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 0.86rem;
+}
+.hv-axis-row.now .hv-axis-name {
+  color: var(--green-dk);
+}
+.hv-axis-name {
+  font-weight: 800;
+}
+.hv-axis-stat {
+  color: var(--text-muted);
+}
+.hv-axis-note {
+  margin: 8px 0 0;
+  font-size: 0.76rem;
+}

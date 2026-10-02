@@ -8,10 +8,31 @@
  *   · extraSlot — 말풍선 아래 한 줄(디코더 마크·칩 등). 없으면 아무것도 안 그린다.
  *   · subsMode  — 'on' | 'off' | 'earFirst'(M11: 영어도 가리고 소리 먼저). 없으면 subs 불리언을 따른다.
  *   · onLongPress — 길게(500ms) 누르면 호출(상대 대사 '같이 말하기'). 길게 누른 뒤의 click은 무시한다.
+ * M7: 설정(백업 '고급 ▾' 플래그 soundLine, 기본 꺼짐)이 켜져 있고 extraSlot이 비어 있으면, 그 대사에 디코더 구간
+ *   (gonna·플랩 T·연음)이 있을 때만 extraSlot 자리에 '🔊 원어민 소리' 회색 한 줄(spokenLine)을 넣는다 — DramaScreen 무수정.
  * 기존 동작: 누르면 그 줄의 한국어를 보여 주고(자막을 꺼 둔 채 들을 때) 다시 듣는다.
  */
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { castOf } from '../../lib/drama';
+import { FLAGS_EVENT, isOn } from '../../lib/flags';
+import { spokenLine } from '../../lib/connectedSpeech';
+
+/** '원어민 소리' 줄 설정 — 백업 화면에서 바꾸면(같은 탭 va:flags 이벤트) 바로 따라온다 */
+function useSoundLine(): boolean {
+  const [on, setOn] = useState(() => {
+    try {
+      return isOn('soundLine');
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    const f = () => setOn(isOn('soundLine'));
+    window.addEventListener(FLAGS_EVENT, f);
+    return () => window.removeEventListener(FLAGS_EVENT, f);
+  }, []);
+  return on;
+}
 
 export type LogItem = { kind: 'narr'; kr: string } | { kind: 'line'; who: string; en: string; kr: string } | { kind: 'note'; ok: boolean; text: string };
 export type SubsMode = 'on' | 'off' | 'earFirst';
@@ -41,6 +62,7 @@ export default function Bubble({
   const [reveal, setReveal] = useState(false);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longFired = useRef(false);
+  const soundLine = useSoundLine();
   if (item.kind === 'narr') return <div className="dr-narr">{item.kr}</div>;
   if (item.kind === 'note') return <div className={`dr-note${item.ok ? ' ok' : ''}`}>{item.text}</div>;
   const c = castOf(item.who);
@@ -49,6 +71,14 @@ export default function Bubble({
   const showKr = (mode === 'on' || reveal) && !!item.kr;
   // 귀 먼저(M11): 영어도 누르기 전엔 가린다
   const showEn = mode !== 'earFirst' || reveal;
+  const spoken = !extraSlot && soundLine && showEn ? spokenLine(item.en) : null;
+  const extra =
+    extraSlot ??
+    (spoken ? (
+      <span className="bb-sound">
+        <span className="bb-sound-lbl">🔊 원어민 소리</span> <span lang="en">{spoken}</span>
+      </span>
+    ) : null);
 
   const clearPress = () => {
     if (pressTimer.current) clearTimeout(pressTimer.current);
@@ -94,7 +124,7 @@ export default function Bubble({
         {showKr && <span className="dr-kr">{item.kr}</span>}
         <span className="sr-only">(다시 듣기{onLongPress ? ' · 길게 누르면 같이 말하기' : ''})</span>
         {mark && <span className="bb-mark" aria-hidden="true">{mark}</span>}
-        {extraSlot && <span className="bb-extra">{extraSlot}</span>}
+        {extra && <span className="bb-extra">{extra}</span>}
       </button>
       {me && <span className="dr-av" aria-hidden="true">{c.icon}</span>}
     </div>

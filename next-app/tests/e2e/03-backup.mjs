@@ -66,7 +66,15 @@ check('타 앱 백업 거부', !!(await page2.evaluate(() => document.querySelec
 check('녹음은 백업에 포함되지 않음 안내', await page2.evaluate(() => document.body.innerText.includes('녹음') && document.body.innerText.includes('포함되지 않')));
 check('고급 ▾ 접힘(#adv-section)이 기본 닫힘', (await page2.locator('#adv-section').count()) === 1 && !(await page2.evaluate(() => document.querySelector('#adv-section')?.open)));
 await page2.click('#adv-section summary');
-check('펼치면 실험 기능 토글 8개(전부 켜짐)', (await page2.locator('#adv-section .bk-flag input').count()) === 8 && (await page2.evaluate(() => [...document.querySelectorAll('#adv-section .bk-flag input')].every((i) => i.checked))));
+// M7: 표시 설정 '원어민 소리 줄'(soundLine, 기본 꺼짐)이 9번째 토글로 붙었다 — 실험 기능 8개는 전부 켜짐 그대로
+check(
+  '펼치면 토글 9개(실험 기능 8 켜짐 + 원어민 소리 줄 꺼짐)',
+  (await page2.locator('#adv-section .bk-flag input').count()) === 9 &&
+    (await page2.evaluate(() => {
+      const ins = [...document.querySelectorAll('#adv-section .bk-flag input')];
+      return ins.slice(0, 8).every((i) => i.checked) && !ins[8].checked && /원어민 소리/.test(ins[8].closest('label')?.textContent || '');
+    }))
+);
 await page2.click('#adv-section .bk-flag:has-text("줄거리") input');
 check('토글을 끄면 va_flags에 그 키만 저장', await page2.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('va_flags') || '{}')) === '{"retell":false}'));
 // M0 소리 레일 — 설정·점검류는 백업 화면 하단 '고급 ▾' 접힘 하나 안에만(새 화면·feat-card 없음)

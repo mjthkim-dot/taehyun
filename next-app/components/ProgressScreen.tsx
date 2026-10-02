@@ -34,6 +34,7 @@ import type { Mode } from './NavBar';
 import { isFocusMode } from '../lib/focus';
 import { dramaDueCount, dramaWatchedCount, requestDrama } from '../lib/homeLite';
 import { STRAND_TARGET, strandLine } from '../lib/dayGovernor';
+import SoundAxisCard from './progress/SoundAxisLazy'; // M9 소리 축 TOP3(dynamic)
 
 interface CafSession {
   date: number;
@@ -75,6 +76,7 @@ export default function ProgressScreen({ onNavigate, onSelectLesson }: { onNavig
         ) : null;
       })()}
       <DailyQuests />
+      <SoundAxisCard />
       {focus && !showAll ? (
         <>
           <div className="stat-grid">

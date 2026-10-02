@@ -18,6 +18,7 @@ import { NAVIGATE_EVENT } from '../lib/state';
  */
 function AdvancedSection() {
   const [flags, setFlags] = useState(() => flagList());
+  // 기본값과 다른 수 — M7 '원어민 소리 줄'(soundLine)은 켜는 설정이라 배지를 '꺼짐'이 아니라 '바꿈'으로 센다
   const changed = flags.filter((f) => f.on !== f.def).length;
   const toggle = (key: string, on: boolean) => {
     setFlag(key, on);
@@ -25,7 +26,7 @@ function AdvancedSection() {
   };
   return (
     <details className="bk-adv" id="adv-section">
-      <summary className="bk-adv-sum">고급 ▾{changed ? <span className="bk-adv-badge">{changed}개 꺼짐</span> : null}</summary>
+      <summary className="bk-adv-sum">고급 ▾{changed ? <span className="bk-adv-badge">{changed}개 바꿈</span> : null}</summary>
       <div className="bk-adv-body">
         <button
           type="button"

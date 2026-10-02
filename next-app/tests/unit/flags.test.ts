@@ -13,7 +13,10 @@ describe('기본값', () => {
       expect(isOn(k), k).toBe(true);
       expect(/[가-힣]/.test(FLAG_LABELS[k]), k).toBe(true);
     }
-    expect(flagList().map((f) => f.key)).toEqual(keys);
+    // M7: 표시 설정 soundLine(말풍선 '원어민 소리' 줄)이 9번째로 붙었다 — 켜는 설정이라 기본 꺼짐
+    expect(flagList().map((f) => f.key)).toEqual([...keys, 'soundLine']);
+    expect(FLAG_DEFAULTS.soundLine).toBe(false);
+    expect(isOn('soundLine')).toBe(false);
     expect(changedFlagCount()).toBe(0);
   });
   test('모르는 키(열린 union)는 켜짐으로 본다', () => {
