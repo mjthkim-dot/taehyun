@@ -9,8 +9,19 @@ import { useMemo, useState } from 'react';
 import './cards';
 import { endingCards, splitEndingCards, type EndingCtx } from './endingRegistry';
 
+/**
+ * M4 하루 조절 — ctx.day(dayGovernor.DayState)가 있으면:
+ *  hideMore(캡·짧은 날·복귀·조용히·적응) → '조금 더 ▾' 통째로 숨김 · quiet(조용히 낮 세션) → 소리 내야 하는 리텔·오늘 질문 카드 숨김
+ */
+const QUIET_HIDE = /^(retell|daily)/;
+function dayFilter(cards: ReturnType<typeof endingCards>, ctx: EndingCtx) {
+  const day = ctx.day as { quiet?: boolean } | undefined;
+  return day?.quiet ? cards.filter((c) => !QUIET_HIDE.test(c.id)) : cards;
+}
+
 export default function EndingExtras({ ctx }: { ctx: EndingCtx }) {
-  const { basic, more } = useMemo(() => splitEndingCards(endingCards(), ctx), [ctx]);
+  const { basic, more: allMore } = useMemo(() => splitEndingCards(dayFilter(endingCards(), ctx), ctx), [ctx]);
+  const more = (ctx.day as { hideMore?: boolean } | undefined)?.hideMore ? [] : allMore;
   const [open, setOpen] = useState(false);
   if (!basic.length && !more.length) return null;
   return (

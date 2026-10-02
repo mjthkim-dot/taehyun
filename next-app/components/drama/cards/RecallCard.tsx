@@ -27,13 +27,15 @@ const strs = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is st
 let memo: { key: string; items: (RecallItem & { noSrs?: boolean })[] } | null = null;
 export function endingRecallItems(ctx: EndingCtx): (RecallItem & { noSrs?: boolean })[] {
   const skip = new Set([...strs(ctx.inlineEns), ...strs(ctx.recallEns)].map(normEn));
-  const key = `${ctx.ep.no}|${ctx.dateKey}|${[...skip].join('/')}`;
+  // M4 조용히 모드(ctx.day.quiet): 소리를 못 내는 날 — 고르기(mode 'choice')로, 보기 없는 '오늘의 표현' 채우기는 하지 않는다
+  const quiet = !!(ctx.day as { quiet?: boolean } | undefined)?.quiet;
+  const key = `${ctx.ep.no}|${ctx.dateKey}|${quiet ? 'q' : ''}|${[...skip].join('/')}`;
   if (memo && memo.key === key) return memo.items;
   const total = RECALL_CARD_BASIC + RECALL_CARD_MORE;
-  const due = reviewItems(total + skip.size, { mode: 'speak' }).filter((r) => !skip.has(normEn(r.en)));
+  const due = reviewItems(total + skip.size, { mode: quiet ? 'choice' : 'speak' }).filter((r) => !skip.has(normEn(r.en)));
   const out: (RecallItem & { noSrs?: boolean })[] = due.slice(0, total);
   // 모자라면 이번 화 오늘의 표현(기한 전 — 연습만, 간격 반복엔 매기지 않는다)
-  for (const l of ctx.ep.learn) {
+  for (const l of quiet ? [] : ctx.ep.learn) {
     if (out.length >= total) break;
     if (skip.has(normEn(l.en)) || out.some((x) => normEn(x.en) === normEn(l.en))) continue;
     out.push({ en: l.en, kr: l.kr, opts: [], a: 0, mode: 'speak', who: whoOf(l.en), noSrs: true });

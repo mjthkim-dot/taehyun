@@ -27,6 +27,8 @@ const FORBIDDEN = [
   // M3: 발화 목표 계산(lib/speakGoal)·말로 떠올리기(RecallStep)는 드라마 화면 청크에만 — 홈은 저장값만 읽는다
   ['freezeWeek', '발화 목표 계산(speakGoal)'],
   ['recall-follow', '말로 떠올리기(RecallStep)'],
+  // M4: 하루 조절 계산(lib/dayGovernor — 시간 측정·적응·캡)·시트는 홈에 싣지 않는다(시트는 길게 누를 때 dynamic) — 홈은 homeLite.dayLite만
+  ['budgetNoted', '하루 조절 계산(dayGovernor)'],
 ];
 let fail = 0;
 const ok = (name, cond, extra = '') => {

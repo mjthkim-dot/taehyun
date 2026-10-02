@@ -248,13 +248,81 @@ export function dramaPlan(): DramaPlan {
 
 /* ── 홈 '발화 n/goal' 한 줄(M3) — 불꽃 옆. 원고·habits 없이 저장값만 읽는다 ── */
 
-/** 하루 조절(M4 va_day_gov)이 정한 오늘의 목표 배율 — 짧은 날 0.5, 세션 적응 발동일 0.6. 없으면 1 */
+/** 하루 조절(M4 va_day_gov)이 정한 오늘의 목표 배율 — 짧은 날 0.5, 세션 적응 발동일 0.6. 없으면 1(플래그 off도 1) */
 export function dayGoalFactor(): number {
+  if (!dayGovOn()) return 1;
   const g = load<{ date?: string; mode?: string; adapt?: boolean } | null>('va_day_gov', null);
   if (!g || typeof g !== 'object' || g.date !== todayKey()) return 1;
   if (g.mode === 'short') return 0.5;
   if (g.adapt === true) return 0.6;
   return 1;
+}
+
+/* ── 하루 조절(M4) 경량 읽기 — 계산·기록(시간 측정·적응·캡)은 lib/dayGovernor(드라마 화면 청크)의 몫 ──
+ * 홈은 va_day_gov 저장값과 va_days만 읽는다. 복귀 판정(마지막 학습일로부터 3일 이상)은 dayGovernor도 이 함수를 쓴다
+ * (같은 규칙이 두 곳에 있으면 홈 배너와 플레이어가 어긋난다). 플래그는 lib/flags를 끌어오지 않고 va_flags를 직접 본다.
+ */
+export type DayMode = 'normal' | 'short' | 'quiet' | 'return';
+export const DAY_GOV_KEY = 'va_day_gov';
+/** 마지막 학습일로부터 이만큼(일) 지났으면 복귀 첫날 */
+export const RETURN_GAP_DAYS = 3;
+/** 조용히 모드의 저녁 보충이 열리는 시각 */
+export const EVENING_HOUR = 18;
+
+/** va_flags.dayGovernor — 기본 켜짐(flags.isOn과 같은 규칙: 저장된 불리언만 덮어쓴다) */
+export function dayGovOn(): boolean {
+  return load<Record<string, unknown>>('va_flags', {}).dayGovernor !== false;
+}
+
+/**
+ * 오늘(YYYY-MM-DD) 저절로 정해지는 모드 — 오늘 전 마지막 학습일(프리즈로 메운 날은 학습일이 아니다)로부터
+ * 3일 이상이면 'return', 아니면 'normal'(둘째 날은 어제가 학습일이라 normal). 홈 청크 예산 때문에 인자 기본값 없이 짧게.
+ */
+export function autoDayMode(today: string): 'normal' | 'return' {
+  const frozen = load<string[]>('va_frozen_days', []);
+  let last = '';
+  for (const d of load<string[]>('va_days', [])) if (typeof d === 'string' && d < today && d > last && !frozen.includes(d)) last = d;
+  if (!last) return 'normal';
+  const t = (k: string) => Date.UTC(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10));
+  return t(today) - t(last) >= RETURN_GAP_DAYS * 864e5 ? 'return' : 'normal';
+}
+
+export interface DayLite {
+  mode: DayMode;
+  adapt: boolean;
+  capped: boolean;
+  /** 조용히 모드: 낮 세션을 마쳤나 */
+  quietDone: boolean;
+  /** 조용히 모드: 저녁 보충 시간(18시 이후 + 낮 세션 완료) — 이때는 소리 내어 말한다 */
+  evening: boolean;
+}
+
+/** 오늘의 하루 상태(저장값 읽기만, 쓰지 않는다). 플래그 off면 전부 normal */
+export function dayLite(): DayLite {
+  const now = new Date();
+  const today = todayKey(now);
+  const g = load<Record<string, unknown>>(DAY_GOV_KEY, {});
+  const same = dayGovOn() && g.date === today;
+  const mode = (same && ['short', 'quiet', 'return', 'normal'].includes(g.mode as string) ? g.mode : dayGovOn() ? autoDayMode(today) : 'normal') as DayMode;
+  const quietDone = same && g.quietDone === true;
+  return { mode, adapt: same && g.adapt === true, capped: same && g.capped === true, quietDone, evening: mode === 'quiet' && quietDone && now.getHours() >= EVENING_HOUR };
+}
+
+/**
+ * 홈 배너 — 하루 1개만(우선순위: 복귀 > 월간 녹음(M10) > 토요일 교차(M5) > 소리 복습(M7) > 월 변주). 지금은 하루 조절 문구만.
+ * 다른 모듈은 이 함수에 분기를 더한다(DramaCard는 결과 하나만 그린다).
+ */
+export interface DayBanner {
+  id: 'return' | 'short' | 'quiet' | 'evening' | (string & {});
+  text: string;
+}
+export function bannerFor(day: DayLite, line?: Pick<SpeakLine, 'spoken' | 'goal' | 'lit'>): DayBanner | null {
+  const m = day.mode;
+  if (m === 'return') return { id: m, text: '🌱 돌아온 것만으로 충분해요 — 오늘은 가볍게' };
+  if (m === 'short') return { id: m, text: '⏱ 오늘은 5분만 — 목표 절반이면 불꽃' };
+  if (m !== 'quiet') return null;
+  if (day.evening && line && !line.lit) return { id: 'evening', text: `🌙 저녁 보충 — 소리 내어 ${Math.ceil(line.goal - line.spoken)}문장` };
+  return { id: m, text: day.quietDone ? '🤫 저녁 6시 뒤 소리 내어 보충하면 불꽃' : '🤫 조용히 모드 — 입모양으로 따라 해요' };
 }
 
 export interface SpeakLine {
@@ -293,19 +361,21 @@ export function speakLine(plan: Pick<DramaPlan, 'needAi' | 'ladder'> = dramaPlan
   const keylessLoop = plan.needAi;
   const retell = load<{ date?: string }[]>('va_retell', []);
   const rc = load<Record<string, { asked?: number }>>('va_recall_speak', {});
+  // M4 조용히 모드(낮 세션)는 리텔·회화를 쉰다 — 그 점도 빼서 '못 한 일'로 보이지 않게
+  const quiet = dayLite().mode === 'quiet';
   return {
     spoken,
     goal,
     lit,
     half: !lit && (practiced || spoken > 0),
-    dots: [
+    dots: ([
       keylessLoop
         ? { id: 'episode', label: '다시 듣기', on: !!plan.ladder && plan.ladder.step > 0 }
         : { id: 'episode', label: '에피소드', on: dramaWatchedToday() },
       { id: 'retell', label: '리텔', on: Array.isArray(retell) && retell.some((r) => r && r.date === today) },
       { id: 'recall', label: '회상', on: (Number(rc && rc[today]?.asked) || 0) > 0 || load<{ date?: string; count?: number }>('va_review_today', {}).date === today },
       { id: 'talk', label: '회화', on: attemptedToday(['dtalk']) },
-    ],
+    ] as SpeakLine['dots']).filter((d) => !quiet || (d.id !== 'retell' && d.id !== 'talk')),
   };
 }
 

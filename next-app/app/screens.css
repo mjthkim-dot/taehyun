@@ -6299,3 +6299,136 @@
 .rc-fuel[data-level='half'] .rc-fuel-hint {
   color: var(--text);
 }
+
+/* ── 하루 조절기(M4) .dg-* — 홈 시트(DayModeSheet)·플레이어 예산 바·토스트·엔딩 '오늘은 여기까지'·진도 Strand 한 줄 ── */
+.dg-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+.dg-sheet {
+  width: 100%;
+  max-width: 480px;
+  box-sizing: border-box;
+  padding: 18px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  border-radius: 18px 18px 0 0;
+  background: var(--surface);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dg-sheet-title {
+  font-weight: 900;
+  font-size: 1.05rem;
+}
+.dg-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 44px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.dg-opt span {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.dg-opt.on {
+  border-color: var(--primary);
+}
+.dg-opt:focus-visible,
+.dg-sheet-close:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.dg-sheet-msg {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.dg-sheet-close {
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.dg-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.dg-bar-track {
+  flex: 1;
+  min-width: 0;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface2);
+  overflow: hidden;
+}
+.dg-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+}
+.dg-bar.over .dg-bar-fill {
+  background: var(--text-muted);
+}
+.dg-bar-txt {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.dg-toast {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+  max-width: 448px;
+  margin: 0 auto;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--text);
+  color: var(--surface);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-align: center;
+}
+.dg-stop {
+  margin: 10px 0 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface2);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.dg-stop.strong {
+  border: 1.5px solid var(--primary);
+}
+.dg-strand {
+  margin: 4px 0 10px;
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+.dg-strand-target {
+  font-size: 0.78rem;
+}

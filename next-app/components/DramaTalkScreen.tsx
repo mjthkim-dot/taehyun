@@ -20,6 +20,7 @@ import { browserSttAvailable, listenOnce } from '../lib/browserStt';
 import { recordAndTranscribe, STT_PROPER_NOUNS, whisperAvailable } from '../lib/stt';
 import { groqKoJson } from '../lib/aiGuard';
 import { castOf, gradeRecycled, requestDramaAutoplay, speakMatch } from '../lib/drama';
+import { dayLite } from '../lib/homeLite';
 import { saveFixes, talkSetup, talkSystemPrompt, TALK_TURNS, usedExpressions, validateTalk, voiceOf, type TalkReply } from '../lib/dramaTalk';
 
 type Msg = { role: 'partner'; en: string; kr: string } | { role: 'me'; en: string; fix?: { better: string; kr: string; why: string } | null };
@@ -315,6 +316,9 @@ export default function DramaTalkScreen({ onNavigate }: { onNavigate?: (m: Mode)
   }
 
   if (phase === 'intro') {
+    // M4 조용히 모드(낮) — 회화는 소리를 내야 하니 오늘은 쉬자고 먼저 말한다(시작은 막지 않는다 — 저녁 보충이면 이어서)
+    const d = dayLite();
+    const quietDay = d.mode === 'quiet' && !d.evening;
     return (
       <div className="screen dr-screen">
         <div className="study-card dr-hero">
@@ -334,8 +338,13 @@ export default function DramaTalkScreen({ onNavigate }: { onNavigate?: (m: Mode)
           <p className="dr-tip">
             {pc.name}가 먼저 말을 걸어요. 나는 🎙 버튼을 눌러 영어로 {TALK_TURNS}번 대답하면 끝. 막히면 💡 힌트, 한국어로 말해도 괜찮아요.
           </p>
-          <button type="button" className="btn primary dr-go" onClick={() => void start()} disabled={busy}>
-            대화 시작
+          {quietDay && (
+            <p className="dr-msg dg-quiet-talk" role="status">
+              🤫 조용히 모드 — 회화는 소리를 내야 해서 오늘 낮엔 쉬어요. 소리 낼 수 있을 때(저녁 보충) 시작해도 돼요.
+            </p>
+          )}
+          <button type="button" className={`btn ${quietDay ? 'ghost' : 'primary'} dr-go`} onClick={() => void start()} disabled={busy}>
+            {quietDay ? '그래도 지금 대화하기' : '대화 시작'}
           </button>
           {err && (
             <p className="dr-msg" role="alert">

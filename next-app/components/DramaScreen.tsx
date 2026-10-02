@@ -25,6 +25,10 @@ import '../app/screens.css';
  * M3 말로 떠올리기: 첫머리 '지난 화 기억나요?'·표현 복습 세션의 회상은 components/drama/RecallStep.tsx(한국어만 보고 바로 말하기).
  *  - box 0 카드와 플래그 speakRecall off는 예전 3지선다 그대로(이 파일 안의 고르기). 키도 Web Speech도 없으면 RecallStep의 고르기 + 녹음 A/B.
  *  - 키 없는 날의 속도 사다리(0.9→1.0→1.2× 자막 없이 다시 듣기)는 홈 요청(requestDrama replay+speed+ladder)으로 열고, 끝나면 한 단 정산.
+ *
+ * M4 하루 조절(lib/dayGovernor): Player에 dayState(조용히·복귀·짧은 날·적응)를 넘기고, 상단에 예산 바(DayBudgetBar)를 둔다.
+ *  - 짧은 날: 역할극 태오 대사 3줄만 · 조용히: 역할극 입모양(lip)·회상 고르기 · 적응: 속도 한 단계↓(0.75× 이상)·빌드업 7단어↑
+ *  - 1차 시도(역할극·말로 떠올리기)는 recordTry로 세고, 시간 갈래(Four Strands)는 setStrand·markInteraction으로 알린다.
  */
 import { Component, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import type { Mode } from './NavBar';
@@ -32,6 +36,8 @@ import { primeAudio, speakText, stopSpeaking } from './SpeakButton';
 import TtsDegradedChip from './TtsDegradedChip';
 import Bubble, { type LogItem } from './drama/Bubble';
 import EndingExtras from './drama/EndingExtras';
+import { DayBudgetBar } from './DayModeSheet';
+import { ADAPT_BUILDUP_MIN_WORDS, adaptSpeed, dayState as readDayState, endingNote, limitRoleTargets, markInteraction, markQuietDone, noteActivity, playerDay, recordTry, setDaySession, setStrand, startDayTracking, type DayState } from '../lib/dayGovernor';
 import { haptic } from '../lib/haptics';
 import { BACK_EVENT, calcStreak, gradeWeakItem, groqKey, load, slowRate, store } from '../lib/state';
 import { browserSttAvailable } from '../lib/browserStt';
@@ -246,10 +252,11 @@ function Player({
   resume?: ResumeState | null;
   subsOff?: boolean;
   /**
-   * 하루 상태(M4 dayState가 채운다 — 지금은 아무도 넘기지 않는다):
-   * quiet(조용히 — 역할극이 입모양 모드, 넘어가기 무제한) · returning(복귀 첫날 — 넘어가기 무제한)
+   * 하루 상태(M4 dayGovernor.playerDay):
+   * quiet(조용히 — 역할극이 입모양 모드·회상은 고르기, 넘어가기 무제한) · returning(복귀 첫날 — 넘어가기 무제한) ·
+   * adapt(세션 적응 — 속도 한 단계↓·빌드업 7단어↑) · short/roleLinesMax(짧은 날 — 태오 대사 3줄만 역할극)
    */
-  dayState?: { quiet?: boolean; returning?: boolean };
+  dayState?: { quiet?: boolean; returning?: boolean; adapt?: boolean; short?: boolean; roleLinesMax?: number; buildupMinWords?: number };
   /** 이 재생만의 시작 속도(속도 사다리 — 저장하지 않는다) */
   speedOverride?: number;
 }) {
@@ -257,7 +264,8 @@ function Player({
   // M3: 플래그 speakRecall이 켜져 있으면 box≥1 카드는 말로 떠올리기(mode 'speak'), 꺼져 있으면 예전 3지선다
   const speakRecall = isOn('speakRecall');
   const rc = useMemo<RecallItem[]>(
-    () => (review ? review : practice ? [] : resume ? resume.rc : recallItems(ep.no, 3, speakRecall ? { mode: 'speak' } : {})),
+    // M4 조용히 모드: 소리를 못 내는 날이라 회상은 고르기(mode 'choice')
+    () => (review ? review : practice ? [] : resume ? resume.rc : recallItems(ep.no, 3, speakRecall ? { mode: dayState?.quiet ? 'choice' : 'speak' } : {})),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [ep, practice, resume, review]
   );
@@ -282,7 +290,8 @@ function Player({
   const roleMap = useMemo(() => {
     const m = new Map<number, RoleTarget>();
     if (review) return m;
-    if (rolePlay) for (const t of roleTargets(ep)) m.set(t.idx, t);
+    // M4 짧은 날: 태오 대사 앞 3줄만 역할극(speak 문항은 그대로, 지정 상대 대사는 쉼) — 나머지 대사는 예전처럼 흐른다
+    if (rolePlay) for (const t of limitRoleTargets(roleTargets(ep), (k) => ep.scenes[k]?.type === 'speak', dayState?.roleLinesMax ?? Infinity)) m.set(t.idx, t);
     else ep.scenes.forEach((sc, idx) => sc.type === 'speak' && m.set(idx, { idx, who: sc.who, en: sc.en, kr: sc.kr, kind: 'role', afterQuiz: false }));
     return m;
   }, [ep, rolePlay, review]);
@@ -319,7 +328,7 @@ function Player({
   const inlineDone = useRef(false);
   const inlineEnsRef = useRef<string[]>([]);
   /** 이 회상 장면을 RecallStep(말로 떠올리기·키 없는 고르기+A/B)이 맡나 — box 0·플래그 off는 예전 고르기 */
-  const recallByStep = (sc: PScene | undefined) => !!sc && sc.type === 'recall' && speakRecall && (recallUiMode(sc.mode, path) === 'speak' || path === 'self');
+  const recallByStep = (sc: PScene | undefined) => !!sc && sc.type === 'recall' && speakRecall && !quiet && (recallUiMode(sc.mode, path) === 'speak' || path === 'self');
 
   const [i, setI] = useState(() => (resume ? Math.min(resume.i, scenes.length - 1) : 0));
   const [log, setLog] = useState<LogItem[]>(() => (resume ? (resume.log as LogItem[]) : []));
@@ -329,7 +338,10 @@ function Player({
   const [subs, setSubs] = useState(() => (subsOff ? false : load<boolean>(SUBS_KEY, true)));
   const [mute, setMute] = useState(() => load<boolean>(MUTE_KEY, false));
   // 재생 속도 — 0.6×~1.2×(설정은 다음 화에도 유지). 처음 보는 A1이거나 방금 쉬워진 사용자는 0.75×
-  const [speed, setSpeed] = useState(() => (speedOverride && (DRAMA_SPEEDS as readonly number[]).includes(speedOverride) ? speedOverride : initialSpeed()));
+  // M4 세션 적응: 한 단계 느리게 시작(0.75× 아래로는 안 내림, 저장하지 않음)
+  const [speed, setSpeed] = useState(() => (speedOverride && (DRAMA_SPEEDS as readonly number[]).includes(speedOverride) ? speedOverride : dayState?.adapt ? adaptSpeed(initialSpeed(), DRAMA_SPEEDS) : initialSpeed()));
+  /** 재생 도중 적응이 켜졌나(그때부터 빌드업 7단어) */
+  const [adaptLive, setAdaptLive] = useState(!!dayState?.adapt);
   const [speedOpen, setSpeedOpen] = useState(false);
   const speedRef = useRef(speed);
   speedRef.current = speed;
@@ -579,6 +591,7 @@ function Player({
 
   /** 말풍선 다시 듣기 — 같은 말풍선을 곧바로 한 번 더 누르면 천천히. 자동 재생 중이면 다 듣고 이어서 흐른다 */
   function replay(en: string, who?: string) {
+    markInteraction(); // M4: 다시 듣기도 상호작용
     if (muteRef.current) return;
     const now = Date.now();
     const again = lastReplay.current?.en === en && now - lastReplay.current.at < 8000;
@@ -630,6 +643,7 @@ function Player({
 
   /** 참여 문항 채점 — 틀린 문장은 복습 카드로, 다시 나온 지난 표현은 간격 반복 한 번으로 */
   function grade(good: boolean, sc?: Scene) {
+    markInteraction(); // M4: 퀴즈에 답한 재생은 input 시간으로 센다
     askedRef.current += 1;
     if (good) okRef.current += 1;
     haptic(good ? 'success' : 'error');
@@ -681,6 +695,17 @@ function Player({
   /** 역할극 한 줄이 끝났다(M2) — 이해도 합산·기록·말풍선 추가, 결과 뒤 '다음'(자동이면 잠시 뒤 저절로) */
   function onRoleDone(r: RoleResult, t: { who: string; en: string; kr: string }, o: { counts: boolean; inline?: boolean; optIn?: boolean; noLine?: boolean } = { counts: true }) {
     roleResults.current.push(r);
+    noteActivity();
+    // M4 세션 적응 — 태오 대사의 1차 시도(채점된 것만)를 센다. 막 켜졌으면 속도 한 단계↓·빌드업 7단어
+    if (r.mode === 'role' && !r.skipped && !r.self && !o.inline) {
+      const g = recordTry(r.passed && r.tries === 1);
+      if (g.newly) {
+        const v = adaptSpeed(speedRef.current, DRAMA_SPEEDS);
+        setSpeed(v);
+        speedRef.current = v;
+        setAdaptLive(true);
+      }
+    }
     if (r.skipped && r.mode !== 'shadow' && !o.inline) {
       skipsRef.current += 1;
       setSkips(skipsRef.current);
@@ -728,6 +753,7 @@ function Player({
   /** 상대 대사 길게 누르기(키 있음) — 같이 말하기. 화당 4회 */
   function openShadow(item: Extract<LogItem, { kind: 'line' }>) {
     if (!rolePlay || item.who === 'taeo' || shadows >= SHADOW_MAX || shadowRef.current) return;
+    markInteraction();
     clearTimer();
     token.current++;
     stopSpeaking();
@@ -750,6 +776,11 @@ function Player({
   }
 
   const role = roleOf(i);
+  // M4 Four Strands — 지금 시간이 어느 갈래로 쌓이나(역할극 output · 섀도잉/입모양 shadow · 회상 output · 나머지 듣기 input)
+  const strandNow = shadowOf || postQuiz ? 'shadow' : role ? (role.mode === 'role' ? 'output' : 'shadow') : scene?.type === 'recall' && picked === null ? 'output' : 'input';
+  useEffect(() => {
+    setStrand(strandNow);
+  }, [strandNow]);
   const isAct = !!scene && (INTERACTIVE.has(scene.type) || scene.type === 'recall' || !!role);
   const pct = Math.round((i / total) * 100);
   const roleRate = speed * SPEED_BASE;
@@ -832,6 +863,7 @@ function Player({
           </div>
         )}
       </div>
+      <DayBudgetBar />
       <div className="dr-ep">
         {review ? '표현 복습' : practice ? `EP ${ep.no} · 틀린 장면 다시 풀기` : `EP ${ep.no} · ${ep.titleKr}`}
       </div>
@@ -856,6 +888,8 @@ function Player({
             rate={roleRate}
             mute={mute}
             onDone={(res) => {
+              noteActivity();
+              if (res.mode === 'speak') recordTry(res.firstScore >= 60);
               // 표현 복습 세션에선 떠올린 개수가 곧 성적(힌트로 떠올린 것도 '기억'으로 센다)
               if (review) {
                 askedRef.current += 1;
@@ -994,6 +1028,7 @@ function Player({
             epNo={ep.no}
             mode={role.mode}
             recall={scene?.type === 'recallInline'}
+            buildupMinWords={adaptLive ? dayState?.buildupMinWords ?? ADAPT_BUILDUP_MIN_WORDS : undefined}
             maxSkips={rolePlay ? SKIP_MAX : Infinity}
             skipsUsed={skips}
             skipPolicy={skipPolicy}
@@ -1123,6 +1158,7 @@ function Ending({
   onNavigate,
   ladder,
   onLadderNext,
+  day,
 }: {
   ep: Episode;
   result: PlayResult;
@@ -1138,6 +1174,8 @@ function Ending({
   /** 속도 사다리로 본 재청취의 결과(M3) */
   ladder?: { plan: LadderPlan; speed: number } | null;
   onLadderNext?: (speed: number) => void;
+  /** 하루 상태(M4) — 엔딩 카드(ctx.day)·'오늘은 여기까지' 안내 */
+  day?: DayState;
 }) {
   const say = (en: string) => {
     stopSpeaking();
@@ -1193,9 +1231,12 @@ function Ending({
       // M3 회상 카드 — 엔딩 직전 재소환·첫머리 회상과 같은 문장은 다시 묻지 않는다
       inlineEns: result.inlineEns || [],
       recallEns: result.recallEns || [],
+      // M4 하루 상태 — EndingExtras가 hideMore('조금 더 ▾' 숨김)·quiet(리텔·오늘 질문 숨김)를 본다
+      day,
     }),
-    [ep, result.speakStats, result.inlineEns, result.recallEns]
+    [ep, result.speakStats, result.inlineEns, result.recallEns, day]
   );
+  const dayNote = useMemo(() => (day && !retried ? endingNote(day) : null), [day, retried]);
   const nextIsAi = !nextEpInfo || !!nextEpInfo.ai;
   return (
     <div className="screen dr-screen">
@@ -1247,6 +1288,12 @@ function Ending({
           <p className="dr-speak-sum" role="status">
             🎙 발화 {result.speakStats.spoken} · 통과 {result.speakStats.passed}
             {result.speakStats.skipped > 0 && ` · 넘어감 ${result.speakStats.skipped}`}
+          </p>
+        )}
+        {/* M4 하루 조절 — 캡·적응·복귀·짧은 날·조용히면 첫 카드로 '오늘은 여기까지' */}
+        {dayNote && (
+          <p className={`dg-stop${dayNote.kind === 'cap' || dayNote.kind === 'adapt' ? ' strong' : ''}`} data-kind={dayNote.kind} role="status">
+            🌙 {dayNote.text}
           </p>
         )}
         {/* 엔딩 추가 카드(M2 레지스트리) — 이해도 아래. M3 회상·M5 리텔·M7/M9 소리 카드·M10/M11 조건부 카드가 등록한다 */}
@@ -1338,6 +1385,8 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
   const [err, setErr] = useState('');
   const [tick, setTick] = useState(0);
   const [writing, setWriting] = useState(false);
+  /** 하루 상태(M4) — 화면이 바뀔 때마다 다시 읽는다(모드·적응·캡) */
+  const [day, setDay] = useState<DayState>(() => readDayState());
   const eps = useMemo(() => allEpisodes(), [tick]);
   const seen = useMemo(() => new Set(watched()), [tick]);
   const nextNo = useMemo(() => nextEpisodeNo(), [tick]);
@@ -1350,6 +1399,13 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
     setDramaPlaying(view === 'play' || view === 'retry' || view === 'review');
   }, [view]);
   useEffect(() => () => setDramaPlaying(false), []);
+  // M4 시간 측정 — 재생 중 + 엔딩 화면(조금 더 카드·회상·리텔도 오늘 시간). 측정 규칙은 dayGovernor 한 곳
+  useEffect(() => {
+    startDayTracking();
+    setDaySession(view === 'end');
+    setDay(readDayState());
+  }, [view]);
+  useEffect(() => () => setDaySession(false), []);
   // 발화 목표(M3) — 하루가 바뀌었으면 연속일·가산을 정산해 저장(홈은 저장값만 읽는다)
   useEffect(() => {
     try {
@@ -1395,7 +1451,9 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
     primeAudio();
     setErr('');
     // M3: 말로 떠올리기(플래그 off면 예전 고르기)
-    const items = reviewItems(8, isOn('speakRecall') ? { mode: 'speak' } : {});
+    // M4: 복귀 첫날 6 · 짧은 날·적응 3 · 보통 8, 조용히 모드는 고르기
+    const d = readDayState();
+    const items = reviewItems(d.dueMax, isOn('speakRecall') ? { mode: d.quiet ? 'choice' : 'speak' } : {});
     if (!items.length) {
       setErr('지금 떠올릴 표현이 없어요 — 배운 표현은 하루 뒤부터 복습에 나와요.');
       setView('hub');
@@ -1489,12 +1547,14 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
         <Player
           ep={stub}
           review={reviewSet}
+          dayState={playerDay(day)}
           onExit={() => {
             stopSpeaking();
             setView('hub');
           }}
           onEnd={(r) => {
             if (r.asked > 0) markDramaPracticeToday(); // 복습도 오늘의 연습(불꽃·퀘스트)
+            if (day.quiet) markQuietDone();
             setReviewRes({ ok: r.ok, total: r.asked });
             setTick((t) => t + 1);
             setView('reviewEnd');
@@ -1591,6 +1651,7 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
           resume={practice ? null : resume}
           subsOff={!practice && subsOffPlay}
           speedOverride={practice ? undefined : playOpts.speed}
+          dayState={playerDay(day)}
           onExit={() => {
             stopSpeaking();
             setTick((t) => t + 1);
@@ -1616,6 +1677,9 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
               /* 미지원 브라우저 */
             }
             const { levelChange: lc } = completeEpisode(ep, r.score, r.asked, r.missed, r.byLevel, r.speakStats);
+            // M4: 사다리 완주도 '상호작용 있던 재생'(input 확정) · 조용히 모드 낮 세션 완료(저녁 보충 안내)
+            if (playOpts.ladder) markInteraction();
+            if (day.quiet) markQuietDone();
             // 속도 사다리(M3) — 이해도 60% 이상이면 한 단 오른다
             if (playOpts.ladder && typeof playOpts.speed === 'number') setLadderRes({ plan: advanceLadder(ep.no, playOpts.speed, r.score), speed: playOpts.speed });
             // 너무 어려웠으면 다음 화는 자막을 켜 둔다(듣기 발판)
@@ -1648,6 +1712,7 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
         onNavigate={onNavigate}
         ladder={retried ? null : ladderRes}
         onLadderNext={(sp) => void open(ep.no, { subsOff: true, speed: sp, ladder: true })}
+        day={day}
       />
     );
   }

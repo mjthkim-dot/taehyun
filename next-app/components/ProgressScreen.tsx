@@ -33,6 +33,7 @@ import WeeklyReport from './WeeklyReport';
 import type { Mode } from './NavBar';
 import { isFocusMode } from '../lib/focus';
 import { dramaDueCount, dramaWatchedCount, requestDrama } from '../lib/homeLite';
+import { STRAND_TARGET, strandLine } from '../lib/dayGovernor';
 
 interface CafSession {
   date: number;
@@ -64,6 +65,15 @@ export default function ProgressScreen({ onNavigate, onSelectLesson }: { onNavig
     <div className="study-screen">
       {/* 오늘의 퀘스트·XP — 홈에서 옮겨 왔다(홈은 레슨 하나에 집중) */}
       <DramaProgress />
+      {/* M4 Four Strands 한 줄 — 입력은 상호작용이 있던 재생만 센다(권장 40/35/15/10) */}
+      {(() => {
+        const sl = strandLine(7);
+        return sl ? (
+          <p className="dg-strand muted" aria-label={`${sl.text} — 권장 입력 ${STRAND_TARGET.input} 산출 ${STRAND_TARGET.output} 유창성 ${STRAND_TARGET.fluency} 형식 ${STRAND_TARGET.form}%`}>
+            ⚖️ {sl.text} <span className="dg-strand-target">(권장 {STRAND_TARGET.input}/{STRAND_TARGET.output}/{STRAND_TARGET.fluency}/{STRAND_TARGET.form})</span>
+          </p>
+        ) : null;
+      })()}
       <DailyQuests />
       {focus && !showAll ? (
         <>

@@ -12,7 +12,7 @@
  */
 import { dateKey } from './dates';
 import { load, store, dueWeak, spokenToday, dailyGoal, SPEAK_GOAL_KEY, SPEAK_GOAL_DEFAULT, SPEAK_GOAL_MAX } from './state';
-import { isMissionDoneToday } from './homeLite';
+import { isMissionDoneToday, autoDayMode, dayGovOn } from './homeLite';
 import { isFocusMode } from './focus';
 import { dramaPracticedToday } from './homeLite';
 
@@ -73,6 +73,10 @@ export function recordMissionDay(): boolean {
   return earned;
 }
 
+/** 복귀 첫날(M4) 프리즈 1개로 메워 주는 공백의 최대 길이(일) — 3~7일 쉬고 돌아온 사람까지 */
+export const RETURN_BRIDGE_MAX_DAYS = 7;
+const RETURN_FREEZE_KEY = 'va_return_freeze'; // 복귀 프리즈를 쓴 날(하루 한 번)
+
 /**
  * 앱을 열 때 호출 — 어제까지의 공백일을 프리즈로 메워 스트릭을 보호한다.
  * 메운 날짜 배열을 반환(비어 있으면 소모 없음). 학습 이력이 없으면 아무것도 안 한다.
@@ -87,7 +91,26 @@ export function consumeFreezesForGaps(): string[] {
   const filled: string[] = [];
   const cur = new Date();
   cur.setDate(cur.getDate() - 1); // 오늘은 아직 기회가 있으니 어제부터 검사
-  while (f.count > 0) {
+  // M4 복귀 첫날(마지막 학습일로부터 3일 이상, 하루 조절기 켜짐): 프리즈 1개만 자동 소비해 공백(최대 7일) 전체를 메운다.
+  // 예전 규칙(하루 1개)대로면 3일 공백에 2개를 다 쓰고도 연속이 끊겨 '돌아왔더니 0일'이 됐다 — 돌아온 날을 벌하지 않는다.
+  const today = dstr(new Date());
+  if (dayGovOn() && autoDayMode(today) === 'return' && load<string>(RETURN_FREEZE_KEY, '') !== today) {
+    const gap: string[] = [];
+    const c = new Date(cur);
+    while (gap.length <= RETURN_BRIDGE_MAX_DAYS && dstr(c) >= earliest && !days.has(dstr(c))) {
+      gap.push(dstr(c));
+      c.setDate(c.getDate() - 1);
+    }
+    // 공백 너머에 학습일이 있어야(연속을 실제로 잇는 경우만) 쓴다
+    if (gap.length && gap.length <= RETURN_BRIDGE_MAX_DAYS && days.has(dstr(c))) {
+      f.count -= 1;
+      for (const d of gap) days.add(d);
+      filled.push(...gap);
+      store(RETURN_FREEZE_KEY, today);
+    }
+  }
+  const bridged = filled.length > 0;
+  while (!bridged && f.count > 0) {
     const ds = dstr(cur);
     if (ds < earliest) break; // 학습 시작 이전까지 갔으면 중단
     if (days.has(ds)) break; // 연속 구간에 닿았으면 끝 — 스트릭 연결 완료

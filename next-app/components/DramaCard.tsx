@@ -12,14 +12,23 @@
  * '에피소드' 대신 '다시 듣기'), 반불꽃이면 'n문장만 더 말하면 켜져요'. 주 버튼은 dramaPlan이 정한다:
  * speak(오늘 봤는데 발화 목표 전 → 말로 떠올리기/역할극 다시) · ladder(키 없는 날 0.9→1.0→1.2× 자막 없이 다시 듣기).
  * 홈 청크 예산 — habits·drama·words를 import하지 않고 homeLite.speakLine(저장값 읽기)만 쓴다.
+ *
+ * M4 하루 조절: 카드를 길게 누르거나 '⋯'(키보드)로 DayModeSheet([오늘은 5분만] [조용히 모드]) — 시트는 dynamic()이라
+ * 홈 첫 청크에 dayGovernor가 실리지 않는다. 배너는 homeLite.bannerFor(dayLite()) 하나만(복귀 첫날 자동이 최우선).
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import type { Mode } from './NavBar';
 import { primeAudio } from './SpeakButton';
 // 원고(lib/drama)가 아니라 경량 모듈만 — 홈 첫 프레임에 바로 그린다(감사 v1.31 G26)
+import { bannerFor, dayLite, type DayBanner } from '../lib/homeLite';
 import { DRAMA_NOTICE_KEY, dramaPlan, dramaResumeExists, dramaWatchedList, episodeLite, requestDrama, requestDramaAutoplay, speakLine, type DramaPlan, type SpeakLine } from '../lib/homeLite';
 import { CAST_ICONS, SERIES_NAME, type EpisodeLite } from '../lib/dramaIndex';
 import { load, store } from '../lib/state';
+
+const DayModeSheet = dynamic(() => import('./DayModeSheet'), { ssr: false });
+/** 길게 누르기로 보는 시간(ms) */
+const LONG_PRESS_MS = 550;
 
 /** 백업 권유 — 3화 이상 봤는데 한 번도(또는 14일 넘게) 백업하지 않았으면. '나중에'는 7일 쉰다 */
 const BACKUP_EVERY = 14 * 86400000;
@@ -35,6 +44,8 @@ interface CardState {
   nudge: boolean;
   /** 브라우저가 영구 저장을 거절했다(기록이 지워질 수 있다) */
   volatile: boolean;
+  /** 하루 배너(M4 bannerFor — 하루 1개) */
+  banner: DayBanner | null;
 }
 
 function compute(): CardState {
@@ -43,9 +54,11 @@ function compute(): CardState {
   const snooze = load<number>(SNOOZE_KEY, 0);
   const seenN = dramaWatchedList().length;
   const since = seenN - load<number>('va_backup_eps', 0);
+  const line = speakLine(plan);
   return {
     plan,
-    line: speakLine(plan),
+    line,
+    banner: bannerFor(dayLite(), line),
     ep: episodeLite(plan.nextNo),
     prev: episodeLite(plan.nextNo - 1),
     resume: dramaResumeExists(plan.nextNo),
@@ -60,6 +73,35 @@ export default function DramaCard({ onNavigate }: { onNavigate: (m: Mode) => voi
   // 첫 렌더에서 바로 계산(홈은 마운트 뒤에만 그려지므로 하이드레이션과 어긋나지 않는다)
   const [st, setSt] = useState<CardState>(compute);
   const { plan } = st;
+  // M4 하루 모드 시트 — 길게 누르기(터치) 또는 '⋯' 버튼(키보드). 길게 누른 뒤의 click은 버튼에 닿지 않게 삼킨다
+  const [sheet, setSheet] = useState(false);
+  const press = useRef<{ t: ReturnType<typeof setTimeout> | null; fired: boolean }>({ t: null, fired: false });
+  const cancelPress = () => {
+    if (press.current.t) clearTimeout(press.current.t);
+    press.current.t = null;
+  };
+  const pressHandlers = {
+    onPointerDown: () => {
+      cancelPress();
+      press.current.fired = false;
+      press.current.t = setTimeout(() => {
+        press.current.fired = true;
+        setSheet(true);
+      }, LONG_PRESS_MS);
+    },
+    onPointerUp: cancelPress,
+    onPointerLeave: cancelPress,
+    onPointerCancel: cancelPress,
+    onClickCapture: (e: { preventDefault: () => void; stopPropagation: () => void }) => {
+      if (!press.current.fired) return;
+      press.current.fired = false;
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    onContextMenu: (e: { preventDefault: () => void }) => {
+      if (press.current.t || press.current.fired) e.preventDefault();
+    },
+  };
   const go = () => {
     primeAudio(); // 탭 안에서 오디오 언락(iOS 첫 대사 무음 방지)
     requestDramaAutoplay();
@@ -97,7 +139,19 @@ export default function DramaCard({ onNavigate }: { onNavigate: (m: Mode) => voi
   // 키 없이 다 본 날 복습까지 마쳤으면 같은 복습을 또 조르지 않는다
   const doneToday = allSeen && plan.practiced;
   return (
-    <section className="study-card dr-card" data-tilt aria-label="오늘의 에피소드">
+    <>
+    {sheet && <DayModeSheet onClose={() => setSheet(false)} onChanged={() => setSt(compute())} />}
+    <section className="study-card dr-card" data-tilt aria-label="오늘의 에피소드" style={{ position: 'relative' }} {...pressHandlers}>
+      <button
+        type="button"
+        className="mini-btn dg-more"
+        aria-label="오늘 분량 고르기"
+        aria-haspopup="dialog"
+        onClick={() => setSheet(true)}
+        style={{ position: 'absolute', top: 8, right: 8, minWidth: 44, minHeight: 44 }}
+      >
+        ⋯
+      </button>
       <div className="dr-card-faces" aria-hidden="true">
         {faces.map((f, i) => (
           <span key={i}>{f}</span>
@@ -131,6 +185,11 @@ export default function DramaCard({ onNavigate }: { onNavigate: (m: Mode) => voi
           >
             알겠어요
           </button>
+        </p>
+      )}
+      {st.banner && (
+        <p className="dr-msg dr-card-note dg-banner" data-banner={st.banner.id} role="status">
+          {st.banner.text}
         </p>
       )}
       {/* 홈은 screens.css를 받지 않는다(첫 청크 CSS 예산) — 점은 글자(●○)로, 문단은 기존 dr-msg로 */}
@@ -197,5 +256,6 @@ export default function DramaCard({ onNavigate }: { onNavigate: (m: Mode) => voi
         </p>
       )}
     </section>
+    </>
   );
 }
