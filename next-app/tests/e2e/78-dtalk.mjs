@@ -4,7 +4,8 @@
  *   ② 본 화가 있으면: 그 화 인물(1화 = Diane)이 그 화 직후 상황에서 말을 건다, 오늘 표현 2개
  *   ③ 목소리로만 대답(텍스트 입력칸 없음), 힌트는 한국어 → 영어 순서로
  *   ④ 5번 대답하면 마무리: 표현을 직접 썼는지, 고쳐 준 문장은 복습 카드로
- *   ⑤ AI가 없으면 그 화 대사를 인물 목소리로 듣고 따라 말하기
+ *   ⑤ AI가 없으면 그 화 대사를 인물 목소리로 듣고 따라 말하기(M6: RoleStep 역할극 + 리액션 3개)
+ * M6 이후: fix가 오면 교정 게이트(따라 말하기 1회)가 끼어든다 — 깊은 검증은 89-dtalk-gate.
  */
 import { BASE, check, finish, launch } from './helpers.mjs';
 
@@ -54,7 +55,8 @@ const browser = await launch();
   await page.click('.mode-tab:has-text("회화")');
   await page.waitForSelector('.dr-end-title', { timeout: 15000 });
   check('AI가 없으면 연결 안내 + 1화 대사 따라 말하기', await page.evaluate(() => document.body.innerText.includes('AI 연결') && document.body.innerText.includes('EP 1 대사 따라 말하기')));
-  check('대사 목록(인물 이름·영어·뜻)', (await page.locator('.dr-learn').count()) >= 4);
+  // M6: 대사 목록(ShadowLine 8줄) → 역할극 한 줄씩(RoleStep, 대사 8 + 리액션 3)
+  check('대사를 역할극으로 한 줄씩(인물 이름·뜻)', await page.waitForSelector('.fgate-keyless .rs-root', { timeout: 15000 }).then(() => true).catch(() => false) && (await page.evaluate(() => /\d+\/11/.test(document.querySelector('.fgate-keyless .pg-sec-h')?.textContent || ''))));
   await ctx.close();
 }
 
@@ -70,7 +72,8 @@ await page.addInitScript(() => {
   if (!localStorage.getItem('va_drama')) localStorage.setItem('va_drama', JSON.stringify({ done: { 1: '2026-09-29' }, score: { 1: 80 } }));
 });
 await page.route('**/app/api/tts*', (r) => r.fulfill({ status: 404, contentType: 'application/json', body: '{}' }));
-const SAID = ["It's my first day, so I am nervous.", 'I am work in cloud sales.', 'Thank you so much.', 'Yes, I will hang in there.', 'See you tomorrow.'];
+// 2번째 대답 뒤에는 교정 게이트(M6) 따라 말하기 1회가 STT를 한 번 더 부른다
+const SAID = ["It's my first day, so I am nervous.", 'I am work in cloud sales.', 'I work in cloud sales.', 'Thank you so much.', 'Yes, I will hang in there.', 'See you tomorrow.'];
 let sttN = 0;
 let sttBody = '';
 await page.route('**/app/api/stt', (r) => {
@@ -119,9 +122,19 @@ for (let t = 1; t <= 5; t++) {
   await page.waitForSelector('.dr-mic:not([disabled])', { timeout: 10000 });
   await page.click('.dr-mic');
   await page.waitForFunction((n) => document.querySelectorAll('.dr-line.me').length >= n, t, { timeout: 15000 });
+  if (t === 2) {
+    // M6 교정 게이트 — 고친 문장을 듣고 따라 말한 뒤에야 인물이 이어 말한다
+    await page.waitForSelector('.fgate', { timeout: 15000 });
+    check('틀린 말은 더 자연스러운 문장으로 고쳐 주고 따라 말하게 한다', await page.evaluate(() => document.querySelector('.fgate')?.textContent.includes('I work in cloud sales.')));
+    await page.click('.fgate-mic');
+    await page.waitForSelector('.fgate-next', { timeout: 15000 });
+    check('따라 말하기 ≥60 → 다음으로', await page.evaluate(() => document.querySelector('.fgate-next')?.textContent.includes('✓ 다음으로')));
+    await page.click('.fgate-next');
+  }
   await page.waitForFunction((n) => document.querySelectorAll('.dr-line:not(.me)').length >= n + 1, t, { timeout: 15000 });
-  if (t === 2) check('틀린 말은 더 자연스러운 문장으로 고쳐 준다', await page.evaluate(() => document.querySelector('.dt-fix')?.textContent.includes('I work in cloud sales.')));
+  if (t === 2) check('고친 문장 카드에 재발화 결과', await page.evaluate(() => document.querySelector('.dt-fix')?.textContent.includes('I work in cloud sales.') && document.querySelector('.dt-fix')?.textContent.includes('점 ✓')));
 }
+check('턴마다 ⏱ 반응 지연 칩', (await page.locator('.fgate-lat').count()) === 5);
 check('대답 5/5', await page.evaluate(() => document.querySelector('.dr-ep')?.textContent.includes('5/5')));
 // M0 소리 레일 — 회화는 이중언어라 언어 자동 감지(auto), 게이트용 세그먼트만(단어 타임스탬프 없음), 힌트는 고유명사만
 check('회화 STT는 language auto', /name="language"\r?\n\r?\nauto/.test(sttBody), sttBody.slice(0, 0) || 'language 필드 확인');
@@ -134,6 +147,7 @@ check('영어로 5번 말했다', await page.evaluate(() => document.querySelect
 check('그 화 표현을 직접 썼는지 표시', await page.evaluate(() => [...document.querySelectorAll('.dr-note.ok')].some((n) => n.textContent.includes("It's my first day.")) && [...document.querySelectorAll('.dr-note.ok')].some((n) => n.textContent.includes('Hang in there.'))));
 check('고쳐 준 문장은 복습 카드로(뜻 포함) → 다음 화 첫머리에', await page.evaluate(() => JSON.parse(localStorage.getItem('va_weak') || '[]').some((w) => w.en === 'I work in cloud sales.' && w.cat === '드라마' && w.lesson === 'drama:1')));
 check('말한 문장 수가 오늘 발화로 집계', await page.evaluate(() => (JSON.parse(localStorage.getItem('va_spoken') || '{}').count || 0) >= 5));
+check('종료 칩 — 교정 재발화 1/1', await page.evaluate(() => document.querySelector('.fgate-stats')?.textContent.includes('교정 재발화 1/1')));
 
 /* 진도 — 집중 모드 퀘스트가 드라마 기준 */
 await page.click('.mode-tab:has-text("더보기")');
@@ -149,7 +163,8 @@ check('집중 모드 퀘스트 = 드라마·떠올리기·말하기', q.includes
     const g = JSON.parse(localStorage.getItem('va_speak_goal') || '{}').goal;
     return { meta: row?.querySelector('.quest-meta')?.textContent || '', label: row?.querySelector('.quest-label')?.textContent || '', g };
   });
-  check('말하기 퀘스트에 회화 5문장 반영(5/발화 목표)', sq.g === 10 && sq.meta === `5/${sq.g}` && sq.label.includes(`${sq.g}문장`), JSON.stringify(sq));
+  // M6: 교정 게이트 따라 말하기 1회도 말한 문장이라 5턴 + 1 = 6
+  check('말하기 퀘스트에 회화 5문장 + 게이트 1 반영(6/발화 목표)', sq.g === 10 && sq.meta === `6/${sq.g}` && sq.label.includes(`${sq.g}문장`), JSON.stringify(sq));
 }
 check('숨긴 기능 기록(드릴·코스)은 접혀 있다', await page.evaluate(() => !document.body.innerText.includes('드릴 정확도') && document.body.innerText.includes('전체 학습 기록 보기')));
 await page.click('button:has-text("전체 학습 기록 보기")');

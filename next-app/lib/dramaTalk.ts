@@ -10,6 +10,7 @@ import { allEpisodes, castOf, dramaLevel, normEn, watched, type Episode } from '
 export { voiceOf } from './drama';
 import { addWeakItem } from './state';
 import { hasHangul } from './aiGuard';
+import { recordMistake, sanitizeMistakeType } from './transfer';
 import type { Cefr } from './cefr';
 
 /** 한 번의 대화에서 내가 말하는 횟수 — 5분 안쪽 */
@@ -51,17 +52,22 @@ export function talkSystemPrompt({ ep, partner, level }: TalkSetup): string {
 오늘 배운 표현: ${learn}. 학습자가 이 표현을 써 볼 수 있게 자연스럽게 기회를 만들어라.
 규칙:
 - 항상 ${c.name}로서만 말한다(설명·강의·번역 금지). 대화를 이어갈 짧은 질문을 자주 넣는다.
-- 학습자가 한국어로 말하면 캐릭터로서 짧게 반응하고, hint에 그 말을 영어로 바꿔 준다.
-- 학습자의 영어에 뜻이 통하지 않거나 큰 문법 오류가 있으면 fix에 {"better": 학습자가 하려던 말을 자연스러운 영어 한 문장으로, "kr": 그 문장의 한국어 뜻, "why": 무엇을 고쳤는지 한국어 한 줄}. 사소하면 fix는 null.
+- 학습자가 한국어로 말하면 캐릭터로서 짧게 반응하고, hint에 그 말을 영어로 바꿔 준다(hint.en = 학습자가 하려던 말을 영어 한 문장으로 — 학습자가 그 문장을 소리 내어 말한다).
+- 교정 정책: (1) 뜻이 통하면 교정 없이 대화를 이어간다. (2) 뜻을 알 수 없거나 오늘 배운 표현을 잘못 쓰면 먼저 캐릭터로서 한 번 되묻는다. (3) 그래도 틀리거나 같은 오류가 두 번째면 reply에서 자연스럽게 바꿔 말해 주고(리캐스트), fix에 {"wrong": 학습자가 실제로 한 틀린 구절 그대로, "better": 학습자가 하려던 말을 자연스러운 영어 한 문장으로, "kr": 그 문장의 한국어 뜻, "why": 무엇을 고쳤는지 한국어 한 줄, "type": tense|article|preposition|word-order|word-choice|other 중 하나}. 한 턴에 fix는 최대 1개. 사소하면 fix는 null.
+- 세 번째 너의 대사(학습자가 두 번 대답한 뒤)는 너의 근황을 두 문장으로 말한다(마침표로 구분, 각 문장 짧게). 그때 "reaction":true를 넣는다 — 학습자가 두 문장 사이에 짧게 맞장구(Really? / Oh no. / Okay.)를 친다.
+- 학습자가 못 알아들었다고 하면(Sorry? / Say that again? / One more time?) 방금 한 말을 더 짧고 쉬운 말로 다시 한다.
 - hint: 태오가 다음에 할 수 있는 말 {"en": 레벨에 맞는 영어 한 문장, "kr": 한국어 뜻}.
-JSON만: {"reply":"영어 대사","kr":"한국어 번역","fix":null,"hint":{"en":"","kr":""}}`;
+JSON만: {"reply":"영어 대사","kr":"한국어 번역","fix":null,"hint":{"en":"","kr":""},"reaction":false}`;
 }
 
 export interface TalkReply {
   reply: string;
   kr: string;
-  fix: { better: string; kr: string; why: string } | null;
+  /** wrong·type은 M6에서 더한 선택 필드 — 예전 응답(없음)도 그대로 통과한다 */
+  fix: { better: string; kr: string; why: string; wrong?: string; type?: string } | null;
   hint: { en: string; kr: string } | null;
+  /** 리액션 턴 표시(세 번째 인물 대사 — 근황 두 문장). 없으면 false로 본다 */
+  reaction?: boolean;
 }
 
 const s = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
@@ -72,11 +78,18 @@ export function validateTalk(d: unknown): TalkReply | null {
   if (!x || !s(x.reply) || hasHangul(x.reply) || !hasHangul(x.kr)) return null;
   let fix: TalkReply['fix'] = null;
   const f = x.fix as TalkReply['fix'] | undefined;
-  if (f && typeof f === 'object' && s(f.better) && !hasHangul(f.better) && hasHangul(f.why)) fix = { better: f.better.trim(), kr: hasHangul(f.kr) ? f.kr.trim() : '', why: f.why.trim() };
+  if (f && typeof f === 'object' && s(f.better) && !hasHangul(f.better) && hasHangul(f.why)) {
+    fix = { better: f.better.trim(), kr: hasHangul(f.kr) ? f.kr.trim() : '', why: f.why.trim() };
+    // 선택 필드 — 틀린 구절은 영어일 때만, 유형은 알려진 집합으로(모르면 other)
+    if (s(f.wrong) && !hasHangul(f.wrong)) fix.wrong = f.wrong.trim();
+    if (s(f.type)) fix.type = sanitizeMistakeType(f.type);
+  }
   let hint: TalkReply['hint'] = null;
   const h = x.hint as TalkReply['hint'] | undefined;
   if (h && typeof h === 'object' && s(h.en) && !hasHangul(h.en) && hasHangul(h.kr)) hint = { en: h.en.trim(), kr: h.kr.trim() };
-  return { reply: x.reply.trim(), kr: String(x.kr).trim(), fix, hint };
+  const out: TalkReply = { reply: x.reply.trim(), kr: String(x.kr).trim(), fix, hint };
+  if (x.reaction === true) out.reaction = true;
+  return out;
 }
 
 /** 대화에서 그 화의 표현을 실제로 썼는가(대소문자·문장부호 무시, 표현이 내 말 안에 들어 있으면) */
@@ -88,10 +101,14 @@ export function usedExpressions(ep: Episode, said: string[]): string[] {
   }).map((l) => l.en);
 }
 
-/** 대화에서 고쳐 준 문장은 복습 카드로 — 다음 화 첫머리 '지난 화 기억나요?'에 나온다 */
-export function saveFixes(ep: Episode, fixes: { better: string; kr: string }[]): number {
+/**
+ * 대화에서 고쳐 준 문장은 복습 카드로 — 다음 화 첫머리 '지난 화 기억나요?'(M3 말로 떠올리기 회상 큐)에 나온다.
+ * M6: 교정 축적(transfer.recordMistake)도 함께 — wrong(내가 한 말)이 있을 때만(약점 카드 '자주 틀리는 문장').
+ */
+export function saveFixes(ep: Episode, fixes: { better: string; kr: string; why?: string; wrong?: string; type?: string }[], now = Date.now()): number {
   let n = 0;
   for (const f of fixes.slice(0, 3)) {
+    if (s(f.better) && s(f.wrong)) recordMistake({ wrong: f.wrong.trim(), right: f.better.trim(), note: (f.why || '').trim(), t: now, type: sanitizeMistakeType(f.type) });
     // 뜻(kr)이 있어야 '영어로는?' 복습 문제가 된다
     if (s(f.better) && hasHangul(f.kr)) {
       addWeakItem({ en: f.better, kr: f.kr, cat: '드라마', lesson: `drama:${ep.no}` }, 1);
