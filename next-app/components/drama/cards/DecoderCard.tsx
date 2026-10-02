@@ -20,6 +20,7 @@ import { daySeed } from '../../../lib/dates';
 import { markInteraction, setStrand } from '../../../lib/dayGovernor';
 import { recordAndTranscribe, createUnlockedAudioContext, whisperAvailable } from '../../../lib/stt';
 import { gateMessage } from '../../../lib/sttQuality';
+import { sttErrorMessage } from '../../../lib/sttErrors';
 import { alignedScore } from '../../../lib/align';
 import { logAttempt } from '../../../lib/reviewEngine';
 import { bumpSpoken } from '../../../lib/state';
@@ -69,6 +70,8 @@ function DecoderView({ ctx }: { ctx: EndingCtx }) {
   const [msg, setMsg] = useState('');
   const [said, setSaid] = useState<{ text: string; score: number; reduced: boolean; clip?: Blob } | null>(null);
   const [passed, setPassed] = useState<'scored' | 'self' | null>(null);
+  /** 받아쓰기가 막힌 횟수(게이트·오류) — 2번이면 자기확인 출구를 연다(키가 있어도 막다른 길이 되지 않게) */
+  const [fails, setFails] = useState(0);
   const stop = useRef<(() => void) | null>(null);
   const alive = useRef(true);
   useEffect(() => {
@@ -126,6 +129,7 @@ function DecoderView({ ctx }: { ctx: EndingCtx }) {
       if (block) {
         logAttempt({ t: Date.now(), en: item.example.en, score: 0, src: 'sound', patternKey: item.id, quality: block });
         setMsg(gateMessage(block));
+        setFails((f) => f + 1);
         setPhase('say');
         return;
       }
@@ -137,14 +141,29 @@ function DecoderView({ ctx }: { ctx: EndingCtx }) {
       setSaid({ text, score, reduced, clip: res.audio });
       if (score >= PASS || reduced) finish('scored');
       else setPhase('say');
-    } catch {
+    } catch (e) {
       stop.current = null;
       if (!alive.current) return;
-      setMsg('마이크를 열지 못했어요 — 권한을 확인하고 다시 눌러 주세요.');
+      // 마이크 거부·마이크 없음·오프라인·키 오류·서버 바쁨을 구분해 안내(예전엔 전부 '마이크를 열지 못했어요')
+      setMsg(sttErrorMessage(e));
+      setFails((f) => f + 1);
       setPhase('say');
     }
   }
 
+  const selfBtn = (
+    <button
+      type="button"
+      className={`btn${keyed ? '' : ' primary'} sd-self`}
+      onClick={() => {
+        markInteraction();
+        bumpSpoken(1, 'self');
+        finish('self');
+      }}
+    >
+      🗣 흘려 말했어요 ✓
+    </button>
+  );
   const options: Version[] = naturalFirst ? ['natural', 'careful'] : ['careful', 'natural'];
   const textOf = (v: Version) => (v === 'careful' ? item.example.en : spoken);
   return (
@@ -246,18 +265,9 @@ function DecoderView({ ctx }: { ctx: EndingCtx }) {
               </p>
             )
           ) : (
-            <button
-              type="button"
-              className="btn primary sd-self"
-              onClick={() => {
-                markInteraction();
-                bumpSpoken(1, 'self');
-                finish('self');
-              }}
-            >
-              🗣 흘려 말했어요 ✓
-            </button>
+            selfBtn
           )}
+          {keyed && phase === 'say' && fails >= 2 && selfBtn}
         </div>
       )}
 

@@ -35,6 +35,7 @@ import { addMinutes } from '../lib/timeBudget';
 import { bumpSpoken } from '../lib/state';
 import { speakText, stopSpeaking } from './SpeakButton';
 import { ClipRow, RecMeter, TAEO_VOICE } from './progress/GaBits';
+import { INTELLIGIBLE_LABEL, SPEED_LABEL } from '../lib/speakLabels';
 
 type Phase = 'idle' | 'rec' | 'wait' | 'done' | 'gate';
 
@@ -227,9 +228,9 @@ export default function MonthlyVoiceCard({ due, onSaved }: { due: boolean; onSav
         <div className="ga-result" role="status">
           <p className="ga-saved">✓ 이번 달 1분 저장{prev ? ` — ${cmp?.sameQuestion ? '같은 질문' : '지난번'}과 비교해요` : ' — 다음 달부터 비교해요'}</p>
           <div className="ga-cmp">
-            <span className="ga-chip">WPM {num(prev?.wpm, cur.wpm)}</span>
+            <span className="ga-chip">{SPEED_LABEL}(분당 단어) {num(prev?.wpm, cur.wpm)}</span>
             <span className="ga-chip">긴 멈춤 {num(prev?.longPauses, cur.longPauses)}</span>
-            <span className="ga-chip">이해가능성 {num(prev?.intelligibility, cur.intelligibility, '%')}</span>
+            <span className="ga-chip">{INTELLIGIBLE_LABEL} {num(prev?.intelligibility, cur.intelligibility, '%')}</span>
           </div>
           <ClipRow
             title="지난달 vs 이번 달"

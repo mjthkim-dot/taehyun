@@ -7525,3 +7525,13 @@
 .dr-lazy-fail .dr-row {
   gap: 8px;
 }
+/* ── 리뷰 B3·B4 HVPT 기기 음성 안내 · 녹음 A/B 자기확인 ── */
+.hv-ab {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+.hv-self {
+  margin-top: 8px;
+}

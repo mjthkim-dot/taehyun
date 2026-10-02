@@ -40,6 +40,7 @@ import { recordSkillResult } from '../../../lib/cefrGrowth';
 import { cafLite, retellEvidenceScore, taskCefr, type CafLiteResult } from '../../../lib/cafLite';
 import { alignedScore } from '../../../lib/align';
 import { speakText, stopSpeaking } from '../../SpeakButton';
+import { SPEED_LABEL, fillerText, wpmText } from '../../../lib/speakLabels';
 
 /* ───────── 녹음 공용(오늘 질문 카드도 쓴다) ───────── */
 
@@ -277,9 +278,9 @@ function Result({ run, setup }: { run: RetellRunOut; setup: RetellSetup }) {
         점수 <b>{run.score}</b>
       </div>
       <div className="rt-chips">
-        <span className="rt-chip stat">WPM {run.wpm}</span>
+        <span className="rt-chip stat">{wpmText(run.wpm)}</span>
         <span className="rt-chip stat">멈춤 {run.pauses}</span>
-        <span className="rt-chip stat">필러 {run.fillers}</span>
+        <span className="rt-chip stat">{fillerText(run.fillers)}</span>
         {sc.chips.slice(1).map((c) => (
           <span key={c} className="rt-chip stat">
             {c}
@@ -665,7 +666,7 @@ function WpmCompare({ runs }: { runs: RetellRunOut[] }) {
   const best = scored.reduce((a, b) => (b.wpm > a.wpm ? b : a));
   return (
     <div className="rt-cmp" role="status">
-      <div className="rt-sub">WPM 비교</div>
+      <div className="rt-sub">{SPEED_LABEL} 비교</div>
       {scored.map((r, k) => (
         <div key={k} className={`rt-cmp-row${r === best ? ' best' : ''}`}>
           <span className="rt-cmp-label">{r.label.split(' · ')[0].replace(/ \(.*\)$/, '')}</span>

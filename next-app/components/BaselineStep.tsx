@@ -22,6 +22,7 @@ import { sttErrorMessage } from '../lib/sttErrors';
 import { addMinutes } from '../lib/timeBudget';
 import { speakText, stopSpeaking } from './SpeakButton';
 import { ClipRow, RecMeter, TAEO_VOICE } from './progress/GaBits';
+import { wpmText } from '../lib/speakLabels';
 
 type Phase = 'idle' | 'rec' | 'wait' | 'done' | 'skipped' | 'gate';
 
@@ -183,7 +184,7 @@ export default function BaselineStep({ level, onDone }: { level: Cefr; onDone?: 
           )}
           <div className="ga-chips">
             <span className="ga-chip">말한 시간 {s1(out.durationMs)}</span>
-            {!out.keyless && <span className="ga-chip">WPM {out.wpm}</span>}
+            {!out.keyless && typeof out.wpm === 'number' && <span className="ga-chip">{wpmText(out.wpm)}</span>}
             {!out.keyless && <span className="ga-chip">단어 {out.words}</span>}
             {!out.keyless && level === 'A1' && <span className="ga-chip">{(out.sentences || 0) >= 3 ? '3문장 ✓' : `${out.sentences || 0}문장`}</span>}
           </div>

@@ -17,6 +17,7 @@ import { gateMessage } from '../../lib/sttQuality';
 import { logAttempt } from '../../lib/reviewEngine';
 import { bumpSpoken } from '../../lib/state';
 import { markInteraction } from '../../lib/dayGovernor';
+import { L1_LABEL } from '../../lib/speakLabels';
 
 export interface FixGateProps {
   fix: TalkFix;
@@ -101,7 +102,7 @@ export default function FixGate({ fix, epNo, voice, rate, l1Label, onDone }: Fix
     <div className={`fgate${res ? (res.passed ? ' ok' : ' miss') : ''}`} role="group" aria-label="더 자연스럽게 따라 말하기">
       <div className="fgate-head">
         <span className="fgate-kicker">✏️ 더 자연스럽게 — 들어보고 따라 말해요</span>
-        {l1Label && <span className="fgate-l1">L1 간섭 · {l1Label}</span>}
+        {l1Label && <span className="fgate-l1">{L1_LABEL} · {l1Label}</span>}
       </div>
       <button type="button" className="fgate-better" onClick={hear} aria-label={`다시 듣기: ${fix.better}`}>
         <b lang="en">🔊 {fix.better}</b>

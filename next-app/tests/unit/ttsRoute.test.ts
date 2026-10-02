@@ -63,3 +63,53 @@ describe('M1 — 한도(429)는 Retry-After를 그대로 전달', () => {
     expect(r.headers.get('Retry-After')).toBe('2');
   });
 });
+
+describe('리뷰 B10 — playai 폴백에서 autumn(여성)이 남성 목소리로 바뀌지 않는다', () => {
+  test('Orpheus가 모델 오류면 autumn → Arista-PlayAI', async () => {
+    const sent: { model: string; voice: string }[] = [];
+    vi.stubGlobal('fetch', async (_u: string, init: { body: string }) => {
+      const b = JSON.parse(init.body);
+      sent.push({ model: b.model, voice: b.voice });
+      if (b.model !== 'playai-tts') return new Response(JSON.stringify({ error: { message: 'model has been decommissioned' } }), { status: 400 });
+      return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
+    });
+    const { POST } = await import('../../app/api/tts/route');
+    const r = await POST(req('autumn'));
+    expect(r.status).toBe(200);
+    expect(sent.at(-1)).toEqual({ model: 'playai-tts', voice: 'Arista-PlayAI' });
+  });
+});
+
+describe('리뷰 B12 — GET ?voices=1 진단은 클라이언트 키로만, 10분 캐시', () => {
+  const getReq = (key?: string) =>
+    ({
+      headers: new Headers({ 'x-forwarded-for': `10.1.0.${Math.floor(Math.random() * 200)}`, ...(key ? { 'x-groq-key': key } : {}) }),
+      nextUrl: new URL('http://localhost/app/api/tts?voices=1'),
+    }) as unknown as Parameters<typeof import('../../app/api/tts/route').GET>[0];
+
+  test('클라이언트 키가 없으면 서버 키로 합성하지 않는다', async () => {
+    const { GET } = await import('../../app/api/tts/route');
+    const j = await (await GET(getReq())).json();
+    expect(j.ok).toBe(false);
+    expect(j.where).toBe('no-client-key');
+    expect(calls).toHaveLength(0);
+  });
+  test('클라이언트 키로 5목소리 — 같은 키로 10분 안에 다시 부르면 캐시(합성 0회)', async () => {
+    const auth: string[] = [];
+    vi.stubGlobal('fetch', async (_u: string, init: { body: string; headers: Record<string, string> }) => {
+      auth.push(init.headers.Authorization);
+      return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
+    });
+    const { GET } = await import('../../app/api/tts/route');
+    const j1 = await (await GET(getReq('gsk_client'))).json();
+    expect(j1.ok).toBe(true);
+    expect(auth).toHaveLength(5);
+    expect(auth.every((a) => a === 'Bearer gsk_client')).toBe(true);
+    const j2 = await (await GET(getReq('gsk_client'))).json();
+    expect(j2.cached).toBe(true);
+    expect(auth).toHaveLength(5);
+    // 다른 키는 따로
+    await GET(getReq('gsk_other'));
+    expect(auth).toHaveLength(10);
+  });
+});

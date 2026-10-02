@@ -6,6 +6,7 @@
  *   ③ 키 + 진단 축(r-l ×3) → HVPT: 10문항(1개 일부러 오답) → 9/10 · va_sound_track.hvpt['r-l'] 10/9 · 디코더 없음
  *      → 산출 2회(목킹 전사 = 목표 문장) → 합의 ok · src 'pron' 2건 · 문항마다 목소리가 바뀐다(TTS 요청 목소리 ≥3종)
  *      → 진도 화면 '소리 축 TOP3'에 R / L · 구분 90%
+ *   ③-2 HVPT 산출 단계에 키 없음 + 마이크 → 녹음 '내 소리 ▶ / 원어민 ▶' A/B + 자기확인(점수 제외) · 기기 음성 안내
  *   ④ 설정 soundLine 켜짐 → 말풍선 아래 '🔊 원어민 소리' 회색 줄 / 기본(꺼짐)이면 없음
  *   ⑤ 플래그 decoder·hvpt off → 소리 카드 없음
  * 요일 규칙(평일만)이 있어 주말에 돌리면 페이지 시계를 직전 금요일로 옮긴다(Date 오프셋 — 타이머는 그대로).
@@ -81,8 +82,9 @@ async function open({ key = true, webSpeech = true, flags = {}, pron = null } = 
     { key, webSpeech, flags, pron, today: TODAY }
   );
   await page.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"valid":true}' }));
-  const tts = { voices: [] };
+  const tts = { voices: [], at: [] };
   await page.route('**/app/api/tts*', (r) => {
+    tts.at.push(Date.now());
     try {
       tts.voices.push(JSON.parse(r.request().postData() || '{}').voice);
     } catch {
@@ -202,6 +204,7 @@ const HV = '.ee-card[data-card="sound-hvpt"]';
   check('③ 축 = 진단 상위 r-l', (await page.getAttribute(`${HV} .hv-card`, 'data-axis')) === 'r-l');
   check('③ 제목에 R / L', /R \/ L/.test(await page.textContent(`${HV} .hv-title`)));
   tts.voices.length = 0;
+  tts.at.length = 0;
   await page.click(`${HV} .hv-start`);
   let asked = 0;
   for (let k = 0; k < 10; k++) {
@@ -216,8 +219,13 @@ const HV = '.ee-card[data-card="sound-hvpt"]';
   }
   await page.waitForSelector(`${HV} .hv-result`, { timeout: 5000 });
   check('③ 10문항 · 9/10 통과', asked === 10 && /9\/10/.test(await page.textContent(`${HV} .hv-score`)) && /통과/.test(await page.textContent(`${HV} .hv-score`)));
+  // 합성은 6초 간격으로 차례로 나간다(리뷰 B3 — Orpheus 10회/분) — 세 목소리가 나올 때까지 기다린다
+  const vDeadline = Date.now() + 25000;
+  while (new Set(tts.voices.filter(Boolean)).size < 3 && Date.now() < vDeadline) await page.waitForTimeout(500);
   const v = new Set(tts.voices.filter(Boolean));
   check('③ 문항마다 목소리를 바꾼다(요청 목소리 ≥3종)', v.size >= 3, [...v].join(','));
+  const gaps = tts.at.slice(1).map((t, i) => t - tts.at[i]);
+  check('③ 합성 요청 사이 ≥ 6초(분당 10회 한도 안)', tts.at.length >= 3 && gaps.every((g) => g >= 5800), gaps.join(','));
   let st = await readStore(page);
   const h = st.track.hvpt?.['r-l'];
   check("③ 정답률 기록 va_sound_track.hvpt['r-l'] 10/9", h && h.tries === 10 && h.correct === 9, JSON.stringify(h));
@@ -239,6 +247,43 @@ const HV = '.ee-card[data-card="sound-hvpt"]';
   });
   const top = await page.waitForSelector('.hv-axis', { timeout: 20000 }).then(() => page.textContent('.hv-axis')).catch(() => '');
   check('③ 진도 소리 축 TOP3: R / L · 구분 90% · 이번 주', /R \/ L/.test(top) && /구분 90%/.test(top) && /이번 주/.test(top), top);
+  await ctx.close();
+}
+
+/* ══ ③-2 HVPT 키 없음 + 마이크 있음 → 녹음 A/B 자기확인(리뷰 B4) ══
+ * 카드는 키가 있을 때만 뜬다 — 산출 단계 직전에 키를 지운다(키를 지운 기기 = 받아쓰기 불가 + 마이크 있음).
+ * 기기 음성 안내(B3)도 여기서 본다 — TTS가 404라 기기 음성으로 내려간다. */
+{
+  const { ctx, page, stt } = await open({ pron: [{ key: 'r-l', count: 3 }] });
+  check('③-2 EP1 끝까지', await toEnding(page));
+  await openMore(page);
+  check('③-2 HVPT 카드', (await page.locator(HV).count()) === 1);
+  await page.click(`${HV} .hv-start`);
+  for (let k = 0; k < 10; k++) {
+    await page.waitForSelector(`${HV} .hv-q[data-k="${k}"]`, { timeout: 5000 });
+    const ans = await page.getAttribute(`${HV} .hv-q`, 'data-ans');
+    await page.click(`${HV} .hv-opt[data-side="${ans}"]`);
+    await page.waitForSelector(`${HV} .hv-fb`, { timeout: 3000 });
+    if (k === 0) {
+      const deg = await page.waitForSelector(`${HV} .hv-degraded`, { timeout: 10000 }).then(() => true).catch(() => false);
+      check('③-2 기기 음성이면 "신경망 음성에서 효과가 커요" 안내', deg && /신경망 음성/.test(await page.textContent(`${HV} .hv-degraded`)));
+    }
+    await page.click(`${HV} .hv-next`);
+  }
+  await page.waitForSelector(`${HV} .hv-to-say`, { timeout: 5000 });
+  await page.evaluate(() => localStorage.removeItem('va_groq_key'));
+  await page.click(`${HV} .hv-to-say`);
+  await page.waitForSelector(`${HV} .hv-say[data-path="ab"]`, { timeout: 5000 });
+  check('③-2 키 없음 + 마이크 → 녹음 A/B 경로(받아쓰기 버튼 없음)', (await page.locator(`${HV} .hv-ab-rec`).count()) === 1 && !/마이크가 있는 기기/.test(await page.textContent(HV)));
+  await page.click(`${HV} .hv-ab-rec`);
+  await page.waitForSelector(`${HV} .hv-ab-mine`, { timeout: 15000 });
+  check("③-2 '내 소리 ▶ / 원어민 ▶' A/B", (await page.locator(`${HV} .hv-ab-native`).count()) === 1);
+  const spoken0 = await page.evaluate(() => JSON.parse(localStorage.getItem('va_spoken') || '{}').count || 0);
+  await page.click(`${HV} .hv-self`);
+  await page.waitForSelector(`${HV} .hv-done[data-verdict="self"]`, { timeout: 5000 });
+  const st = await readStore(page);
+  check("③-2 자기확인은 점수·시도 로그에 넣지 않는다 · STT 0", st.pron.length === 0 && stt.calls === 0, JSON.stringify(st.pron));
+  check('③-2 발화는 센다(va_spoken +1)', (await page.evaluate(() => JSON.parse(localStorage.getItem('va_spoken') || '{}').count || 0)) === spoken0 + 1);
   await ctx.close();
 }
 

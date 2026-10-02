@@ -83,6 +83,13 @@ export function withWa(name: string): string {
   return `${name}${hangul && (c - 0xac00) % 28 ? '과' : '와'}`;
 }
 
+/** 이름 뒤 주격 '이/가' — 받침이 있으면 '이'(준이·다이앤이), 없으면 '가'(태오가). 한글이 아니면 '가' */
+export function withIGa(name: string): string {
+  const c = name.charCodeAt(name.length - 1);
+  const hangul = c >= 0xac00 && c <= 0xd7a3;
+  return `${name}${hangul && (c - 0xac00) % 28 ? '이' : '가'}`;
+}
+
 export const INTERACTIVE = new Set(['choice', 'meaning', 'fill', 'speak']);
 
 /**

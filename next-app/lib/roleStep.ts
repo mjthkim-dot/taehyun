@@ -16,6 +16,7 @@ import { alignedScore, normWords, type AlignedWord } from './align';
 import type { LapseKey, PronIssue } from './pronunciation';
 import type { RhythmChip } from './rhythm';
 import { RESULT_CARD_MSGS } from './dramaSeedMine';
+import { wpmText } from './speakLabels';
 
 export type RoleMode = 'role' | 'shadow' | 'lip';
 /** 어느 인식 경로가 열려 있나 — whisper(키+마이크) > webspeech(키 없음, 브라우저 인식) > self(둘 다 없음: 자기확인) */
@@ -180,7 +181,7 @@ export function pickChip(c: ChipInput): Chip | null {
   const issue = c.hideAxis ? undefined : c.issues?.[0];
   if (issue) return { kind: 'axis', label: issue.label, tip: issue.tip, key: issue.key };
   if (c.rhythm && !c.rhythm.ok) return { kind: 'rhythm', label: c.rhythm.chip };
-  if (typeof c.wpm === 'number' && c.wpm > 0) return { kind: 'wpm', label: `${c.wpm} WPM` };
+  if (typeof c.wpm === 'number' && c.wpm > 0) return { kind: 'wpm', label: wpmText(c.wpm) };
   return null;
 }
 

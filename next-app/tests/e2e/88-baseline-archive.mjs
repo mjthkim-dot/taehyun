@@ -121,7 +121,7 @@ const j = (page, k, d = 'null') => page.evaluate(([k, d]) => JSON.parse(localSto
   stt.replies.push(DAY_SAID);
   await recordBaseline(page);
   const res = await page.textContent('.ga-baseline .ga-result');
-  check('기준선 저장 안내 + WPM + 3문장 ✓', res.includes('기준선 저장') && /WPM \d+/.test(res) && res.includes('3문장 ✓'), res);
+  check('기준선 저장 안내 + WPM + 3문장 ✓', res.includes('기준선 저장') && /말 속도 분당 \d+단어/.test(res) && res.includes('3문장 ✓'), res);
   check('말하기 레벨 보정 A1 → A2', res.includes('A1 → A2'), res);
   const b = await j(page, 'va_baseline');
   check('va_baseline(adj +1, pending 없음, 녹음 id)', b && b.adj === 1 && b.pendingRetranscribe === false && b.wpm > 0 && typeof b.recordingId === 'string', JSON.stringify(b));
@@ -156,7 +156,7 @@ const j = (page, k, d = 'null') => page.evaluate(([k, d]) => JSON.parse(localSto
   check('time 필드 보존(시간 예산)', !!g.time && Object.keys(g.time).length >= 1);
   check("시도 로그 src 'monthly'", (await j(page, 'va_attempt_log', '[]')).filter((a) => a.src === 'monthly').length === 1);
   const cmp = await page.textContent('.ga-monthly .ga-cmp');
-  check('지난번 vs 이번 달 숫자 비교', /WPM 40 → \d+/.test(cmp) && /이해가능성 60% → \d+%/.test(cmp), cmp);
+  check('지난번 vs 이번 달 숫자 비교', /말 속도\(분당 단어\) 40 → \d+/.test(cmp) && /알아듣기 쉬움 60% → \d+%/.test(cmp), cmp);
   check("A/B — '이번 달 나 ▶'", (await page.locator('.ga-monthly .ga-clip:has-text("이번 달 나")').count()) === 1);
   await page.locator('.ga-monthly .ga-anchor-row').first().locator('.ga-score:has-text("6")').click();
   const anc = await j(page, 'va_anchor');

@@ -35,3 +35,41 @@ describe('sttErrorMessage', () => {
     expect(msgs.filter((m) => m.includes('마이크')).length).toBe(2);
   });
 });
+
+// 그룹 B가 따로 만든 같은 함수의 사례 — 합친 구현이 둘 다 만족해야 한다
+const domB = (name: string) => Object.assign(new Error('x'), { name });
+
+describe('sttErrorMessage — 그룹 B 사례(NO_GROQ_KEY·한국어 키 오류·reason busy)', () => {
+  test('마이크 권한 거부', () => {
+    expect(sttErrorMessage(domB('NotAllowedError'))).toMatch(/마이크 권한/);
+    expect(sttErrorMessage(domB('SecurityError'))).toMatch(/마이크 권한/);
+  });
+  test('마이크 없음', () => {
+    expect(sttErrorMessage(domB('NotFoundError'))).toMatch(/마이크를 찾지 못했어요/);
+  });
+  test('오프라인 — navigator.onLine false 또는 fetch TypeError', () => {
+    vi.stubGlobal('navigator', { onLine: false });
+    expect(sttErrorMessage(new SttError('HTTP 502'))).toMatch(/인터넷/);
+    vi.stubGlobal('navigator', { onLine: true });
+    expect(sttErrorMessage(new TypeError('Failed to fetch'))).toMatch(/인터넷/);
+  });
+  test('키 오류(401)', () => {
+    vi.stubGlobal('navigator', { onLine: true });
+    expect(sttErrorMessage(new SttError('API 키가 올바르지 않습니다.'))).toMatch(/키/);
+    expect(sttErrorMessage(new SttError('NO_GROQ_KEY'))).toMatch(/키/);
+    expect(sttErrorMessage(Object.assign(new SttError('x'), { status: 401 }))).toMatch(/키/);
+  });
+  test('서버 바쁨(429/busy)', () => {
+    vi.stubGlobal('navigator', { onLine: true });
+    expect(sttErrorMessage(new SttError('busy'))).toMatch(/바빠요/);
+    expect(sttErrorMessage(Object.assign(new SttError('x'), { reason: 'busy' }))).toMatch(/바빠요/);
+  });
+  test('그 밖(5xx·알 수 없음) — 마이크 탓을 하지 않는다', () => {
+    vi.stubGlobal('navigator', { onLine: true });
+    for (const e of [new SttError('HTTP 502'), new Error('weird'), 'str', null, undefined]) {
+      const m = sttErrorMessage(e);
+      expect(m).toMatch(/잠시 뒤/);
+      expect(m).not.toMatch(/마이크/);
+    }
+  });
+});

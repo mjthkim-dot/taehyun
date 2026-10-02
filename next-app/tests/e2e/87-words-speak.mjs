@@ -2,7 +2,7 @@
  * M8 단어 '예문 말하기' 문항 — 상자 2·4 복습이 고르기 대신 말하기로 나온다:
  *   ① (키 있음·Whisper 목킹) 상자 2 단어 → 카드에 한국어 뜻·예문 번역만(영어 없음) → 자동 녹음 →
  *      통과 → '오늘 말한 단어 1/4' · 상자 +1 · 시도 로그 src 'words' · 발화 카운터 +1 → 원어민 재생 뒤 저절로 다음
- *   ② 상자 4 단어 → 1차 실패 → 영어 예문 공개 + 내 소리/원어민 비교 + '한 번 더' → 2차 통과 → 상자 +1
+ *   ② 상자 4 단어 → 1차 실패 → 영어 예문 공개 + 내 소리/원어민 비교 + '한 번 더'(2차 녹음 중에도 예문 보임) → 2차 통과 → 상자 +1
  *   ③ 상자 2 단어 → 2차도 실패 → '다음' 버튼, 오답 채점(상자 1) · 3문제 뒤 재출제 큐에 들어간다
  *   ④ (키 없음) 브라우저 인식이 권한 거부로 실패 → '🗣 소리 내어 말했어요 ✓' 자기확인 → 카운터·상자 +1
  * 기존 4종(73-words)은 그대로 — 신규 단어(상자 0)·재출제(상자 1)는 여전히 고르기.
@@ -106,6 +106,9 @@ const browser = await launch();
   check("'한 번 더'·'듣기'·내 소리/원어민 비교", (await page.locator('.wq-speak-again').count()) === 1 && (await page.locator('.wq-speak-hear').count()) === 1 && (await page.locator('.vcmp').count()) === 1);
   check('1차 실패는 아직 채점하지 않는다(상자 4 유지)', await page.evaluate(() => JSON.parse(localStorage.getItem('va_words'))['basics:tomorrow'].b === 4));
   await page.click('.wq-speak-again');
+  // 리뷰 B1 — '영어 예문을 보고 한 번 더'인데 2차 녹음 중 예문이 다시 숨던 문제
+  await page.waitForSelector('.wq-speak[data-phase="rec"], .wq-speak[data-phase="wait"]', { timeout: 5000 });
+  check('1차 실패 후 2차 녹음 중에도 예문 보임', await page.evaluate(() => (document.querySelector('.wq-speak-ex')?.textContent || '').replace(/\s+/g, ' ').includes("I'll call you tomorrow")));
   await page.waitForSelector('.wq-speak[data-phase="pass"]', { timeout: 15000 });
   check('2차 통과 — 상자 4 → 5, 시도 2/2', await page.evaluate(() => JSON.parse(localStorage.getItem('va_words'))['basics:tomorrow'].b === 5 && document.querySelector('.wq-speak-tries')?.textContent.includes('2/2')));
   check("카운터 '2/4'(문항당 한 번만 센다)", await page.evaluate(() => document.querySelector('.wq-speak-goal')?.textContent.includes('2/4') && JSON.parse(localStorage.getItem('va_spoken')).count === 2));

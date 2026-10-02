@@ -25,6 +25,7 @@ import { bumpSpoken } from '../../../lib/state';
 import { addMinutes } from '../../../lib/timeBudget';
 import { speakText, stopSpeaking } from '../../SpeakButton';
 import { ClipButton, FAILS_SELF_AT, RecBar, blockOf, freePath } from './RetellCard';
+import { wpmText } from '../../../lib/speakLabels';
 
 const whoOf = (no: number) => LISTENERS[no % LISTENERS.length];
 
@@ -195,7 +196,7 @@ function DailyQuestionView({ ctx }: { ctx: EndingCtx }) {
           )}
           <div className="rt-chips">
             {!out.keyless && <span className="rt-chip stat">단어 {out.words}</span>}
-            {!out.keyless && <span className="rt-chip stat">WPM {out.wpm}</span>}
+            {!out.keyless && <span className="rt-chip stat">{wpmText(out.wpm)}</span>}
             <span className="rt-chip stat">말한 시간 {s1(out.durationMs)}</span>
             <span className="rt-chip stat">시작까지 {s1(out.latencyMs)}</span>
           </div>

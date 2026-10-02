@@ -14,14 +14,15 @@
  * 합성 결과(blob URL)는 캐싱해 다시듣기·반복 재생 시 추가 호출/지연이 없게 한다.
  * 키가 없거나 합성에 실패하면 브라우저 내장 음성으로 폴백한다.
  */
-import { speechRate, groqKey, SERVER_GROQ_SENTINEL } from '../lib/state';
-import { bumpDiag, bumpTtsMeta } from '../lib/diag';
+import { speechRate, groqKey } from '../lib/state';
+import { bumpTtsMeta } from '../lib/diag';
 
-/** idb 캐시 모듈은 합성할 때만 지연 로딩 — 홈 카드(DramaCard)가 이 파일을 쓰므로 홈 첫 청크에 idb를 넣지 않는다 */
-let storageMod: Promise<typeof import('../lib/storage')> | null = null;
-const storage = () =>
-  (storageMod ||= import('../lib/storage').catch((e) => {
-    storageMod = null; // 청크를 못 받았으면(오프라인) 다음에 다시 시도
+/** 합성 경로(lib/ttsSynth — 한도·idb·간격·캐시 정리)는 메모리 캐시에 없을 때만 지연 로딩 —
+ *  홈 카드(DramaCard)가 이 파일을 쓰므로 홈 첫 청크에 합성 코드·idb를 넣지 않는다 */
+let synthMod: Promise<typeof import('../lib/ttsSynth')> | null = null;
+const synth = () =>
+  (synthMod ||= import('../lib/ttsSynth').catch((e) => {
+    synthMod = null; // 청크를 못 받았으면(오프라인) 다음에 다시 시도
     throw e;
   }));
 
@@ -301,120 +302,36 @@ function speakWithBrowser(text: string, lang: string, rate: number, onend?: () =
 }
 
 /* ── Groq 신경망 음성 ── */
-const ttsCache = new Map<string, string>(); // `${voice}:${text}` -> objectURL
+const ttsCache = new Map<string, string>(); // `${voice}:${text}` -> objectURL (상한·revoke는 lib/ttsSynth.rememberUrl)
 const ttsInflight = new Map<string, Promise<string | null>>(); // 진행 중인 요청(중복 합치기)
 
-// 타임아웃을 두 단계로 분리한다:
-// - 헤더(응답 시작)까지 8초 — 서버가 죽었는지 판단.
-// - 본문(오디오 전체) 다운로드는 30초 — Orpheus WAV(48kHz)는 문장당 수백 KB~1MB라
-//   모바일 회선에선 8초로 부족했고, 다 받는 중에 abort돼 무음 폴백으로 떨어졌다
-//   ("소리가 안 난다"의 실제 원인 후보).
-const TTS_HEADER_TIMEOUT_MS = 8000;
-const TTS_BODY_TIMEOUT_MS = 30000;
-
-/** 429 재시도 대기 상한 — 이보다 길면 기다리지 않고 바로 브라우저 음성으로 */
-const TTS_RETRY_MAX_MS = 10000;
-const TTS_RETRY_DEFAULT_MS = 2000;
-
-/** Retry-After(초 또는 HTTP 날짜) → ms. 없거나 못 읽으면 기본 2초, 상한 10초 */
-export function retryAfterMs(header: string | null, now = Date.now()): number {
-  if (!header) return TTS_RETRY_DEFAULT_MS;
-  const sec = Number(header);
-  let ms = Number.isFinite(sec) ? sec * 1000 : Date.parse(header) - now;
-  if (!Number.isFinite(ms) || ms < 0) ms = TTS_RETRY_DEFAULT_MS;
-  return Math.min(TTS_RETRY_MAX_MS, ms);
-}
-
-/** 서버 TTS 한 번 호출 — 헤더 8초/본문 30초 타임아웃. 네트워크 오류는 null */
-async function requestTts(input: string, voice: string, key: string): Promise<Response | null> {
-  const controller = new AbortController();
-  let timer = setTimeout(() => controller.abort(), TTS_HEADER_TIMEOUT_MS);
-  try {
-    const resp = await fetch('/app/api/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: input, voice, key: key === SERVER_GROQ_SENTINEL ? undefined : key }),
-      signal: controller.signal,
-    });
-    // 헤더가 도착했으면 본문 다운로드용 긴 타이머로 교체
-    clearTimeout(timer);
-    timer = setTimeout(() => controller.abort(), TTS_BODY_TIMEOUT_MS);
-    if (!resp.ok) return resp;
-    const blob = await resp.blob();
-    // 빈/손상 응답(예: rate-limit 직전의 잘린 본문)을 캐싱하면 재생 시 onended가 오지
-    // 않아 그 줄에서 영영 멈춘다 — 유효한 오디오만 돌려준다.
-    if (!blob || blob.size < 256) return null;
-    return new Response(blob, { status: 200, headers: { 'Content-Type': blob.type || 'audio/wav' } });
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 /**
- * Groq에서 음성을 받아 objectURL을 돌려준다(캐시). 실패·타임아웃 시 null.
- * 문장 앞에 감정 디렉션 태그를 붙여 Orpheus가 사람처럼 감정을 실어 발화하게 한다.
- * 속도는 재생 단계에서 음높이를 유지한 채(preservesPitch) 조절하므로 여기선 속도 무관하게
- * 한 번만 합성해 캐싱한다.
- *
- * M1 — 캐시는 두 겹: 메모리(objectURL) → IndexedDB('tts', LRU 300). 미스일 때만 합성하고 결과를
- * idb에 넣어 두므로 같은 대사를 내일 다시 들어도 합성 한도(10/분·100/일)를 쓰지 않는다.
- * 429면 Retry-After(≤10초)만큼 한 번 기다렸다 재시도, 그래도 안 되면 null(호출부가 브라우저 음성으로)
- * + 'va:tts-degraded' 신호. 적중/미스/합성/429는 va_tts_meta에 일별로 센다.
+ * Groq에서 음성을 받아 objectURL을 돌려준다(캐시). 실패·타임아웃·한도 쉼 중이면 null(호출부가 브라우저 음성으로).
+ * 문장 앞에 감정 디렉션 태그를 붙여 Orpheus가 사람처럼 감정을 실어 발화하게 한다. 속도는 재생 단계에서
+ * 음높이를 유지한 채 조절하므로 속도와 무관하게 한 번만 합성해 캐싱한다.
+ * 캐시는 두 겹: 메모리(objectURL, 최근 60개) → IndexedDB('tts', LRU 300). 미스·429 정책은 lib/ttsSynth.
+ * opts.gapMs — 직전 합성 요청과 최소 간격(HVPT: Orpheus 10회/분).
  */
-export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE, opts?: { tagless?: boolean }): Promise<string | null> {
+export async function fetchGroqTTS(text: string, voice = GROQ_TTS_VOICE, opts?: { tagless?: boolean; gapMs?: number }): Promise<string | null> {
   const key = groqKey();
   if (!key) return null;
-  const cacheKey = `${voice}:${opts?.tagless ? 'flat:' : ''}${text}`;
+  const tagless = !!opts?.tagless;
+  const cacheKey = `${voice}:${tagless ? 'flat:' : ''}${text}`;
   const cached = ttsCache.get(cacheKey);
   if (cached) {
     bumpTtsMeta('hit');
     return cached;
   }
-  // 같은 문장을 동시에(미리받기 + 실제재생) 두 번 요청하면 호출이 두 배가 돼 rate-limit에
-  // 걸리고, 그러면 그 줄에서 폴백/멈춤이 난다. 진행 중인 요청이 있으면 그걸 함께 기다린다.
+  // 같은 문장을 동시에(미리받기 + 실제재생) 두 번 요청하면 호출이 두 배가 돼 한도에 걸린다 — 진행 중인 걸 함께 기다린다
   const pending = ttsInflight.get(cacheKey);
   if (pending) return pending;
-
-  // 회의록/이메일 같은 격식체 문서는 잡담용 감정 디렉션 태그([cheerful]/[curious] 등)를
-  // 붙이면 오히려 부자연스럽게 들린다 — tagless 옵션으로 끌 수 있게 한다.
-  const tag = opts?.tagless ? '' : emotionDirectionTag(text);
-  const input = tag ? `${tag} ${text}` : text;
-  const job = (async (): Promise<string | null> => {
-    // ① idb 캐시(사설 모드 등 idb 불가 → null → 합성)
-    const st = await storage().catch(() => null);
-    const idbKey = st ? st.ttsKey(voice, !!opts?.tagless, text) : '';
-    const hit = st ? await st.getTts(idbKey) : null;
-    if (hit) {
-      const url = URL.createObjectURL(hit.blob);
-      ttsCache.set(cacheKey, url);
-      bumpTtsMeta('hit');
-      return url;
-    }
-    bumpTtsMeta('miss');
-    // ② 합성(429면 Retry-After만큼 한 번 대기 후 재시도)
-    let resp = await requestTts(input, voice, key);
-    if (resp && resp.status === 429) {
-      bumpTtsMeta('tts429');
-      bumpDiag('tts429');
-      await new Promise((r) => setTimeout(r, retryAfterMs(resp!.headers.get('retry-after'))));
-      resp = await requestTts(input, voice, key);
-      if (resp && resp.status === 429) bumpTtsMeta('tts429');
-    }
-    if (!resp || !resp.ok) {
-      // 키가 틀린 경우(401)는 '저하'가 아니라 설정 문제 — 칩을 띄우지 않는다
-      if (!resp || resp.status !== 401) setDegraded(true);
-      return null;
-    }
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    ttsCache.set(cacheKey, url);
-    bumpTtsMeta('synth');
-    setDegraded(false);
-    if (st) void st.putTts(idbKey, blob, blob.type || 'audio/wav');
-    return url;
-  })();
+  // 격식체 문서(회의록·이메일)는 감정 태그가 오히려 부자연스럽다 — tagless로 끈다
+  const tag = tagless ? '' : emotionDirectionTag(text);
+  const job = synth()
+    .then((m) =>
+      m.synthTts({ text, input: tag ? `${tag} ${text}` : text, voice, tagless, key, gapMs: opts?.gapMs, cache: ttsCache, cacheKey, playing: () => sharedAudio?.src || '', onDegraded: setDegraded })
+    )
+    .catch(() => null);
   ttsInflight.set(cacheKey, job);
   try {
     return await job;
@@ -514,7 +431,7 @@ function splitByScript(text: string): { text: string; ko: boolean }[] {
   return out;
 }
 
-export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => void, voice?: string, opts?: { tagless?: boolean }) {
+export function speakText(text: string, lang = 'en-US', rate = 1, onend?: () => void, voice?: string, opts?: { tagless?: boolean; gapMs?: number }) {
   primeAudio(); // 제스처 안에서 동기 언락
   // 한국어는 Orpheus(영어 전용)로 보내면 안 된다 — 호출부가 기본값 'en-US'를 그대로
   // 넘기는 곳이 많아, 텍스트를 보고 직접 판단한다. 그래야 한국어 뜻·설명도 들린다.

@@ -169,7 +169,8 @@ const readStore = (page) =>
   await page.waitForSelector(`${card} .rt-run[data-phase="done"] .rt-result`, { timeout: 20000 });
   check('전사 위 멈춤 표시 |', (await page.locator(`${card} .rt-said .rt-pause`).count()) === 1 && (await page.textContent(`${card} .rt-said`)).includes('stuck |'));
   const chips = (await page.locator(`${card} .rt-result .rt-chip.stat`).allTextContents()).join(' · ');
-  check('WPM·멈춤·필러 칩', /WPM \d+/.test(chips) && /멈춤 1/.test(chips) && /필러 \d/.test(chips), chips);
+  // A1 학습자용 쉬운 한국어(리뷰 B6): WPM → '말 속도 분당 N단어', 필러 → '음·어 같은 군말 N번'
+  check('말 속도·멈춤·군말 칩', /말 속도 분당 \d+단어/.test(chips) && /멈춤 1/.test(chips) && /군말 \d+번/.test(chips), chips);
   check('키워드 적중 ✓ 3/3', (await page.locator(`${card} .rt-result .rt-chip.kw.hit`).count()) === 3);
   const score = Number((await page.textContent(`${card} .rt-score b`)) || 0);
   check('scoreRetell 점수', score >= 70, String(score));

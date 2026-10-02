@@ -10,15 +10,16 @@
 export type SttErrorKind = 'mic-denied' | 'no-mic' | 'offline' | 'key' | 'busy' | 'other';
 
 export function sttErrorKind(e: unknown): SttErrorKind {
-  const o = (e && typeof e === 'object' ? e : {}) as { name?: unknown; message?: unknown; status?: unknown };
+  const o = (e && typeof e === 'object' ? e : {}) as { name?: unknown; message?: unknown; status?: unknown; reason?: unknown };
   const name = typeof o.name === 'string' ? o.name : '';
   const msg = typeof o.message === 'string' ? o.message : typeof e === 'string' ? e : '';
   const status = typeof o.status === 'number' ? o.status : 0;
   if (name === 'NotAllowedError' || name === 'SecurityError' || /permission|not allowed/i.test(msg)) return 'mic-denied';
   if (name === 'NotFoundError' || name === 'NotReadableError' || name === 'OverconstrainedError' || /device not found|no microphone/i.test(msg)) return 'no-mic';
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'offline';
-  if (status === 401 || status === 403 || /\b40[13]\b|api key|unauthori[sz]ed/i.test(msg)) return 'key';
-  if (status === 429 || status >= 500 || /\b429\b|\b5\d\d\b|busy|rate limit|overloaded/i.test(msg)) return 'busy';
+  // 서버는 키가 없으면 NO_GROQ_KEY, 틀리면 한국어 'API 키가 올바르지 않습니다.'를 돌려준다
+  if (status === 401 || status === 403 || /\b40[13]\b|api key|api 키|no_groq_key|unauthori[sz]ed/i.test(msg)) return 'key';
+  if (o.reason === 'busy' || status === 429 || status >= 500 || /\b429\b|\b5\d\d\b|busy|rate limit|overloaded/i.test(msg)) return 'busy';
   if (name === 'TypeError' && /fetch|network|load failed/i.test(msg)) return 'offline';
   return 'other';
 }
@@ -29,7 +30,7 @@ const MESSAGES: Record<SttErrorKind, string> = {
   offline: '인터넷이 끊겼어요 — 연결되면 다시 눌러 주세요.',
   key: '키가 맞지 않아요 — 설정에서 Groq 키를 확인해 주세요.',
   busy: '서버가 바빠요 — 잠시 뒤 다시 눌러 주세요.',
-  other: '잠깐 문제가 생겼어요 — 다시 눌러 주세요.',
+  other: '잠깐 문제가 생겼어요 — 잠시 뒤 다시 눌러 주세요.',
 };
 
 /** 녹음·전사 실패 한 줄(쉬운 한국어) */
