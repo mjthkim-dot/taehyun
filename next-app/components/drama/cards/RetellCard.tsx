@@ -403,7 +403,9 @@ function RetellRunner({ ctx, setup, round, guide, onDone, first }: { ctx: Ending
     setElapsed(0);
     setPhase('rec');
     try {
-      // 리텔·오늘 질문은 '유창성' 갈래 — 하루 조절기(M4)가 이 시간을 fluency로 센다      setStrand('fluency');      markInteraction();
+      // 리텔·오늘 질문은 '유창성' 갈래 — 하루 조절기(M4)가 이 시간을 fluency로 센다
+      setStrand('fluency');
+      markInteraction();
       const res = await recordAndTranscribe({
         prompt: STT_PROPER_NOUNS, // 고유명사만 — 줄거리를 넣으면 전사가 끌려간다
         language: 'en',
@@ -544,7 +546,9 @@ function FixStep({ caf, listener, onNext }: { caf: Session['caf']; listener: Lis
     const audioCtx = createUnlockedAudioContext();
     setPhase('rec');
     try {
-      // 리텔·오늘 질문은 '유창성' 갈래 — 하루 조절기(M4)가 이 시간을 fluency로 센다      setStrand('fluency');      markInteraction();
+      // 리텔·오늘 질문은 '유창성' 갈래 — 하루 조절기(M4)가 이 시간을 fluency로 센다
+      setStrand('fluency');
+      markInteraction();
       const res = await recordAndTranscribe({ prompt: STT_PROPER_NOUNS, language: 'en', silenceMs: 1500, maxMs: 10000, temperature: 0, audioCtx, registerStop: (f) => (stop.current = f), onState: (s) => s === 'transcribing' && setPhase('wait') });
       stop.current = null;
       const said = (res.text || '').trim();

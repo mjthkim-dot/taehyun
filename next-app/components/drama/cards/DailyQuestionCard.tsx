@@ -85,7 +85,9 @@ function DailyQuestionView({ ctx }: { ctx: EndingCtx }) {
     setElapsed(0);
     setPhase('rec');
     try {
-      // 리텔·오늘 질문은 '유창성' 갈래 — 하루 조절기(M4)가 이 시간을 fluency로 센다      setStrand('fluency');      markInteraction();
+      // 리텔·오늘 질문은 '유창성' 갈래 — 하루 조절기(M4)가 이 시간을 fluency로 센다
+      setStrand('fluency');
+      markInteraction();
       const res: SttResult = await recordAndTranscribe({
         prompt: STT_PROPER_NOUNS,
         language: 'en',
