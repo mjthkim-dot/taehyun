@@ -20,6 +20,8 @@ import { gseTrend, nextActions, overall, PASS_SCORE, PASSES_NEEDED, SKILL_LABEL,
 import { load, store } from '../lib/state';
 import { allWords, progress, MASTER_BOX } from '../lib/words';
 import { goAction } from './CefrHero';
+import { etaLine, totalHours } from '../lib/timeBudget';
+import { placementPrior } from '../lib/cefrGrowth';
 
 const SELF_KEY = 'va_cefr_cando';
 
@@ -75,6 +77,11 @@ export default function CefrScreen({ onNavigate, onSelectLesson }: { onNavigate:
             <div className="cf-hero-line muted">
               {o.next} 도달 기능 {o.skillsAtNext}/4 — 3개면 승급
             </div>
+            {/* M10 시간 예산 — 홈(CefrHero) 첫 청크 예산 때문에 레벨 리포트에만 둔다 */}
+            {(() => {
+              const sp = o.skills.find((s) => s.skill === 'speaking');
+              return sp ? <div className="cf-hero-line muted ga-eta-cf">🗣 {etaLine(sp.level, totalHours(), placementPrior('speaking') || sp.level)}</div> : null;
+            })()}
           </div>
         </div>
         <div className="cf-trend" role="img" aria-label={`최근 8주 GSE 추세: ${trend.map((t) => `${t.label} ${t.gse}`).join(', ')}`}>

@@ -38,7 +38,8 @@ export interface TtsEntry {
   at: number;
 }
 
-export type RecordingKind = 'baseline' | 'monthly' | 'retell' | 'drama' | 'daily-q';
+/** d7 = D+1·D+4·D+7 같은 문장 재녹음(M10) — 드라마 녹음(상한 10, LRU)에 섞으면 일주일 안에 밀려나 따로 둔다 */
+export type RecordingKind = 'baseline' | 'monthly' | 'retell' | 'drama' | 'daily-q' | 'd7';
 
 /** 학습자 녹음 한 개 */
 export interface Recording {
@@ -94,7 +95,7 @@ export const TTS_CACHE_MAX = 300;
 /** 녹음 전체 상한(비평 ⑫: 40개 15MB → 20개) */
 export const RECORDING_MAX = 20;
 /** 종류별 상한 — baseline·monthly는 영구(상한 없음) */
-export const RECORDING_KIND_MAX: Partial<Record<RecordingKind, number>> = { retell: 5, 'daily-q': 3, drama: 10 };
+export const RECORDING_KIND_MAX: Partial<Record<RecordingKind, number>> = { retell: 5, 'daily-q': 3, drama: 10, d7: 3 };
 /** 녹음 '통과' 기준 — 드라마 녹음 보존 우선순위에 쓴다(채점 PASS와 같은 70) */
 const RECORDING_PASS = 70;
 
@@ -254,7 +255,7 @@ const localDate = (t: number) => {
 
 /**
  * 보존 규칙(순수 함수) — 지울 녹음 id 목록을 돌려준다.
- *   · baseline·monthly: 영구(지우지 않는다 — 성장 비교의 기준점)
+ *   · baseline·monthly: 영구(지우지 않는다 — 성장 비교의 기준점) · d7: 최신 3개(D+1·D+4·D+7), 전체 상한에서 제외
  *   · retell 5 · daily-q 3: 최신 우선
  *   · drama 10: LRU이되 '통과한 문장'과 '같은 문장을 2회 이상 녹음한 것'(전후 비교 가능)을 우선 보존
  *   · 전체 상한 20: 그래도 넘치면 영구 종류를 뺀 나머지에서 오래된 것부터
@@ -284,7 +285,8 @@ export function pruneRecordingPlan(all: RecordingMeta[], max = RECORDING_MAX): s
   }
   const remaining = all.filter((r) => !drop.has(r.id));
   if (remaining.length > max) {
-    const evictable = remaining.filter((r) => r.kind !== 'baseline' && r.kind !== 'monthly').sort((a, b) => a.at - b.at);
+    // d7(최대 3개)도 전체 상한에서 빼지 않는다 — D+1 vs D+7 비교가 끝나기 전에 밀려나면 카드가 빈다
+    const evictable = remaining.filter((r) => r.kind !== 'baseline' && r.kind !== 'monthly' && r.kind !== 'd7').sort((a, b) => a.at - b.at);
     for (const r of evictable.slice(0, remaining.length - max)) drop.add(r.id);
   }
   return [...drop];

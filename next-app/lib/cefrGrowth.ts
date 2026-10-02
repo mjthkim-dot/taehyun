@@ -70,10 +70,16 @@ export function evidenceLog(): Evidence[] {
 
 const idx = (c: Cefr) => CEFR_ORDER.indexOf(c);
 
-/** 배치고사 결과 — 없으면 null(아직 측정 전) */
-export function placementPrior(): Cefr | null {
-  const p = load<{ cefr?: Cefr } | null>('va_placed', null);
-  return p && p.cefr && CEFR_ORDER.includes(p.cefr) ? p.cefr : null;
+/**
+ * 배치고사 결과 — 없으면 null(아직 측정 전).
+ * skill을 주면 그 기능의 보정값(va_placed.skills, M10 말하기 기준선이 ±1단계로 쓴다)을 먼저 본다 —
+ * 문법 객관식 배치가 말하기를 과대·과소 추정하는 걸 첫날 자유 발화로 바로잡기 위해서.
+ */
+export function placementPrior(skill?: SkillKey): Cefr | null {
+  // 옵셔널 체이닝은 트랜스파일 뒤 길어진다 — 홈 첫 청크 예산(95KB) 때문에 풀어 쓴다
+  const p = load<{ cefr?: Cefr; skills?: Partial<Record<SkillKey, Cefr>> } | null>('va_placed', null) || {};
+  const c = (skill && p.skills && p.skills[skill]) || p.cefr;
+  return c && CEFR_ORDER.includes(c) ? c : null;
 }
 
 export interface SkillLevel {
@@ -105,7 +111,7 @@ export function skillLevel(skill: SkillKey, now = Date.now(), log = evidenceLog(
   const passAtOrAbove = (L: Cefr) => ev.filter((e) => idx(e.level) >= idx(L)).reduce((a, e) => a + passValue(e.score), 0);
   let proven: Cefr | null = null;
   for (const L of CEFR_ORDER) if (passAtOrAbove(L) >= PASSES_NEEDED) proven = L;
-  const prior = placementPrior() || 'A1';
+  const prior = placementPrior(skill) || 'A1';
   const level = proven && idx(proven) > idx(prior) ? proven : prior;
   const next = CEFR_NEXT[level];
   const atNext = ev.filter((e) => idx(e.level) >= idx(next));

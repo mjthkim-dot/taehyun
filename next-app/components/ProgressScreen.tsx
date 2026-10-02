@@ -34,7 +34,9 @@ import type { Mode } from './NavBar';
 import { isFocusMode } from '../lib/focus';
 import { dramaDueCount, dramaWatchedCount, requestDrama } from '../lib/homeLite';
 import { STRAND_TARGET, strandLine } from '../lib/dayGovernor';
+import dynamic from 'next/dynamic';
 import SoundAxisCard from './progress/SoundAxisLazy'; // M9 소리 축 TOP3(dynamic)
+const SpeakingSection = dynamic(() => import('./progress/SpeakingSection'), { ssr: false }); // M10 말하기 섹션
 
 interface CafSession {
   date: number;
@@ -75,6 +77,7 @@ export default function ProgressScreen({ onNavigate, onSelectLesson }: { onNavig
           </p>
         ) : null;
       })()}
+      <SpeakingSection />
       <DailyQuests />
       <SoundAxisCard />
       {focus && !showAll ? (

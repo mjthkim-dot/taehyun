@@ -7227,3 +7227,272 @@
   margin: 8px 0 0;
   font-size: 0.76rem;
 }
+/* ───────── M10 말하기 기준선·성장 아카이브(.ga-*) ───────── */
+.ga-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 4px 0 10px;
+}
+.ga-title {
+  font-size: 0.92rem;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.ga-lead,
+.ga-q-kr,
+.ga-note,
+.ga-msg,
+.ga-saved,
+.ga-adj,
+.ga-recheck,
+.ga-key-note,
+.ga-intel,
+.ga-foot,
+.ga-agree,
+.ga-eta,
+.ga-eta-sub {
+  margin: 0 0 6px;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.ga-q,
+.ga-pair-en,
+.ga-said {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.ga-said {
+  font-weight: 500;
+}
+.ga-q-play {
+  min-width: 44px;
+  min-height: 44px;
+  margin-left: 6px;
+}
+.ga-msg {
+  font-weight: 700;
+}
+.ga-saved {
+  font-weight: 800;
+  color: var(--green-dk);
+}
+.ga-recheck,
+.ga-key-note {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--primary);
+  background: var(--surface2);
+}
+.ga-actions,
+.ga-ab-row,
+.ga-chips,
+.ga-cmp,
+.ga-goal,
+.ga-rec-row,
+.ga-anchor-btns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ga-start,
+.ga-skip,
+.ga-stop,
+.ga-clip,
+.ga-goal-btn {
+  min-height: 44px;
+}
+.ga-chip {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ga-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.ga-ab-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.ga-clip {
+  min-width: 44px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ga-clip.native {
+  border-color: var(--primary);
+}
+.ga-clip.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+.ga-rec {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ga-bar,
+.ga-level {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface2);
+  overflow: hidden;
+}
+.ga-bar > span,
+.ga-level > span {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  transform-origin: left center;
+  transition: transform 0.15s linear;
+}
+.ga-level {
+  flex: 1;
+  min-width: 40px;
+  height: 6px;
+}
+.ga-level > span {
+  background: var(--green);
+}
+.ga-time,
+.ga-status {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ga-axes {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ga-axis {
+  display: grid;
+  grid-template-columns: minmax(0, 6.5em) minmax(0, 1fr) 2em;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+}
+.ga-axis-name {
+  font-weight: 800;
+}
+.ga-axis-val {
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.ga-axis-val small {
+  margin-left: 4px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+.ga-dir {
+  text-align: center;
+  font-weight: 900;
+  font-size: 1.05rem;
+}
+.ga-dir.up {
+  color: var(--green-dk);
+}
+.ga-dir.down {
+  color: var(--text);
+}
+.ga-goal-btn,
+.ga-score {
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+.ga-goal-btn {
+  padding: 8px 14px;
+}
+.ga-goal-btn.on,
+.ga-score.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+.ga-anchor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ga-anchor-h {
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.ga-anchor-lbl {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.ga-anchor-btns {
+  gap: 4px;
+}
+.ga-score {
+  min-width: 44px;
+  min-height: 44px;
+  flex: 0 0 auto;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+.ga-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ga-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+.ga-item-meta {
+  font-size: 0.82rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ga-item .ga-ab {
+  flex: 0 0 auto;
+}
+.ga-d7 {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

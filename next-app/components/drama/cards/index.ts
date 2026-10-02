@@ -9,4 +9,5 @@ import './RecallCard'; // M3 — 말로 떠올리기 3(order 20) + 조금 더 3(
 import './DecoderCard'; // M7 — 소리 디코더(평일·진단 축 없음, order 50) — HVPT와 하루 1장(lib/soundCardPick)
 import './HvptCard'; // M9 — 소리 구분 HVPT(평일·진단 축 있음·키 있음, order 50)
 import './DailyQuestionCard'; // M5 — 오늘 질문 1개(월·수·금, order 60)
+import './D7Card'; // M10 — D+1·D+4·D+7 같은 문장 녹음, D+7에 D+1과 A/B(order 70)
 export {};
