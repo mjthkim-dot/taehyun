@@ -18,6 +18,7 @@
  * 기록은 lib/roleStep.logRoleResult(시도 로그·혼동축·발화 수·복습 카드) + 통과 녹음 putRecording(kind 'drama').
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import type { AttemptSrc } from '../../lib/reviewEngine';
 import VoiceCompare from '../MyVoice';
 import { speakText, stopSpeaking } from '../SpeakButton';
 import { castNameKo, voiceOf, withWa } from '../../lib/drama';
@@ -84,6 +85,8 @@ export interface RoleStepProps {
   mode: RoleMode;
   /** 엔딩 직전 재소환 — 듣기·플래시 없이 kr만 보고 1회, src 'recall-inline' */
   recall?: boolean;
+  /** 시도 로그 출처를 바꾼다(회화 탭 = 'dtalk'). 기록은 늘 이 컴포넌트가 한 번만 한다 — 호출부에서 다시 logRoleResult 하지 말 것(이중 집계) */
+  logSrc?: AttemptSrc;
   chipSlot?: (ctx: ChipCtx) => ReactNode | null;
   toggleSlot?: ReactNode;
   subsMode?: SubsMode;
@@ -133,6 +136,7 @@ export default function RoleStep({
   epNo,
   mode,
   recall = false,
+  logSrc,
   chipSlot,
   toggleSlot,
   subsMode,
@@ -472,7 +476,7 @@ export default function RoleStep({
       path,
     };
     try {
-      logRoleResult(r, epNo, recall ? 'recall-inline' : mode === 'shadow' ? 'shadow' : 'drama');
+      logRoleResult(r, epNo, logSrc ?? (recall ? 'recall-inline' : mode === 'shadow' ? 'shadow' : 'drama'));
     } catch {
       /* 기록 실패는 흐름을 막지 않는다 */
     }

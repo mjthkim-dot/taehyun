@@ -167,18 +167,29 @@ const SR_STUB = () => {
 {
   // 회화(키 없음) — 대사 따라 말하기 ✓를 두 번 눌러도 한 번만 센다
   const { ctx, page } = await ctxPage({ va_placed: TODAY_PLACED, va_drama: { done: { 1: '2026-09-28' }, score: { 1: 80 } } });
+  // delete는 프로토타입에 있는 속성을 지우지 못한다 — 89-dtalk-gate처럼 defineProperty로 확실히 없앤다
   await page.addInitScript(() => {
-    delete window.webkitSpeechRecognition;
-    delete window.SpeechRecognition;
+    Object.defineProperty(window, 'SpeechRecognition', { value: undefined, configurable: true });
+    Object.defineProperty(window, 'webkitSpeechRecognition', { value: undefined, configurable: true });
   });
   await page.goto(`${BASE}/app`);
   await page.waitForSelector('.mode-tab', { timeout: 15000 });
   await page.click('.mode-tab:has-text("회화")');
-  await page.waitForSelector('.dt-shadow', { timeout: 15000 });
-  const first = page.locator('.dt-shadow').first();
-  await first.locator('button:has-text("말했어요")').click();
-  await first.locator('button:has-text("말했어요")').click();
-  check('대사 한 줄 ✓는 한 번만 센다', await page.evaluate(() => JSON.parse(localStorage.getItem('va_spoken') || '{}').count === 1));
+  // 헤드리스엔 마이크가 없어 자동 녹음이 실패하면 RoleStep이 대기(idle) — 🎙 한 번 더 → 자기확인(위 드라마 블록과 같은 설계 경로)
+  for (const t5 = Date.now(); Date.now() - t5 < 20000 && !(await page.locator('.rs-self-ok').count()); ) {
+    if (await page.locator('[data-phase=idle] .rs-mic').count()) await page.locator('[data-phase=idle] .rs-mic').first().click();
+    await page.waitForTimeout(150);
+  }
+  // M6 이후 키 없는 회화는 예전 따라 말하기 목록(.dt-shadow) 대신 RoleStep 한 줄씩 — 자기확인 버튼이 .rs-self-ok.
+  // 의도는 그대로: 같은 ✓를 두 번 눌러도(연타) 한 문장으로만 센다. 두 번 다 같은 버튼에 닿도록 한 evaluate 안에서 누른다.
+  await page.waitForSelector('.rs-self-ok', { timeout: 20000 });
+  await page.evaluate(() => {
+    const b = document.querySelector('.rs-self-ok');
+    b.click();
+    b.click();
+  });
+  await page.waitForTimeout(400);
+  check('대사 한 줄 ✓는 한 번만 센다', await page.evaluate(() => JSON.parse(localStorage.getItem('va_spoken') || '{}').count === 1), await page.evaluate(() => localStorage.getItem('va_spoken')));
   await ctx.close();
 }
 

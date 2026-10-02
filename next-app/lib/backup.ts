@@ -24,9 +24,8 @@ const EXTRA_KEYS = ['theme'];
 /**
  * 백업은 localStorage(va_*)만 담는다 — IndexedDB의 녹음(기준선·월간·리텔·드라마·오늘 질문)과
  * TTS 음성 캐시는 파일에 들어가지 않는다(수 MB 음성을 JSON에 넣으면 파일이 커지고 복원이 느려진다).
- * 화면 안내 문구는 여기 한 곳에서 가져간다(M1).
+ * 화면 안내 문구는 lib/backupNote.ts(백업 화면 전용 — 홈 첫 청크에 싣지 않게 분리).
  */
-export const BACKUP_SCOPE_NOTE = '🎙 녹음(기준선·월간·드라마)은 백업에 포함되지 않아요 — 이 기기에만 남습니다. 점수·기록은 백업에 들어가요.';
 
 export interface BackupFile {
   app: string;

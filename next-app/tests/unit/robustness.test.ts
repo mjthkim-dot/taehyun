@@ -131,7 +131,8 @@ describe('M1 — 새 키 모양 검사(복원 허용목록)', () => {
     expect(load<{ src: string }[]>('va_cefr_evidence', []).map((e) => e.src)).toEqual(['retell', 'dtalk', 'drama-blind', 'talk']);
   });
   test('백업 복원은 새 키를 받아들이고 녹음 안내 문구가 있다', async () => {
-    const { restoreBackup, BACKUP_SCOPE_NOTE } = await import('../../lib/backup');
+    const { restoreBackup } = await import('../../lib/backup');
+    const { BACKUP_SCOPE_NOTE } = await import('../../lib/backupNote');
     const data: Record<string, string> = {};
     for (const k of ['va_retell', 'va_attempt_daily', 'va_flags', 'va_day_gov', 'va_growth', 'va_sound_track', 'va_recall_speak', 'va_baseline', 'va_diag', 'va_speak_goal', 'va_ear'])
       data[k] = JSON.stringify(k === 'va_speak_goal' ? { goal: 12, kind: 'scored' } : k === 'va_flags' ? { retell: false } : {});

@@ -39,7 +39,6 @@ import { logAttempt } from '../lib/reviewEngine';
 import { detectL1 } from '../lib/l1Grammar';
 import { recordSkillResult } from '../lib/cefrGrowth';
 import { cafLite, taskCefr } from '../lib/cafLite';
-import { logRoleResult } from '../lib/roleStep';
 import { markInteraction, setDaySession, setStrand, startDayTracking } from '../lib/dayGovernor';
 import { pickReactionHints } from '../lib/reactions';
 import { recAvailable, recOnce } from '../lib/dtalkRec';
@@ -209,14 +208,9 @@ function KeylessRole({ ep, rate }: { ep: NonNullable<ReturnType<typeof talkSetup
         mode="role"
         maxSkips={Infinity}
         rate={rate}
-        onDone={(r) => {
-          try {
-            logRoleResult(r, ep.no, 'dtalk');
-          } catch {
-            /* 기록 실패는 연습을 막지 않는다 */
-          }
-          setI((n) => n + 1);
-        }}
+        // 기록은 RoleStep이 한 번만(출처 'dtalk' — 홈 '회화' 점). 여기서 다시 logRoleResult 하면 한 줄이 두 문장으로 셌다
+        logSrc="dtalk"
+        onDone={() => setI((n) => n + 1)}
       />
     </div>
   );

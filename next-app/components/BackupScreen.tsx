@@ -8,7 +8,8 @@ import '../app/screens.css';
  * 내보내고, 다른 기기/브라우저에서 그 파일로 복원한다. 로직은 lib/backup.ts.
  */
 import { useEffect, useRef, useState } from 'react';
-import { downloadBackup, restoreBackup, dataSummary, eraseAllData, BACKUP_SCOPE_NOTE } from '../lib/backup';
+import { downloadBackup, restoreBackup, dataSummary, eraseAllData } from '../lib/backup';
+import { BACKUP_SCOPE_NOTE } from '../lib/backupNote';
 import { flagList, resetFlags, setFlag } from '../lib/flags';
 import { NAVIGATE_EVENT } from '../lib/state';
 
