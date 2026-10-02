@@ -23,7 +23,12 @@ const HomeShortcuts = dynamic(() => import('./HomeShortcuts'), {
 });
 import { consumeFreezesForGaps, getFreezeCount } from '../lib/habits';
 const CurriculumPath = dynamic(() => import('./CurriculumPath'), { ssr: false });
-import StreakFlame from './StreakFlame';
+// 불꽃(스트릭·주간 달력·마일스톤 축하)은 집중 모드에선 드라마 카드·레벨 카드 아래 — 첫 청크 예산(95KB) 때문에 지연 청크로(M3).
+// 자리표시자 높이 = 실측(390px)이라 늦게 떠도 아래가 밀리지 않는다.
+const StreakFlame = dynamic(() => import('./StreakFlame'), {
+  ssr: false,
+  loading: () => <div className="streak-hero" style={{ minHeight: 168 }} aria-hidden="true" />,
+});
 // 전체 모드 전용(오늘 세션·주간 시험) — 성장 단계·패턴 데이터를 안고 있어 집중 모드 홈 번들에서 뺀다
 const HomeFullExtras = dynamic(() => import('./HomeFullExtras'), { ssr: false });
 import { programStarted, PROGRAM_EVENT, dramaWatchedCount } from '../lib/homeLite';

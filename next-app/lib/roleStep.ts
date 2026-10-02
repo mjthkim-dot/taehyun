@@ -303,7 +303,9 @@ export function logRoleResult(r: RoleResult, epNo: number, src: AttemptSrc = r.m
     addWeakItem({ en: r.en, kr: r.kr, cat: '드라마', lesson: `drama:${epNo}` }, 1);
     return;
   }
-  bumpSpoken();
+  // M3 발화 연료: 채점된 발화 1.0 · 자기확인 0.5(키 없는 구간 1.0 — state.bumpSpoken) · 조용히(입모양) 0.5
+  if (r.mode === 'lip') bumpSpoken(0.5, 'self');
+  else bumpSpoken(undefined, r.self && !r.disputed ? 'self' : 'scored');
   if (!r.self || r.disputed) {
     logAttempt({
       t: Date.now(),

@@ -21,6 +21,10 @@ import '../app/screens.css';
  *  - 역할극 장면에서는 자동 흐름이 멈추고 결과 뒤 '다음'으로 이어진다. 플래그 rolePlay가 꺼지면 예전 동작
  *    (태오 대사 자동 재생, speak 장면만 따라 말하기·넘어가기 무제한).
  *  - 엔딩 직전 '방금 60점 미만' 최대 2개를 한국어만 보고 다시 말한다(세션 내 재소환, src 'recall-inline').
+ *
+ * M3 말로 떠올리기: 첫머리 '지난 화 기억나요?'·표현 복습 세션의 회상은 components/drama/RecallStep.tsx(한국어만 보고 바로 말하기).
+ *  - box 0 카드와 플래그 speakRecall off는 예전 3지선다 그대로(이 파일 안의 고르기). 키도 Web Speech도 없으면 RecallStep의 고르기 + 녹음 A/B.
+ *  - 키 없는 날의 속도 사다리(0.9→1.0→1.2× 자막 없이 다시 듣기)는 홈 요청(requestDrama replay+speed+ladder)으로 열고, 끝나면 한 단 정산.
  */
 import { Component, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import type { Mode } from './NavBar';
@@ -31,7 +35,8 @@ import EndingExtras from './drama/EndingExtras';
 import { haptic } from '../lib/haptics';
 import { BACK_EVENT, calcStreak, gradeWeakItem, groqKey, load, slowRate, store } from '../lib/state';
 import { browserSttAvailable } from '../lib/browserStt';
-import { DRAMA_REQ_KEY, markDramaPracticeToday, setDramaPlaying, type DramaRequest } from '../lib/homeLite';
+import { advanceLadder, DRAMA_REQ_KEY, markDramaPracticeToday, setDramaPlaying, type DramaRequest, type LadderPlan } from '../lib/homeLite';
+import { speakGoal } from '../lib/speakGoal';
 import { whisperAvailable } from '../lib/stt';
 import { isOn } from '../lib/flags';
 import { todayKey } from '../lib/dates';
@@ -61,6 +66,7 @@ import {
   nextEpisodeNo,
   prefetchEpisode,
   recallItems,
+  recallUiMode,
   reviewItems,
   roleTargets,
   saveResume,
@@ -96,6 +102,34 @@ function loadRoleStep(): Promise<RoleStepComp | null> {
       });
   return roleStepLoad;
 }
+// 말로 떠올리기(M3) — 역할극과 같은 이유로 따로 받고 받은 모듈을 캐시한다
+type RecallStepComp = typeof import('./drama/RecallStep').default;
+let recallStepMod: RecallStepComp | null = null;
+let recallStepLoad: Promise<RecallStepComp | null> | null = null;
+function loadRecallStep(): Promise<RecallStepComp | null> {
+  if (recallStepMod) return Promise.resolve(recallStepMod);
+  if (!recallStepLoad)
+    recallStepLoad = import('./drama/RecallStep')
+      .then((m) => (recallStepMod = m.default))
+      .catch(() => {
+        recallStepLoad = null;
+        return null;
+      });
+  return recallStepLoad;
+}
+function RecallStep(props: ComponentProps<RecallStepComp>) {
+  const [Comp, setComp] = useState<RecallStepComp | null>(() => recallStepMod);
+  useEffect(() => {
+    if (Comp) return;
+    let on = true;
+    void loadRecallStep().then((c) => on && c && setComp(() => c));
+    return () => {
+      on = false;
+    };
+  }, [Comp]);
+  return Comp ? <Comp {...props} /> : <div className="dr-act rc-loading">🎙 준비 중…</div>;
+}
+
 function RoleStep(props: ComponentProps<RoleStepComp>) {
   const [Comp, setComp] = useState<RoleStepComp | null>(() => roleStepMod);
   useEffect(() => {
@@ -170,6 +204,9 @@ export interface PlayResult {
   byLevel: LevelStats;
   /** 역할극 집계(M2) — 역할극이 없던 세션(복습·다시 풀기)은 undefined */
   speakStats?: SpeakStats;
+  /** 엔딩 직전 재소환한 문장·첫머리에 떠올린 문장(M3 — 엔딩 회상 카드가 겹치지 않게) */
+  inlineEns?: string[];
+  recallEns?: string[];
 }
 
 /** 참여 장면의 정답 문장과 그 뜻(복습 카드용) */
@@ -198,6 +235,7 @@ function Player({
   resume,
   subsOff,
   dayState,
+  speedOverride,
 }: {
   ep: Episode;
   onEnd: (r: PlayResult) => void;
@@ -212,9 +250,17 @@ function Player({
    * quiet(조용히 — 역할극이 입모양 모드, 넘어가기 무제한) · returning(복귀 첫날 — 넘어가기 무제한)
    */
   dayState?: { quiet?: boolean; returning?: boolean };
+  /** 이 재생만의 시작 속도(속도 사다리 — 저장하지 않는다) */
+  speedOverride?: number;
 }) {
   // 첫머리 복습 — 지난 화 표현 떠올리기(간격 반복). 이어 볼 때는 그때 문항 그대로(장면 번호가 어긋나지 않게)
-  const rc = useMemo<RecallItem[]>(() => (review ? review : practice ? [] : resume ? resume.rc : recallItems(ep.no)), [ep, practice, resume, review]);
+  // M3: 플래그 speakRecall이 켜져 있으면 box≥1 카드는 말로 떠올리기(mode 'speak'), 꺼져 있으면 예전 3지선다
+  const speakRecall = isOn('speakRecall');
+  const rc = useMemo<RecallItem[]>(
+    () => (review ? review : practice ? [] : resume ? resume.rc : recallItems(ep.no, 3, speakRecall ? { mode: 'speak' } : {})),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ep, practice, resume, review]
+  );
   const baseScenes = useMemo<PScene[]>(() => {
     if (review) return [{ type: 'narr', kr: `표현 복습 — 지난 화들에서 배운 표현 ${review.length}개를 떠올려 봐요.` } as Scene, ...review.map((r) => ({ type: 'recall' as const, ...r }))];
     if (practice || !rc.length) return ep.scenes;
@@ -271,6 +317,9 @@ function Player({
   const postQuizRef = useRef(postQuiz);
   postQuizRef.current = postQuiz;
   const inlineDone = useRef(false);
+  const inlineEnsRef = useRef<string[]>([]);
+  /** 이 회상 장면을 RecallStep(말로 떠올리기·키 없는 고르기+A/B)이 맡나 — box 0·플래그 off는 예전 고르기 */
+  const recallByStep = (sc: PScene | undefined) => !!sc && sc.type === 'recall' && speakRecall && (recallUiMode(sc.mode, path) === 'speak' || path === 'self');
 
   const [i, setI] = useState(() => (resume ? Math.min(resume.i, scenes.length - 1) : 0));
   const [log, setLog] = useState<LogItem[]>(() => (resume ? (resume.log as LogItem[]) : []));
@@ -280,7 +329,7 @@ function Player({
   const [subs, setSubs] = useState(() => (subsOff ? false : load<boolean>(SUBS_KEY, true)));
   const [mute, setMute] = useState(() => load<boolean>(MUTE_KEY, false));
   // 재생 속도 — 0.6×~1.2×(설정은 다음 화에도 유지). 처음 보는 A1이거나 방금 쉬워진 사용자는 0.75×
-  const [speed, setSpeed] = useState(initialSpeed);
+  const [speed, setSpeed] = useState(() => (speedOverride && (DRAMA_SPEEDS as readonly number[]).includes(speedOverride) ? speedOverride : initialSpeed()));
   const [speedOpen, setSpeedOpen] = useState(false);
   const speedRef = useRef(speed);
   speedRef.current = speed;
@@ -338,6 +387,10 @@ function Player({
     if (roleMap.size) void loadRoleStep();
   }, [roleMap]);
   useEffect(() => {
+    if (rc.some((r) => recallByStep({ type: 'recall', ...r }))) void loadRecallStep();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rc]);
+  useEffect(() => {
     const sc = endRef.current?.closest('.app-content') as HTMLElement | null;
     if (!sc) return;
     const on = () => {
@@ -393,6 +446,7 @@ function Player({
         inlineDone.current = true;
         const items = recallInlineItems(roleResults.current);
         if (items.length) {
+          inlineEnsRef.current = items.map((x) => x.en);
           setExtra(items.map((x) => ({ type: 'recallInline' as const, idx: x.sceneIdx, who: x.who, en: x.en, kr: x.kr })));
           setI(cur + 1);
           return;
@@ -411,6 +465,8 @@ function Player({
         retry: retryRef.current,
         byLevel: byLevelRef.current,
         speakStats: roleResults.current.length ? speakStatsFrom(roleResults.current) : undefined,
+        inlineEns: inlineEnsRef.current,
+        recallEns: rc.map((r) => r.en),
       });
       return;
     }
@@ -792,7 +848,28 @@ function Player({
           />
         ))}
 
-        {scene?.type === 'recall' && picked === null && (
+        {scene?.type === 'recall' && picked === null && recallByStep(scene) && (
+          <RecallStep
+            key={`rc-${i}`}
+            item={scene}
+            review={!!review}
+            rate={roleRate}
+            mute={mute}
+            onDone={(res) => {
+              // 표현 복습 세션에선 떠올린 개수가 곧 성적(힌트로 떠올린 것도 '기억'으로 센다)
+              if (review) {
+                askedRef.current += 1;
+                if (res.good) okRef.current += 1;
+              }
+              pickedRef.current = 0;
+              setPicked(0);
+              focusAfter.current = true;
+              push({ kind: 'note', ok: res.good, text: `${res.good ? (res.hinted ? '힌트로 떠올렸어요 — ' : '기억하고 있네요! ') : '다시 볼게요 — '}“${scene.en}” = ${scene.kr}` });
+              if (canFlow()) scheduleNext(900);
+            }}
+          />
+        )}
+        {scene?.type === 'recall' && picked === null && !recallByStep(scene) && (
           <div className="dr-act">
             <div className="dr-ask">🧠 지난 화: “{scene.kr}” — 영어로는?</div>
             {order.map((k) => (
@@ -1044,6 +1121,8 @@ function Ending({
   onRetry,
   onHub,
   onNavigate,
+  ladder,
+  onLadderNext,
 }: {
   ep: Episode;
   result: PlayResult;
@@ -1056,6 +1135,9 @@ function Ending({
   onRetry: () => void;
   onHub: () => void;
   onNavigate?: (m: Mode) => void;
+  /** 속도 사다리로 본 재청취의 결과(M3) */
+  ladder?: { plan: LadderPlan; speed: number } | null;
+  onLadderNext?: (speed: number) => void;
 }) {
   const say = (en: string) => {
     stopSpeaking();
@@ -1103,8 +1185,16 @@ function Ending({
   const canRetry = result.retry.length > 0 && !retried;
   const nextEpInfo = episodeByNo(nextNo);
   const endingCtx = useMemo(
-    () => ({ ep, dateKey: todayKey(), keyless: !whisperAvailable() && !browserSttAvailable(), speak: result.speakStats }),
-    [ep, result.speakStats]
+    () => ({
+      ep,
+      dateKey: todayKey(),
+      keyless: !whisperAvailable() && !browserSttAvailable(),
+      speak: result.speakStats,
+      // M3 회상 카드 — 엔딩 직전 재소환·첫머리 회상과 같은 문장은 다시 묻지 않는다
+      inlineEns: result.inlineEns || [],
+      recallEns: result.recallEns || [],
+    }),
+    [ep, result.speakStats, result.inlineEns, result.recallEns]
   );
   const nextIsAi = !nextEpInfo || !!nextEpInfo.ai;
   return (
@@ -1115,6 +1205,38 @@ function Ending({
           {ep.titleKr}
         </h2>
         <div className="dr-end-score">이해도 {result.score}%</div>
+        {ladder && (
+          <div className={`rc-ladder${ladder.plan.done ? ' done' : ''}`} role="status">
+            <div className="rc-ladder-steps" aria-label="속도 사다리">
+              {[0.9, 1, 1.2].map((v, k) => (
+                <span key={v} className={`rc-ladder-step${k < ladder.plan.step ? ' ok' : ''}`}>
+                  {v.toFixed(1)}×{k < ladder.plan.step ? ' ✓' : ''}
+                </span>
+              ))}
+            </div>
+            {ladder.plan.done ? (
+              <p className="rc-ladder-msg">👂 귀 뚫림 ✓ — 세 빠르기 모두 자막 없이 통과했어요</p>
+            ) : ladder.plan.speed !== ladder.speed ? (
+              <>
+                <p className="rc-ladder-msg">{ladder.speed.toFixed(1)}× 통과! 다음은 {ladder.plan.speed.toFixed(1)}×</p>
+                {onLadderNext && (
+                  <button type="button" className="btn primary dr-go rc-ladder-next" onClick={() => onLadderNext(ladder.plan.speed)}>
+                    🎧 {ladder.plan.speed.toFixed(1)}×로 다시 듣기
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="rc-ladder-msg">이해도 60% 이상이면 다음 빠르기로 올라가요</p>
+                {onLadderNext && (
+                  <button type="button" className="btn ghost dr-go rc-ladder-next" onClick={() => onLadderNext(ladder.speed)}>
+                    🎧 {ladder.speed.toFixed(1)}×로 한 번 더
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
         {!retried && streak > 0 && <p className="dr-flame">🔥 오늘 불꽃이 켜졌어요 · 연속 {streak}일</p>}
         {!retried && growth && (
           <p className="dr-msg">
@@ -1207,6 +1329,9 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
   const [reviewRes, setReviewRes] = useState<{ ok: number; total: number } | null>(null);
   /** 본 화를 '자막 없이 다시 듣기'로 여는 중인가 */
   const [subsOffPlay, setSubsOffPlay] = useState(false);
+  /** 이 재생의 시작 속도·사다리 여부(M3 속도 사다리) */
+  const [playOpts, setPlayOpts] = useState<{ speed?: number; ladder?: boolean }>({});
+  const [ladderRes, setLadderRes] = useState<{ plan: LadderPlan; speed: number } | null>(null);
   const [levelChange, setLevelChange] = useState<-1 | 0 | 1>(0);
   const [retried, setRetried] = useState<{ ok: number; total: number } | null>(null);
   const [binge, setBinge] = useState(false);
@@ -1225,6 +1350,14 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
     setDramaPlaying(view === 'play' || view === 'retry' || view === 'review');
   }, [view]);
   useEffect(() => () => setDramaPlaying(false), []);
+  // 발화 목표(M3) — 하루가 바뀌었으면 연속일·가산을 정산해 저장(홈은 저장값만 읽는다)
+  useEffect(() => {
+    try {
+      speakGoal();
+    } catch {
+      /* 저장소 오류는 화면을 막지 않는다 */
+    }
+  }, [view]);
 
   /**
    * 화면 전환 + 브라우저 기록 — 휴대폰 '뒤로'가 앱을 닫지 않고 재생 → 목록으로 한 단계 돌아가게.
@@ -1261,7 +1394,8 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
   function startReview() {
     primeAudio();
     setErr('');
-    const items = reviewItems();
+    // M3: 말로 떠올리기(플래그 off면 예전 고르기)
+    const items = reviewItems(8, isOn('speakRecall') ? { mode: 'speak' } : {});
     if (!items.length) {
       setErr('지금 떠올릴 표현이 없어요 — 배운 표현은 하루 뒤부터 복습에 나와요.');
       setView('hub');
@@ -1271,11 +1405,13 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
     setView('review');
   }
 
-  async function open(no: number, o: { subsOff?: boolean } = {}) {
+  async function open(no: number, o: { subsOff?: boolean; speed?: number; ladder?: boolean } = {}) {
     primeAudio(); // 탭(제스처) 안에서 오디오 언락 — iOS 첫 대사 무음 방지
     setErr('');
     setRetried(null);
     setSubsOffPlay(!!o.subsOff);
+    setPlayOpts({ speed: o.speed, ladder: !!o.ladder && typeof o.speed === 'number' });
+    setLadderRes(null);
     const have = episodeByNo(no);
     if (have) {
       setEp(have);
@@ -1330,7 +1466,7 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
         return;
       }
       if (req.kind === 'replay' && typeof req.no === 'number') {
-        void open(req.no, { subsOff: !!req.subsOff });
+        void open(req.no, { subsOff: !!req.subsOff, speed: typeof req.speed === 'number' ? req.speed : undefined, ladder: !!req.ladder });
         return;
       }
     }
@@ -1454,6 +1590,7 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
           practice={practice}
           resume={practice ? null : resume}
           subsOff={!practice && subsOffPlay}
+          speedOverride={practice ? undefined : playOpts.speed}
           onExit={() => {
             stopSpeaking();
             setTick((t) => t + 1);
@@ -1479,6 +1616,8 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
               /* 미지원 브라우저 */
             }
             const { levelChange: lc } = completeEpisode(ep, r.score, r.asked, r.missed, r.byLevel, r.speakStats);
+            // 속도 사다리(M3) — 이해도 60% 이상이면 한 단 오른다
+            if (playOpts.ladder && typeof playOpts.speed === 'number') setLadderRes({ plan: advanceLadder(ep.no, playOpts.speed, r.score), speed: playOpts.speed });
             // 너무 어려웠으면 다음 화는 자막을 켜 둔다(듣기 발판)
             if (lc === -1) {
               store(SUBS_KEY, true);
@@ -1507,6 +1646,8 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
         onRetry={() => setView('retry')}
         onHub={() => setView('hub')}
         onNavigate={onNavigate}
+        ladder={retried ? null : ladderRes}
+        onLadderNext={(sp) => void open(ep.no, { subsOff: true, speed: sp, ladder: true })}
       />
     );
   }
@@ -1528,7 +1669,15 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
           ))}
         </div>
         {/* 오늘 무엇을 할까 — 오늘 봤거나(하루 한 편) 키 없이 다 봤으면 복습이 먼저, 다음 화는 보조 */}
-        {plan.kind === 'review' ? (
+        {plan.kind === 'speak' ? (
+          <button type="button" className="btn primary dr-go" onClick={() => (plan.due > 0 ? startReview() : plan.replayNo && void open(plan.replayNo))}>
+            🗣 발화 {Math.floor(plan.spoken)}/{plan.goal} — {plan.due > 0 ? `표현 ${plan.due}개 말로 떠올리기` : `EP ${plan.replayNo} 역할극 다시`}
+          </button>
+        ) : plan.kind === 'ladder' && plan.ladder ? (
+          <button type="button" className="btn primary dr-go" onClick={() => void open(plan.ladder!.no, { subsOff: true, speed: plan.ladder!.speed, ladder: true })}>
+            🎧 EP {plan.ladder.no} {plan.ladder.speed.toFixed(1)}×로 다시 듣기
+          </button>
+        ) : plan.kind === 'review' ? (
           <button type="button" className="btn primary dr-go" onClick={startReview}>
             🧠 오늘의 복습 — 표현 {plan.due}개 떠올리기
           </button>
@@ -1541,7 +1690,7 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
             EP {nextNo} 보기{nextEp ? ` · ${nextEp.titleKr}` : ' · 새 에피소드'}
           </button>
         )}
-        {plan.kind === 'next' && plan.due > 0 && (
+        {(plan.kind === 'next' || plan.kind === 'ladder') && plan.due > 0 && (
           <button type="button" className="btn ghost dr-go" onClick={startReview}>
             🧠 표현 복습 {plan.due}개
           </button>

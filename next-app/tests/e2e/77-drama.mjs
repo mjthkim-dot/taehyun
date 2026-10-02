@@ -148,7 +148,8 @@ check('가이드가 사라진다', (await page.locator('.fg-card').count()) === 
 check('홈의 주인공 = 오늘의 에피소드 EP 2(완료 표시)', await page.evaluate(() => /EP 2/.test(document.querySelector('.dr-card-title')?.textContent || '') && document.querySelector('.dr-card')?.textContent.includes('완료')));
 check('지난 이야기의 예고가 훅으로(내일 공개)', await page.evaluate(() => document.querySelector('.dr-card-hook')?.textContent.includes('CEO') && document.querySelector('.dr-card-hook')?.textContent.includes('내일')));
 // 하루 한 편 — 오늘 봤으면 주 버튼은 다음 화가 아니라 오늘의 복습(떠올릴 게 없으면 자막 없이 다시 듣기)
-check('오늘 본 뒤 주 버튼 = 다시 듣기/복습(다음 화 아님)', await page.evaluate(() => /다시 듣기|복습/.test(document.querySelector('.dr-card .dr-go')?.textContent || '')));
+// M3: 오늘 봤는데 발화가 목표(10) 전이면 주 버튼은 '말하기'(역할극 다시·말로 떠올리기) — 다음 화가 아닌 것은 같다
+check('오늘 본 뒤 주 버튼 = 다시 듣기/복습/말하기(다음 화 아님)', await page.evaluate(() => /다시 듣기|복습|말하기/.test(document.querySelector('.dr-card .dr-go')?.textContent || '') && !/보기 · 약 5분/.test(document.querySelector('.dr-card .dr-go')?.textContent || '')));
 check('다음 화는 보너스 링크로만', (await page.locator('.dr-card button:has-text("보너스로 EP 2")').count()) === 1);
 
 /* ⑦ 2화 — 첫머리 복습 */

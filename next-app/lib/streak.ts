@@ -19,7 +19,7 @@
  */
 import { dateKey } from './dates';
 import { load, store, calcStreak, spokenToday, dailyGoal } from './state';
-import { dramaPracticedToday } from './homeLite';
+import { dramaPracticedToday, speakLine } from './homeLite';
 import { isFocusMode } from './focus';
 
 export const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100, 200, 365] as const;
@@ -43,20 +43,28 @@ export interface FlameState {
   episode: boolean;
   /** 집중 모드(하루 한 편이 목표) */
   focus: boolean;
+  /** 집중 모드: 반불꽃 — 에피소드(연습)만 하고 발화 목표 전(level 'ember'와 같은 뜻, M3) */
+  half?: boolean;
 }
 
 export function flameState(): FlameState {
   const streak = calcStreak();
-  const spoken = spokenToday();
-  const goal = dailyGoal();
+  const nextMilestone = STREAK_MILESTONES.find((m) => m > streak) ?? null;
   const today = dstr(new Date());
   const practiced = load<string[]>('va_days', []).includes(today);
-  // 하루 한 편 루틴: 드라마 에피소드 한 편을 끝내면 오늘 목표 달성(예전엔 20문장을 말해야만
-  // 켜져서, 한 편을 다 봐도 불꽃이 꺼진 채로 남았다)
   const episode = dramaPracticedToday();
+  if (isFocusMode()) {
+    // M3 집중 분기 — 불꽃의 연료는 시청이 아니라 발화: lit = 발화 ≥ 목표(짧은 날 ×0.5·적응일 ×0.6),
+    // 에피소드만 봤으면 반불꽃(ember). 목표는 va_speak_goal(state.speakGoalLite) — 홈 청크라 habits를 부르지 않는다.
+    const line = speakLine();
+    const level: FlameLevel = line.lit ? 'lit' : line.half || practiced ? 'ember' : 'off';
+    return { streak, spoken: line.spoken, goal: line.goal, level, nextMilestone, episode, focus: true, half: level === 'ember' };
+  }
+  const spoken = spokenToday();
+  const goal = dailyGoal();
+  // 전체 모드는 예전 그대로 — 하루 한 편 루틴: 드라마 에피소드 한 편을 끝내면 오늘 목표 달성
   const level: FlameLevel = spoken >= goal || episode ? 'lit' : practiced || spoken > 0 ? 'ember' : 'off';
-  const nextMilestone = STREAK_MILESTONES.find((m) => m > streak) ?? null;
-  return { streak, spoken, goal, level, nextMilestone, episode, focus: isFocusMode() };
+  return { streak, spoken, goal, level, nextMilestone, episode, focus: false };
 }
 
 export type DayFlame = 'lit' | 'frozen' | 'missed' | 'today' | 'before';

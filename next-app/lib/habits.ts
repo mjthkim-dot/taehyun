@@ -11,7 +11,7 @@
  * 데이터로 계산만 한다 — 새 인프라 없음. 달성 시 XP 적립, 주간 XP 그래프.
  */
 import { dateKey } from './dates';
-import { load, store, dueWeak, spokenToday, dailyGoal } from './state';
+import { load, store, dueWeak, spokenToday, dailyGoal, SPEAK_GOAL_KEY, SPEAK_GOAL_DEFAULT, SPEAK_GOAL_MAX } from './state';
 import { isMissionDoneToday } from './homeLite';
 import { isFocusMode } from './focus';
 import { dramaPracticedToday } from './homeLite';
@@ -41,6 +41,14 @@ function loadFreeze(): FreezeState {
 
 export function getFreezeCount(): number {
   return loadFreeze().count;
+}
+
+/** 프리즈 1개 적립(상한 FREEZE_MAX) — 주간 발화 목표 5/7일(lib/speakGoal)이 부른다. 적립됐으면 true */
+export function grantFreeze(): boolean {
+  const f = loadFreeze();
+  if (f.count >= FREEZE_MAX) return false;
+  store(FREEZE_KEY, { ...f, count: f.count + 1 });
+  return true;
 }
 
 /** 미션 완료일 기록 + 3일마다 프리즈 적립. 이번에 적립됐으면 true. */
@@ -109,10 +117,21 @@ export interface Quest {
   note?: string;
 }
 
+/* ── 발화 목표(M3) — 계산·저장(speakGoal·capSpeakGoalToday)은 lib/speakGoal.ts ──
+ * 이 파일은 홈 첫 청크에 통째로 실린다(MasterScreen이 프리즈를 읽는다 — 안 쓰는 export도 남는다).
+ * 예산(95KB) 때문에 발화 목표 계산은 드라마 화면 청크에서만 받는 별도 파일에 두고, 여기서는 저장값만 읽는다(getQuests).
+ */
 const REVIEW_GOAL = 5;
 /** 집중 모드 퀘스트 목표 — 드라마 한 편 안에서 자연히 채워지는 양 */
 const FOCUS_RECALL_GOAL = 2;
 const FOCUS_SPEAK_GOAL = 3;
+
+/** 집중 모드 발화 퀘스트 목표 — 저장된 발화 목표(va_speak_goal.goal, 없으면 10). speakGoal()을 부르지 않는다(읽기만) */
+function focusSpeakGoal(): number {
+  const g = load<{ goal?: unknown } | null>(SPEAK_GOAL_KEY, null);
+  const v = g && typeof g.goal === 'number' && Number.isFinite(g.goal) ? Math.round(g.goal) : SPEAK_GOAL_DEFAULT;
+  return Math.min(SPEAK_GOAL_MAX, Math.max(FOCUS_SPEAK_GOAL, v));
+}
 
 export function getQuests(): Quest[] {
   const today = dstr(new Date());
@@ -125,6 +144,7 @@ export function getQuests(): Quest[] {
   if (isFocusMode()) {
     const episode = dramaPracticedToday();
     const recallAuto = due === 0 && reviewCount === 0;
+    const speakGoalN = focusSpeakGoal();
     return [
       { id: 'episode', label: '드라마 한 편 보기(또는 복습)', progress: episode ? 1 : 0, goal: 1, done: episode, xp: 50 },
       {
@@ -136,12 +156,13 @@ export function getQuests(): Quest[] {
         xp: 20,
         note: recallAuto ? '오늘은 떠올릴 표현이 없어요 — 자동 달성' : undefined,
       },
+      // M3: 발화 퀘스트 = 오늘의 발화 목표(10→20→35) — 불꽃의 연료와 같은 수
       {
         id: 'speak',
-        label: `영어로 ${FOCUS_SPEAK_GOAL}문장 말하기 (따라 말하기·회화)`,
-        progress: Math.min(spoken, FOCUS_SPEAK_GOAL),
-        goal: FOCUS_SPEAK_GOAL,
-        done: spoken >= FOCUS_SPEAK_GOAL,
+        label: `영어로 ${speakGoalN}문장 말하기 (역할극·회상·회화)`,
+        progress: Math.min(Math.floor(spoken), speakGoalN),
+        goal: speakGoalN,
+        done: spoken >= speakGoalN,
         xp: 30,
       },
     ];

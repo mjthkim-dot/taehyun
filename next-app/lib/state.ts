@@ -169,17 +169,44 @@ export function spokenToday(): number {
   return rv.date === todayKey() ? rv.count : 0;
 }
 
-export function bumpSpoken() {
+/**
+ * 발화 한 문장 집계. M3: 가중치·종류를 선택 인자로 받는다(기존 호출 bumpSpoken()은 그대로 1.0·'scored').
+ *  · kind 'scored' — 전사·채점이 된 발화(Whisper·브라우저 인식). 기본 1.0
+ *  · kind 'self'   — 채점 없이 자기확인한 발화(키 없음 iOS·마이크 거부·입모양). 0.5,
+ *                    단 키 없는 구간(groqKey 없음)은 1.0 — 그 구간엔 자기확인이 유일한 경로라 목표가 멀어지지 않게
+ *  · weight를 직접 주면 그 값(조용히 모드 0.5 등)
+ * va_spoken(오늘 합)·va_spoken_log(날짜별, 60일)는 가중 합, va_speak_goal의 scoredToday/selfToday는 종류별 가중 합.
+ */
+export function bumpSpoken(weight?: number, kind: 'scored' | 'self' = 'scored') {
   const today = todayKey();
+  const keyless = !groqKey();
+  const w = typeof weight === 'number' && Number.isFinite(weight) && weight >= 0 ? weight : kind === 'self' && !keyless ? 0.5 : 1;
+  // 소수 누적 오차(0.1+0.2) 없이 0.5 단위가 정확히 쌓이게 반올림
+  const add = (a: number) => Math.round((a + w) * 100) / 100;
   const rv = load<{ date: string; count: number }>('va_spoken', { date: today, count: 0 });
-  store('va_spoken', { date: today, count: rv.date === today ? rv.count + 1 : 1 });
+  store('va_spoken', { date: today, count: add(rv.date === today ? rv.count : 0) });
   // 주간 리포트를 위해 날짜별로도 남긴다(오늘 값만으로는 추세를 볼 수 없다).
   // 60일치만 유지해 용량이 무한히 늘지 않게 한다.
   const log = load<Record<string, number>>('va_spoken_log', {});
-  log[today] = (log[today] || 0) + 1;
+  log[today] = add(log[today] || 0);
   const keys = Object.keys(log).sort();
   if (keys.length > 60) for (const k of keys.slice(0, keys.length - 60)) delete log[k];
   store('va_spoken_log', log);
+  // 발화 목표(va_speak_goal) — '채점 가능'과 '자기확인'을 따로 센다. 목표값 계산(goal·streakDays)은 lib/habits.speakGoal의 몫
+  const g = load<Record<string, unknown> | null>(SPEAK_GOAL_KEY, null);
+  const cur = g && typeof g === 'object' && !Array.isArray(g) ? g : {};
+  const same = cur.date === today;
+  const num = (v: unknown) => (same && typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  store(SPEAK_GOAL_KEY, {
+    goal: typeof cur.goal === 'number' ? cur.goal : SPEAK_GOAL_DEFAULT,
+    kind: cur.kind === 'self' ? 'self' : 'scored',
+    streakDays: typeof cur.streakDays === 'number' ? cur.streakDays : 0,
+    keyless,
+    ...cur,
+    date: today,
+    scoredToday: kind === 'scored' ? add(num(cur.scoredToday)) : num(cur.scoredToday),
+    selfToday: kind === 'self' ? add(num(cur.selfToday)) : num(cur.selfToday),
+  });
 }
 
 /** 최근 n일의 날짜별 발화 수(오래된 날짜 → 오늘 순). */

@@ -57,6 +57,8 @@ await page.reload();
 await page.waitForSelector('.dr-card-title', { timeout: 15000 });
 check('가이드가 사라진다', (await page.locator('.fg-card').count()) === 0);
 check('오늘의 에피소드 EP 2', await page.evaluate(() => document.querySelector('.dr-card-title')?.textContent.includes('EP 2')));
+// M3: 불꽃 연료 = 발화 — 카드 안 '발화 n/goal' 한 줄 + 점 4개(에피소드·리텔·회상·회화). 새 탭·새 카드는 없다(탭 4·feat-card 5 그대로)
+check("에피소드 카드에 '발화 0/10' + 점 4개", await page.evaluate(() => /발화 0\/10/.test(document.querySelector('.dr-card .rc-fuel')?.textContent || '') && (document.querySelector('.dr-card .rc-dots')?.textContent || '').length === 4));
 check('집중 모드엔 12주 레슨 카드 없음(하루 한 편만)', (await page.locator('.pg-card').count()) === 0);
 
 /* ⑥ 전환 */

@@ -24,6 +24,9 @@ const FORBIDDEN = [
   ['va_weekly_tests', '주간 시험(weeklyTest)'],
   ['va_session_last', '패턴 세션(session)'],
   ['Hang in there, buddy', '드라마 원고 본문(dramaSeed)'],
+  // M3: 발화 목표 계산(lib/speakGoal)·말로 떠올리기(RecallStep)는 드라마 화면 청크에만 — 홈은 저장값만 읽는다
+  ['freezeWeek', '발화 목표 계산(speakGoal)'],
+  ['recall-follow', '말로 떠올리기(RecallStep)'],
 ];
 let fail = 0;
 const ok = (name, cond, extra = '') => {

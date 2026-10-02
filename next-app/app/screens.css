@@ -6115,3 +6115,187 @@
     transition: none;
   }
 }
+
+/* ══ M3 말로 떠올리기 — .rc-*(RecallStep·엔딩 회상 카드·속도 사다리·홈 발화 줄)
+   터치 대상 44px 이상, 390px 폭에서 가로 넘침 없음(긴 영어는 줄바꿈). 홈 발화 줄은 globals의 dr-msg로도 읽히게 보조 스타일만. ══ */
+.rc-root {
+  border-color: var(--primary);
+  overflow-wrap: anywhere;
+}
+.rc-loading {
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+.rc-box,
+.rc-opts,
+.rc-result,
+.rc-follow,
+.rc-ab {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rc-status,
+.rc-hint {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+.rc-hint {
+  font-weight: 700;
+}
+.rc-mic,
+.rc-next,
+.rc-opt,
+.rc-ab-rec,
+.rc-next-stage,
+.rc-to-choice,
+.rc-card-start,
+.rc-ladder-next {
+  min-height: 44px;
+}
+.rc-result {
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.rc-result.ok {
+  border-color: var(--success, #1f9d55);
+}
+.rc-score {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.rc-en {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.5;
+  margin: 0;
+}
+.rc-replay {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.rc-follow {
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.rc-follow-ask {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+.rc-stage-en {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.rc-follow-res {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.rc-follow-res.ok {
+  color: var(--text);
+}
+.rc-pair {
+  font-size: 0.84rem;
+}
+.rc-pair summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.rc-pair-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rc-pair-btn {
+  min-height: 44px;
+  min-width: 44px;
+}
+.rc-pair-btn small {
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+.rc-row {
+  justify-content: flex-end;
+}
+/* 엔딩 회상 카드 */
+.rc-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rc-card-title {
+  font-size: 0.92rem;
+  font-weight: 800;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.rc-card-n {
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.rc-card-desc,
+.rc-card-sum {
+  margin: 0;
+  font-size: 0.84rem;
+}
+.rc-card-sum {
+  font-weight: 700;
+}
+/* 속도 사다리 */
+.rc-ladder {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rc-ladder-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rc-ladder-step {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.rc-ladder-step.ok {
+  border-color: var(--primary);
+  color: var(--text);
+}
+.rc-ladder-msg {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+/* 홈 발화 줄(드라마 화면을 연 뒤에만 이 파일이 실린다 — 없어도 dr-msg로 읽힌다) */
+.rc-fuel {
+  font-weight: 700;
+}
+.rc-dots {
+  letter-spacing: 2px;
+}
+.rc-fuel[data-level='half'] .rc-fuel-hint {
+  color: var(--text);
+}

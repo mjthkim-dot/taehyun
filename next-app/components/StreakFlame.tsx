@@ -15,6 +15,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { flameState, milestoneMessage, takeMilestoneCelebration, weekFlames, type FlameState, type WeekDay } from '../lib/streak';
 import { getFreezeCount } from '../lib/habits';
+// 이 컴포넌트는 지연 청크(MasterScreen dynamic)라 발화 목표 정산(speakGoal)을 불러도 홈 첫 청크가 커지지 않는다
+import { speakGoal } from '../lib/speakGoal';
 import { haptic } from '../lib/haptics';
 import { Confetti } from './Fx';
 
@@ -61,6 +63,11 @@ export default function StreakFlame({ refreshKey = 0 }: { refreshKey?: number })
   const prevLevel = useRef<FlameState['level'] | null>(null);
 
   useEffect(() => {
+    try {
+      speakGoal(); // 하루가 바뀌었으면 연속일·가산 정산(첫 14일 10 → 20 …) — 아래 flameState가 새 목표를 읽게
+    } catch {
+      /* 저장소 오류는 불꽃 표시를 막지 않는다 */
+    }
     const next = flameState();
     setSt(next);
     setWeek(weekFlames());
@@ -84,9 +91,12 @@ export default function StreakFlame({ refreshKey = 0 }: { refreshKey?: number })
         ? `오늘 불꽃 완성! 다음 마일스톤까지 ${st.nextMilestone - st.streak}일`
         : '오늘 불꽃 완성!'
       : st.focus
-        ? st.streak > 0
-          ? `오늘 에피소드 한 편을 보면 ${st.streak + 1}일째 불꽃이 이어져요`
-          : '오늘 에피소드 한 편을 보고 첫 불꽃을 켜보세요'
+        ? // M3: 집중 모드의 연료는 발화 N문장 — 에피소드만 보면 반불꽃
+          st.level === 'ember'
+          ? `${Math.max(1, Math.ceil(st.goal - st.spoken))}문장만 더 말하면 켜져요`
+          : st.streak > 0
+            ? `오늘 ${st.goal}문장을 말하면 ${st.streak + 1}일째 불꽃이 이어져요`
+            : `오늘 ${st.goal}문장을 말하고 첫 불꽃을 켜보세요`
         : st.level === 'ember'
           ? `${st.goal - st.spoken}문장만 더 말하면 불이 붙어요`
           : st.streak > 0
@@ -105,7 +115,10 @@ export default function StreakFlame({ refreshKey = 0 }: { refreshKey?: number })
           <div className="streak-status">{statusLine}</div>
           {/* 발화 진행 — 불을 붙이는 연료가 무엇인지 명확하게(집중 모드에선 '오늘의 에피소드'가 연료) */}
           {st.focus ? (
-            <div className="streak-fuel-label">{st.episode ? '오늘 에피소드 완료 ✓' : '오늘 에피소드 0/1'}</div>
+            <div className="streak-fuel-label">
+              발화 {Math.floor(st.spoken)}/{st.goal}
+              {st.episode ? ' · 에피소드 ✓' : ''}
+            </div>
           ) : (
           <>
           <div className="streak-fuel" role="progressbar" aria-valuenow={st.spoken} aria-valuemax={st.goal} aria-label="오늘 발화 진행">

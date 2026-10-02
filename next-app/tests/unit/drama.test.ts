@@ -205,8 +205,13 @@ describe('v1.31 비평 반영 — 복습 루프·하루 한 편·레벨 증거·
     completeEpisode(eps[0], 40, 3);
     const p = dramaPlan();
     expect(p.today).toBe(true);
-    expect(p.kind).toBe('replay'); // 오늘 배운 카드는 내일부터 → 떠올릴 게 없으면 자막 없이 다시 듣기
+    // M3: 불꽃 연료가 발화로 바뀌어 '오늘 봤고 발화 < 목표'면 replay 대신 speak(역할극 다시·말로 떠올리기)가 먼저다
+    expect(p.kind).toBe('speak');
     expect(p.replayNo).toBe(1);
+    // 발화 목표(10)를 채운 날은 예전 그대로 — 떠올릴 게 없으면 자막 없이 다시 듣기
+    const { todayKey } = await import('../../lib/dates');
+    localStorage.setItem('va_spoken', JSON.stringify({ date: todayKey(), count: 10 }));
+    expect(dramaPlan().kind).toBe('replay');
     later();
     expect(dramaPlan().kind).toBe('next'); // 다음 날엔 다시 새 화(표현 복습은 보조)
     expect(dramaPlan().due).toBe(2);
@@ -218,7 +223,10 @@ describe('v1.31 비평 반영 — 복습 루프·하루 한 편·레벨 증거·
     const p = dramaPlan();
     expect(p.needAi).toBe(true);
     expect(p.nextNo).toBe(8);
-    expect(p.kind).toBe('review');
+    // M3: 키 없는 8일차부터는 속도 사다리(0.9×부터 자막 없이 다시 듣기)가 주 행동 — 복습은 보조 링크(due는 그대로)
+    expect(p.kind).toBe('ladder');
+    expect(p.ladder).toMatchObject({ step: 0, speed: 0.9, done: false });
+    expect(p.due).toBeGreaterThan(0);
   });
   test('표현 복습 세션 — 기한 된 카드만, 오래 밀린 것부터, 안 본 화 표현은 보기에 없다', async () => {
     const { reviewItems } = await import('../../lib/drama');
@@ -282,6 +290,40 @@ describe('간격 반복 시뮬레이션 — 표현 복습이 box 1에서 멈추�
     const strong = cards.filter((w) => w.box >= 3).length;
     expect(cards.length).toBe(eps.length * 2);
     expect(strong / cards.length).toBeGreaterThan(0.5);
+  });
+});
+
+describe('M3 — 30일 시뮬: 말로 떠올리기로 바뀐 뒤에도 카드가 자란다', () => {
+  test('box 0은 고르기(맞힘) → 이후 speak(70점) — 30일 뒤 절반 넘게 box 3 이상, speak 문항이 실제로 나온다', async () => {
+    const { reviewItems, gradeRecall } = await import('../../lib/drama');
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const start = new Date('2026-10-01T09:00:00').getTime();
+    let speakAsked = 0;
+    for (let day = 0; day < 30; day++) {
+      vi.setSystemTime(start + day * 86400000);
+      if (day < eps.length) completeEpisode(eps[day], 90, 3);
+      for (const it of reviewItems(8, { mode: 'speak' })) {
+        if (it.mode === 'speak') {
+          speakAsked++;
+          gradeRecall(it.en, 70);
+        } else gradeRecall(it.en, true);
+      }
+    }
+    const cards = load<{ cat?: string; box: number }[]>('va_weak', []).filter((w) => w.cat === '드라마');
+    expect(speakAsked).toBeGreaterThan(10);
+    expect(cards.filter((w) => w.box >= 3).length / cards.length).toBeGreaterThan(0.5);
+  });
+  test('두 번째 실패(힌트로 맞힘 = hard)가 섞여도 카드가 box 1 아래로 떨어지지 않는다', async () => {
+    const { reviewItems, gradeRecall } = await import('../../lib/drama');
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const start = new Date('2026-10-01T09:00:00').getTime();
+    for (let day = 0; day < 30; day++) {
+      vi.setSystemTime(start + day * 86400000);
+      if (day < eps.length) completeEpisode(eps[day], 90, 3);
+      reviewItems(8, { mode: 'speak' }).forEach((it, k) => (it.mode === 'speak' && k % 3 === 0 ? gradeRecall(it.en, true, { hinted: true }) : gradeRecall(it.en, it.mode === 'speak' ? 80 : true)));
+    }
+    const cards = load<{ cat?: string; box: number }[]>('va_weak', []).filter((w) => w.cat === '드라마');
+    expect(cards.every((w) => w.box >= 1)).toBe(true);
   });
 });
 

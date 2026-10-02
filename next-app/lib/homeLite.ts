@@ -6,7 +6,7 @@
  * 홈 첫 청크가 448KB까지 커졌다. 홈에 필요한 건 "코스를 시작했나 / 드라마를 몇 화 봤나 /
  * 오늘 봤나" 같은 한두 값뿐이라, 그 값만 여기서 직접 읽는다.
  */
-import { groqKey, load, markPracticedToday, store } from './state';
+import { groqKey, load, markPracticedToday, speakGoalLite, spokenToday, store } from './state';
 import { SEED_COUNT, SEED_INDEX, type EpisodeLite } from './dramaIndex';
 import { todayKey } from './dates';
 
@@ -148,9 +148,15 @@ export function dramaPracticedToday(): boolean {
  * 오늘 무엇을 권할까 — '하루 한 편'을 지키고(오늘 봤으면 다음 화 대신 복습), 키 없이 7화를
  * 다 본 날에도 할 일이 있게(표현 복습 → 없으면 가장 어려웠던 화를 자막 없이 다시 듣기).
  * 감사 v1.31 비평 #2·#3. 홈 카드가 원고 없이 계산할 수 있게 경량 모듈에 둔다.
+ *
+ * M3: 불꽃의 연료가 '발화 N문장'이 되면서 두 갈래가 더해졌다.
+ *  · speak  — 오늘 화를 봤(거나 다시 듣기 사다리를 마쳤)는데 발화가 목표 전 → 말하기 세션(기한 된 표현이 있으면
+ *             '말로 떠올리기', 없으면 가장 어려웠던 화를 역할극으로 다시)
+ *  · ladder — 키 없이 원고 화를 다 본 날(needAi) → 속도 사다리 재청취 0.9× → 1.0× → 1.2×(AI 0, 브라우저 음성).
+ *             예전엔 review/replay만 남아 8일차부터 루프가 끊겼다. 3단 통과 시 '귀 뚫림 ✓'.
  */
 export interface DramaPlan {
-  kind: 'next' | 'review' | 'replay';
+  kind: 'next' | 'review' | 'replay' | 'speak' | 'ladder';
   nextNo: number;
   /** 다음 화 원고가 이미 있는가(원고 화·미리 쓴 AI 화) */
   nextReady: boolean;
@@ -164,21 +170,143 @@ export interface DramaPlan {
   due: number;
   /** 다시 들을 화(본 화 중 이해도가 가장 낮은 화) */
   replayNo: number | null;
+  /** 오늘 발화(가중 합)와 목표 — kind 'speak' 판단 근거 */
+  spoken: number;
+  goal: number;
+  /** 속도 사다리(kind 'ladder' 또는 오늘 사다리를 시작/마친 날) */
+  ladder?: LadderPlan;
+}
+
+/* ── 속도 사다리(키 없는 날의 다시 듣기) ── */
+export const LADDER_SPEEDS = [0.9, 1, 1.2] as const;
+const LADDER_KEY = 'va_drama_ladder';
+/** 한 단을 통과로 보는 이해도(자막 없이 다시 들으며 푼 문항) */
+export const LADDER_PASS = 60;
+
+export interface LadderPlan {
+  no: number;
+  /** 지금 들을 속도(다 통과했으면 마지막 속도) */
+  speed: number;
+  /** 통과한 단 수(0~3) */
+  step: number;
+  /** 3단 통과 — '귀 뚫림 ✓' */
+  done: boolean;
+}
+
+interface LadderRaw {
+  date?: string;
+  no?: number;
+  step?: number;
+}
+
+/** 오늘의 사다리 상태 — 날이 바뀌면 처음부터(같은 화든 다른 화든) */
+export function ladderState(no: number | null): LadderPlan | null {
+  const r = load<LadderRaw | null>(LADDER_KEY, null);
+  const today = todayKey();
+  const sameDay = !!r && r.date === today && typeof r.no === 'number';
+  const n = sameDay ? (r!.no as number) : no;
+  if (!n) return null;
+  const step = sameDay ? Math.min(LADDER_SPEEDS.length, Math.max(0, Math.round(Number(r!.step) || 0))) : 0;
+  return { no: n, step, speed: LADDER_SPEEDS[Math.min(step, LADDER_SPEEDS.length - 1)], done: step >= LADDER_SPEEDS.length };
+}
+
+/**
+ * 사다리 한 단을 마쳤다 — 그 속도가 지금 단이고 이해도가 통과선 이상이면 한 단 오른다.
+ * 오른 뒤 상태를 돌려준다(다른 속도로 본 재청취·통과 못 함은 그대로).
+ */
+export function advanceLadder(no: number, speed: number, score: number): LadderPlan {
+  const cur = ladderState(no) || { no, step: 0, speed: LADDER_SPEEDS[0], done: false };
+  let step = cur.no === no ? cur.step : 0;
+  if (!cur.done && Math.abs(LADDER_SPEEDS[Math.min(step, LADDER_SPEEDS.length - 1)] - speed) < 0.001 && score >= LADDER_PASS) step += 1;
+  store(LADDER_KEY, { date: todayKey(), no, step });
+  return ladderState(no)!;
 }
 
 export function dramaPlan(): DramaPlan {
   const nextNo = dramaNextNo();
   const nextReady = !!episodeLite(nextNo);
-  const needAi = !nextReady && !groqKey();
+  const keyless = !groqKey();
+  const needAi = !nextReady && keyless;
   const today = dramaWatchedToday();
   const practiced = dramaPracticedToday();
   const due = dramaDueCount();
   const p = progLite();
   const seenList = Object.keys(p.done).map(Number);
   const replayNo = seenList.length ? seenList.sort((a, b) => (p.score[String(a)] ?? 100) - (p.score[String(b)] ?? 100) || b - a)[0] : null;
+  const spoken = spokenToday();
+  const goal = speakGoalLite().goal;
+  const ladder = needAi ? ladderState(replayNo) : null;
   const rest = today || needAi;
-  const kind: DramaPlan['kind'] = !rest ? 'next' : due > 0 ? 'review' : replayNo ? 'replay' : 'next';
-  return { kind, nextNo, nextReady, needAi, today, practiced, due, replayNo };
+  let kind: DramaPlan['kind'];
+  if (!rest) kind = 'next';
+  // 오늘 볼 것(새 화 또는 사다리)을 마쳤는데 발화가 목표 전 → 말하기
+  else if ((today || !!ladder?.done) && spoken < goal && (due > 0 || !!replayNo)) kind = 'speak';
+  else if (ladder && !ladder.done) kind = 'ladder';
+  else kind = due > 0 ? 'review' : replayNo ? 'replay' : 'next';
+  return { kind, nextNo, nextReady, needAi, today, practiced, due, replayNo, spoken, goal, ...(ladder ? { ladder } : {}) };
+}
+
+/* ── 홈 '발화 n/goal' 한 줄(M3) — 불꽃 옆. 원고·habits 없이 저장값만 읽는다 ── */
+
+/** 하루 조절(M4 va_day_gov)이 정한 오늘의 목표 배율 — 짧은 날 0.5, 세션 적응 발동일 0.6. 없으면 1 */
+export function dayGoalFactor(): number {
+  const g = load<{ date?: string; mode?: string; adapt?: boolean } | null>('va_day_gov', null);
+  if (!g || typeof g !== 'object' || g.date !== todayKey()) return 1;
+  if (g.mode === 'short') return 0.5;
+  if (g.adapt === true) return 0.6;
+  return 1;
+}
+
+export interface SpeakLine {
+  /** 오늘 발화(가중 합, 표시는 내림) */
+  spoken: number;
+  /** 오늘 목표(배율 반영, 최소 1) */
+  goal: number;
+  lit: boolean;
+  /** 에피소드(또는 연습)만 하고 발화 목표 전 — 반불꽃 */
+  half: boolean;
+  /** 점 4개: 에피소드(키 없는 8일차+는 다시 듣기)·리텔·회상·회화 */
+  dots: { id: 'episode' | 'retell' | 'recall' | 'talk'; label: string; on: boolean }[];
+}
+
+/** 오늘 이 출처(src)의 시도가 있었나 — 시도 로그 끝에서부터 오늘 것만 본다 */
+function attemptedToday(srcs: string[]): boolean {
+  const log = load<{ t?: number; src?: string }[]>('va_attempt_log', []);
+  if (!Array.isArray(log)) return false;
+  const d = new Date();
+  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  for (let k = log.length - 1; k >= 0; k--) {
+    const a = log[k];
+    if (!a || typeof a.t !== 'number') continue;
+    if (a.t < start) break;
+    if (srcs.includes(String(a.src))) return true;
+  }
+  return false;
+}
+
+export function speakLine(plan: Pick<DramaPlan, 'needAi' | 'ladder'> = dramaPlan()): SpeakLine {
+  const today = todayKey();
+  const spoken = spokenToday();
+  const goal = Math.max(1, Math.round(speakGoalLite().goal * dayGoalFactor()));
+  const practiced = dramaPracticedToday();
+  const lit = spoken >= goal;
+  const keylessLoop = plan.needAi;
+  const retell = load<{ date?: string }[]>('va_retell', []);
+  const rc = load<Record<string, { asked?: number }>>('va_recall_speak', {});
+  return {
+    spoken,
+    goal,
+    lit,
+    half: !lit && (practiced || spoken > 0),
+    dots: [
+      keylessLoop
+        ? { id: 'episode', label: '다시 듣기', on: !!plan.ladder && plan.ladder.step > 0 }
+        : { id: 'episode', label: '에피소드', on: dramaWatchedToday() },
+      { id: 'retell', label: '리텔', on: Array.isArray(retell) && retell.some((r) => r && r.date === today) },
+      { id: 'recall', label: '회상', on: (Number(rc && rc[today]?.asked) || 0) > 0 || load<{ date?: string; count?: number }>('va_review_today', {}).date === today },
+      { id: 'talk', label: '회화', on: attemptedToday(['dtalk']) },
+    ],
+  };
 }
 
 /** 지금 떠올릴(기한이 된) 드라마 표현 수 — 홈 카드의 '표현 복습 N' */
@@ -188,7 +316,8 @@ export function dramaDueCount(now = Date.now()): number {
 
 /** 드라마 화면을 열 때 할 일 — 새 화 재생·표현 복습·본 화 다시 듣기(1분 유효) */
 export const DRAMA_REQ_KEY = 'va_drama_req';
-export type DramaRequest = { kind: 'review' } | { kind: 'replay'; no: number; subsOff?: boolean };
+/** replay에 speed가 있으면 그 속도로 시작(저장하지 않음) — ladder면 끝날 때 사다리 한 단을 정산한다(M3) */
+export type DramaRequest = { kind: 'review' } | { kind: 'replay'; no: number; subsOff?: boolean; speed?: number; ladder?: boolean };
 export function requestDrama(r: DramaRequest) {
   store(DRAMA_REQ_KEY, { ...r, at: Date.now() });
 }

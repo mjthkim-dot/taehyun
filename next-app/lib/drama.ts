@@ -7,15 +7,16 @@
  * 1~3화는 사람이 쓴 원고(data/dramaSeed.json), 4화부터 AI가 앞 이야기를 기억하며 이어 쓴다.
  */
 import seed from '../data/dramaSeed.json';
-import { load, store, groqKey, addWeakItem, gradeWeakItem } from './state';
+import { load, store, groqKey, addWeakItem, gradeWeakItem, SRS_LEECH_THRESHOLD, type FlashGrade } from './state';
 import { overall, recordSkillResult } from './cefrGrowth';
 import { CEFR_ORDER as CEFR_LEVELS } from './cefr';
-import { todayKey } from './dates';
+import { shiftKey, todayKey } from './dates';
 import { markDramaPracticeToday, migrateDramaOnce } from './homeLite';
 import { groqKoJson, hasHangul } from './aiGuard';
 import { GROQ_MODEL } from './groq';
 import { acceptByProfile, validateProfile, wordRangeFor } from './validateProfile';
 import { mineLines } from './dramaSeedMine';
+import { buildupStages } from './roleStep';
 import type { Cefr } from './cefr';
 
 // 채점 래퍼는 lib/align.ts(원고 import 0)에 있다 — 여기서는 re-export만(단어 탭 청크에 원고가 딸려 오지 않게)
@@ -298,11 +299,17 @@ export function dramaAdjust(): number {
 export interface RecallItem {
   en: string;
   kr: string;
-  /** 보기(고르기 모드) — speak 모드에서는 비어 있을 수 있다(M3가 말로 떠올리게 한다) */
+  /** 보기(고르기 모드) — speak 모드에서도 채워 둔다(두 번째 실패 뒤 힌트·키 없는 기기의 고르기). 옛 저장본은 비어 있을 수 있다 */
   opts: string[];
   a: number;
-  /** 회상 방식 — 없으면 'choice'(기존 저장본과 호환). M3가 'speak'을 만든다 */
+  /** 회상 방식 — 없으면 'choice'(기존 저장본과 호환). M3: speak = 한국어만 보고 말로 떠올리기 */
   mode?: 'speak' | 'choice';
+  /** 정답을 들려줄 인물(그 표현을 말한 인물 — 못 찾으면 태오) */
+  who?: string;
+  /** 지금 상자(0이면 처음 보는 카드 — 항상 고르기) */
+  box?: number;
+  /** 거머리 카드(4번 이상 잊음) — 끝부터 쌓기 + 최소대립쌍 1쌍(M3) */
+  leech?: boolean;
 }
 
 const lessonNo = (lesson: unknown): number => {
@@ -333,13 +340,18 @@ function nearSame(a: string, b: string): boolean {
   return hit / Math.max(wa.length, wb.size) >= 0.6;
 }
 
-type DramaWeak = { en: string; kr: string; cat?: string; due?: number; box?: number; lesson?: unknown };
+type DramaWeak = { en: string; kr: string; cat?: string; due?: number; box?: number; lapses?: number; lesson?: unknown };
 
 function dramaWeak(): DramaWeak[] {
   return load<DramaWeak[]>('va_weak', []).filter((w) => w && w.cat === '드라마' && str(w.en) && str(w.kr));
 }
 
-export function recallItems(no: number, max = 3, opts: { dueOnly?: boolean } = {}): RecallItem[] {
+/**
+ * 회상 문항. M3: mode 'speak'이면 한국어만 보고 말로 떠올린다 — 단, box 0(처음 묻는 카드)은 늘 'choice'(재인부터).
+ * 보기(opts/a)는 모드와 상관없이 채운다: speak의 두 번째 실패 뒤 힌트, 키도 Web Speech도 없는 기기(iOS)의 고르기에 쓴다.
+ * mode를 안 주면 예전 그대로(전부 choice, who·box는 붙인다).
+ */
+export function recallItems(no: number, max = 3, opts: { dueOnly?: boolean; mode?: 'speak' | 'choice' } = {}): RecallItem[] {
   if (no <= 1 && !opts.dueOnly) return [];
   const seen = new Set(watched());
   // 보기 풀은 **본 화**의 표현과 이미 가진 카드만 — 아직 안 본 화의 문장이 섞이면 익숙한 걸 고르기만 해도 맞힌다
@@ -349,13 +361,16 @@ export function recallItems(no: number, max = 3, opts: { dueOnly?: boolean } = {
   const now = Date.now();
   const weak = dramaWeak();
   // 기한이 가장 오래 지난 카드부터(같으면 약한 것부터) — 새 카드가 늘 먼저 뽑혀 옛 카드가 밀리던 문제
-  let picks = weak
+  let picks: { en: string; kr: string; box: number; lapses: number }[] = weak
     .filter((w) => (w.due == null || w.due <= now) && lessonNo(w.lesson) < no)
     .sort((a, b) => (a.due ?? 0) - (b.due ?? 0) || (a.box || 0) - (b.box || 0))
-    .map((w) => ({ en: w.en, kr: w.kr }));
+    .map((w) => ({ en: w.en, kr: w.kr, box: w.box || 0, lapses: w.lapses || 0 }));
   if (!picks.length && !opts.dueOnly) {
     const prev = episodeByNo(no - 1);
-    if (prev?.learn[0]) picks = [{ en: prev.learn[0].en, kr: prev.learn[0].kr }];
+    if (prev?.learn[0]) {
+      const w = weak.find((x) => x.en === prev.learn[0].en);
+      picks = [{ en: prev.learn[0].en, kr: prev.learn[0].kr, box: w?.box || 0, lapses: w?.lapses || 0 }];
+    }
   }
   const pool = [...new Set([...learnPool, ...weak.map((w) => w.en)])];
   return picks.slice(0, max).map((p, k) => {
@@ -371,13 +386,63 @@ export function recallItems(no: number, max = 3, opts: { dueOnly?: boolean } = {
     const opts2 = [p.en, ...ds];
     // 결정적 섞기
     const order = opts2.map((_, x) => x).sort((x, y) => ((x * 13 + no + k) % opts2.length) - ((y * 13 + no + k) % opts2.length));
-    return { en: p.en, kr: p.kr, opts: order.map((o) => opts2[o]), a: order.indexOf(0) };
+    const item: RecallItem = { en: p.en, kr: p.kr, opts: order.map((o) => opts2[o]), a: order.indexOf(0), who: whoOf(p.en), box: p.box };
+    if (p.lapses >= SRS_LEECH_THRESHOLD) item.leech = true;
+    if (opts.mode) item.mode = opts.mode === 'speak' && p.box > 0 ? 'speak' : 'choice';
+    return item;
   });
 }
 
-/** 표현 복습 세션 — 새 화가 없는 날(키 없음·오늘 이미 봄)에도 매일 복습할 수 있게 */
-export function reviewItems(max = 8): RecallItem[] {
-  return recallItems(100000, max, { dueOnly: true });
+/** 표현 복습 세션 — 새 화가 없는 날(키 없음·오늘 이미 봄)에도 매일 복습할 수 있게. M3: mode 'speak'이면 말로 떠올리기 */
+export function reviewItems(max = 8, o: { mode?: 'speak' | 'choice' } = {}): RecallItem[] {
+  return recallItems(100000, max, { dueOnly: true, mode: o.mode });
+}
+
+/** 이 표현을 말한 인물 — 원고 대사·문항 정답에서 찾는다(못 찾으면 태오). 정답 재생 목소리(voiceOf)용 */
+export function whoOf(en: string): string {
+  const n = normEn(en);
+  if (!n) return 'taeo';
+  for (const e of allEpisodes()) {
+    for (const s of e.scenes) {
+      if ((s.type === 'line' || s.type === 'speak' || s.type === 'meaning' || s.type === 'fill') && ` ${normEn(s.type === 'fill' ? fillFull(s) : s.en)} `.includes(` ${n} `)) return s.who;
+      if (s.type === 'choice') {
+        const r = s.opts.find((o) => o.ok);
+        if (r && ` ${normEn(r.en)} `.includes(` ${n} `)) return 'taeo';
+        if (r?.reply && ` ${normEn(r.reply.en)} `.includes(` ${n} `)) return r.reply.who;
+      }
+    }
+  }
+  return 'taeo';
+}
+
+/** 회상 통과 기준 — 역할극과 같은 60점 */
+export const RECALL_PASS = 60;
+
+/**
+ * 이 기기에서 회상을 어떻게 묻나 — speak 문항이라도 키도 Web Speech도 없으면(path 'self', iOS PWA) 채점할 수 없어
+ * 고르기 + 녹음 A/B. box 0·플래그 off(mode 없음/choice)는 늘 고르기.
+ */
+export function recallUiMode(mode: RecallItem['mode'], path: 'whisper' | 'webspeech' | 'self'): 'speak' | 'choice' {
+  return mode === 'speak' && path !== 'self' ? 'speak' : 'choice';
+}
+
+/**
+ * 말로 떠올리기 n번째 시도(1부터)의 점수 → 다음 단계.
+ *  good: 통과(≥60) · retry: 첫 실패 — 정답을 보여 주지 않고 한 번 더 · hint: 두 번째 실패 — 그때만 보기 3개(맞혀도 hard)
+ */
+export function recallNext(tries: number, score: number): 'good' | 'retry' | 'hint' {
+  if (score >= RECALL_PASS) return 'good';
+  return tries <= 1 ? 'retry' : 'hint';
+}
+
+/**
+ * 거머리 카드의 따라 말하기 구간 — 끝부터 쌓기(lib/roleStep.buildupStages 재사용).
+ * 회상 문장은 짧아(4~8단어) 역할극 기준(10단어)으로는 안 나뉜다 — 6단어 이상이면 [끝 4단어, 전체].
+ */
+export function recallStages(en: string, leech = false): string[] {
+  if (!leech) return [en.trim()];
+  const st = buildupStages(en, 6);
+  return st.filter((x, k) => st.indexOf(x) === k);
 }
 
 /**
@@ -405,8 +470,48 @@ export function recycleCandidates(no: number, max = 3): { en: string; kr: string
     .map((w) => ({ en: w.en, kr: w.kr }));
 }
 
-export function gradeRecall(en: string, ok: boolean) {
-  gradeWeakItem(en, ok ? 'good' : 'again');
+/**
+ * 회상 채점 → 간격 반복. 옛 호출(gradeRecall(en, true/false))은 그대로 good/again.
+ * M3: 점수(0~100)를 주면 ≥60 good, <60 again. hinted(두 번째 실패 뒤 보기 3개를 본 경우)는 맞혀도 hard.
+ * 매긴 등급을 돌려준다.
+ */
+export function gradeRecall(en: string, score: boolean | number, o: { hinted?: boolean } = {}): FlashGrade {
+  const ok = typeof score === 'boolean' ? score : score >= RECALL_PASS;
+  const grade: FlashGrade = !ok ? 'again' : o.hinted ? 'hard' : 'good';
+  gradeWeakItem(en, grade);
+  return grade;
+}
+
+/* ── 말로 떠올리기 일별 기록(va_recall_speak, 60일) — 회상 1차 통과율·개시 지연 중앙값 지표 ── */
+const RECALL_SPEAK_KEY = 'va_recall_speak';
+export interface RecallSpeakDay {
+  asked: number;
+  passed: number;
+  /** 개시 지연 중앙값(ms) — 잰 시도가 없으면 null */
+  latencyMed: number | null;
+  /** 중앙값 계산용 표본(최근 30개) */
+  lat?: number[];
+}
+
+/** 한 문항 결과(1차 시도 기준) — passed: 첫 시도에 60점 이상 */
+export function recordRecallSpeak(passed: boolean, latencyMs?: number, day: string = todayKey()): RecallSpeakDay {
+  const all = load<Record<string, RecallSpeakDay>>(RECALL_SPEAK_KEY, {});
+  const cur = all[day] && typeof all[day] === 'object' ? all[day] : { asked: 0, passed: 0, latencyMed: null };
+  const lat = Array.isArray(cur.lat) ? cur.lat.filter((n) => typeof n === 'number') : [];
+  if (typeof latencyMs === 'number' && Number.isFinite(latencyMs) && latencyMs >= 0) lat.push(Math.round(latencyMs));
+  const sorted = [...lat.slice(-30)].sort((a, b) => a - b);
+  const med = sorted.length ? (sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : Math.round((sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2)) : null;
+  const next: RecallSpeakDay = { asked: (Number(cur.asked) || 0) + 1, passed: (Number(cur.passed) || 0) + (passed ? 1 : 0), latencyMed: med, lat: lat.slice(-30) };
+  all[day] = next;
+  // 60일만 보관
+  const from = shiftKey(todayKey(), -59);
+  for (const k of Object.keys(all)) if (k < from) delete all[k];
+  store(RECALL_SPEAK_KEY, all);
+  return next;
+}
+
+export function recallSpeakLog(): Record<string, RecallSpeakDay> {
+  return load<Record<string, RecallSpeakDay>>(RECALL_SPEAK_KEY, {});
 }
 
 export { DRAMA_AUTOPLAY_KEY, requestDramaAutoplay } from './homeLite';
