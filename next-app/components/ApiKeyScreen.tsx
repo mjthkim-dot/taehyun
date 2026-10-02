@@ -15,6 +15,7 @@ import '../app/screens.css';
 import { useEffect, useState } from 'react';
 import { groqKey, saveGroqKey, clearGroqKey, hasServerGroqKey, SERVER_GROQ_SENTINEL } from '../lib/state';
 import { validateGroqKey } from '../lib/groq';
+import { baseline } from '../lib/baseline';
 
 export default function ApiKeyScreen() {
   const [ready, setReady] = useState(false);
@@ -26,11 +27,14 @@ export default function ApiKeyScreen() {
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  /** M10 — 키 없이 저장된 기준선 녹음이 재전사를 기다리는가 */
+  const [pendingBase, setPendingBase] = useState(false);
 
   useEffect(() => {
     const k = groqKey();
     setLocalKey(k === SERVER_GROQ_SENTINEL ? '' : k);
     setServerKey(hasServerGroqKey());
+    setPendingBase(!!baseline()?.pendingRetranscribe);
     setReady(true);
     // 서버가 실제로 키를 갖고 있는지는 런타임 확인이 가장 정확하다
     // (빌드 플래그는 재배포 전이면 뒤처져 있을 수 있다).
@@ -78,6 +82,14 @@ export default function ApiKeyScreen() {
     setValid(v);
     setInput('');
     setNotice(v === true ? '키 확인 완료 — AI 회화·음성이 활성화됐어요.' : '키를 저장했어요(네트워크 문제로 검증은 건너뜀).');
+    // M10 — 키 없이 저장해 둔 말하기 기준선 녹음을 지금 1회 다시 받아써 말하기 레벨을 사후 보정한다(없으면 아무 일 없음)
+    void import('../lib/growthArchive')
+      .then((m) => m.retranscribePendingBaseline())
+      .then((r) => {
+        if (r) setPendingBase(false);
+        if (r) setNotice((n) => `${n} ${r.b.adj ? `첫 녹음을 다시 들었어요 — 말하기 레벨을 ${r.speaking}로 맞췄어요.` : '첫 녹음을 다시 들었어요 — 말하기 레벨은 그대로예요.'}`);
+      })
+      .catch(() => undefined);
   }
 
   function remove() {
@@ -98,6 +110,11 @@ export default function ApiKeyScreen() {
           Groq 무료 API 키를 등록하면 AI 회화·번역·첨삭·신경망 음성이 모두 켜집니다.
           키는 <b>이 기기에만</b> 저장되고 서버나 백업 파일에 포함되지 않아요.
         </p>
+        {pendingBase && (
+          <p className="ga-key-note" role="note">
+            🎙 배치고사 때 녹음한 첫 목소리(기준선)가 있어요 — 키를 등록하면 한 번 다시 받아써 말하기 레벨을 맞추고, 단어별 채점·혼동축 칩이 열려요.
+          </p>
+        )}
 
         {/* 현재 상태 — 이 화면의 본체 */}
         <div className={`key-status${active ? ' on' : ''}`}>

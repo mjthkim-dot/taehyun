@@ -7,4 +7,5 @@
 import './RetellCard'; // M5 — 이야기 다시 말하기 1회차(order 10) + 조금 더 2·3회차·교정(order 30)
 import './RecallCard'; // M3 — 말로 떠올리기 3(order 20) + 조금 더 3(order 40)
 import './DailyQuestionCard'; // M5 — 오늘 질문 1개(월·수·금, order 60)
+import './D7Card'; // M10 — D+1·D+4·D+7 같은 문장 녹음, D+7에 D+1과 A/B(order 70)
 export {};

@@ -13,6 +13,10 @@ import { primeAudio } from './SpeakButton';
 import type { Mode } from './NavBar';
 import { syncCefr } from '../lib/cefrGrowth';
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
+
+// M10 말하기 기준선 — 결과 화면에서만 필요하니 문항 화면 청크에 넣지 않는다(녹음·STT·저장소를 끌고 온다)
+const BaselineStep = dynamic(() => import('./BaselineStep'), { ssr: false });
 import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/cefr';
 import { getProfile, getSkillStats, saveProfile, scaffoldFor, SKILLS, store } from '../lib/state';
 
@@ -104,6 +108,8 @@ export default function PlacementScreen({ onDone, onNavigate }: { onDone?: () =>
             정답 {result.correct} / {PLACEMENT_Q.length}
           </div>
         </div>
+        {/* M10 — 마지막 한 단계: 자유 발화로 말하기 레벨 보정(건너뛰기 가능) */}
+        <BaselineStep level={result.cefr} />
         {focus ? (
           // 집중 모드 — 숨긴 기능(레슨 로드맵·청해·독해)을 안내하지 않는다. 다음 할 일은 하나.
           <div className="study-card" style={{ fontSize: '0.86rem', lineHeight: 1.7 }}>
