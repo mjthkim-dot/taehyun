@@ -3,6 +3,7 @@ import {
   RETELL_SCHEDULE, LISTENERS, RETELL_GUIDES, MARKERS, DAILY_QUESTIONS, MIX_ROUND, ROUND_333,
   retellPhase, retellPlanFor, keywordsOf, markersFor, dailyQuestionFor, dailyQuestionDue, weeklyMixDue,
   scoreRetell, usedLearn, saveRetell, retellHistory, retelledToday,
+  firstSundayOf, monthly333Due, daysSinceStart, pauseMarks, countFillers, dailyQScore,
 } from '../../lib/retell';
 
 const EP = {
@@ -146,5 +147,44 @@ describe('retell — va_retell', () => {
     expect(retelledToday(1, '2026-10-07')).toBe(false);
     for (let i = 0; i < 70; i++) saveRetell({ date: '2026-10-08', epNo: 3, round: 2, wpm: 1, score: 1, durationMs: 1 });
     expect(JSON.parse(localStorage.getItem('va_retell')!)).toHaveLength(60);
+  });
+});
+
+
+describe('retell — 월 1회 3/3/3·시작일·표시 도우미', () => {
+  beforeEach(() => localStorage.clear());
+  test('첫째 일요일 계산', () => {
+    expect(firstSundayOf('2026-10-02')).toBe('2026-10-04');
+    expect(firstSundayOf('2026-11-15')).toBe('2026-11-01');
+  });
+  test('첫째 일요일 이후, 그 달 333 기록이 없으면 due', () => {
+    expect(monthly333Due('2026-10-03', [])).toBe(false);
+    expect(monthly333Due('2026-10-04', [])).toBe(true);
+    expect(monthly333Due('2026-10-20', [{ date: '2026-10-05', epNo: 3, round: '333', wpm: 60, score: 70, durationMs: 30000 }])).toBe(false);
+    expect(monthly333Due('2026-11-02', [{ date: '2026-10-05', epNo: 3, round: '333', wpm: 60, score: 70, durationMs: 30000 }])).toBe(true);
+  });
+  test('daysSinceStart — speakGoal.since → va_days 가장 이른 날 → 오늘', () => {
+    expect(daysSinceStart('2026-10-02')).toBe(0);
+    localStorage.setItem('va_days', JSON.stringify(['2026-09-20', '2026-09-10']));
+    expect(daysSinceStart('2026-10-02')).toBe(22);
+    localStorage.setItem('va_speak_goal', JSON.stringify({ since: '2026-09-28' }));
+    expect(daysSinceStart('2026-10-02')).toBe(4);
+  });
+  test('pauseMarks — 300ms 이상 간격 뒤에 멈춤', () => {
+    const w = [
+      { word: 'I', start: 0, end: 0.2 },
+      { word: 'was', start: 0.25, end: 0.4 },
+      { word: 'nervous', start: 1.0, end: 1.4 },
+    ];
+    expect(pauseMarks(w).map((t) => t.pauseAfter)).toEqual([false, true, false]);
+  });
+  test('countFillers — 표지로 고른 actually는 빼고', () => {
+    expect(countFillers('um actually I like it, uh', [])).toBe(4);
+    expect(countFillers('um actually I like it, uh', ['actually', 'so'])).toBe(3);
+  });
+  test('dailyQScore — 20단어면 100', () => {
+    expect(dailyQScore(0)).toBe(0);
+    expect(dailyQScore(10)).toBe(50);
+    expect(dailyQScore(40)).toBe(100);
   });
 });
