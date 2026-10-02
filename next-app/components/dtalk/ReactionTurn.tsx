@@ -17,10 +17,12 @@ import { pickReactionHints, REACTION_FN_LABEL, type ReactionLevel } from '../../
 import { recAvailable, recOnce } from '../../lib/dtalkRec';
 import { bumpSpoken } from '../../lib/state';
 import { markInteraction } from '../../lib/dayGovernor';
+import { withIGa } from '../../lib/drama';
 
 export interface ReactionTurnProps {
   first: string;
   rest: string;
+  /** 화면 문구용 한국어 이름(castNameKo — 준·다이앤) — 조사는 withIGa로 받침에 맞춘다 */
   partnerName: string;
   voice: string;
   rate: number;
@@ -119,7 +121,7 @@ export default function ReactionTurn({ first, rest, partnerName, voice, rate, le
 
   return (
     <div className="fgate-rt" data-phase={phase} role="group" aria-label="리액션 한마디">
-      {phase === 'speak1' && <p className="fgate-rt-status">🔊 {partnerName}가 근황을 말하는 중… 중간에 짧게 한마디!</p>}
+      {phase === 'speak1' && <p className="fgate-rt-status">🔊 {withIGa(partnerName)} 근황을 말하는 중… 중간에 짧게 한마디!</p>}
       {(phase === 'window' || phase === 'wait') && (
         <>
           <p className="fgate-rt-cue" role="status">
@@ -138,7 +140,7 @@ export default function ReactionTurn({ first, rest, partnerName, voice, rate, le
         <p className={`fgate-rt-verdict${verdict.kind === 'match' ? ' ok' : ''}`} role="status">
           {verdict.kind === 'match'
             ? verdict.clarify
-              ? `✓ “${said || verdict.en}” — ${partnerName}가 천천히 다시 말해요`
+              ? `✓ “${said || verdict.en}” — ${withIGa(partnerName)} 천천히 다시 말해요`
               : `✓ “${said || verdict.en}” 좋은 리액션!`
             : verdict.kind === 'backchannel'
               ? `💡 ${BACKCHANNEL_TIP}`

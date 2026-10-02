@@ -77,5 +77,51 @@ check('va_tts_meta에 miss·tts429가 쌓인다', await p2.evaluate(() => {
 check('va_diag에도 tts429', await p2.evaluate(() => Object.values(JSON.parse(localStorage.getItem('va_diag') || '{}')).some((d) => (d.tts429 || 0) >= 1)));
 await ctx.close();
 
+/* ── 리뷰 B2: 429 + Retry-After 60 → 기다리지 않고 즉시 기기 음성, 다음 줄은 Groq를 부르지 않는다 ── */
+{
+  const c3 = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const p3 = await c3.newPage();
+  p3.on('pageerror', (e) => console.log('  [pageerror]', e.message));
+  await p3.addInitScript(() => {
+    localStorage.setItem('va_onboarded', 'true');
+    localStorage.setItem('va_groq_key', JSON.stringify('gsk_test_key'));
+    localStorage.setItem('va_placed', JSON.stringify({ cefr: 'A2', gse: 30, ts: Date.now() }));
+  });
+  await p3.route('**/app/api/groq/validate', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"valid":true}' }));
+  await p3.route('**/app/api/groq', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{}' } }] }) }));
+  const calls = [];
+  await p3.route('**/app/api/tts*', (r) => {
+    const t = (() => { try { return r.request().postDataJSON()?.text || ''; } catch { return ''; } })();
+    calls.push({ t, at: Date.now() });
+    return r.fulfill({ status: 429, contentType: 'application/json', headers: { 'Retry-After': '60' }, body: JSON.stringify({ error: { message: 'Rate limit reached' } }) });
+  });
+  await p3.goto(`${BASE}/app`);
+  await p3.waitForSelector('.fg-cta', { timeout: 15000 });
+  await p3.click('.fg-cta');
+  await p3.waitForSelector('.dr-log', { timeout: 15000 });
+  await p3.waitForSelector('.tts-chip', { timeout: 20000 });
+  const chipAt = Date.now();
+  const firstAt = calls[0]?.at ?? chipAt;
+  check('Retry-After 60 → 기다리지 않고 바로 기기 음성 칩(3초 안)', calls.length >= 1 && chipAt - firstAt < 3000, `${chipAt - firstAt}ms`);
+  const perText = new Map();
+  for (const c of calls) perText.set(c.t, (perText.get(c.t) || 0) + 1);
+  check('같은 문장을 재시도하지 않는다(Retry-After > 10초)', [...perText.values()].every((n) => n === 1), JSON.stringify([...perText.entries()]));
+  // 진행 중이던 첫 요청들이 끝날 틈을 준 뒤, 드라마를 몇 줄 더 진행한다
+  await p3.waitForTimeout(500);
+  const before = calls.length;
+  const lines0 = await p3.locator('.dr-log .dr-line, .dr-log .dr-narr').count();
+  const until = Date.now() + 8000;
+  while (Date.now() < until) {
+    const opt = p3.locator('.dr-act .dr-opt');
+    if (await opt.count()) await opt.first().click().catch(() => {});
+    else if (await p3.locator('.dr-act .dr-skip').count()) await p3.locator('.dr-act .dr-skip').first().click().catch(() => {});
+    else if (await p3.locator('.dr-next').count()) await p3.click('.dr-next').catch(() => {});
+    await p3.waitForTimeout(300);
+  }
+  const lines1 = await p3.locator('.dr-log .dr-line, .dr-log .dr-narr').count();
+  check('다음 줄들은 Groq를 부르지 않고 즉시 기기 음성(대사는 계속 흐른다)', lines1 > lines0 && calls.length === before, `lines ${lines0}→${lines1} calls ${before}→${calls.length}`);
+  await c3.close();
+}
+
 await browser.close();
 finish('08-tts');

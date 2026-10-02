@@ -122,20 +122,6 @@ export default function AudioCheckScreen() {
       const j = await r.json();
       if (j.ok) {
         push({ name: '서버→Groq 실연결', ok: true, detail: `정상 · ${(j.bytes / 1024).toFixed(1)}KB 수신 (${j.model})` });
-        // 드라마 인물 목소리 5개도 하나씩 — 특정 인물만 기계음이면 여기서 드러난다
-        try {
-          const v = await (await fetch('/app/api/tts?voices=1')).json();
-          if (v && v.voices) {
-            const bad = Object.entries(v.voices as Record<string, string>).filter(([, st]) => st !== 'ok');
-            push({
-              name: '드라마 인물 목소리',
-              ok: bad.length === 0,
-              detail: bad.length ? `일부 목소리 실패: ${bad.map(([k, st]) => `${k}(${st})`).join(', ')} — 그 인물은 같은 성별의 다른 목소리로 대체돼요` : '태오·Jun·Grant·Maya·Diane 목소리 모두 정상',
-            });
-          }
-        } catch {
-          /* 선택 진단 — 실패해도 넘어간다 */
-        }
       } else {
         push({
           name: '서버→Groq 실연결',
@@ -145,6 +131,24 @@ export default function AudioCheckScreen() {
       }
     } catch (e) {
       push({ name: '서버→Groq 실연결', ok: false, detail: `호출 실패: ${(e as Error).message}` });
+    }
+
+    // 2.6) 드라마 인물 목소리 5개 — 특정 인물만 기계음이면 여기서 드러난다. 합성 5회라 서버 키로는 하지 않고
+    //      이 기기에 등록한 키가 있을 때만 그 키로(서버가 10분 캐시)
+    if (local && local !== SERVER_GROQ_SENTINEL) {
+      try {
+        const v = await (await fetch('/app/api/tts?voices=1', { headers: { 'x-groq-key': local } })).json();
+        if (v && v.voices) {
+          const bad = Object.entries(v.voices as Record<string, string>).filter(([, st]) => st !== 'ok');
+          push({
+            name: '드라마 인물 목소리',
+            ok: bad.length === 0,
+            detail: bad.length ? `일부 목소리 실패: ${bad.map(([k, st]) => `${k}(${st})`).join(', ')} — 그 인물은 같은 성별의 다른 목소리로 대체돼요` : '태오·Jun·Grant·Maya·Diane 목소리 모두 정상',
+          });
+        }
+      } catch {
+        /* 선택 진단 — 실패해도 넘어간다 */
+      }
     }
 
     // 3) TTS 서버 호출 — 상태 코드·본문 크기를 그대로 보여준다

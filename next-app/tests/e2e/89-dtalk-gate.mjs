@@ -195,12 +195,24 @@ async function speakTurn(page, { waitPartner = true } = {}) {
 
   // 리액션 턴 — 게이트 뒤 인물 근황 두 문장, 사이 2초 창에 'Sorry?' → clarify
   stt.replies.push('Sorry?');
+  // 리뷰 B8 — 리액션 턴 문구의 인물 이름은 한국어 + 받침에 맞는 조사('Diane가' ✗ → '다이앤이')
+  await page.evaluate(() => {
+    window.__seenTxt = [];
+    new MutationObserver(() => {
+      for (const el of document.querySelectorAll('.fgate-rt-status, .fgate-rt-verdict')) {
+        const t = el.textContent || '';
+        if (!window.__seenTxt.includes(t)) window.__seenTxt.push(t);
+      }
+    }).observe(document.body, { subtree: true, childList: true, characterData: true });
+  });
   await page.click('.fgate-next');
   await page.waitForSelector('.fgate-rt', { timeout: 10000 });
   check('3번째 턴 전 리액션 턴(힌트 칩 3개)', await page.waitForSelector('.fgate-rt-hint', { timeout: 10000 }).then(async () => (await page.locator('.fgate-rt-hint').count()) === 3).catch(() => false));
   // 판정 문구는 인물이 둘째 문장을 마칠 때까지만 보인다(가짜 TTS는 60ms) — 대화에 남는 리액션 칩으로 본다
   await page.waitForSelector('.fgate-rt', { state: 'detached', timeout: 20000 });
   check('Sorry? = clarify ✓ — 인물이 천천히 다시', await page.evaluate(() => document.querySelector('.fgate-react')?.textContent.includes('천천히')));
+  const rtTxt = await page.evaluate(() => window.__seenTxt.join(' | '));
+  check("리액션 턴 조사 '다이앤이 근황을…'·'다이앤이 천천히…'(영어 이름+'가' 없음)", /다이앤이 근황을/.test(rtTxt) && /다이앤이 천천히/.test(rtTxt) && !/[A-Za-z]가 /.test(rtTxt), rtTxt);
   const firstSaid = await page.evaluate(() => window.__tts.filter((t) => t.text === 'I had a really long day.').map((t) => t.rate));
   check('clarify면 첫 문장을 0.8×로 한 번 더', firstSaid.length === 2 && Math.abs(firstSaid[1] / firstSaid[0] - 0.8) < 0.01, JSON.stringify(firstSaid));
   check('둘째 문장까지 말한다', await page.evaluate(() => window.__tts.some((t) => t.text === 'My laptop crashed twice.')));

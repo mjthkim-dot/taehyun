@@ -118,6 +118,15 @@ check('힌트는 한국어 먼저', await page.evaluate(() => document.querySele
 await page.click('.dt-hint .dr-target');
 check('한 번 더 누르면 영어 문장', await page.evaluate(() => document.querySelector('.dt-hint')?.textContent.includes("It's my first day")));
 
+await page.evaluate(() => {
+  window.__seenTxt = [];
+  new MutationObserver(() => {
+    for (const el of document.querySelectorAll('.dr-narr')) {
+      const t = el.textContent || '';
+      if (!window.__seenTxt.includes(t)) window.__seenTxt.push(t);
+    }
+  }).observe(document.body, { subtree: true, childList: true, characterData: true });
+});
 for (let t = 1; t <= 5; t++) {
   await page.waitForSelector('.dr-mic:not([disabled])', { timeout: 10000 });
   await page.click('.dr-mic');
@@ -134,6 +143,8 @@ for (let t = 1; t <= 5; t++) {
   await page.waitForFunction((n) => document.querySelectorAll('.dr-line:not(.me)').length >= n + 1, t, { timeout: 15000 });
   if (t === 2) check('고친 문장 카드에 재발화 결과', await page.evaluate(() => document.querySelector('.dt-fix')?.textContent.includes('I work in cloud sales.') && document.querySelector('.dt-fix')?.textContent.includes('점 ✓')));
 }
+const narr = await page.evaluate(() => window.__seenTxt.join(' | '));
+check("인물 생각 중 문구 조사 '다이앤이 생각하는 중'(리뷰 B8)", /다이앤이 생각하는 중/.test(narr) && !/Diane가/.test(narr), narr);
 check('턴마다 ⏱ 반응 지연 칩', (await page.locator('.fgate-lat').count()) === 5);
 check('대답 5/5', await page.evaluate(() => document.querySelector('.dr-ep')?.textContent.includes('5/5')));
 // M0 소리 레일 — 회화는 이중언어라 언어 자동 감지(auto), 게이트용 세그먼트만(단어 타임스탬프 없음), 힌트는 고유명사만

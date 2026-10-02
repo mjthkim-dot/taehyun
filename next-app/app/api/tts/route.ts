@@ -26,6 +26,8 @@ const PLAYAI_VOICE: Record<string, string> = {
   daniel: 'Fritz-PlayAI',
   hannah: 'Arista-PlayAI',
   diana: 'Arista-PlayAI',
+  // autumn은 여성 목소리 — 빠져 있으면 폴백 때 기본 Fritz(남성)로 성별이 뒤바뀌었다
+  autumn: 'Arista-PlayAI',
   troy: 'Fritz-PlayAI',
 };
 let ttsModelIdx: 0 | 1 = 0; // 0=Orpheus, 1=playai (모듈 캐시)
@@ -66,27 +68,51 @@ const MAX_TEXT_CHARS = 220;
  * 돌려준다(키 값은 절대 노출하지 않음). 클라이언트 쪽 원인과 서버/키 등급
  * 원인을 분리하는 관측 지점.
  */
+/** ?voices=1 진단 결과 캐시(10분) — 진단 화면을 열 때마다 Orpheus 5회를 쓰지 않게. 키 자체는 남기지 않고 해시만 */
+const VOICES_TTL_MS = 10 * 60_000;
+const voicesCache = new Map<string, { at: number; body: { ok: boolean; voices: Record<string, string> } }>();
+function keyTag(key: string): string {
+  let h = 5381;
+  for (let i = 0; i < key.length; i++) h = (Math.imul(h, 33) ^ key.charCodeAt(i)) >>> 0;
+  return `${key.length}:${h.toString(36)}`;
+}
+
 export async function GET(req: NextRequest) {
   if (!rateLimit(`tts:${clientIp(req.headers)}`, RATE_LIMIT_PER_MIN, 60_000)) {
     return tooManyRequests();
   }
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) {
-    return Response.json({ ok: false, where: 'server-key', detail: '서버에 GROQ_API_KEY가 없어요 — 로컬 키 경로만 사용 중' });
-  }
   // ?voices=1 — 드라마 인물 목소리(austin·daniel·troy·hannah·diana)를 하나씩 실제로 합성해 본다.
-  // 특정 목소리만 막혔을 때(그 인물만 기계음) 원인을 바로 찾게(감사 v1.31 비평 #13)
+  // 특정 목소리만 막혔을 때(그 인물만 기계음) 원인을 바로 찾게(감사 v1.31 비평 #13).
+  // 합성 5회라 **서버 키로는 하지 않는다**(누구나 부를 수 있는 GET이 서버 한도를 태웠다) — 사용자가 자기 키를
+  // x-groq-key 헤더로 줄 때만 그 키로, 결과는 10분 캐시(리뷰 B12).
   if (req.nextUrl.searchParams.get('voices') === '1') {
+    const userKey = (req.headers.get('x-groq-key') || '').trim();
+    if (!userKey) {
+      return Response.json({ ok: false, where: 'no-client-key', detail: '목소리별 진단은 이 기기에 키를 등록했을 때만 해요' });
+    }
+    const tag = keyTag(userKey);
+    const hit = voicesCache.get(tag);
+    if (hit && Date.now() - hit.at < VOICES_TTL_MS) return Response.json({ ...hit.body, cached: true });
     const result: Record<string, string> = {};
     for (const v of ['austin', 'daniel', 'troy', 'hannah', 'diana']) {
       const r = await fetch('https://api.groq.com/openai/v1/audio/speech', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userKey}` },
         body: JSON.stringify(ttsPayload(0, 'Hi.', v)),
       }).catch(() => null);
       result[v] = !r ? 'network' : r.ok ? 'ok' : rejectedVoices.has(v) ? `rejected→${rejectedVoices.get(v)}` : `HTTP ${r.status}`;
     }
-    return Response.json({ ok: Object.values(result).every((x) => x === 'ok'), voices: result });
+    const body = { ok: Object.values(result).every((x) => x === 'ok'), voices: result };
+    // 네트워크 실패는 캐시하지 않는다(일시적) — 결과가 나온 것만
+    if (!Object.values(result).includes('network')) {
+      if (voicesCache.size > 50) voicesCache.clear();
+      voicesCache.set(tag, { at: Date.now(), body });
+    }
+    return Response.json(body);
+  }
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    return Response.json({ ok: false, where: 'server-key', detail: '서버에 GROQ_API_KEY가 없어요 — 로컬 키 경로만 사용 중' });
   }
   // 체인 순서대로 실제 합성을 시도 — 어느 모델이 살아 있는지까지 보고한다
   let lastDetail = '';

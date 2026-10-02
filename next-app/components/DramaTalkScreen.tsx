@@ -31,7 +31,7 @@ import { browserSttAvailable, listenOnce } from '../lib/browserStt';
 import { whisperAvailable } from '../lib/stt';
 import { gateMessage } from '../lib/sttQuality';
 import { groqKoJson, hasHangul } from '../lib/aiGuard';
-import { castOf, gradeRecycled, requestDramaAutoplay, speakMatch } from '../lib/drama';
+import { castNameKo, castOf, gradeRecycled, requestDramaAutoplay, speakMatch, withIGa } from '../lib/drama';
 import { dayLite } from '../lib/homeLite';
 import { saveFixes, talkSetup, talkSystemPrompt, TALK_TURNS, usedExpressions, validateTalk, voiceOf, type TalkReply } from '../lib/dramaTalk';
 import { isOn } from '../lib/flags';
@@ -41,6 +41,7 @@ import { recordSkillResult } from '../lib/cefrGrowth';
 import { cafLite, taskCefr } from '../lib/cafLite';
 import { markInteraction, setDaySession, setStrand, startDayTracking } from '../lib/dayGovernor';
 import { pickReactionHints } from '../lib/reactions';
+import { fillerText, L1_LABEL } from '../lib/speakLabels';
 import { recAvailable, recOnce } from '../lib/dtalkRec';
 import {
   dtalkEvidenceScore,
@@ -657,7 +658,7 @@ export default function DramaTalkScreen({ onNavigate }: { onNavigate?: (m: Mode)
               {latMed != null && <span className="fgate-stat">반응 중앙값 {latencyLabel(latMed).replace('⏱ ', '')}</span>}
               <span className="fgate-stat">{gateTallyLabel(gates.filter((g) => g.passed).length, gates.length)}</span>
               <span className="fgate-stat">리액션 {reacts}</span>
-              {fillers.current > 0 && <span className="fgate-stat">필러 {fillers.current}</span>}
+              {fillers.current > 0 && <span className="fgate-stat">{fillerText(fillers.current)}</span>}
             </div>
           )}
           <div className="dr-sec">오늘 표현</div>
@@ -791,7 +792,7 @@ export default function DramaTalkScreen({ onNavigate }: { onNavigate?: (m: Mode)
                 <FixGate fix={pending.fix} epNo={ep.no} voice={voiceOf(partner)} rate={rate()} l1Label={m.l1} onDone={onGateDone} />
               ) : m.fix && gateOn ? (
                 <button type="button" className="dr-note dt-fix fgate-done" onClick={() => say(m.fix!.better, partner)}>
-                  {m.l1 && <span className="fgate-l1">L1 간섭 · {m.l1}</span>}✏️ 더 자연스럽게: “{m.fix.better}” — {m.fix.why}
+                  {m.l1 && <span className="fgate-l1">{L1_LABEL} · {m.l1}</span>}✏️ 더 자연스럽게: “{m.fix.better}” — {m.fix.why}
                   {m.gate && <b className="fgate-mark">{m.gate.passed ? ` · ${m.gate.score}점 ✓` : ' · 회상에 넣었어요'}</b>}
                 </button>
               ) : m.fix ? (
@@ -806,7 +807,7 @@ export default function DramaTalkScreen({ onNavigate }: { onNavigate?: (m: Mode)
           <ReactionTurn
             first={reaction.first}
             rest={reaction.rest}
-            partnerName={pc.name}
+            partnerName={castNameKo(partner)}
             voice={voiceOf(partner)}
             rate={rate()}
             level={setup.level === 'A1' ? 'A1' : 'A2'}
@@ -815,7 +816,7 @@ export default function DramaTalkScreen({ onNavigate }: { onNavigate?: (m: Mode)
         )}
         {busy && (
           <div className="dr-narr" role="status">
-            {pc.name}가 생각하는 중…
+            {withIGa(castNameKo(partner))} 생각하는 중…
           </div>
         )}
         <div ref={endRef} />

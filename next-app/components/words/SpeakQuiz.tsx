@@ -255,7 +255,9 @@ export default function SpeakQuiz({ word, retry, onGrade, onNext }: SpeakQuizPro
     speakText(word.ex, 'en-US', 0.95);
   }
 
-  const revealed = phase === 'fail' || phase === 'done' || phase === 'pass' || mode === 'self';
+  // 한 번 실패(또는 '모르겠어요')한 뒤엔 2차 녹음 중에도 영어 예문을 계속 보여 준다 — '보고 한 번 더'라 해 놓고
+  // 🎙를 누르는 순간 예문이 다시 숨던 문제(리뷰 B1). 1차 시도 전에는 여전히 숨긴다(읽기가 되지 않게).
+  const revealed = tries >= 1 || phase === 'fail' || phase === 'done' || phase === 'pass' || mode === 'self';
   const busy = phase === 'rec' || phase === 'wait';
   const status =
     phase === 'pass' ? `통과 — ${score === null ? '말했어요' : `${score}점`}. 원어민 발음을 들려드려요.` : phase === 'fail' ? `아직이에요 — ${score ?? 0}점. 영어 예문을 보고 한 번 더 말해 보세요.` : phase === 'done' ? `오답 — ${score ?? 0}점. 다음으로 넘어가요.` : phase === 'rec' ? '듣고 있어요. 영어로 말해 보세요.' : phase === 'wait' ? '받아 적는 중' : '';
@@ -322,7 +324,7 @@ export default function SpeakQuiz({ word, retry, onGrade, onNext }: SpeakQuizPro
 
       {(phase === 'idle' || phase === 'rec') && mode !== 'self' && (
         <button type="button" className="wq-speak-skip" onClick={giveUp}>
-          모르겠어요 — 영어 보기
+          {tries >= 1 ? '모르겠어요 — 넘어가기' : '모르겠어요 — 영어 보기'}
         </button>
       )}
       {selfOk && (phase === 'idle' || phase === 'fail') && (
