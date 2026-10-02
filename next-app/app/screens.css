@@ -6432,3 +6432,247 @@
 .dg-strand-target {
   font-size: 0.78rem;
 }
+/* ───────── M5 엔딩 리텔·오늘 질문(.rt-*) ───────── */
+.rt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.rt-title {
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+.rt-run {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.rt-round,
+.rt-sub {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+.rt-prompts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rt-listener {
+  margin: 0;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+.rt-avatar {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface2);
+  font-size: 1.1rem;
+}
+.rt-guide,
+.rt-note {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+.rt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.rt-chip small {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.rt-chip.mk {
+  border-color: var(--primary);
+}
+.rt-chip.lr {
+  background: var(--surface2);
+}
+.rt-chip.stat {
+  background: var(--surface2);
+  border-color: var(--border);
+}
+.rt-chip.kw.hit {
+  border-color: var(--green);
+  background: var(--green-soft);
+  color: var(--green-dk);
+}
+.rt-start,
+.rt-stop,
+.rt-next,
+.rt-skip,
+.rt-play,
+.rt-fix-play,
+.rt-fix-follow,
+.rt-fix-next,
+.rt-dq-play {
+  min-height: 44px;
+}
+.rt-dq-play {
+  min-width: 44px;
+  margin-left: 6px;
+}
+.rt-rec {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rt-bar,
+.rt-level,
+.rt-cmp-bar {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface2);
+  overflow: hidden;
+}
+.rt-bar > span,
+.rt-level > span,
+.rt-cmp-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  transform-origin: left center;
+  transition: transform 0.15s linear;
+}
+.rt-level {
+  flex: 1;
+  min-width: 40px;
+  height: 6px;
+}
+.rt-level > span {
+  background: var(--green);
+}
+.rt-rec-row,
+.rt-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.rt-time {
+  font-size: 0.84rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.rt-status {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.rt-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.rt-score {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.rt-score b {
+  font-size: 1.2rem;
+}
+.rt-said {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.rt-pause {
+  color: var(--primary);
+  font-weight: 800;
+}
+.rt-fix {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px dashed var(--border-strong);
+}
+.rt-fix-wrong,
+.rt-fix-better,
+.rt-fix-kr,
+.rt-fix-res {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.rt-fix-wrong {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+.rt-fix-better {
+  font-weight: 800;
+}
+.rt-fix-kr,
+.rt-fix-res {
+  font-size: 0.84rem;
+}
+.rt-cmp {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rt-cmp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 7.5em) 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+.rt-cmp-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rt-cmp-row.best .rt-cmp-bar > span {
+  background: var(--green);
+}
+.rt-cmp-n {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.rt-dq-en {
+  margin: 0;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.rt-dq-kr {
+  margin: 0;
+  font-size: 0.86rem;
+  white-space: pre-line;
+  line-height: 1.45;
+}

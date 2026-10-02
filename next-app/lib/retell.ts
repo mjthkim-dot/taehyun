@@ -12,7 +12,8 @@
  * {kr, en:string[]} — 화면에는 kr만 보이고(영어 가림), 채점은 en 동의어 후보로 한다.
  */
 import { load, store } from './state';
-import { todayKey, shiftKey, daySeed } from './dates';
+import { todayKey, shiftKey, daySeed, daysBetween } from './dates';
+import { FILLER_RE, PAUSE_MS, type FluencyWord } from './fluency';
 import type { Cefr } from './cefr';
 
 /* ───────── 시간표 ───────── */
@@ -340,6 +341,19 @@ export interface RetellRecord {
   wpm: number;
   score: number;
   durationMs: number;
+  /* ── 이하 선택(M5 RetellCard가 채운다 — 예전 기록·홈 점 읽기와 호환) ── */
+  /** 300ms 이상 멈춤 수 */
+  pauses?: number;
+  /** 절 내부 멈춤 수 */
+  clausePauses?: number;
+  /** 채움말 수(담화 표지로 쓴 actually 등은 뺀다) */
+  fillers?: number;
+  usedLearn?: string[];
+  usedMarkers?: string[];
+  /** 발화 개시 지연(ms) */
+  latencyMs?: number;
+  /** 키 없음(전사 없이 녹음만) — wpm·score는 0 */
+  keyless?: boolean;
 }
 
 const KEY = 'va_retell';
@@ -360,4 +374,63 @@ export function retellHistory(days = 14, today: string = todayKey()): RetellReco
 /** 오늘 이 화를 이미 리텔했나(회차 무관) */
 export function retelledToday(epNo: number, today: string = todayKey()): boolean {
   return load<RetellRecord[]>(KEY, []).some((r) => r && r.date === today && r.epNo === epNo);
+}
+
+/* ───────── 월 1회 3/3/3 ───────── */
+
+/** 그 달의 첫째 일요일(YYYY-MM-DD) */
+export function firstSundayOf(dateKey: string): string {
+  const [y, m] = dateKey.split('-').map(Number);
+  const first = new Date(Date.UTC(y, m - 1, 1));
+  const add = (7 - first.getUTCDay()) % 7;
+  return `${dateKey.slice(0, 7)}-${String(1 + add).padStart(2, '0')}`;
+}
+
+/**
+ * 이번 달 '정확하게 말하기 날'(3/3/3)을 할 때인가 — 첫째 일요일 이후 첫 리텔부터, 그 달에 아직 '333' 기록이 없으면.
+ * 첫 2주('short' 단계)에는 부르지 않는다(호출부가 단계로 거른다).
+ */
+export function monthly333Due(dateKey: string = todayKey(), records: RetellRecord[] = load<RetellRecord[]>(KEY, [])): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || dateKey < firstSundayOf(dateKey)) return false;
+  const month = dateKey.slice(0, 7);
+  return !records.some((r) => r && r.round === '333' && typeof r.date === 'string' && r.date.slice(0, 7) === month);
+}
+
+/* ───────── 시작일 ───────── */
+
+/**
+ * 학습 시작 후 며칠째인가(시작일 = 0) — 발화 목표(speakGoal)가 잰 since, 없으면 va_days의 가장 이른 날, 그것도 없으면 오늘.
+ * 리텔 시간표의 '첫 14일' 판정에 쓴다(발화 목표의 첫 14일과 같은 기준).
+ */
+export function daysSinceStart(today: string = todayKey()): number {
+  const g = load<{ since?: unknown } | null>('va_speak_goal', null);
+  const days = load<unknown[]>('va_days', []);
+  const first = (Array.isArray(days) ? days.filter((d): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) : []).sort()[0];
+  const since = g && typeof g.since === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(g.since) ? g.since : first && first < today ? first : today;
+  return Math.max(0, daysBetween(since, today));
+}
+
+/* ───────── 결과 표시용(순수) ───────── */
+
+export interface PauseToken {
+  w: string;
+  /** 이 단어 뒤에서 멈췄나(결과 전사에 '|'로) */
+  pauseAfter: boolean;
+}
+
+/** 단어 타임스탬프 → 전사 토큰 + 멈춤 위치(기본 300ms, fluency.pauses300과 같은 기준) */
+export function pauseMarks(words: FluencyWord[], minMs = PAUSE_MS): PauseToken[] {
+  const ws = words.filter((w) => w && Number.isFinite(w.start) && Number.isFinite(w.end)).sort((a, b) => a.start - b.start);
+  return ws.map((w, i) => ({ w: String(w.word).trim(), pauseAfter: i + 1 < ws.length && (ws[i + 1].start - w.end) * 1000 >= minMs }));
+}
+
+/** 채움말 수 — 담화 표지로 고른 말(actually 등)은 채움말로 세지 않는다 */
+export function countFillers(text: string, markers: string[] = []): number {
+  const skip = new Set(markers.map((m) => m.toLowerCase()));
+  return (text.match(new RegExp(FILLER_RE.source, 'gi')) || []).filter((m) => !skip.has(m.toLowerCase())).length;
+}
+
+/** 오늘 질문(20초) 점수 — 정답이 없는 즉흥 발화라 '얼마나 말했나'만: 단어 20개(분당 60)면 100 */
+export function dailyQScore(wordCount: number): number {
+  return Math.max(0, Math.min(100, Math.round(wordCount * 5)));
 }
