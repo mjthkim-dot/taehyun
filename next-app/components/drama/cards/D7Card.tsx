@@ -21,6 +21,8 @@ import { listRecordings, putRecording } from '../../../lib/storage';
 import { bumpSpoken } from '../../../lib/state';
 import { addMinutes } from '../../../lib/timeBudget';
 import { speakText, stopSpeaking } from '../../SpeakButton';
+import { sttErrorMessage } from '../../../lib/sttErrors';
+import { FAILS_SELF_AT } from './RetellCard';
 import { ClipRow } from '../../progress/GaBits';
 
 /** 오늘이 D+1·D+4·D+7 중 며칠째인가(아니면 null) */
@@ -29,10 +31,19 @@ export function d7StageFor(dateKey: string): 1 | 4 | 7 | null {
   return d7Stage(shiftKey(dateKey, -d), dateKey);
 }
 
+/** 이 단계(D+1·4·7)에 이미 저장한 녹음 id — 단계당 1회만 녹음한다(같은 날 엔딩을 또 봐도 다시 쌓지 않게) */
+export function d7SavedId(stage: 1 | 4 | 7 | null): string | undefined {
+  if (!stage) return undefined;
+  const p = d7Pair();
+  return p && p.en === D7_SENTENCE ? p[`d${stage}Id`] : undefined;
+}
+
 function D7View({ ctx }: { ctx: EndingCtx }) {
   const stage = d7StageFor(ctx.dateKey);
-  const [phase, setPhase] = useState<'idle' | 'rec' | 'done' | 'gate'>('idle');
+  const [savedId] = useState(() => d7SavedId(stage));
+  const [phase, setPhase] = useState<'idle' | 'rec' | 'done' | 'gate'>(savedId ? 'done' : 'idle');
   const [mine, setMine] = useState<Blob | null>(null);
+  const [fails, setFails] = useState(0);
   const [d1, setD1] = useState<Blob | null>(null);
   const [msg, setMsg] = useState('');
   const stop = useRef<(() => void) | null>(null);
@@ -45,6 +56,21 @@ function D7View({ ctx }: { ctx: EndingCtx }) {
       stop.current?.();
     };
   }, []);
+
+  // 이 단계 녹음이 이미 있으면 그걸 보여 준다(없어졌으면 다시 녹음할 수 있게)
+  useEffect(() => {
+    if (!savedId) return;
+    let on = true;
+    void listRecordings('d7').then((all) => {
+      if (!on) return;
+      const b = all.find((r) => r.id === savedId)?.blob;
+      if (b) setMine(b);
+      else setPhase('idle');
+    });
+    return () => {
+      on = false;
+    };
+  }, [savedId]);
 
   // D+7: D+1 녹음 꺼내기
   useEffect(() => {
@@ -71,6 +97,7 @@ function D7View({ ctx }: { ctx: EndingCtx }) {
       if (!alive.current) return;
       if (!res.audio) {
         setMsg('소리가 잡히지 않았어요 — 다시 눌러 주세요.');
+        setFails((n) => n + 1);
         setPhase('gate');
         return;
       }
@@ -81,12 +108,19 @@ function D7View({ ctx }: { ctx: EndingCtx }) {
       if (!alive.current) return;
       setMine(res.audio);
       setPhase('done');
-    } catch {
+    } catch (e) {
       stop.current = null;
       if (!alive.current) return;
-      setMsg('마이크를 열지 못했어요 — 권한을 확인하고 다시 눌러 주세요.');
+      setMsg(sttErrorMessage(e));
+      setFails((n) => n + 1);
       setPhase('gate');
     }
+  }
+
+  /** 녹음이 거듭 실패 — 소리 내어 말한 것으로(자기확인 발화) 넘어간다. 비교 녹음은 남지 않는다 */
+  function selfPass() {
+    bumpSpoken(1, 'self');
+    setPhase('done');
   }
 
   const taeo = voiceOf('taeo');
@@ -114,6 +148,11 @@ function D7View({ ctx }: { ctx: EndingCtx }) {
               🎙 한 번 말하기
             </button>
           )}
+          {phase === 'gate' && fails >= FAILS_SELF_AT && (
+            <button type="button" className="btn ghost ga-self" onClick={selfPass}>
+              🗣 소리 내어 말했어요 — 넘어가기
+            </button>
+          )}
         </>
       )}
       {phase === 'rec' && (
@@ -126,7 +165,7 @@ function D7View({ ctx }: { ctx: EndingCtx }) {
       )}
       {phase === 'done' && (
         <div className="ga-result" role="status">
-          <p className="ga-saved">✓ D+{stage} 녹음 저장</p>
+          <p className="ga-saved">{mine || savedId ? `✓ D+${stage} 녹음 저장` : '✓ 소리 내어 말했어요 — 비교 녹음은 다음에'}</p>
           <ClipRow
             items={[
               ...(stage === 7 ? [{ label: 'D+1 나 ▶', clip: d1 }] : []),

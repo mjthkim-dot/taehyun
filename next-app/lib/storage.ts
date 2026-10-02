@@ -259,9 +259,12 @@ const localDate = (t: number) => {
  *   · retell 5 · daily-q 3: 최신 우선
  *   · drama 10: LRU이되 '통과한 문장'과 '같은 문장을 2회 이상 녹음한 것'(전후 비교 가능)을 우선 보존
  *   · 전체 상한 20: 그래도 넘치면 영구 종류를 뺀 나머지에서 오래된 것부터
+ *   · keep(예: va_growth.d7Pair가 가리키는 D+1·D+4·D+7 녹음 id)은 어떤 규칙으로도 지우지 않는다 —
+ *     D+1을 여러 번 녹음하면 'd7 최신 3개'에서 D+7 비교용 D+1이 밀려났다
  */
-export function pruneRecordingPlan(all: RecordingMeta[], max = RECORDING_MAX): string[] {
+export function pruneRecordingPlan(all: RecordingMeta[], max = RECORDING_MAX, keep: string[] = []): string[] {
   const drop = new Set<string>();
+  const pinned = new Set(keep);
   const byKind = new Map<RecordingKind, RecordingMeta[]>();
   for (const r of all) {
     const arr = byKind.get(r.kind);
@@ -281,12 +284,14 @@ export function pruneRecordingPlan(all: RecordingMeta[], max = RECORDING_MAX): s
     } else {
       keepOrder = [...list].sort(newestFirst);
     }
-    for (const r of keepOrder.slice(cap)) drop.add(r.id);
+    // 고정(pinned)은 상한 칸을 먼저 차지하고 지우지 않는다
+    keepOrder = [...keepOrder.filter((r) => pinned.has(r.id)), ...keepOrder.filter((r) => !pinned.has(r.id))];
+    for (const r of keepOrder.slice(cap)) if (!pinned.has(r.id)) drop.add(r.id);
   }
   const remaining = all.filter((r) => !drop.has(r.id));
   if (remaining.length > max) {
     // d7(최대 3개)도 전체 상한에서 빼지 않는다 — D+1 vs D+7 비교가 끝나기 전에 밀려나면 카드가 빈다
-    const evictable = remaining.filter((r) => r.kind !== 'baseline' && r.kind !== 'monthly' && r.kind !== 'd7').sort((a, b) => a.at - b.at);
+    const evictable = remaining.filter((r) => r.kind !== 'baseline' && r.kind !== 'monthly' && r.kind !== 'd7' && !pinned.has(r.id)).sort((a, b) => a.at - b.at);
     for (const r of evictable.slice(0, remaining.length - max)) drop.add(r.id);
   }
   return [...drop];
@@ -307,12 +312,22 @@ export async function putRecording(rec: Omit<Recording, 'id' | 'date' | 'at'> & 
   }
 }
 
+/** 지우면 안 되는 녹음 id — va_growth.d7Pair(D+1·D+4·D+7). growthArchive를 import하지 않고 저장값만 읽는다(순환 방지) */
+function pinnedRecordingIds(): string[] {
+  try {
+    const p = JSON.parse(localStorage.getItem('va_growth') || 'null')?.d7Pair;
+    return p && typeof p === 'object' ? [p.d1Id, p.d4Id, p.d7Id].filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 /** 보존 규칙 적용 — 지운 개수(실패 시 0) */
 export async function pruneRecordings(): Promise<number> {
   try {
     const db = await getDB();
     const all = await db.getAll(REC_STORE);
-    const ids = pruneRecordingPlan(all);
+    const ids = pruneRecordingPlan(all, RECORDING_MAX, pinnedRecordingIds());
     for (const id of ids) await db.delete(REC_STORE, id);
     return ids.length;
   } catch {

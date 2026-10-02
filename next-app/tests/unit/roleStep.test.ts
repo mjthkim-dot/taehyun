@@ -18,6 +18,8 @@ import {
   ROLE_PASS,
   SHADOW_MAX,
   shadowScore,
+  shadowVoiced,
+  passed as isPass,
   SKIP_MAX,
   speakStatsFrom,
   sttPath,
@@ -114,10 +116,24 @@ describe('섀도잉', () => {
     expect(half.recall).toBe(0.43);
     expect(half.score).toBeLessThan(ROLE_PASS);
   });
-  test('전사가 없으면(키 없음 recordOnly) 길이 비로만 — 범위 안이면 통과', () => {
-    expect(shadowScore({ target: 'Hello there.', modelMs: 1500, mineMs: 2600 }).score).toBe(100);
-    expect(shadowScore({ target: 'Hello there.', modelMs: 1500, mineMs: 1100 }).score).toBe(50); // 0.07× — 거의 안 말함
+  test('전사가 없으면(키 없음 recordOnly) 점수를 매기지 않는다 — 길이 비만으로 통과시키지 않음(A3)', () => {
+    // 녹음은 모델 끝+1초에 늘 멈춰 길이 비가 항상 ~1.0이다 — 예전엔 아무 말 안 해도 100점이었다
+    expect(shadowScore({ target: 'Hello there.', modelMs: 1500, mineMs: 2600 }).score).toBe(0);
     expect(shadowScore({ target: 'Hello there.' }).score).toBe(0);
+  });
+  test('받아쓰기 경로인데 들린 단어가 없으면 0점(침묵 통과 금지, A3)', () => {
+    const r = shadowScore({ target: 'Hello there.', said: '', modelMs: 1500, mineMs: 2500 });
+    expect(r.score).toBe(0);
+    expect(isPass(r.score)).toBe(false);
+    expect(shadowScore({ target: 'Hello there.', said: ' . ', modelMs: 1500, mineMs: 2500 }).score).toBe(0);
+  });
+  test('shadowVoiced — 침묵(레벨 임계 미만·첫 유성 없음)은 false, 소리 있으면 true, 잴 수 없으면 null', () => {
+    expect(shadowVoiced({ peak: 0.001, durationMs: 2600 }, 1500)).toBe(false);
+    expect(shadowVoiced({ peak: 0.5, durationMs: 2600 }, 1500)).toBe(false); // 임계를 넘은 시각이 없다
+    expect(shadowVoiced({ peak: 0.5, voiceOnsetMs: 200, durationMs: 2600, pauses: [] }, 1500)).toBe(true);
+    // 첫 순간 잠깐 소리 나고 나머지는 긴 멈춤 — 모델 길이의 20% 미만
+    expect(shadowVoiced({ peak: 0.5, voiceOnsetMs: 100, durationMs: 2600, pauses: [1300] }, 1500)).toBe(false);
+    expect(shadowVoiced({ durationMs: 2600 }, 1500)).toBeNull();
   });
   test('키 없으면 지정 상대 대사는 섀도잉 기본 ON, 키 있으면 보통 재생(길게 누르기)', () => {
     expect(mineDefaultMode('self')).toBe('shadow');
@@ -206,6 +222,16 @@ describe('세션 집계·재소환', () => {
     ]);
     expect(s).toMatchObject({ spoken: 3, passed: 2, disputed: 1, skipped: 1 });
     expect(s.lapsesTop[0]).toEqual({ key: 'r-l', count: 2 });
+  });
+  test('자기확인(✓)은 통과로 세지 않고 self로 따로(A2) — 이의 제기는 통과', () => {
+    const s = speakStatsFrom([
+      base({ self: true, passed: true, score: 100 }),
+      base({ mode: 'lip', self: true, passed: true, score: 100 }),
+      base({ disputed: true, passed: true, score: 10 }),
+      base({ score: 80, passed: true }),
+    ]);
+    expect(s).toMatchObject({ spoken: 4, passed: 2, self: 2 });
+    expect(speakStatsFrom([base()]).self).toBeUndefined();
   });
   test('재소환 — 방금 60점 미만 최대 2개, 같은 문장 한 번, 넘어감·이의·입모양 제외', () => {
     const items = recallInlineItems([

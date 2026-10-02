@@ -121,7 +121,8 @@ async function waitRecall(page, n) {
   check('두 번째 실패 뒤에만 보기 3개(힌트)', hints.length === 3 && hints.includes(CARDS[1].en), hints.join(' | '));
   await page.locator('.rc-opt').filter({ hasNotText: CARDS[1].en }).first().click();
   await page.waitForSelector('.rc-follow', { timeout: 10000 });
-  check('again — 정답 공개 + 곧바로 따라 말해요', (await page.textContent('.rc-result')).includes(CARDS[1].en) && (await page.textContent('.rc-follow-ask')).includes('따라 말해요'));
+  // 틀린 단어엔 스크린리더용 '(틀림)'이 붙는다(리뷰 A13) — 보이는 문장은 정답 그대로
+  check('again — 정답 공개 + 곧바로 따라 말해요(틀린 단어는 sr-only (틀림))', (await page.textContent('.rc-result')).replace(/\(틀림\)/g, '').includes(CARDS[1].en) && (await page.locator('.rc-result .rs-w.bad .sr-only').count()) >= 1 && (await page.textContent('.rc-follow-ask')).includes('따라 말해요'));
   await page.waitForSelector('.rc-follow-res', { timeout: 20000 });
   check('따라 말하기 결과 한 줄', (await page.textContent('.rc-follow-res')).includes('점'));
   await page.click('.rc-next');

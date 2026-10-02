@@ -13,6 +13,7 @@
 import { daysBetween, shiftKey, todayKey } from './dates';
 import { load, store, spokenToday, groqKey, SPEAK_GOAL_KEY, SPEAK_GOAL_DEFAULT, SPEAK_GOAL_MAX } from './state';
 import { grantFreeze } from './habits';
+import { dayGovOn } from './homeLite';
 
 export const SPEAK_GOAL_FIRST_DAYS = 14;
 export const SPEAK_GOAL_BASE = 20;
@@ -62,6 +63,21 @@ function goalOn(day: string, since: string, bonus: number, keyless: boolean): nu
   return Math.min(SPEAK_GOAL_MAX, SPEAK_GOAL_BASE + bonus);
 }
 
+const isRec = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/**
+ * 지난 날의 목표 감면(M4) — va_day_gov hist[date](또는 아직 넘기지 않은 최상위 기록)의 mode/adapt.
+ * 짧은 날 ×0.5 · 적응일 ×0.6(homeLite.dayGoalFactor가 그날 홈에 보여 준 목표와 같은 계수). 기록이 없으면 1.
+ */
+export function pastDayFactor(day: string): number {
+  if (!dayGovOn()) return 1;
+  const g = load<Record<string, unknown> | null>('va_day_gov', null);
+  if (!isRec(g)) return 1;
+  const h = g.date === day ? g : isRec(g.hist) ? g.hist[day] : null;
+  if (!isRec(h)) return 1;
+  return h.mode === 'short' ? 0.5 : h.adapt === true ? 0.6 : 1;
+}
+
 /**
  * 오늘의 발화 목표를 계산·저장하고 돌려준다(하루가 바뀌었으면 어제까지의 연속일·가산·주간 프리즈를 정산).
  * 드라마 화면·회상이 열릴 때 부른다. 홈은 저장값만 읽는다(speakGoalLite).
@@ -86,8 +102,12 @@ export function speakGoal(now: Date = new Date()): SpeakGoalState {
     // 최대 60일(로그 보관 기간)만 거슬러 센다 — 그 이전 공백은 어차피 연속이 끊긴 것
     let d = r.evalDate < shiftKey(today, -60) ? shiftKey(today, -60) : shiftKey(r.evalDate, 1);
     for (; d <= yesterday; d = shiftKey(d, 1)) {
-      // 그날 캡으로 확정됐으면 그 값이 그날 목표
-      const g = r.capped && r.date === d && typeof r.goal === 'number' ? (r.goal as number) : goalOn(d, since, bonus, keyless);
+      // 그날 기록 — 마지막 기록(r) 또는 bumpSpoken이 날을 넘기며 남긴 prev. 캡·키 유무는 '그날' 값으로(오늘 값 아님)
+      const rec = r.date === d ? r : isRec(r.prev) && r.prev.date === d ? r.prev : null;
+      const kv = rec ? (typeof rec.kl === 'boolean' ? rec.kl : rec.keyless) : undefined;
+      const kl = typeof kv === 'boolean' ? kv : keyless;
+      // 그날 캡으로 확정됐으면 그 값이 그날 목표. 짧은 날·적응일 감면도 그날 홈에 보인 목표와 같게
+      const g = Math.max(1, Math.round((rec && rec.capped === true && typeof rec.goal === 'number' ? (rec.goal as number) : goalOn(d, since, bonus, kl)) * pastDayFactor(d)));
       const met = num(log[d]) >= g && num(log[d]) > 0;
       if (met) {
         streakDays += 1;
@@ -124,7 +144,9 @@ export function speakGoal(now: Date = new Date()): SpeakGoalState {
     metDays: recentMet,
     freezeWeek,
   };
-  store(SPEAK_GOAL_KEY, st);
+  // 캡 전 목표(base) — 다음 날 bumpSpoken이 낮춘 목표를 이어받지 않게
+  // kl = 그날 한 번이라도 키가 없었나(지난 날 정산이 그날 목표를 이 값으로 정한다 — 오늘 아침 키를 등록해도 어제는 어제 기준)
+  store(SPEAK_GOAL_KEY, { ...st, kl: (same && r.kl === true) || keyless, ...(capped && typeof r.base === 'number' ? { base: r.base } : {}) });
   return st;
 }
 
@@ -136,7 +158,7 @@ export function capSpeakGoalToday(): SpeakGoalState {
   const st = speakGoal();
   const spoken = Math.floor(spokenToday());
   if (spoken >= st.goal) return st;
-  const next = { ...st, goal: Math.max(1, spoken), capped: true };
+  const next = { ...st, goal: Math.max(1, spoken), capped: true, base: st.goal };
   store(SPEAK_GOAL_KEY, next);
   return next;
 }

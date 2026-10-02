@@ -27,6 +27,7 @@ import { diagnose, type PronIssue } from '../../lib/pronunciation';
 import { rhythmChip } from '../../lib/rhythm';
 import { recordAndTranscribe, STT_PROPER_NOUNS, whisperAvailable, micAvailable, type SttResult, type SttWord } from '../../lib/stt';
 import { blockingReason, gateMessage } from '../../lib/sttQuality';
+import { sttErrorKind, sttErrorMessage } from '../../lib/sttErrors';
 import { browserSttAvailable, listenOnce } from '../../lib/browserStt';
 import { putRecording } from '../../lib/storage';
 import { bumpDiag } from '../../lib/diag';
@@ -50,6 +51,7 @@ import {
   SKIP_MAX,
   sttPath,
   shadowScore,
+  shadowVoiced,
   unlimitedSkips,
   wordCount,
   type Chip,
@@ -129,6 +131,8 @@ interface Heard {
 /** 대사 한 줄을 읽는 데 필요한 시간(음소거·추정용) — DramaScreen.lineMs와 같은 식 */
 const lineMs = (en: string) => en.split(/\s+/).length * 380 + 700;
 const LONG_PRESS_MS = 500;
+/** 채점까지 못 간(게이트에 막힌) 시도가 이만큼이면 자기확인 출구를 연다 — 넘어가기 소진과 무관 */
+export const GATE_SELF_AT = 2;
 const SPEED_BASE = 0.95;
 
 export default function RoleStep({
@@ -169,6 +173,9 @@ export default function RoleStep({
   const [disputeOpen, setDisputeOpen] = useState(false);
   const [disputed, setDisputed] = useState(false);
   const [lipReveal, setLipReveal] = useState(false);
+  /** 이 대사에서 게이트(안 들림·불명확·서버 바쁨)에 막힌 횟수 — 시도·넘어가기 수에는 넣지 않는다 */
+  const [gates, setGates] = useState(0);
+  const resultHead = useRef<HTMLDivElement | null>(null);
   const alive = useRef(true);
   const stopRec = useRef<(() => void) | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -186,6 +193,18 @@ export default function RoleStep({
     timers.current.push(t);
     return t;
   };
+
+  /** 채점 불가 — 안내만 하고 🎙 다시(시도·넘어가기 수는 그대로) */
+  const toGate = (m: string) => {
+    setMsg(m);
+    setGates((g) => g + 1);
+    setPhase('gate');
+  };
+
+  // 결과가 뜨면 포커스를 결과 제목으로(키보드·스크린리더가 BODY로 떨어지지 않게)
+  useEffect(() => {
+    if (phase === 'result') resultHead.current?.focus({ preventScroll: true });
+  }, [phase]);
 
   useEffect(() => {
     alive.current = true;
@@ -296,8 +315,7 @@ export default function RoleStep({
       stopRec.current = null;
       if (cancelled.current || !alive.current) return;
       if (res.reason === 'busy') {
-        setMsg(gateMessage('busy'));
-        setPhase('gate');
+        toGate(gateMessage('busy'));
         return;
       }
       if (path === 'self') {
@@ -308,29 +326,29 @@ export default function RoleStep({
       }
       const said = (res.text || '').trim();
       if (!said) {
-        setMsg(res.reason === 'no-audio' || res.reason === 'silent' ? '소리가 잘 안 잡혔어요 — 한 번만 더' : '말이 들리지 않았어요 — 한 번만 더');
-        setPhase('gate');
+        toGate(res.reason === 'no-audio' || res.reason === 'silent' ? '소리가 잘 안 잡혔어요 — 한 번만 더' : '말이 들리지 않았어요 — 한 번만 더');
         return;
       }
       // 품질 게이트 — 환각·불명확·누출은 채점하지 않는다. 따라 말하기라 lastTtsText(echo)는 넘기지 않았다.
       const block = path === 'whisper' ? blockingReason(res) : null;
       if (block) {
-        setMsg(gateMessage(block));
-        setPhase('gate');
+        toGate(gateMessage(block));
         return;
       }
       grade(said, res);
-    } catch {
+    } catch (e) {
       stopRec.current = null;
       if (cancelled.current || !alive.current) return;
+      // 마이크 권한·네트워크·키·서버를 구분해 안내한다(예전엔 전부 '마이크를 열지 못했어요')
+      const why = sttErrorMessage(e);
       if (manual || micDenied) {
-        // 두 번째 실패 — 마이크를 못 쓴다. 자기확인으로(넘어가기 무제한)
+        // 두 번째 실패 — 이 기기에서 지금은 채점할 수 없다. 자기확인으로(넘어가기 무제한)
         setMicDenied(true);
-        setMsg('마이크를 쓸 수 없어요 — 소리 내어 말하고 스스로 확인해 주세요.');
+        setMsg(`${why} 지금은 소리 내어 말하고 스스로 확인해 주세요.`);
         setPhase('self');
         return;
       }
-      setMsg('마이크를 열지 못했어요 — 버튼을 눌러 말해 보세요.');
+      setMsg(sttErrorKind(e) === 'mic-denied' || sttErrorKind(e) === 'no-mic' ? why : `${why} 버튼을 눌러 다시 말해 보세요.`);
       setPhase('idle');
     }
   }
@@ -371,11 +389,22 @@ export default function RoleStep({
       stopRec.current = null;
       if (cancelled.current || !alive.current) return;
       if (res.reason === 'busy') {
-        setMsg(gateMessage('busy'));
-        setPhase('gate');
+        toGate(gateMessage('busy'));
         return;
       }
-      const sh = shadowScore({ target: scene.en, said: path === 'whisper' ? res.text : undefined, modelMs: modelMs.current || lineMs(scene.en), mineMs: res.durationMs });
+      const mMs = modelMs.current || lineMs(scene.en);
+      // 침묵은 통과가 아니다 — 녹음이 모델 끝+1초에 늘 멈춰 길이만으로는 못 거른다. 레벨·첫 유성으로 본다
+      if (shadowVoiced(res, mMs) === false || (path === 'whisper' && !(res.text || '').trim())) {
+        toGate('소리가 안 들렸어요 — 함께 소리 내어 말해 보세요');
+        return;
+      }
+      if (path !== 'whisper') {
+        // 키 없음 — 받아쓰기가 없어 점수를 매기지 않는다. 내 소리 ▶ / 인물 ▶ 비교 + 자기확인
+        setHeard({ said: '', score: 0, diff: [], missed: [], issues: [], audio: res.audio, latencyMs: res.voiceOnsetMs, durationMs: res.durationMs, chip: null });
+        setPhase('self');
+        return;
+      }
+      const sh = shadowScore({ target: scene.en, said: res.text || '', modelMs: mMs, mineMs: res.durationMs });
       const diff = path === 'whisper' && res.text ? alignedScore(scene.en, res.text).diff : [];
       const h: Heard = {
         said: res.text || '',
@@ -397,11 +426,11 @@ export default function RoleStep({
       setTries(1);
       haptic(isPass(sh.score) ? 'success' : 'error');
       setPhase('result');
-    } catch {
+    } catch (e) {
       stopRec.current = null;
       if (cancelled.current || !alive.current) return;
       setMicDenied(true);
-      setMsg('마이크를 쓸 수 없어요 — 듣고 따라 말한 뒤 스스로 확인해 주세요.');
+      setMsg(`${sttErrorMessage(e)} 듣고 따라 말한 뒤 스스로 확인해 주세요.`);
       setPhase('self');
     }
   }
@@ -535,6 +564,13 @@ export default function RoleStep({
   const label = mode === 'shadow' ? `👄 ${withWa(name)} 같이 말하기` : mode === 'lip' ? '🤫 입으로만 따라 하기' : recall ? '🔁 방금 그 대사, 한국어만 보고' : '🎙 태오가 되어 말해 보세요';
   const compareLabels = { native: `${name} ▶`, mine: '내 소리 ▶', title: '번갈아 들어보기' };
 
+  /** 모델 다시 듣기 — 게이트 안내('아니면 들어보기 ▶')가 가리키는 버튼. 녹음 중이 아닐 때만 */
+  const replayBtn = (
+    <button type="button" className="mini-btn rs-replay" onClick={() => playModel(mode === 'shadow' ? scene.en : target, () => {})}>
+      🔊 다시 듣기
+    </button>
+  );
+
   const skipBtn = (
     <button type="button" className="dr-skip rs-skip" disabled={!skipOk} onClick={skip} aria-disabled={!skipOk}>
       {skipOk ? skipLabel : '넘어가기는 다 썼어요'}
@@ -561,15 +597,20 @@ export default function RoleStep({
           setDisputeOpen(true);
         }}
       >
-        <div className="rs-score" aria-label={`점수 ${heard.score}점`}>
+        <div className="rs-score" aria-label={`점수 ${heard.score}점`} tabIndex={-1} ref={resultHead}>
           {mode === 'shadow' ? '같이 말하기' : stages.length > 1 ? `끝부터 쌓기 ${stage + 1}/${stages.length}` : '내 발화'} · <b>{heard.score}점</b>
           {heard.ratio != null && <span className="rs-ratio"> · 길이 {heard.ratio}×</span>}
         </div>
         {heard.diff.length > 0 ? (
           <p className="rs-diff" lang="en">
+            {/* 단어 사이 공백을 글자로 — 복사·스크린리더가 문장 그대로 읽고, 틀린 단어는 색만이 아니라 글로도 알린다 */}
             {displayDiff(target, heard.diff).map((d, k) => (
-              <span key={k} className={d.ok ? 'rs-w ok' : 'rs-w bad'}>
-                {d.w}
+              <span key={k}>
+                {k > 0 && ' '}
+                <span className={d.ok ? 'rs-w ok' : 'rs-w bad'}>
+                  {d.w}
+                  {!d.ok && <span className="sr-only">(틀림)</span>}
+                </span>
               </span>
             ))}
           </p>
@@ -639,7 +680,7 @@ export default function RoleStep({
         </p>
         {subsOn && <p className="rs-kr">{scene.kr}</p>}
         {msg && <p className="dr-msg">{msg}</p>}
-        {heard?.audio && <VoiceCompare sentence={scene.en} clip={heard.audio} labels={compareLabels} voice={voiceOf(scene.who)} rate={rate} />}
+        {heard?.audio ? <VoiceCompare sentence={scene.en} clip={heard.audio} labels={compareLabels} voice={voiceOf(scene.who)} rate={rate} /> : replayBtn}
         <div className="dr-row rs-row">
           <button type="button" className="btn ghost rs-self-no" onClick={() => finish({ self: true, selfOk: false })}>
             잘 안 됐어요
@@ -708,6 +749,7 @@ export default function RoleStep({
           <p className="rs-status" role="status">
             {phase === 'wait' ? '… 듣고 있어요(변환 중)' : mode === 'shadow' ? `🎙 ${withWa(name)} 동시에 말하세요` : '🎙 말씀하세요 — 말이 끝나면 저절로 멈춰요'}
           </p>
+          {mode === 'shadow' && path === 'whisper' && phase === 'rec' && <p className="rs-hint">🎧 이어폰을 끼면 스피커 소리가 섞이지 않아 더 정확해요</p>}
           <button type="button" className="dr-mic on rs-mic" disabled={phase === 'wait'} onClick={() => stopRec.current?.()} aria-label="말하기 끝">
             {phase === 'wait' ? '…' : '⏹'}
           </button>
@@ -726,6 +768,21 @@ export default function RoleStep({
           <button type="button" className="dr-mic rs-mic" onClick={() => (mode === 'shadow' ? void startShadow() : void startRecording(true))} aria-label="말하기">
             🎙
           </button>
+          {replayBtn}
+          {/* 채점 불가가 거듭되면(넘어가기를 다 썼어도) 스스로 확인하고 지나갈 출구 */}
+          {gates >= GATE_SELF_AT && (
+            <button
+              type="button"
+              className="btn ghost rs-to-self"
+              onClick={() => {
+                stopSpeaking();
+                setMsg('채점이 어려운 상황이에요 — 소리 내어 말하고 스스로 확인해 주세요.');
+                setPhase('self');
+              }}
+            >
+              🗣 스스로 확인하고 넘어가기
+            </button>
+          )}
           {skipBtn}
         </div>
       )}

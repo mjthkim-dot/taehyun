@@ -46,7 +46,7 @@ import { speakGoal } from '../lib/speakGoal';
 import { whisperAvailable } from '../lib/stt';
 import { isOn } from '../lib/flags';
 import { todayKey } from '../lib/dates';
-import { recallInlineItems, SHADOW_MAX, SKIP_MAX, speakStatsFrom, sttPath, type RoleMode, type RoleResult } from '../lib/roleStep';
+import { logRoleResult, recallInlineItems, roleFromSummary, roleSummary, SHADOW_MAX, SKIP_MAX, speakStatsFrom, sttPath, type RoleMode, type RoleResult } from '../lib/roleStep';
 import { evidenceLog, overall, PASS_SCORE, PASSES_NEEDED } from '../lib/cefrGrowth';
 import {
   allEpisodes,
@@ -123,30 +123,81 @@ function loadRecallStep(): Promise<RecallStepComp | null> {
       });
   return recallStepLoad;
 }
-function RecallStep(props: ComponentProps<RecallStepComp>) {
-  const [Comp, setComp] = useState<RecallStepComp | null>(() => recallStepMod);
+/**
+ * 지연 청크 로더 — 받는 동안 '준비 중…', 실패하면(오프라인) 영구 대기 대신 '다시 불러오기'와 '이 줄 넘어가기'.
+ * try가 바뀌면 다시 받는다(loadX는 실패 시 캐시를 비워 둔다).
+ */
+function useLazy<C>(mod: C | null, load: () => Promise<C | null>): { Comp: C | null; failed: boolean; retry: () => void } {
+  const [Comp, setComp] = useState<C | null>(() => mod);
+  const [failed, setFailed] = useState(false);
+  const [tryNo, setTryNo] = useState(0);
   useEffect(() => {
     if (Comp) return;
     let on = true;
-    void loadRecallStep().then((c) => on && c && setComp(() => c));
+    setFailed(false);
+    void load().then((c) => {
+      if (!on) return;
+      if (c) setComp(() => c);
+      else setFailed(true);
+    });
     return () => {
       on = false;
     };
-  }, [Comp]);
-  return Comp ? <Comp {...props} /> : <div className="dr-act rc-loading">🎙 준비 중…</div>;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Comp, tryNo]);
+  return { Comp, failed, retry: () => setTryNo((n) => n + 1) };
+}
+
+function LazyFail({ cls, onRetry, onSkip }: { cls: string; onRetry: () => void; onSkip: () => void }) {
+  return (
+    <div className={`dr-act ${cls} dr-lazy-fail`} role="status">
+      <p className="dr-msg">이 화면을 불러오지 못했어요 — 인터넷 연결을 확인해 주세요.</p>
+      <div className="dr-row">
+        <button type="button" className="btn ghost dr-lazy-retry" onClick={onRetry}>
+          다시 불러오기
+        </button>
+        <button type="button" className="btn primary dr-lazy-skip" onClick={onSkip}>
+          이 줄 넘어가기
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RecallStep(props: ComponentProps<RecallStepComp>) {
+  const { Comp, failed, retry } = useLazy(recallStepMod, loadRecallStep);
+  if (Comp) return <Comp {...props} />;
+  if (failed) {
+    const it = props.item;
+    // 채점 없이 넘긴다 — 간격 반복은 건드리지 않고(again 기록 없음) 화면에만 '다시 볼게요'
+    return <LazyFail cls="rc-loading" onRetry={retry} onSkip={() => props.onDone({ en: it.en, kr: it.kr, who: it.who || 'taeo', grade: 'again', good: false, firstScore: 0, hinted: false, mode: 'choice', path: 'self' })} />;
+  }
+  return <div className="dr-act rc-loading">🎙 준비 중…</div>;
 }
 
 function RoleStep(props: ComponentProps<RoleStepComp>) {
-  const [Comp, setComp] = useState<RoleStepComp | null>(() => roleStepMod);
-  useEffect(() => {
-    if (Comp) return;
-    let on = true;
-    void loadRoleStep().then((c) => on && c && setComp(() => c));
-    return () => {
-      on = false;
-    };
-  }, [Comp]);
-  return Comp ? <Comp {...props} /> : <div className="dr-act rs-loading">🎙 준비 중…</div>;
+  const { Comp, failed, retry } = useLazy(roleStepMod, loadRoleStep);
+  if (Comp) return <Comp {...props} />;
+  if (failed) {
+    const sc = props.scene;
+    // tries 0 = 불러오지 못해 넘김(호출부가 넘어가기 횟수에 넣지 않는다). 넘어간 줄처럼 내일 복습 카드로만 남긴다
+    return (
+      <LazyFail
+        cls="rs-loading"
+        onRetry={retry}
+        onSkip={() => {
+          const r: RoleResult = { sceneIdx: sc.idx, en: sc.en, kr: sc.kr, who: sc.who, said: '', score: 0, diff: [], missed: [], lapses: [], tries: 0, mode: props.mode, skipped: true, disputed: false, self: false, passed: false, path: 'self' };
+          try {
+            logRoleResult(r, props.epNo);
+          } catch {
+            /* 기록 실패는 흐름을 막지 않는다 */
+          }
+          props.onDone(r);
+        }}
+      />
+    );
+  }
+  return <div className="dr-act rs-loading">🎙 준비 중…</div>;
 }
 
 const MUTE_KEY = 'va_drama_mute';
@@ -313,9 +364,10 @@ function Player({
     return { t, mode: quiet ? 'lip' : 'shadow' };
   };
   /** 역할극 결과 모음 — 집계(speakStats)·재소환 후보 */
-  const roleResults = useRef<RoleResult[]>([]);
-  const [skips, setSkips] = useState(0);
-  const skipsRef = useRef(0);
+  // 이어 보기면 지난번 역할극 결과 요약·넘어가기 수를 이어받는다(없으면 0 — 예전 저장본)
+  const roleResults = useRef<RoleResult[]>(resume?.roles ? resume.roles.map(roleFromSummary) : []);
+  const [skips, setSkips] = useState(() => resume?.skips ?? 0);
+  const skipsRef = useRef(resume?.skips ?? 0);
   const [shadows, setShadows] = useState(0);
   /** 길게 누른 상대 대사(키 있음) — 섀도잉이 열려 있는 동안 흐름을 멈춘다 */
   const [shadowOf, setShadowOf] = useState<{ who: string; en: string; kr: string; idx: number } | null>(null);
@@ -379,6 +431,8 @@ function Player({
   iRef.current = i;
   const pickedRef = useRef(picked);
   pickedRef.current = picked;
+  /** 회상(RecallStep)이 채점을 마친 장면 번호 — 아직 '다음 ▶'을 안 눌렀어도 답한 것으로 저장한다 */
+  const gradedAt = useRef(-1);
   const ended = useRef(false);
 
   const clearTimer = () => {
@@ -500,6 +554,8 @@ function Player({
       missed: missedRef.current,
       retryIdx: retryRef.current.map((x) => ep.scenes.indexOf(x)).filter((k) => k >= 0),
       rc,
+      skips: skipsRef.current,
+      roles: roleResults.current.map(roleSummary),
     });
   }
   // 전화·알림으로 앱을 벗어나거나 앱이 종료될 때도 저장 — 화면 안 이동만이 아니라(감사 v1.31 G02)
@@ -508,7 +564,8 @@ function Player({
       if (document.visibilityState !== 'hidden' && !ended.current) return;
       if (ended.current) return;
       const sc = scenes[iRef.current];
-      const unanswered = !!sc && (INTERACTIVE.has(sc.type) || sc.type === 'recall' || !!roleOf(iRef.current)) && pickedRef.current === null;
+      // 회상 카드는 채점(간격 반복·발화 수)이 '다음 ▶' 전에 끝난다 — 채점된 장면은 답한 것으로(이어 볼 때 두 번 세지 않게)
+      const unanswered = !!sc && (INTERACTIVE.has(sc.type) || sc.type === 'recall' || !!roleOf(iRef.current)) && pickedRef.current === null && gradedAt.current !== iRef.current;
       snapshot(unanswered ? iRef.current : iRef.current + 1);
     };
     const onHide = () => {
@@ -706,17 +763,14 @@ function Player({
         setAdaptLive(true);
       }
     }
-    if (r.skipped && r.mode !== 'shadow' && !o.inline) {
+    // tries 0 = 역할극 화면을 불러오지 못해(오프라인) 이 줄을 넘긴 것 — 사용자의 넘어가기 횟수를 쓰지 않는다
+    if (r.skipped && r.mode !== 'shadow' && !o.inline && r.tries > 0) {
       skipsRef.current += 1;
       setSkips(skipsRef.current);
     }
-    if (!r.skipped && o.counts && !o.inline) {
-      // 60점 통과 = 그 문항 정답(이해도 분자·분모, 지난 표현 재등장 채점)
-      askedRef.current += 1;
-      if (r.passed) okRef.current += 1;
-      const st = (byLevelRef.current[ep.level] ||= { asked: 0, ok: 0 });
-      st.asked += 1;
-      if (r.passed) st.ok += 1;
+    // 역할극은 말하기다 — 이해도(듣기: askedRef/okRef·byLevel → 레벨 조정·듣기 CEFR)에 넣지 않고 speakStats로만 센다.
+    // 지난 표현 재등장 채점도 '채점된' 발화만(자기확인 ✓은 증거가 아니다), 퀴즈 뒤 섀도잉(noLine)은 퀴즈가 이미 채점했다.
+    if (!r.skipped && o.counts && !o.inline && !o.noLine && !(r.self && !r.disputed)) {
       try {
         gradeRecycled(t.en, r.passed, ep.no);
       } catch {
@@ -887,6 +941,9 @@ function Player({
             review={!!review}
             rate={roleRate}
             mute={mute}
+            onGraded={() => {
+              gradedAt.current = iRef.current;
+            }}
             onDone={(res) => {
               noteActivity();
               if (res.mode === 'speak') recordTry(res.firstScore >= 60);
@@ -1287,6 +1344,7 @@ function Ending({
         {!retried && result.speakStats && (
           <p className="dr-speak-sum" role="status">
             🎙 발화 {result.speakStats.spoken} · 통과 {result.speakStats.passed}
+            {!!result.speakStats.self && ` · 스스로 확인 ${result.speakStats.self}`}
             {result.speakStats.skipped > 0 && ` · 넘어감 ${result.speakStats.skipped}`}
           </p>
         )}

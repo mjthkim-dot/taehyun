@@ -77,7 +77,10 @@ export interface RoleResult {
 
 export interface SpeakStats {
   spoken: number;
+  /** 채점으로 통과(≥60, 이의 제기 포함) — 자기확인(✓)은 통과로 세지 않는다 */
   passed: number;
+  /** 채점 없이 스스로 확인한 줄(키 없음·마이크 거부·입모양·채점 불가) */
+  self?: number;
   /** 가장 많이 어긋난 축(최대 3) */
   lapsesTop: { key: string; count: number }[];
   disputed: number;
@@ -196,7 +199,9 @@ export const SHADOW_RATIO_OK: readonly [number, number] = [0.5, 2.0];
 export function shadowScore(s: ShadowInput): { score: number; recall: number | null; ratio: number | null } {
   const ratio = s.modelMs && s.mineMs ? Math.round((Math.max(0, s.mineMs - SHADOW_TAIL_MS) / s.modelMs) * 100) / 100 : null;
   const ratioOk = ratio == null || (ratio >= SHADOW_RATIO_OK[0] && ratio <= SHADOW_RATIO_OK[1]);
-  if (s.said != null && normWords(s.said).length) {
+  // 받아쓰기 경로(said가 주어짐)인데 들린 단어가 없다 — 침묵·잡음. 길이 비로 통과시키지 않는다(녹음은 모델 끝+1초에 늘 멈춘다)
+  if (s.said != null && !normWords(s.said).length) return { score: 0, recall: 0, ratio };
+  if (s.said != null) {
     // 단어 회수율 = 목표 단어 중 들린 비율(순서 고려, 정렬 채점의 recall)
     const t = normWords(s.target);
     const got = alignedScore(s.target, s.said).diff.filter((d) => d.ok).length;
@@ -204,9 +209,27 @@ export function shadowScore(s: ShadowInput): { score: number; recall: number | n
     const score = Math.round(recall * 100 * (ratioOk ? 1 : 0.8));
     return { score, recall: Math.round(recall * 100) / 100, ratio };
   }
-  // 전사가 없다(키 없음 recordOnly) — 길이 비만으로 판단, 소리가 있었으면 통과
-  if (s.mineMs == null) return { score: 0, recall: null, ratio };
-  return { score: ratioOk ? 100 : 50, recall: null, ratio };
+  // 전사가 없다(키 없음 recordOnly) — 점수를 매기지 않는다. 호출부는 shadowVoiced로 침묵만 거르고 자기확인으로 보낸다
+  return { score: 0, recall: null, ratio };
+}
+
+/** 이 정도 레벨(RMS)에 한 번도 닿지 않았으면 '소리가 안 들렸다' — lib/stt의 발화 임계와 같은 값 */
+export const SHADOW_VOICE_RMS = 0.012;
+/** 첫 유성부터 끝까지(긴 멈춤 제외)가 모델 길이의 이만큼도 안 되면 침묵에 가깝다 */
+export const SHADOW_VOICED_MIN = 0.2;
+
+/**
+ * 섀도잉 녹음에 내 소리가 있었나(키 없음 경로 — 전사가 없어 점수 대신 자기확인).
+ *   false = 침묵(통과 아님, 다시 안내) · true = 소리 있음 · null = 레벨을 잴 수 없는 기기(자기확인에 맡긴다)
+ * 녹음은 모델 끝+1초에 늘 멈추므로 길이만으로는 침묵을 거를 수 없다 — 레벨(peak)·첫 유성 시각·멈춤으로 본다.
+ */
+export function shadowVoiced(r: { peak?: number; voiceOnsetMs?: number; durationMs?: number; pauses?: number[] }, modelMs?: number): boolean | null {
+  if (typeof r.peak !== 'number') return null;
+  if (r.peak < SHADOW_VOICE_RMS || typeof r.voiceOnsetMs !== 'number') return false;
+  if (!r.durationMs || !modelMs) return true;
+  const quiet = (r.pauses || []).reduce((a, p) => a + (p > 0 ? p : 0), 0);
+  const voiced = Math.max(0, r.durationMs - SHADOW_TAIL_MS - r.voiceOnsetMs - quiet);
+  return voiced / modelMs >= SHADOW_VOICED_MIN;
 }
 
 /* ── 이의 제기 ── */
@@ -259,13 +282,15 @@ export function speakStatsFrom(results: RoleResult[]): SpeakStats {
   let ok = 0;
   let disputed = 0;
   let skipped = 0;
+  let self = 0;
   for (const r of results) {
     if (r.skipped) {
       skipped++;
       continue;
     }
     spoken++;
-    if (r.passed) ok++;
+    if (r.self && !r.disputed) self++;
+    else if (r.passed) ok++;
     if (r.disputed) disputed++;
     for (const k of r.lapses) tally[k] = (tally[k] || 0) + 1;
   }
@@ -273,7 +298,24 @@ export function speakStatsFrom(results: RoleResult[]): SpeakStats {
     .map(([key, count]) => ({ key, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 3);
-  return { spoken, passed: ok, lapsesTop, disputed, skipped };
+  return { spoken, passed: ok, lapsesTop, disputed, skipped, ...(self ? { self } : {}) };
+}
+
+/* ── 이어 보기 요약(A9) — 녹음·diff 없이 집계(speakStats)·재소환 후보에 필요한 것만 ── */
+export type RoleSummary = Pick<RoleResult, 'sceneIdx' | 'en' | 'kr' | 'who' | 'score' | 'lapses' | 'tries' | 'mode' | 'skipped' | 'disputed' | 'self' | 'passed' | 'path'>;
+
+export function roleSummary(r: RoleResult): RoleSummary {
+  return { sceneIdx: r.sceneIdx, en: r.en, kr: r.kr, who: r.who, score: r.score, lapses: r.lapses, tries: r.tries, mode: r.mode, skipped: r.skipped, disputed: r.disputed, self: r.self, passed: r.passed, path: r.path };
+}
+
+export function roleFromSummary(s: RoleSummary): RoleResult {
+  return { ...s, said: '', diff: [], missed: [] };
+}
+
+/** 저장본 검증 — 모양이 어긋난 줄은 버린다 */
+export function isRoleSummary(x: unknown): x is RoleSummary {
+  const r = x as Partial<RoleSummary> | null;
+  return !!r && typeof r === 'object' && typeof r.sceneIdx === 'number' && typeof r.en === 'string' && typeof r.kr === 'string' && typeof r.who === 'string' && typeof r.score === 'number' && Array.isArray(r.lapses) && (r.mode === 'role' || r.mode === 'shadow' || r.mode === 'lip') && typeof r.passed === 'boolean' && typeof r.skipped === 'boolean';
 }
 
 /** 엔딩 직전 재소환 후보 — 방금 60점 미만(넘어간 것·이의 제기·입모양 제외, 키 없음 '잘 안 됐어요' 포함) 최대 max개, 같은 문장은 한 번 */

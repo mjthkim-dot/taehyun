@@ -198,11 +198,15 @@ export function bumpSpoken(weight?: number, kind: 'scored' | 'self' = 'scored') 
   const same = cur.date === today;
   const num = (v: unknown) => (same && typeof v === 'number' && Number.isFinite(v) ? v : 0);
   store(SPEAK_GOAL_KEY, {
-    goal: typeof cur.goal === 'number' ? cur.goal : SPEAK_GOAL_DEFAULT,
     kind: cur.kind === 'self' ? 'self' : 'scored',
     streakDays: typeof cur.streakDays === 'number' ? cur.streakDays : 0,
-    keyless,
     ...cur,
+    // 날이 바뀌었다 — 어제의 캡(낮춘 목표)·키 유무는 prev로만 남기고(speakGoal 정산이 그날 값으로 판정) 오늘은 새로
+    // (base = 캡 전 목표 — 캡한 날에만 있다. 처음 세는 날은 기본 목표)
+    ...(same ? null : { prev: { ...cur, prev: 0 }, goal: cur.base || cur.goal || SPEAK_GOAL_DEFAULT, capped: false, base: 0 }),
+    keyless,
+    // kl = 그날 한 번이라도 키가 없었나(지난 날 정산은 이 값으로 그날 목표 10/20을 정한다)
+    kl: (same && cur.kl) || keyless,
     date: today,
     scoredToday: kind === 'scored' ? add(num(cur.scoredToday)) : num(cur.scoredToday),
     selfToday: kind === 'self' ? add(num(cur.selfToday)) : num(cur.selfToday),

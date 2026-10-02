@@ -379,6 +379,25 @@ describe('M1 — 간격 반복 8상자·이어 보기 판·말하기 회상', ()
     expect(load<{ v?: number }>('va_drama_resume', {}).v).toBe(2);
     expect(loadResume(2)?.v).toBe(2);
   });
+  test('A9: 이어 보기에 역할극 넘어가기 수·결과 요약을 선택 필드로 저장/복원(없으면 0·빈 배열, 손상 줄은 버림)', async () => {
+    const { loadResume, saveResume } = await import('../../lib/drama');
+    const { roleSummary, roleFromSummary, speakStatsFrom } = await import('../../lib/roleStep');
+    const full = { sceneIdx: 2, en: 'Is it… broken?', kr: '고장?', who: 'taeo', said: 'is it broken', score: 90, diff: [], missed: [], lapses: ['r-l' as const], tries: 1, mode: 'role' as const, skipped: false, disputed: false, self: false, passed: true, path: 'whisper' as const, audio: new Blob(['x']) };
+    const skipped = { ...full, sceneIdx: 5, en: 'Thanks.', skipped: true, passed: false, score: 0 };
+    saveResume({ no: 2, i: 6, ok: 0, asked: 0, log: [], missed: [], retryIdx: [], rc: [], skips: 1, roles: [roleSummary(full), roleSummary(skipped)] });
+    const raw = load<{ roles: Record<string, unknown>[] }>('va_drama_resume', { roles: [] });
+    expect(raw.roles[0].audio).toBeUndefined(); // 녹음은 저장하지 않는다
+    const r = loadResume(2)!;
+    expect(r.skips).toBe(1);
+    expect(r.roles!.length).toBe(2);
+    expect(speakStatsFrom(r.roles!.map(roleFromSummary))).toMatchObject({ spoken: 1, passed: 1, skipped: 1 });
+    // 예전 저장본(필드 없음) — 0·빈 배열
+    saveResume({ no: 2, i: 6, ok: 0, asked: 0, log: [], missed: [], retryIdx: [], rc: [] });
+    expect(loadResume(2)).toMatchObject({ skips: 0, roles: [] });
+    // 손상된 줄은 버린다
+    localStorage.setItem('va_drama_resume', JSON.stringify({ ...load<object>('va_drama_resume', {}), roles: [{ en: 3 }, roleSummary(full)] }));
+    expect(loadResume(2)!.roles!.length).toBe(1);
+  });
   test('speak 모드 회상(rc)은 보기 없이 저장 → 복원 통과, choice는 여전히 보기·정답 필수', async () => {
     const { loadResume, saveResume } = await import('../../lib/drama');
     saveResume({ no: 2, i: 2, ok: 0, asked: 0, log: [], missed: [], retryIdx: [], rc: [{ en: 'Hang in there.', kr: '힘내요', mode: 'speak' } as never] });

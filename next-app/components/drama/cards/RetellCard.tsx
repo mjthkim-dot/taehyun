@@ -30,6 +30,7 @@ import {
 import { mixKeywordsFor, retellKeywordsFor } from '../../../lib/retellKeywords';
 import { recordAndTranscribe, createUnlockedAudioContext, micAvailable, whisperAvailable, STT_PROPER_NOUNS, type SttResult } from '../../../lib/stt';
 import { blockingReason, gateMessage } from '../../../lib/sttQuality';
+import { sttErrorMessage } from '../../../lib/sttErrors';
 import { countWords } from '../../../lib/fluency';
 import { logAttempt, type AttemptQuality } from '../../../lib/reviewEngine';
 import { putRecording } from '../../../lib/storage';
@@ -63,6 +64,9 @@ export function blockOf(res: SttResult, path: FreePath): AttemptQuality | null {
   const b = blockingReason(res);
   return b ? (b as AttemptQuality) : null;
 }
+
+/** 녹음·받아쓰기가 이만큼 거듭 실패하면 '녹음만 하고 넘어가기(자기확인)' 출구를 연다 */
+export const FAILS_SELF_AT = 2;
 
 /** 내 녹음 다시 듣기 — 객체 URL은 바뀌거나 떠날 때 해제한다 */
 export function ClipButton({ clip, label = '내 소리 ▶', className = '' }: { clip: Blob | null | undefined; label?: string; className?: string }) {
@@ -185,6 +189,8 @@ export interface RetellRunOut {
   latencyMs?: number;
   audio?: Blob;
   keyless: boolean;
+  /** 키는 있는데 받아쓰기가 거듭 실패해 녹음만 하고 넘어갔다(자기확인) */
+  fallback?: boolean;
 }
 
 interface Session {
@@ -259,7 +265,7 @@ function Result({ run, setup }: { run: RetellRunOut; setup: RetellSetup }) {
           <span className="rt-chip stat">말한 시간 {sec1(run.durationMs)}</span>
           <span className="rt-chip stat">시작까지 {sec1(run.latencyMs)}</span>
         </div>
-        <p className="rt-note">키가 없어 받아쓰기는 못 했어요 — 내 소리를 들어 보고 키워드를 다 말했는지 스스로 확인해요.</p>
+        <p className="rt-note">{run.fallback ? '받아쓰기를 못 해서 점수 없이 넘어갔어요' : '키가 없어 받아쓰기는 못 했어요'} — 내 소리를 들어 보고 키워드를 다 말했는지 스스로 확인해요.</p>
         <ClipButton clip={run.audio} />
       </div>
     );
@@ -321,6 +327,9 @@ function RetellRunner({ ctx, setup, round, guide, onDone, first }: { ctx: Ending
   const [msg, setMsg] = useState('');
   const [run, setRun] = useState<RetellRunOut | null>(null);
   const [words, setWords] = useState<SttResult['words']>();
+  const [fails, setFails] = useState(0);
+  /** 마지막 녹음(채점 못 한 것 포함) — '녹음만 하고 넘어가기'가 이 소리를 남긴다 */
+  const lastRec = useRef<{ audio?: Blob; durationMs?: number; latencyMs?: number }>({});
   const stop = useRef<(() => void) | null>(null);
   const alive = useRef(true);
   const path = useMemo(freePath, []);
@@ -422,10 +431,12 @@ function RetellRunner({ ctx, setup, round, guide, onDone, first }: { ctx: Ending
       });
       stop.current = null;
       if (!alive.current) return;
+      if (res.audio) lastRec.current = { audio: res.audio, durationMs: res.durationMs, latencyMs: res.voiceOnsetMs };
       const block = blockOf(res, path);
       if (block) {
         if (path === 'whisper') logAttempt({ t: Date.now(), en: `retell EP${ctx.ep.no} ${round.round}`, score: 0, src: 'retell', latencyMs: res.voiceOnsetMs, quality: block });
         setMsg(gateMessage(block));
+        setFails((n) => n + 1);
         setPhase('gate');
         return;
       }
@@ -449,12 +460,23 @@ function RetellRunner({ ctx, setup, round, guide, onDone, first }: { ctx: Ending
       setRun(out);
       setPhase('done');
       onDone(out);
-    } catch {
+    } catch (e) {
       stop.current = null;
       if (!alive.current) return;
-      setMsg('마이크를 열지 못했어요 — 권한을 확인하고 다시 눌러 주세요.');
+      setMsg(sttErrorMessage(e));
+      setFails((n) => n + 1);
       setPhase('gate');
     }
+  }
+
+  /** 거듭 실패 — 점수 없이 녹음(있으면)만 남기고 넘어간다(자기확인 발화) */
+  function selfPass() {
+    const l = lastRec.current;
+    const out: RetellRunOut = { round: round.round, label: round.label, sec: round.sec, text: '', wpm: 0, score: 0, durationMs: l.durationMs || round.sec * 1000, pauses: 0, fillers: 0, latencyMs: l.latencyMs, audio: l.audio, keyless: true, fallback: true };
+    commit(out, null);
+    setRun(out);
+    setPhase('done');
+    onDone(out);
   }
 
   return (
@@ -471,6 +493,11 @@ function RetellRunner({ ctx, setup, round, guide, onDone, first }: { ctx: Ending
           <button type="button" className="btn primary rt-start" onClick={() => void start()}>
             {phase === 'gate' ? '🎙 다시 말하기' : path === 'none' ? '🗣 소리 내어 말했어요' : `🎙 시작 · ${round.sec}초`}
           </button>
+          {phase === 'gate' && fails >= FAILS_SELF_AT && (
+            <button type="button" className="btn ghost rt-self" onClick={selfPass}>
+              🗣 {lastRec.current.audio ? '녹음만 하고 넘어가기' : '소리 내어 말했어요 — 넘어가기'}
+            </button>
+          )}
         </>
       )}
       {phase === 'rec' && <RecBar elapsed={elapsed} sec={round.sec} level={level} onStop={() => stop.current?.()} />}
@@ -527,6 +554,8 @@ function RetellCardBasic({ ctx }: { ctx: EndingCtx }) {
 function FixStep({ caf, listener, onNext }: { caf: Session['caf']; listener: Listener; onNext: () => void }) {
   const [phase, setPhase] = useState<'idle' | 'rec' | 'wait' | 'done'>('idle');
   const [score, setScore] = useState<number | null>(null);
+  const [msg, setMsg] = useState('');
+  const [fails, setFails] = useState(0);
   const stop = useRef<(() => void) | null>(null);
   useEffect(() => () => stop.current?.(), []);
   if (caf === 'pending')
@@ -542,8 +571,22 @@ function FixStep({ caf, listener, onNext }: { caf: Session['caf']; listener: Lis
     );
   const fix = caf && typeof caf === 'object' ? caf.fix : null;
   if (!fix) return null;
+  /** 채점을 못 했다(안 들림·서버 바쁨·오류) — 0점이 아니라 다시 안내. 두 번째면 들은 것으로 마무리 */
+  function failed(m: string) {
+    const n = fails + 1;
+    setFails(n);
+    if (n >= FAILS_SELF_AT) {
+      setScore(null);
+      setPhase('done');
+      return;
+    }
+    setMsg(m);
+    setPhase('idle');
+  }
   async function follow() {
     const audioCtx = createUnlockedAudioContext();
+    stopSpeaking();
+    setMsg('');
     setPhase('rec');
     try {
       // 리텔·오늘 질문은 '유창성' 갈래 — 하루 조절기(M4)가 이 시간을 fluency로 센다
@@ -551,17 +594,18 @@ function FixStep({ caf, listener, onNext }: { caf: Session['caf']; listener: Lis
       markInteraction();
       const res = await recordAndTranscribe({ prompt: STT_PROPER_NOUNS, language: 'en', silenceMs: 1500, maxMs: 10000, temperature: 0, audioCtx, registerStop: (f) => (stop.current = f), onState: (s) => s === 'transcribing' && setPhase('wait') });
       stop.current = null;
+      const block = blockOf(res, 'whisper');
+      if (block) return failed(gateMessage(block));
       const said = (res.text || '').trim();
-      const sc = said ? alignedScore(fix!.better, said).score : 0;
-      if (said) {
-        logAttempt({ t: Date.now(), en: fix!.better, score: sc, src: 'retell', latencyMs: res.voiceOnsetMs, durationMs: res.durationMs, quality: 'ok' });
-        bumpSpoken(1);
-      }
+      const sc = alignedScore(fix!.better, said).score;
+      logAttempt({ t: Date.now(), en: fix!.better, score: sc, src: 'retell', latencyMs: res.voiceOnsetMs, durationMs: res.durationMs, quality: 'ok' });
+      bumpSpoken(1);
       setScore(sc);
-    } catch {
-      setScore(null);
+      setPhase('done');
+    } catch (e) {
+      stop.current = null;
+      failed(sttErrorMessage(e));
     }
-    setPhase('done');
   }
   return (
     <div className="rt-fix" data-phase={phase}>
@@ -574,7 +618,8 @@ function FixStep({ caf, listener, onNext }: { caf: Session['caf']; listener: Lis
       </p>
       <p className="rt-fix-kr">{fix.kr}</p>
       <div className="rt-row">
-        <button type="button" className="mini-btn rt-fix-play" onClick={() => speakText(fix.better, 'en-US', 0.95, undefined, voiceOf(listener.id))}>
+        {/* 녹음 중엔 듣기를 막는다 — 스피커 소리가 내 녹음에 섞인다 */}
+        <button type="button" className="mini-btn rt-fix-play" disabled={phase === 'rec' || phase === 'wait'} onClick={() => speakText(fix.better, 'en-US', 0.95, undefined, voiceOf(listener.id))}>
           🔊 {listener.name}의 목소리로
         </button>
         {phase === 'idle' && (
@@ -589,6 +634,11 @@ function FixStep({ caf, listener, onNext }: { caf: Session['caf']; listener: Lis
         )}
       </div>
       {phase === 'wait' && <p className="rt-status">… 받아쓰는 중</p>}
+      {phase === 'idle' && msg && (
+        <p className="dr-msg rt-gate" role="status">
+          {msg}
+        </p>
+      )}
       {phase === 'done' && <p className="rt-fix-res">{score === null ? '녹음하지 못했어요 — 들은 것만으로도 충분해요.' : `따라 말하기 ${score}점${score >= 60 ? ' ✓' : ''}`}</p>}
       <button type="button" className="btn primary rt-fix-next" onClick={onNext}>
         2회차로 ▶

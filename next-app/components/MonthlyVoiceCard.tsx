@@ -29,6 +29,8 @@ import { recordAndTranscribe, createUnlockedAudioContext, STT_PROPER_NOUNS } fro
 import { pausesFromWords, FILLER_RE } from '../lib/fluency';
 import { logAttempt } from '../lib/reviewEngine';
 import { listRecordings, putRecording } from '../lib/storage';
+import { blockingReason, gateMessage } from '../lib/sttQuality';
+import { sttErrorMessage } from '../lib/sttErrors';
 import { addMinutes } from '../lib/timeBudget';
 import { bumpSpoken } from '../lib/state';
 import { speakText, stopSpeaking } from './SpeakButton';
@@ -51,6 +53,9 @@ export default function MonthlyVoiceCard({ due, onSaved }: { due: boolean; onSav
   const [anc, setAnc] = useState<AnchorMap>(() => anchors());
   const stop = useRef<(() => void) | null>(null);
   const alive = useRef(true);
+  /** 받아쓰기가 품질 게이트에 막힌 횟수 — 2번이면 '녹음만 저장하기'(점수 없이) */
+  const [fails, setFails] = useState(0);
+  const lastAudio = useRef<{ audio: Blob; durationMs: number } | null>(null);
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -77,6 +82,36 @@ export default function MonthlyVoiceCard({ due, onSaved }: { due: boolean; onSav
   }, [cur?.id, cmp?.prev.id]);
 
   if (!due && !cur) return null;
+
+  /** 녹음을 이번 달 기록으로 확정한다(scored면 지표까지) */
+  async function save(audio: Blob, durationMs: number, scoredRes: { text: string; wpm?: number; words?: number; longPauses: number; fillers: number; latencyMs?: number } | null) {
+    let intelligibility: number | undefined;
+    if (scoredRes) {
+      setPhase('wait');
+      const plain = await retranscribePlain(audio);
+      const v = plain == null ? null : intelligibilityOf(scoredRes.text, plain);
+      if (v != null) intelligibility = v;
+    }
+    const id = await putRecording({ kind: 'monthly', blob: audio, mime: audio.type || 'audio/webm', durationMs, question: q.en, en: scoredRes ? scoredRes.text : undefined, wpm: scoredRes?.wpm });
+    const e: MonthlyEntry = {
+      date: today,
+      qid: q.id,
+      durationMs,
+      ...(id ? { id } : {}),
+      ...(scoredRes
+        ? { wpm: scoredRes.wpm, words: scoredRes.words, longPauses: scoredRes.longPauses, fillers: scoredRes.fillers, ...(intelligibility != null ? { intelligibility } : {}) }
+        : { keyless: true }),
+    };
+    addMonthly(e);
+    if (scoredRes) logAttempt({ t: Date.now(), en: q.en, score: wpmScore(scoredRes.wpm || 0), src: 'monthly', durationMs, wpm: scoredRes.wpm, latencyMs: scoredRes.latencyMs, quality: 'ok' });
+    bumpSpoken(1, scoredRes ? 'scored' : 'self');
+    addMinutes('output', Math.max(0.1, Math.round((durationMs / 60000) * 10) / 10));
+    if (!alive.current) return;
+    setClips((c) => ({ ...c, cur: audio }));
+    setCur(e);
+    setPhase('done');
+    onSaved?.();
+  }
 
   async function start() {
     setMsg('');
@@ -106,46 +141,34 @@ export default function MonthlyVoiceCard({ due, onSaved }: { due: boolean; onSav
         setPhase('gate');
         return;
       }
-      setPhase('wait');
       const durationMs = res.durationMs || 0;
       const text = (res.text || '').trim();
-      const scored = path === 'whisper' && res.reason === 'ok' && !!text;
-      let intelligibility: number | undefined;
-      if (scored) {
-        const plain = await retranscribePlain(res.audio);
-        const v = plain == null ? null : intelligibilityOf(text, plain);
-        if (v != null) intelligibility = v;
+      if (path === 'whisper') {
+        // 품질 게이트에 막힌 전사(환각·불명확·누출·서버 바쁨)로는 이번 달 기록을 확정하지 않는다 — 다시 녹음 안내
+        const block = res.reason === 'busy' ? 'busy' : !text ? (res.reason === 'silent' ? 'silent' : 'unclear') : blockingReason(res);
+        if (block) {
+          lastAudio.current = { audio: res.audio, durationMs };
+          setFails((n) => n + 1);
+          setMsg(gateMessage(block));
+          setPhase('gate');
+          return;
+        }
+        await save(res.audio, durationMs, {
+          text,
+          wpm: Math.round(res.fluency?.wpm ?? 0),
+          words: res.words?.length || text.split(/\s+/).filter(Boolean).length,
+          longPauses: res.words?.length ? pausesFromWords(res.words).length : res.pauses?.length || 0,
+          fillers: countFillers(text),
+          latencyMs: res.voiceOnsetMs,
+        });
+        return;
       }
-      const wpm = scored ? Math.round(res.fluency?.wpm ?? 0) : undefined;
-      const id = await putRecording({ kind: 'monthly', blob: res.audio, mime: res.audio.type || 'audio/webm', durationMs, question: q.en, en: scored ? text : undefined, wpm });
-      const e: MonthlyEntry = {
-        date: today,
-        qid: q.id,
-        durationMs,
-        ...(id ? { id } : {}),
-        ...(scored
-          ? {
-              wpm,
-              words: res.words?.length || text.split(/\s+/).filter(Boolean).length,
-              longPauses: res.words?.length ? pausesFromWords(res.words).length : res.pauses?.length || 0,
-              fillers: countFillers(text),
-              ...(intelligibility != null ? { intelligibility } : {}),
-            }
-          : { keyless: true }),
-      };
-      addMonthly(e);
-      if (scored) logAttempt({ t: Date.now(), en: q.en, score: wpmScore(wpm || 0), src: 'monthly', durationMs, wpm, latencyMs: res.voiceOnsetMs, quality: 'ok' });
-      bumpSpoken(1, scored ? 'scored' : 'self');
-      addMinutes('output', Math.max(0.1, Math.round((durationMs / 60000) * 10) / 10));
-      if (!alive.current) return;
-      setClips((c) => ({ ...c, cur: res.audio }));
-      setCur(e);
-      setPhase('done');
-      onSaved?.();
-    } catch {
+      await save(res.audio, durationMs, null);
+    } catch (e) {
       stop.current = null;
       if (!alive.current) return;
-      setMsg('마이크를 열지 못했어요 — 권한을 확인하고 다시 눌러 주세요.');
+      setMsg(sttErrorMessage(e));
+      setFails((n) => n + 1);
       setPhase('gate');
     }
   }
@@ -177,6 +200,18 @@ export default function MonthlyVoiceCard({ due, onSaved }: { due: boolean; onSav
           ) : (
             <button type="button" className="btn primary ga-start" onClick={() => void start()}>
               🎙 {phase === 'gate' ? '다시 녹음' : '1분 녹음 시작'}
+            </button>
+          )}
+          {phase === 'gate' && fails >= 2 && lastAudio.current && (
+            <button
+              type="button"
+              className="btn ghost ga-self"
+              onClick={() => {
+                const l = lastAudio.current!;
+                void save(l.audio, l.durationMs, null);
+              }}
+            >
+              녹음만 저장하기(점수 없이)
             </button>
           )}
           {path === 'record' && <p className="ga-note">{BASELINE_GUIDES.noKey}</p>}

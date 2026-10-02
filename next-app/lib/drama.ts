@@ -16,7 +16,7 @@ import { groqKoJson, hasHangul } from './aiGuard';
 import { GROQ_MODEL } from './groq';
 import { acceptByProfile, validateProfile, wordRangeFor } from './validateProfile';
 import { mineLines } from './dramaSeedMine';
-import { buildupStages } from './roleStep';
+import { buildupStages, isRoleSummary, type RoleSummary } from './roleStep';
 import type { Cefr } from './cefr';
 
 // 채점 래퍼는 lib/align.ts(원고 import 0)에 있다 — 여기서는 re-export만(단어 탭 청크에 원고가 딸려 오지 않게)
@@ -213,6 +213,8 @@ export interface SpeakStats {
   lapsesTop: { key: string; count: number }[];
   disputed: number;
   skipped: number;
+  /** 자기확인 줄 수(통과로 세지 않는다) — 엔딩 요약용, 저장하지 않는다 */
+  self?: number;
 }
 
 /** 화 번호 → 마지막으로 본 때의 역할극 집계(없으면 null) — 진도·엔딩 카드가 읽는다 */
@@ -536,6 +538,10 @@ export interface ResumeState {
   /** 첫머리 복습 문항(이어 볼 때 장면 번호가 어긋나지 않게 그대로 보관) */
   rc: RecallItem[];
   at: number;
+  /** 역할극 넘어가기 수(선택 — 예전 저장본엔 없다: 0) */
+  skips?: number;
+  /** 역할극 결과 요약(선택 — 녹음 없이 집계·재소환용) */
+  roles?: RoleSummary[];
 }
 
 /** 기록 한 줄의 모양 — 하나라도 어긋나면 이어 보기를 버린다(같은 크래시 반복 방지, 감사 v1.31 비평 #7) */
@@ -583,6 +589,8 @@ export function loadResume(no: number): ResumeState | null {
     retryIdx: Array.isArray(r.retryIdx) ? r.retryIdx.filter((n) => Number.isInteger(n)) : [],
     rc: r.rc.map(normRecall),
     at: r.at,
+    skips: Math.max(0, Math.round(Number(r.skips) || 0)),
+    roles: Array.isArray(r.roles) ? r.roles.filter(isRoleSummary) : [],
   };
 }
 

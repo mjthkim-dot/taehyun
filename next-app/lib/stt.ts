@@ -97,7 +97,15 @@ export interface SttResult {
   pauseSource?: 'words' | 'rms';
 }
 
-export class SttError extends Error {}
+export class SttError extends Error {
+  /** HTTP 상태(401 키 오류·429 바쁨·5xx) — 문구 분류(lib/sttErrors)가 읽는다 */
+  status?: number;
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = 'SttError';
+    this.status = status;
+  }
+}
 
 /** transcribe 옵션 — 모든 필드 선택. 예전 (blob, prompt, language) 호출도 그대로 된다. */
 export interface TranscribeOptions {
@@ -521,7 +529,7 @@ export async function transcribe(blob: Blob, promptOrOpts?: string | TranscribeO
 
   const resp = await postWithRetry(() => buildForm(blob, opts));
   if (resp.status === 429) {
-    if (!asObject) throw new SttError('busy');
+    if (!asObject) throw new SttError('busy', 429);
     return { text: '', reason: 'busy', quality: assessQuality({ text: '', reason: 'busy' }) };
   }
   if (!resp.ok) {
@@ -531,7 +539,7 @@ export async function transcribe(blob: Blob, promptOrOpts?: string | TranscribeO
     } catch {
       /* 본문 없음 */
     }
-    throw new SttError(msg);
+    throw new SttError(msg, resp.status);
   }
   const data = (await resp.json().catch(() => ({}))) as { text?: string; duration?: number; words?: SttWord[]; segments?: SttSegment[] };
   const text = String(data.text || '').trim();

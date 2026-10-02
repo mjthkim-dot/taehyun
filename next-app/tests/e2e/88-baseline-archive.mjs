@@ -9,6 +9,8 @@
  *   ② 키 없음: 기준선은 녹음만(STT 0) + pendingRetranscribe → AI 키 등록 저장 성공 시 1회 재전사 → 보정·안내
  *   ③ D+7(시작 7일 전 시드 + D+1 녹음 IndexedDB 시드): EP1 엔딩 '조금 더 ▾'에 D+7 카드 → 녹음 → 'D+1 나 ▶ / D+7 나 ▶ / 태오 ▶'
  *   ④ 플래그 growth off → 월간 카드·D+7 카드 없음(기준선·아카이브는 그대로)
+ *   ⑤ (리뷰 A8) 품질 게이트에 막힌 전사(확신도 낮음)로는 말하기 레벨을 보정하지 않는다 — 녹음은 pending으로 남기고 다시 녹음 안내,
+ *      다시 녹음해 통과하면 그때 보정(같은 녹음 칸을 덮어쓴다)
  * 마이크·STT 스텁은 86-retell과 같은 패턴.
  */
 import { BASE, check, finish, launch } from './helpers.mjs';
@@ -23,7 +25,10 @@ const MIC_STUB = () => {
   window.MediaRecorder = FR;
 };
 
-const verboseFor = (raw) => {
+const verboseFor = (raw0) => {
+  // '~'로 시작하면 확신도 낮은 전사(품질 게이트 unclear)
+  const low = raw0.startsWith('~');
+  const raw = low ? raw0.slice(1) : raw0;
   const toks = raw.split(/\s+/).filter(Boolean);
   const words = [];
   let t = 0.3;
@@ -32,7 +37,7 @@ const verboseFor = (raw) => {
     t += 0.32;
   }
   const text = words.map((w) => w.word).join(' ');
-  return { text, duration: t + 0.3, words, segments: [{ start: 0, end: t + 0.3, text, avg_logprob: -0.2, no_speech_prob: 0.02, compression_ratio: 1.3 }] };
+  return { text, duration: t + 0.3, words, segments: [{ start: 0, end: t + 0.3, text, avg_logprob: low ? -1.6 : -0.2, no_speech_prob: 0.02, compression_ratio: 1.3 }] };
 };
 
 const DAY_SAID = 'I woke up early today. I met a customer in the morning. It was a busy but good day.';
@@ -188,6 +193,28 @@ const j = (page, k, d = 'null') => page.evaluate(([k, d]) => JSON.parse(localSto
   check('저장 성공 → 1회 재전사 안내', ((await page.textContent('.key-msg.ok')) || '').includes('첫 녹음을 다시 들었어요'), await page.textContent('.key-msg.ok'));
   const b1 = await j(page, 'va_baseline');
   check('사후 보정: STT 1회 · pending 해제 · WPM · 말하기 사전값', stt.calls === 1 && b1.pendingRetranscribe === false && b1.wpm > 0 && (await j(page, 'va_placed')).skills?.speaking === 'A2', JSON.stringify(b1));
+  await ctx.close();
+}
+
+/* ══ ⑤ 리뷰 A8 — 게이트에 막힌 기준선은 보정하지 않는다 ══ */
+{
+  const { ctx, page, stt } = await open({ full: true });
+  await place(page);
+  stt.replies.push(`~${DAY_SAID}`);
+  await page.click('.ga-baseline .ga-start');
+  await page.waitForSelector('.ga-baseline .ga-rec', { timeout: 10000 });
+  await page.waitForTimeout(1500);
+  await page.click('.ga-baseline .ga-stop');
+  await page.waitForSelector('.ga-baseline[data-phase="gate"] .ga-msg', { timeout: 20000 });
+  const msg = await page.textContent('.ga-baseline .ga-msg');
+  const b0 = await j(page, 'va_baseline');
+  const placed0 = await j(page, 'va_placed');
+  check('불명확 전사 → 다시 녹음 안내(녹음은 저장) · 보정 없음 · pending 유지', msg.includes('다시 녹음') && b0 && b0.pendingRetranscribe === true && !b0.adj && !placed0.skills?.speaking && typeof b0.recordingId === 'string', JSON.stringify({ msg, b0, placed0 }));
+  check("게이트에 막힌 전사는 시도 로그 'baseline'에 없다", (await j(page, 'va_attempt_log', '[]')).filter((a) => a.src === 'baseline').length === 0);
+  stt.replies.push(DAY_SAID);
+  await recordBaseline(page);
+  const b1 = await j(page, 'va_baseline');
+  check('다시 녹음해 통과 → 그때 보정(A1 → A2) · 같은 녹음 칸', (await page.textContent('.ga-baseline .ga-result')).includes('A1 → A2') && b1.adj === 1 && b1.pendingRetranscribe === false && b1.recordingId === b0.recordingId, JSON.stringify(b1));
   await ctx.close();
 }
 

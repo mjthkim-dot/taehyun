@@ -7,6 +7,9 @@
  *   ③ 키 없음(Web Speech도 없음 = iOS PWA 경로): 영어 2초 플래시 → 가리고 말하기 → 자기확인, '내 소리 ▶'만(칩 없음),
  *      지정 상대 대사는 섀도잉 기본 ON, 넘어가기 무제한
  *   ④ 플래그 rolePlay off → 예전 동작(태오 대사 자동 재생, 역할극 없음) — 77-drama가 깊게 본다
+ *   ⑤ (리뷰 A1) 넘어가기 3회 소진 + 채점 불가(빈 전사)가 거듭 → '🔊 다시 듣기'·'스스로 확인하고 넘어가기' 출구
+ *   ⑥ (리뷰 A2) 키 없음 자기확인 ✓만으로는 이해도·레벨이 오르지 않는다(퀴즈를 틀리면 이해도 0%, 발화 요약엔 '스스로 확인')
+ *   ⑦ (리뷰 A3) 키 없는 섀도잉에서 아무 말도 안 하면(마이크 레벨 0) 통과가 아니다 — '소리가 안 들렸어요'
  * 마이크·STT는 20-stt/78-dtalk와 같은 스텁(MIC_STUB + **\/app/api/stt 목킹). 음소거(va_drama_mute)로 소리 대신 시간만 흐른다.
  */
 import { BASE, check, finish, launch } from './helpers.mjs';
@@ -14,11 +17,15 @@ import { BASE, check, finish, launch } from './helpers.mjs';
 const MIC_STUB = () => {
   navigator.mediaDevices = navigator.mediaDevices || {};
   navigator.mediaDevices.getUserMedia = async () => ({ getTracks: () => [{ stop() {} }] });
-  class FA { constructor() { this.fftSize = 1024; this.t0 = Date.now(); } getFloatTimeDomainData(b) { const l = Date.now() - this.t0 < 500; for (let i = 0; i < b.length; i++) b[i] = l ? 0.5 : 0; } }
+  class FA { constructor() { this.fftSize = 1024; this.t0 = Date.now(); } getFloatTimeDomainData(b) { const l = !window.__micSilent && Date.now() - this.t0 < 500; for (let i = 0; i < b.length; i++) b[i] = l ? 0.5 : 0; } }
   class FC { constructor() { this.state = 'running'; } createAnalyser() { return new FA(); } createMediaStreamSource() { return { connect() {} }; } resume() { return Promise.resolve(); } close() { return Promise.resolve(); } }
   window.AudioContext = FC;
   class FR { constructor() { this.mimeType = 'audio/webm'; } static isTypeSupported() { return true; } start() { setTimeout(() => this.ondataavailable?.({ data: new Blob([new Uint8Array(4096)], { type: 'audio/webm' }) }), 20); } stop() { setTimeout(() => this.onstop?.(), 20); } }
   window.MediaRecorder = FR;
+};
+/** 마이크는 열리지만 아무 소리도 없는 기기(말하지 않음) */
+const MIC_SILENT = () => {
+  window.__micSilent = true;
 };
 
 /** verbose_json 응답(단어 타임스탬프·세그먼트 확신도) — 채점 경로는 detail=words */
@@ -33,10 +40,11 @@ const T = { 2: 'Is it… broken?', 5: "Thanks. I'm really nervous.", 10: "I'm Ta
 
 const browser = await launch();
 
-async function open({ key = true, flags = null, webSpeech = true } = {}) {
+async function open({ key = true, flags = null, webSpeech = true, silent = false } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => console.log('  [pageerror]', e.message));
+  if (silent) await page.addInitScript(MIC_SILENT);
   await page.addInitScript(MIC_STUB);
   await page.addInitScript(
     ({ key, flags, webSpeech }) => {
@@ -74,7 +82,20 @@ async function open({ key = true, flags = null, webSpeech = true } = {}) {
 }
 
 /** 참여 문항(고르기·뜻)은 정답으로 답한다 — 이해도 분모·분자가 역할극 때문에만 달라지게 */
-async function answerQuizIfAny(page) {
+async function answerQuizIfAny(page, wrong = false) {
+  if (wrong) {
+    // 정답이 아닌 보기를 고른다(이해도 0%가 되게)
+    const opts = page.locator('.dr-act .dr-opt');
+    const n = await opts.count();
+    for (let k = 0; k < n; k++) {
+      const t = (await opts.nth(k).textContent()) || '';
+      if (!t.includes("Yes, it's my first day.") && !t.includes('조금만 버텨 봐요')) {
+        await opts.nth(k).click();
+        return true;
+      }
+    }
+    return false;
+  }
   const choice = page.locator('.dr-act .dr-opt', { hasText: "Yes, it's my first day." });
   if (await choice.count()) {
     await choice.first().click();
@@ -91,7 +112,7 @@ async function answerQuizIfAny(page) {
 /**
  * 플레이어를 끝까지 돈다. 역할극(.rs-root)이 나오면 onRole(page, mode, n)을 부른다 — 그 안에서 결과까지 처리해야 한다.
  */
-async function drive(page, onRole, { budgetMs = 240000 } = {}) {
+async function drive(page, onRole, { budgetMs = 240000, wrong = false } = {}) {
   let n = 0;
   // 예산은 반복 횟수가 아니라 시간으로 — 음소거 자동 재생은 1화 한 바퀴에 실제 시간 1분 이상이 걸려서(대사당 lineMs)
   // 예전 120회(≈30초) 상한으로는 두 번째 역할극 뒤에서 루프가 끝나 엔딩(.dr-end)·재소환에 닿지 못했다.
@@ -105,7 +126,7 @@ async function drive(page, onRole, { budgetMs = 240000 } = {}) {
       await page.waitForFunction(() => !document.querySelector('.rs-root') || document.querySelector('.dr-end'), null, { timeout: 30000 }).catch(() => null);
       continue;
     }
-    if (await answerQuizIfAny(page)) {
+    if (await answerQuizIfAny(page, wrong)) {
       await page.waitForTimeout(150);
       continue;
     }
@@ -172,7 +193,8 @@ async function drive(page, onRole, { budgetMs = 240000 } = {}) {
   check('엔딩 직전 재소환 — 방금 60점 미만을 한국어만 보고 다시(플래시 없음)', recallSeen);
   await page.waitForSelector('.dr-end', { timeout: 15000 });
   const endText = await page.evaluate(() => document.body.innerText);
-  check('역할극이 이해도에 합산(고르기 1 + 뜻 1 + 태오 4 = 6문항 중 5)', /이해도 83%/.test(endText), endText.match(/이해도 \d+%/)?.[0]);
+  // 리뷰 A2: 역할극(말하기)은 이해도(듣기)와 분리 — 이해도는 고르기 1 + 뜻 1(둘 다 정답)뿐
+  check('역할극은 이해도에 합산하지 않는다(고르기 1 + 뜻 1 = 100%)', /이해도 100%/.test(endText), endText.match(/이해도 \d+%/)?.[0]);
   check('엔딩에 발화 요약(재소환 포함 5 · 통과 4)', /발화 5 · 통과 4/.test(endText));
   const st = await page.evaluate(() => ({
     log: JSON.parse(localStorage.getItem('va_attempt_log') || '[]'),
@@ -246,9 +268,10 @@ async function drive(page, onRole, { budgetMs = 240000 } = {}) {
     }
     if (mode === 'shadow' && !shadowSeen) {
       shadowSeen = true;
-      await page.waitForSelector('.rs-result', { timeout: 40000 });
-      check('섀도잉 결과 — 칩 없음, 같이 말하기 완료', (await page.locator('.rs-chip').count()) === 0 && (await page.textContent('.rs-score')).includes('같이 말하기'));
-      await page.click('.rs-next');
+      // 리뷰 A3: 키 없음은 받아쓰기가 없어 점수 대신 자기확인(소리가 있었을 때만) — 내 소리 ▶ 비교
+      await page.waitForSelector('.rs-self', { timeout: 40000 });
+      check('키 없는 섀도잉 — 점수 없이 자기확인(칩·점수 없음, 내 소리 ▶)', (await page.locator('.rs-chip, .rs-score').count()) === 0 && (await page.locator('.rs-self-ok').count()) === 1);
+      await page.click('.rs-self-ok');
       return;
     }
     const skip = page.locator('.rs-skip');
@@ -261,7 +284,8 @@ async function drive(page, onRole, { budgetMs = 240000 } = {}) {
   check('지정 상대 대사(Diane)가 섀도잉으로 기본 ON', shadowSeen);
   check(`넘어가기 무제한(${skips}회 모두 가능)`, skips >= 4 && skipEnabled);
   await page.waitForSelector('.dr-end', { timeout: 15000 });
-  check('키 없이도 엔딩까지 막히지 않는다', /발화 \d+/.test(await page.evaluate(() => document.body.innerText)));
+  const body3 = await page.evaluate(() => document.body.innerText);
+  check('키 없이도 엔딩까지 막히지 않는다 — 자기확인은 통과가 아니라 스스로 확인으로', /발화 \d+/.test(body3) && /스스로 확인 \d+/.test(body3), body3.match(/🎙 발화[^\n]*/)?.[0]);
   await ctx.close();
 }
 
@@ -270,6 +294,80 @@ async function drive(page, onRole, { budgetMs = 240000 } = {}) {
   const { ctx, page } = await open({ flags: { rolePlay: false } });
   await page.waitForSelector('.dr-act', { timeout: 25000 });
   check('rolePlay off: 첫 참여 문항까지 역할극 없이 흐르고 태오 대사는 말풍선으로', (await page.locator('.rs-root').count()) === 0 && (await page.locator('.dr-line.me').count()) >= 1 && (await page.locator('.dr-act .dr-opt').count()) === 3);
+  await ctx.close();
+}
+
+/* ══ ⑤ 리뷰 A1 — 넘어가기 소진 + 게이트 계속 막힘 → 자기확인 출구·다시 듣기 ══ */
+{
+  const { ctx, page, stt } = await open();
+  stt.replies.push('', '');
+  let gate = null;
+  await drive(page, async (page, mode, n) => {
+    const skip = page.locator('.rs-skip');
+    if (n < 3) {
+      await skip.waitFor({ timeout: 15000 });
+      await skip.click();
+      return;
+    }
+    if (n === 3) {
+      // 빈 전사 → 게이트(채점 불가) — 시도·넘어가기 수에 넣지 않는다
+      await page.waitForFunction(() => document.querySelector('.rs-root')?.getAttribute('data-phase') === 'gate', null, { timeout: 40000 });
+      const first = { replay: await page.locator('.rs-replay').count(), self: await page.locator('.rs-to-self').count(), skipOff: await page.locator('.rs-skip').isDisabled() };
+      await page.click('.rs-mic');
+      await page.waitForFunction(() => document.querySelector('.rs-root')?.getAttribute('data-phase') === 'gate' && !!document.querySelector('.rs-to-self'), null, { timeout: 40000 });
+      gate = { first, replay: await page.locator('.rs-replay').count(), self: await page.locator('.rs-to-self').count(), skipText: (await page.textContent('.rs-skip')) || '' };
+      await page.click('.rs-replay'); // 음소거 — 읽을 시간만 흐르고 막히지 않는다
+      await page.click('.rs-to-self');
+      await page.waitForSelector('.rs-self-ok', { timeout: 5000 });
+      await page.click('.rs-self-ok');
+      return;
+    }
+    await page.waitForSelector('.rs-result, .rs-self', { timeout: 40000 });
+    if (await page.locator('.rs-next').count()) await page.click('.rs-next');
+    else await page.click('.rs-self-ok');
+  });
+  check('게이트 1회: 🔊 다시 듣기는 있고 자기확인 출구는 아직 없음, 넘어가기는 다 썼다', !!gate && gate.first.replay === 1 && gate.first.self === 0 && gate.first.skipOff, JSON.stringify(gate));
+  check('게이트 2회: 넘어가기 소진이어도 \'스스로 확인하고 넘어가기\' + 다시 듣기', !!gate && gate.self === 1 && gate.replay === 1 && gate.skipText.includes('다 썼어요'), JSON.stringify(gate));
+  await page.waitForSelector('.dr-end', { timeout: 20000 });
+  const st = await page.evaluate(() => ({ body: document.body.innerText, log: JSON.parse(localStorage.getItem('va_attempt_log') || '[]') }));
+  check('자기확인으로 지나간 줄은 엔딩에 \'스스로 확인\'(통과 아님) · 시도 로그에 넣지 않음', /스스로 확인 1/.test(st.body) && !st.log.some((a) => a.src === 'drama' && a.en === T[14]), st.body.match(/🎙 발화[^\n]*/)?.[0]);
+  await ctx.close();
+}
+
+/* ══ ⑥ 리뷰 A2 — 자기확인 ✓만으로는 이해도·레벨이 오르지 않는다 ══ */
+{
+  const { ctx, page } = await open({ key: false, webSpeech: false });
+  await drive(
+    page,
+    async (page) => {
+      await page.waitForSelector('.rs-self-ok', { timeout: 40000 });
+      await page.click('.rs-self-ok');
+    },
+    { wrong: true }
+  );
+  await page.waitForSelector('.dr-end', { timeout: 20000 });
+  const st = await page.evaluate(() => ({ body: document.body.innerText, prog: JSON.parse(localStorage.getItem('va_drama') || '{}'), ev: JSON.parse(localStorage.getItem('va_cefr_evidence') || '[]') }));
+  check('퀴즈를 다 틀리고 대사를 전부 ✓ — 이해도 0%(자기확인이 정답으로 섞이지 않음)', /이해도 0%/.test(st.body), st.body.match(/이해도 \d+%/)?.[0]);
+  check('저장된 역할극 집계: 통과 0(자기확인은 통과가 아니다)', st.prog.speak?.['1']?.passed === 0 && st.prog.speak['1'].spoken >= 4, JSON.stringify(st.prog.speak));
+  check('레벨이 오르지 않았다(adj ≤ 0)', !(st.prog.adj > 0), String(st.prog.adj));
+  check('듣기 CEFR 증거에 통과 점수가 없다', !st.ev.some((e) => e.skill === 'listening' && e.score >= 60), JSON.stringify(st.ev.slice(-3)));
+  await ctx.close();
+}
+
+/* ══ ⑦ 리뷰 A3 — 키 없는 섀도잉 침묵은 통과가 아니다 ══ */
+{
+  const { ctx, page } = await open({ key: false, webSpeech: false, silent: true });
+  let shadow = null;
+  await drive(page, async (page, mode) => {
+    if (mode === 'shadow' && !shadow) {
+      await page.waitForFunction(() => document.querySelector('.rs-root')?.getAttribute('data-phase') === 'gate', null, { timeout: 40000 });
+      shadow = { msg: (await page.textContent('.rs-gate')) || '', result: await page.locator('.rs-result, .rs-self').count() };
+    }
+    const skip = page.locator('.rs-skip');
+    await skip.waitFor({ timeout: 15000 });
+    await skip.click();
+  });
+  check('침묵(레벨 0) 섀도잉 → \'소리가 안 들렸어요\' 안내, 결과·자기확인으로 넘어가지 않음', !!shadow && shadow.msg.includes('소리가 안 들렸어요') && shadow.result === 0, JSON.stringify(shadow));
   await ctx.close();
 }
 

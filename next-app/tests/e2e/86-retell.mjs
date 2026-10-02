@@ -7,6 +7,8 @@
  *   ② 키 있음·15일+ A2: 1회차 45초 → 조금 더 ▾: ✏️ 한 줄 교정(AI 목킹) → 따라 말하기 → 2회차 30초 → 3회차 건너뛰기 → WPM 비교·가장 빨랐던 회차 ▶
  *   ③ 키 없음 + Web Speech 없음(iOS PWA): recordOnly — 말한 시간·시작까지 + '내 소리 ▶', STT·AI 호출 0, 자기확인 발화 1
  *   ④ 플래그 retell off → 리텔·오늘 질문 카드 없음
+ *   ⑤ (리뷰 A4) 받아쓰기 401 → '마이크' 문구가 아니라 키 안내, 두 번 실패하면 '넘어가기(자기확인)' 출구
+ *   ⑥ (리뷰 B9) 한 줄 교정 따라 말하기가 안 들리면 '0점' 대신 다시 안내, 녹음 중엔 🔊 듣기 비활성
  * 마이크·STT 스텁은 83-roleplay·84-recall-speak와 같은 패턴. 역할극·회상 플래그는 꺼서 EP1을 빨리 돈다(그 흐름은 83·84가 본다).
  */
 import { BASE, check, finish, launch } from './helpers.mjs';
@@ -89,9 +91,10 @@ async function open({ key = true, webSpeech = true, flags = {}, startDaysAgo = 1
     const content = isCaf ? JSON.stringify(FIX) : '{}';
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content } }] }) });
   });
-  const stt = { replies: [], calls: 0 };
+  const stt = { replies: [], calls: 0, errors: [] };
   await page.route('**/app/api/stt', (r) => {
     stt.calls++;
+    if (stt.errors.length) return r.fulfill({ status: stt.errors.shift(), contentType: 'application/json', body: JSON.stringify({ error: { message: 'Invalid API Key' } }) });
     const text = stt.replies.length ? stt.replies.shift() : 'Hello.';
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(verboseFor(text)) });
   });
@@ -249,6 +252,55 @@ const readStore = (page) =>
   check('STT·AI 호출 0', stt.calls === 0 && ai.caf === 0);
   check('va_retell keyless 기록 · 시도 로그·증거 없음', st.retell.length === 1 && st.retell[0].keyless === true && st.attempts.length === 0 && st.evidence.length === 0, JSON.stringify(st.retell));
   check('자기확인 발화 1(키 없는 구간 1.0)', st.spoken === 1 && st.goal.selfToday === 1, JSON.stringify(st.goal));
+  await ctx.close();
+}
+
+/* ══ ⑤ 리뷰 A4 — 401은 키 안내, 두 번 실패하면 자기확인 출구 ══ */
+{
+  const { ctx, page, stt } = await open();
+  check('EP1 끝까지(401)', await toEnding(page));
+  const card = '.ee-card[data-card="retell"]';
+  stt.errors.push(401, 401);
+  // 리텔은 자동 종료가 없다(silenceMs 0) — 잠깐 말하고 ⏹
+  const tryOnce = async () => {
+    await page.locator(`${card} .rt-start`).click();
+    await page.waitForSelector(`${card} .rt-run[data-phase="rec"] .rt-stop`, { timeout: 10000 });
+    await page.waitForTimeout(800);
+    await page.locator(`${card} .rt-stop`).click();
+    await page.waitForSelector(`${card} .rt-run[data-phase="gate"]`, { timeout: 20000 });
+  };
+  await tryOnce();
+  const m1 = await page.textContent(`${card} .rt-gate`);
+  check("401 → '키가 맞지 않아요'(마이크 문구 아님) · 출구는 아직 없음", m1.includes('키') && !m1.includes('마이크') && (await page.locator(`${card} .rt-self`).count()) === 0, m1);
+  await tryOnce();
+  await page.waitForSelector(`${card} .rt-self`, { timeout: 5000 });
+  await page.click(`${card} .rt-self`);
+  await page.waitForSelector(`${card} .rt-run[data-phase="done"] .rt-result`, { timeout: 5000 });
+  const st = await readStore(page);
+  check('두 번 실패 → 넘어가기(자기확인) — 점수 없이 기록, 시도 로그 없음', (await page.textContent(`${card} .rt-result`)).includes('받아쓰기를 못 해서') && st.retell.length === 1 && st.retell[0].keyless === true && st.attempts.every((a) => a.quality !== 'ok'), JSON.stringify(st.retell));
+  await ctx.close();
+}
+
+/* ══ ⑥ 리뷰 B9 — 한 줄 교정 따라 말하기: 안 들리면 0점이 아니라 다시 안내, 녹음 중 🔊 비활성 ══ */
+{
+  const { ctx, page, stt } = await open({ startDaysAgo: 20 });
+  check('EP1 끝까지(B9)', await toEnding(page));
+  const card = '.ee-card[data-card="retell"]';
+  stt.replies.push(RETELL_SAID);
+  await speak(page, card, 1500);
+  await page.click('.ee-more-btn');
+  const more = '.ee-card[data-card="retell-more"]';
+  await page.waitForSelector(`${more} .rt-fix-better`, { timeout: 10000 });
+  stt.replies.push('');
+  await page.click(`${more} .rt-fix-follow`);
+  await page.waitForSelector(`${more} .rt-fix[data-phase="rec"]`, { timeout: 5000 });
+  const playOff = await page.locator(`${more} .rt-fix-play`).isDisabled();
+  await page.waitForTimeout(600);
+  if (await page.locator(`${more} .rt-stop`).count()) await page.click(`${more} .rt-stop`);
+  await page.waitForSelector(`${more} .rt-fix[data-phase="idle"] .rt-gate`, { timeout: 15000 });
+  const txt = await page.textContent(`${more} .rt-fix`);
+  check('녹음 중엔 🔊 듣기 비활성', playOff);
+  check("안 들림 → '0점' 대신 다시 안내 + 🎙 따라 말하기 다시", !/0점/.test(txt) && (await page.locator(`${more} .rt-fix-follow`).count()) === 1 && (await page.locator(`${more} .rt-fix-res`).count()) === 0, txt);
   await ctx.close();
 }
 

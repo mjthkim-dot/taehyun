@@ -23,6 +23,7 @@ import { castNameKo, gradeRecall, recallNext, recallStages, recallUiMode, record
 import { alignedScore, displayDiff, type AlignedWord } from '../../lib/align';
 import { recordAndTranscribe, STT_PROPER_NOUNS, whisperAvailable, micAvailable, type SttResult } from '../../lib/stt';
 import { blockingReason, gateMessage } from '../../lib/sttQuality';
+import { sttErrorMessage } from '../../lib/sttErrors';
 import { browserSttAvailable, listenOnce } from '../../lib/browserStt';
 import { logAttempt } from '../../lib/reviewEngine';
 import { bumpSpoken, topPronLapses, type FlashGrade } from '../../lib/state';
@@ -80,6 +81,7 @@ export default function RecallStep({
   mute = false,
   review = false,
   noSrs = false,
+  onGraded,
   onDone,
 }: {
   item: RecallItem;
@@ -90,6 +92,8 @@ export default function RecallStep({
   review?: boolean;
   /** 간격 반복에 매기지 않는 연습(엔딩 카드의 기한 전 표현) — 등급은 화면에만 */
   noSrs?: boolean;
+  /** 등급이 정해진 순간(간격 반복·발화 수 기록 직후, '다음 ▶' 전) — 이어 보기 저장이 이 장면을 '답함'으로 두게 */
+  onGraded?: () => void;
   onDone: (r: RecallResult) => void;
 }) {
   const path: SttPath = sttPath({ whisper: whisperAvailable(), webSpeech: browserSttAvailable() });
@@ -118,6 +122,11 @@ export default function RecallStep({
   const finished = useRef(false);
   /** 게이트(소리 없음 등)에 걸린 게 따라 말하기였나 — 🎙 다시 누르면 같은 단계로 */
   const followGate = useRef(false);
+  const resultHead = useRef<HTMLDivElement | null>(null);
+  // 결과가 뜨면 포커스를 결과 제목으로(키보드·스크린리더)
+  useEffect(() => {
+    if (grade) resultHead.current?.focus({ preventScroll: true });
+  }, [grade]);
 
   /** 등급 — noSrs면 저장하지 않고 같은 규칙으로만 매긴다 */
   const gradeOf = (score: boolean | number, hint = false): FlashGrade => {
@@ -252,12 +261,12 @@ export default function RecallStep({
       // 두 번째 실패 — 이제 보기 3개(힌트)
       hinted.current = true;
       setPhase('hint');
-    } catch {
+    } catch (e) {
       stopRec.current = null;
       if (!alive.current) return;
-      // 권한 거부 등 — 막히지 않게 고르기(떠올리기) / 결과로(따라 말하기)
+      // 권한 거부·오프라인 등 — 막히지 않게 고르기(떠올리기) / 결과로(따라 말하기)
       if (kind === 'recall') {
-        setMsg('마이크를 열지 못했어요 — 보기에서 골라 주세요.');
+        setMsg(`${sttErrorMessage(e)} 보기에서 골라 주세요.`);
         hinted.current = tries.current > 0;
         setPhase('choice');
       } else setPhase('done');
@@ -267,6 +276,7 @@ export default function RecallStep({
   /** 등급이 정해졌다 — 정답을 인물 목소리로 들려주고, again이면 곧바로 따라 말하기 */
   function settle(g: FlashGrade) {
     setGrade(g);
+    onGraded?.();
     setPhase('result');
     const canFollow = g === 'again' && path !== 'self' && micAvailable();
     playAnswer(item.en, canFollow ? () => later(() => void listen('follow'), 300) : undefined);
@@ -387,7 +397,7 @@ export default function RecallStep({
         <div className={`rc-result${good ? ' ok' : ''}`}>
           {heard && heard.diff.length > 0 && !choiceOnly ? (
             <>
-              <div className="rc-score" aria-label={`점수 ${heard.score}점`}>
+              <div className="rc-score" aria-label={`점수 ${heard.score}점`} tabIndex={-1} ref={resultHead}>
                 {good ? (hinted.current ? '힌트로 떠올렸어요' : '떠올렸어요!') : '다시 볼게요'} · <b>{heard.score}점</b>
               </div>
               <p className="rs-diff rc-diff" lang="en">
@@ -395,7 +405,10 @@ export default function RecallStep({
                 {displayDiff(item.en, heard.diff).map((d, k) => (
                   <span key={k}>
                     {k > 0 && ' '}
-                    <span className={d.ok ? 'rs-w ok' : 'rs-w bad'}>{d.w}</span>
+                    <span className={d.ok ? 'rs-w ok' : 'rs-w bad'}>
+                      {d.w}
+                      {!d.ok && <span className="sr-only">(틀림)</span>}
+                    </span>
                   </span>
                 ))}
               </p>
@@ -403,7 +416,8 @@ export default function RecallStep({
             </>
           ) : (
             <>
-              <div className="rc-score">{good ? (hinted.current ? '힌트로 떠올렸어요' : '기억하고 있네요!') : picked !== null ? '다시 볼게요' : '정답'}</div>
+              <div className="rc-score" tabIndex={-1} ref={resultHead}>
+                {good ? (hinted.current ? '힌트로 떠올렸어요' : '기억하고 있네요!') : picked !== null ? '다시 볼게요' : '정답'}</div>
               <p className="rs-en rc-en" lang="en">
                 {item.en}
               </p>

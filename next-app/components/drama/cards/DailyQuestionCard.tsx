@@ -17,13 +17,14 @@ import { markInteraction, setStrand } from '../../../lib/dayGovernor';
 import { dailyQScore, dailyQuestionFor, LISTENERS, type DailyQuestion } from '../../../lib/retell';
 import { recordAndTranscribe, createUnlockedAudioContext, STT_PROPER_NOUNS, type SttResult } from '../../../lib/stt';
 import { gateMessage } from '../../../lib/sttQuality';
+import { sttErrorMessage } from '../../../lib/sttErrors';
 import { countWords } from '../../../lib/fluency';
 import { logAttempt } from '../../../lib/reviewEngine';
 import { putRecording } from '../../../lib/storage';
 import { bumpSpoken } from '../../../lib/state';
 import { addMinutes } from '../../../lib/timeBudget';
 import { speakText, stopSpeaking } from '../../SpeakButton';
-import { ClipButton, RecBar, blockOf, freePath } from './RetellCard';
+import { ClipButton, FAILS_SELF_AT, RecBar, blockOf, freePath } from './RetellCard';
 
 const whoOf = (no: number) => LISTENERS[no % LISTENERS.length];
 
@@ -41,6 +42,8 @@ interface Out {
   text: string;
   audio?: Blob;
   keyless: boolean;
+  /** 키는 있는데 받아쓰기가 거듭 실패해 녹음만 남기고 넘어갔다 */
+  fallback?: boolean;
 }
 
 function DailyQuestionView({ ctx }: { ctx: EndingCtx }) {
@@ -51,6 +54,8 @@ function DailyQuestionView({ ctx }: { ctx: EndingCtx }) {
   const [level, setLevel] = useState(0);
   const [msg, setMsg] = useState('');
   const [out, setOut] = useState<Out | null>(null);
+  const [fails, setFails] = useState(0);
+  const lastRec = useRef<{ audio?: Blob; durationMs?: number; latencyMs?: number }>({});
   const stop = useRef<(() => void) | null>(null);
   const alive = useRef(true);
   useEffect(() => {
@@ -104,10 +109,12 @@ function DailyQuestionView({ ctx }: { ctx: EndingCtx }) {
       });
       stop.current = null;
       if (!alive.current) return;
+      if (res.audio) lastRec.current = { audio: res.audio, durationMs: res.durationMs, latencyMs: res.voiceOnsetMs };
       const block = blockOf(res, path);
       if (block) {
         if (path === 'whisper') logAttempt({ t: Date.now(), en: q!.en, score: 0, src: 'daily-q', latencyMs: res.voiceOnsetMs, quality: block });
         setMsg(gateMessage(block));
+        setFails((n) => n + 1);
         setPhase('gate');
         return;
       }
@@ -126,12 +133,22 @@ function DailyQuestionView({ ctx }: { ctx: EndingCtx }) {
       record(o);
       setOut(o);
       setPhase('done');
-    } catch {
+    } catch (e) {
       stop.current = null;
       if (!alive.current) return;
-      setMsg('마이크를 열지 못했어요 — 권한을 확인하고 다시 눌러 주세요.');
+      setMsg(sttErrorMessage(e));
+      setFails((n) => n + 1);
       setPhase('gate');
     }
+  }
+
+  /** 거듭 실패 — 점수 없이 녹음(있으면)만 남기고 넘어간다(자기확인 발화) */
+  function selfPass() {
+    const l = lastRec.current;
+    const o: Out = { words: 0, wpm: 0, durationMs: l.durationMs || q!.sec * 1000, latencyMs: l.latencyMs, text: '', audio: l.audio, keyless: true, fallback: true };
+    record(o);
+    setOut(o);
+    setPhase('done');
   }
 
   const s1 = (ms?: number) => (typeof ms === 'number' ? `${(ms / 1000).toFixed(1)}초` : '–');
@@ -156,6 +173,11 @@ function DailyQuestionView({ ctx }: { ctx: EndingCtx }) {
           <button type="button" className="btn primary rt-start" onClick={() => void start()}>
             {phase === 'gate' ? '🎙 다시 말하기' : path === 'none' ? '🗣 소리 내어 말했어요' : `🎙 시작 · ${q.sec}초`}
           </button>
+          {phase === 'gate' && fails >= FAILS_SELF_AT && (
+            <button type="button" className="btn ghost rt-self" onClick={selfPass}>
+              🗣 {lastRec.current.audio ? '녹음만 하고 넘어가기' : '소리 내어 말했어요 — 넘어가기'}
+            </button>
+          )}
         </>
       )}
       {phase === 'rec' && <RecBar elapsed={elapsed} sec={q.sec} level={level} onStop={() => stop.current?.()} />}
@@ -177,6 +199,7 @@ function DailyQuestionView({ ctx }: { ctx: EndingCtx }) {
             <span className="rt-chip stat">말한 시간 {s1(out.durationMs)}</span>
             <span className="rt-chip stat">시작까지 {s1(out.latencyMs)}</span>
           </div>
+          {out.fallback && <p className="rt-note">받아쓰기를 못 해서 점수 없이 넘어갔어요 — 내 소리를 들어 보고 스스로 확인해요.</p>}
           <ClipButton clip={out.audio} />
         </div>
       )}

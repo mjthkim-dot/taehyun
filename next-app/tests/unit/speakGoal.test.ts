@@ -139,6 +139,70 @@ describe('speakGoal — 10 → 20 → 25 → 30 → 35(상한)', () => {
   });
 });
 
+describe('날짜 경계 — 어제 기록은 어제 값으로(A5·A6·A7)', () => {
+  test('A5: 캡 다음 날 첫 발화(bumpSpoken)가 어제의 낮춘 목표·capped를 오늘로 복사하지 않고, 어제 캡 보호는 남긴다', () => {
+    KEY();
+    at(0);
+    localStorage.setItem('va_days', JSON.stringify([shiftKey(todayKey(), -40)]));
+    expect(speakGoal().goal).toBe(20);
+    speak(5);
+    expect(capSpeakGoalToday().goal).toBe(5);
+    at(1);
+    speak(1); // 드라마를 열기 전 다른 화면(단어 퀴즈 등)에서 먼저 말했다
+    const raw = load<Record<string, unknown>>('va_speak_goal', {});
+    expect(raw.capped).toBe(false);
+    expect(raw.goal).toBe(20); // 캡 전 목표로 돌아간다
+    expect(speakGoalLite().goal).toBe(20);
+    expect((raw.prev as { date: string; capped: boolean }).capped).toBe(true);
+    const st = speakGoal();
+    expect(st.goal).toBe(20);
+    expect(st.capped).toBe(false);
+    expect(st.streakDays).toBe(1); // 어제는 캡(5)으로 확정 — 달성
+  });
+  test('A6: 짧은 날(×0.5)·적응일(×0.6)에 감면된 목표를 채웠으면 다음 날 정산에서도 달성', () => {
+    KEY();
+    at(0);
+    localStorage.setItem('va_days', JSON.stringify([shiftKey(todayKey(), -40)]));
+    speakGoal();
+    const d0 = todayKey();
+    localStorage.setItem('va_day_gov', JSON.stringify({ date: d0, mode: 'short' }));
+    speak(10); // 20 × 0.5 = 10 — 홈 불꽃은 켜졌다
+    expect(flameState().level).toBe('lit');
+    at(1);
+    const d1 = todayKey();
+    // 하루 조절기가 날을 넘기며 어제를 hist로 옮긴 모양
+    localStorage.setItem('va_day_gov', JSON.stringify({ date: d1, mode: 'normal', adapt: true, hist: { [d0]: { mode: 'short' } } }));
+    speak(12); // 20 × 0.6 = 12
+    expect(speakGoal().streakDays).toBe(1);
+    at(2);
+    localStorage.setItem('va_day_gov', JSON.stringify({ date: todayKey(), mode: 'normal', hist: { [d0]: { mode: 'short' }, [d1]: { mode: 'normal', adapt: true } } }));
+    expect(speakGoal().streakDays).toBe(2);
+  });
+  test('A7: 어제 키 없이(목표 10) 채우고 오늘 아침 키를 등록해도 어제는 10 기준으로 판정', () => {
+    at(0);
+    localStorage.setItem('va_days', JSON.stringify([shiftKey(todayKey(), -40)]));
+    speakGoal();
+    for (let k = 0; k < 10; k++) bumpSpoken(undefined, 'self'); // 키 없는 구간 — 자기확인 1.0
+    expect(load<{ kl: boolean }>('va_speak_goal', { kl: false }).kl).toBe(true);
+    at(1);
+    KEY(); // 아침에 키 등록
+    expect(speakGoal().streakDays).toBe(1); // 예전엔 오늘 키 기준(20)으로 어제를 판정해 연속이 끊겼다
+  });
+  test('A7: 키 등록 후 첫 발화가 정산보다 먼저여도(prev) 어제 키 유무를 쓴다', () => {
+    at(0);
+    localStorage.setItem('va_days', JSON.stringify([shiftKey(todayKey(), -40)]));
+    speakGoal();
+    for (let k = 0; k < 10; k++) bumpSpoken(undefined, 'self');
+    at(1);
+    KEY();
+    bumpSpoken();
+    const raw = load<Record<string, unknown>>('va_speak_goal', {});
+    expect(raw.keyless).toBe(false); // 오늘은 키 있음
+    expect((raw.prev as { keyless: boolean }).keyless).toBe(true);
+    expect(speakGoal().streakDays).toBe(1);
+  });
+});
+
 describe('flameState 집중 분기 — 연료는 발화', () => {
   test('에피소드만 보면 반불꽃(ember·half), 발화 ≥ 목표면 lit', () => {
     KEY();

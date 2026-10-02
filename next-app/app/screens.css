@@ -7496,3 +7496,32 @@
   flex-direction: column;
   gap: 6px;
 }
+
+/* v1.33 리뷰 수정 — 틀린 단어 색 대비 4.5:1 이상(라이트 #c62828 ≈ 5.4:1 · 다크 #ff6b70 ≈ 6:1, 결과 카드 배경 기준) */
+:root {
+  --rs-bad: #c62828;
+}
+[data-theme='dark'] {
+  --rs-bad: #ff6b70;
+}
+.rs-w.bad {
+  color: var(--rs-bad);
+}
+/* 게이트·자기확인의 '🔊 다시 듣기'·'스스로 확인하고 넘어가기' — 마이크 버튼 아래 한 줄씩 */
+.rs-replay,
+.rs-to-self {
+  align-self: center;
+}
+.rs-score:focus,
+.rc-score:focus {
+  outline: none;
+}
+.rs-score:focus-visible,
+.rc-score:focus-visible {
+  outline: 2px solid var(--accent, currentColor);
+  outline-offset: 2px;
+}
+/* 지연 청크를 못 받았을 때(오프라인) — 다시 불러오기 / 이 줄 넘어가기 */
+.dr-lazy-fail .dr-row {
+  gap: 8px;
+}

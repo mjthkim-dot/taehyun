@@ -154,7 +154,7 @@ describe('TTS 캐시', () => {
 });
 
 describe('녹음 보관', () => {
-  const rec = (kind: 'baseline' | 'monthly' | 'retell' | 'drama' | 'daily-q', extra: Partial<{ en: string; score: number }> = {}) =>
+  const rec = (kind: 'baseline' | 'monthly' | 'retell' | 'drama' | 'daily-q' | 'd7', extra: Partial<{ en: string; score: number }> = {}) =>
     ({ kind, blob: blob(10), mime: 'audio/webm', durationMs: 1200, ...extra });
   test('저장하면 id·date가 붙고 목록은 최신 먼저', async () => {
     const s = await mod();
@@ -208,6 +208,25 @@ describe('녹음 보관', () => {
     expect(plan.every((id) => !id.startsWith('b'))).toBe(true);
     expect(plan.sort()).toEqual(['q0', 'q1', 'q2', 'r0']);
     expect(s.RECORDING_MAX).toBe(20);
+  });
+  test('A10: d7Pair가 가리키는 녹음(D+1)은 d7 최신 3개 정리에서도 남는다', async () => {
+    const s = await mod();
+    const d7 = Array.from({ length: 5 }, (_, i) => ({ id: `d7-${i}`, kind: 'd7' as const, date: '2026-01-0' + (i + 1), at: i }));
+    // 핀 없음 — 가장 오래된 두 개(D+1 포함)가 빠진다
+    expect(s.pruneRecordingPlan(d7, 20).sort()).toEqual(['d7-0', 'd7-1']);
+    // D+1(d7-0)을 고정 — 남고, 대신 고정 아닌 오래된 것이 빠진다
+    const plan = s.pruneRecordingPlan(d7, 20, ['d7-0']);
+    expect(plan).not.toContain('d7-0');
+    expect(plan.sort()).toEqual(['d7-1', 'd7-2']);
+  });
+  test('A10: pruneRecordings는 va_growth.d7Pair의 id를 고정한다', async () => {
+    const s = await mod();
+    const first = await s.putRecording(rec('d7', { en: 'same' }));
+    localStorage.setItem('va_growth', JSON.stringify({ d7Pair: { en: 'same', d1Id: first } }));
+    for (let i = 0; i < 4; i++) await s.putRecording(rec('d7', { en: 'same' }));
+    const ids = (await s.listRecordings('d7')).map((r) => r.id);
+    expect(ids.length).toBe(3);
+    expect(ids).toContain(first);
   });
   test('persist 요청 — 거부·미지원·예외 모두 무해', async () => {
     vi.stubGlobal('navigator', { storage: { persisted: async () => false, persist: async () => Promise.reject(new Error('nope')) } });

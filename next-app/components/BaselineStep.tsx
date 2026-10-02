@@ -17,6 +17,8 @@ import { BASELINE_GUIDES, placementQuestionFor, saveBaseline, type Baseline } fr
 import { finalizeBaseline, metricsFromWords, recPath, sentenceCount, voicedRatio } from '../lib/growthArchive';
 import { recordAndTranscribe, createUnlockedAudioContext, STT_PROPER_NOUNS } from '../lib/stt';
 import { putRecording } from '../lib/storage';
+import { blockingReason, gateMessage } from '../lib/sttQuality';
+import { sttErrorMessage } from '../lib/sttErrors';
 import { addMinutes } from '../lib/timeBudget';
 import { speakText, stopSpeaking } from './SpeakButton';
 import { ClipRow, RecMeter, TAEO_VOICE } from './progress/GaBits';
@@ -44,6 +46,8 @@ export default function BaselineStep({ level, onDone }: { level: Cefr; onDone?: 
   const [msg, setMsg] = useState('');
   const [out, setOut] = useState<Out | null>(null);
   const stop = useRef<(() => void) | null>(null);
+  /** 채점 못 한 녹음을 다시 녹음하면 같은 칸을 덮어쓴다(영구 보존 종류라 쌓이지 않게) */
+  const recId = useRef<string | undefined>(undefined);
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -82,8 +86,12 @@ export default function BaselineStep({ level, onDone }: { level: Cefr; onDone?: 
         return;
       }
       const durationMs = res.durationMs || 0;
-      const transcribed = path === 'whisper' && res.reason === 'ok' && !!(res.text || '').trim();
-      const id = await putRecording({ kind: 'baseline', blob: res.audio, mime: res.audio.type || 'audio/webm', durationMs, question: q.en, en: transcribed ? res.text : undefined, wpm: transcribed ? Math.round(res.fluency?.wpm || 0) : undefined });
+      // 품질 게이트(환각·불명확·누출)에 막힌 전사로는 말하기 레벨을 보정하지 않는다 — 녹음은 남기고(키 등록 재전사와 같은 대기) 다시 녹음 안내
+      const said = (res.text || '').trim();
+      const block = path !== 'whisper' ? null : res.reason === 'busy' ? 'busy' : !said ? (res.reason === 'silent' ? 'silent' : 'unclear') : blockingReason(res);
+      const transcribed = path === 'whisper' && !block;
+      const id = await putRecording({ ...(recId.current ? { id: recId.current } : {}), kind: 'baseline', blob: res.audio, mime: res.audio.type || 'audio/webm', durationMs, question: q.en, en: transcribed ? res.text : undefined, wpm: transcribed ? Math.round(res.fluency?.wpm || 0) : undefined });
+      if (id) recId.current = id;
       addMinutes('output', Math.max(0.1, Math.round((durationMs / 60000) * 10) / 10));
       const voiced = voicedRatio(durationMs, res.voiceOnsetMs, res.pauseSource === 'rms' ? res.pauses : []);
       const b: Baseline = {
@@ -101,14 +109,20 @@ export default function BaselineStep({ level, onDone }: { level: Cefr; onDone?: 
         setOut({ keyless: false, durationMs, wpm: r.b.wpm, words: m.words, sentences: sentenceCount(res.text), text: res.text, from: level, to: r.speaking, audio: res.audio });
       } else {
         saveBaseline(b);
+        if (block) {
+          if (!alive.current) return;
+          setMsg(`${gateMessage(block)} — 녹음은 저장했어요. 다시 녹음하면 말하기 레벨을 맞출 수 있어요.`);
+          setPhase('gate');
+          return;
+        }
         setOut({ keyless: true, durationMs, from: level, audio: res.audio });
       }
       setPhase('done');
       onDone?.(true);
-    } catch {
+    } catch (e) {
       stop.current = null;
       if (!alive.current) return;
-      setMsg('마이크를 열지 못했어요 — 권한을 확인하고 다시 눌러 주세요.');
+      setMsg(sttErrorMessage(e));
       setPhase('gate');
     }
   }
