@@ -6,5 +6,7 @@
  */
 import './RetellCard'; // M5 — 이야기 다시 말하기 1회차(order 10) + 조금 더 2·3회차·교정(order 30)
 import './RecallCard'; // M3 — 말로 떠올리기 3(order 20) + 조금 더 3(order 40)
+import './DecoderCard'; // M7 — 소리 디코더(평일·진단 축 없음, order 50) — HVPT와 하루 1장(lib/soundCardPick)
+import './HvptCard'; // M9 — 소리 구분 HVPT(평일·진단 축 있음·키 있음, order 50)
 import './DailyQuestionCard'; // M5 — 오늘 질문 1개(월·수·금, order 60)
 export {};

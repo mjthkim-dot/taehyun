@@ -23,6 +23,8 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   decoder: true,
   hvpt: true,
   wordSpeak: true,
+  // M7 — 말풍선 아래 '원어민 소리' 회색 줄. 보는 사람이 고르는 표시 설정이라 기본 꺼짐
+  soundLine: false,
 };
 
 /** 한국어 라벨 — 토글 목록에 보이는 이름(한 줄, 학습자 말로) */
@@ -35,6 +37,7 @@ export const FLAG_LABELS: Record<string, string> = {
   decoder: '소리 디코더(연음·축약 카드)',
   hvpt: '소리 구분 훈련(HVPT)',
   wordSpeak: '단어도 말로 익히기',
+  soundLine: "말풍선 아래 '원어민 소리' 줄 보기(gonna·wanna)",
 };
 
 const FLAGS_KEY = 'va_flags';

@@ -181,3 +181,15 @@ export function spokenLine(en: string): string | null {
   }
   return out + en.slice(cursor);
 }
+
+/**
+ * 받아쓴 문장에 그 항목의 '원어민 소리' 표기가 찍혔는가(M7 디코더 카드의 따라 말하기).
+ * Whisper는 흘려 말한 going to를 'gonna'로 적는 일이 많다 — 축약(contraction)만 결정적으로 볼 수 있다.
+ * 약형·플랩·연음은 전사가 표준 철자로 정규화하므로 false(대신 alignedScore로 본다).
+ * 브라우저 STT는 정규화가 강해 키 없음은 자기확인 — 이 함수를 쓰지 않는다.
+ */
+export function matchesReduced(transcript: string, item: DecoderItem): boolean {
+  if (item.kind !== 'contraction') return false;
+  const norm = (s: string) => s.toLowerCase().replace(/[’‘]/g, "'").replace(/[^a-z']+/g, ' ').trim();
+  return ` ${norm(transcript)} `.includes(` ${norm(item.spoken)} `);
+}
