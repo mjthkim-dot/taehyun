@@ -7,22 +7,26 @@
  */
 import { BASE, check, finish, launch } from './helpers.mjs';
 
+// M2(역할극 프로필) 이후 gpt-oss 첫 원고는 태오 대사 5줄 이상·A2 평균 5~8단어가 아니면 거부되고 한 번 더 쓴다(lib/validateProfile).
+// 예전 고정 원고(태오 3줄·평균 4.7단어)는 첫 시도에서 거부돼 작가 호출이 2번이 됐다 — 프로필을 지키는 원고로 맞춘다.
 const EP8 = {
   level: 'A2', title: 'New Boss', titleKr: '새 상사', recap: 'Grant가 계약을 유지하기로 했다.',
   scenes: [
     { type: 'narr', kr: '월요일 아침. 사무실에 낯선 사람이 있다.' },
     { type: 'line', who: 'maya', en: 'Taeo, meet our new boss.', kr: '태오, 새 상사를 소개할게요.' },
-    { type: 'line', who: 'taeo', en: 'Nice to meet you.', kr: '만나서 반가워요.' },
+    { type: 'line', who: 'taeo', en: 'Nice to meet you, I am Taeo.', kr: '만나서 반가워요, 저는 태오예요.' },
     { type: 'choice', prompt: '어디서 일했는지 물어보자.', opts: [
       { en: 'Where did you work before?', ok: true, kr: '전에 어디서 일했어요?', reply: { who: 'maya', en: 'She was at Google.', kr: '구글에 있었대요.' } },
       { en: 'Where you work before?', ok: false, why: '과거 질문은 did가 필요해요.' },
       { en: 'Where do you worked before?', ok: false, why: 'did 뒤에는 동사원형.' },
     ] },
     { type: 'line', who: 'jun', en: 'Wow. That is cool.', kr: '와. 멋지다.' },
+    { type: 'line', who: 'taeo', en: 'Google is a really big company.', kr: '구글은 정말 큰 회사예요.' },
     { type: 'line', who: 'maya', en: 'She means business.', kr: '그녀는 진지해요.' },
+    { type: 'line', who: 'taeo', en: 'Okay, I will work hard then.', kr: '좋아요, 그럼 열심히 할게요.' },
     { type: 'meaning', who: 'jun', en: "Let's fix it together.", opts: ['같이 고쳐 보자', '우리 따로 하자', '이건 못 고쳐'], a: 0, why: '5화에서 배운 표현 — 함께 해결하자.' },
-    { type: 'line', who: 'taeo', en: 'I will do my best.', kr: '최선을 다할게요.' },
-    { type: 'speak', who: 'taeo', en: 'I will do my best.', kr: '최선을 다할게요.' },
+    { type: 'line', who: 'taeo', en: 'I will do my best here.', kr: '여기서 최선을 다할게요.' },
+    { type: 'speak', who: 'taeo', en: 'I will do my best here.', kr: '여기서 최선을 다할게요.' },
     { type: 'line', who: 'maya', en: 'Good. Coffee?', kr: '좋아요. 커피?' },
     { type: 'narr', kr: '그때 새 상사가 태오의 이름을 부른다.' },
   ],

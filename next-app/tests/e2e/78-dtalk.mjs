@@ -141,7 +141,16 @@ await page.click('.more-sheet .feat-card:has-text("진도")');
 await page.waitForSelector('.quests', { timeout: 15000 });
 const q = await page.evaluate(() => [...document.querySelectorAll('.quest-label')].map((e) => e.textContent).join('|'));
 check('집중 모드 퀘스트 = 드라마·떠올리기·말하기', q.includes('드라마 한 편') && q.includes('떠올리기') && q.includes('말하기') && !q.includes('미션'), q);
-check('말하기 퀘스트 달성(5문장)', await page.evaluate(() => [...document.querySelectorAll('.quest-row.done .quest-label')].some((e) => e.textContent.includes('말하기'))));
+// M3 이후 발화 퀘스트 목표 = 오늘의 발화 목표(va_speak_goal.goal, 첫 14일 10)라 5턴만으로는 '달성'이 아니다.
+// 의도(회화 5턴이 발화로 집계돼 퀘스트에 반영)는 진도 '5/목표'와 목표가 저장된 발화 목표와 같은지로 확인한다.
+{
+  const sq = await page.evaluate(() => {
+    const row = [...document.querySelectorAll('.quest-row')].find((r) => r.querySelector('.quest-label')?.textContent.includes('말하기'));
+    const g = JSON.parse(localStorage.getItem('va_speak_goal') || '{}').goal;
+    return { meta: row?.querySelector('.quest-meta')?.textContent || '', label: row?.querySelector('.quest-label')?.textContent || '', g };
+  });
+  check('말하기 퀘스트에 회화 5문장 반영(5/발화 목표)', sq.g === 10 && sq.meta === `5/${sq.g}` && sq.label.includes(`${sq.g}문장`), JSON.stringify(sq));
+}
 check('숨긴 기능 기록(드릴·코스)은 접혀 있다', await page.evaluate(() => !document.body.innerText.includes('드릴 정확도') && document.body.innerText.includes('전체 학습 기록 보기')));
 await page.click('button:has-text("전체 학습 기록 보기")');
 check('펼치면 전체 기록(레슨 데이터는 이때 받는다)', await page.waitForFunction(() => document.body.innerText.includes('드릴 정확도'), null, { timeout: 15000 }).then(() => true).catch(() => false));

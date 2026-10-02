@@ -67,7 +67,11 @@ async function open({ key = true, webSpeech = true, flags = {}, startDaysAgo = 1
       localStorage.setItem('va_drama_mute', 'true');
       localStorage.setItem('va_drama_auto', 'true');
       localStorage.setItem('va_placed', JSON.stringify({ cefr: 'A2', gse: 30, ts: Date.now() }));
-      localStorage.setItem('va_days', JSON.stringify([start]));
+      // 학습일은 시작일 + 어제 — 시작일만 두면 공백 ≥ RETURN_GAP_DAYS(3)라 하루 조절기(M4)가 '복귀 첫날'로 보고
+      // 엔딩 '조금 더 ▾'를 통째로 숨긴다(hideMore). 여기서 보는 건 꾸준히 해 온 학습자의 평범한 날이다.
+      const y = new Date(Date.now() - 86400000);
+      const yday = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
+      localStorage.setItem('va_days', JSON.stringify([...new Set([start, yday])]));
       // 월 1회 3/3/3이 날짜에 따라 끼어들지 않게 — 이번 달 '정확하게 말하기 날'은 이미 했다
       localStorage.setItem('va_retell', JSON.stringify([{ date: `${today.slice(0, 7)}-01`, epNo: 0, round: '333', wpm: 50, score: 60, durationMs: 30000 }]));
       if (key) localStorage.setItem('va_groq_key', JSON.stringify('gsk_test_key'));

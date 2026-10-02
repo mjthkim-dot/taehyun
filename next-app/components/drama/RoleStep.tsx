@@ -147,7 +147,6 @@ export default function RoleStep({
   onSlowHint,
 }: RoleStepProps) {
   const path: SttPath = sttPath({ whisper: whisperAvailable(), webSpeech: browserSttAvailable() });
-  const policy: SkipPolicy = { ...skipPolicy, keyless: skipPolicy.keyless ?? path === 'self' };
   const stages = mode === 'role' && !recall ? buildupStages(scene.en, buildupMinWords) : [scene.en];
   const [stage, setStage] = useState(0);
   const target = stages[stage];
@@ -161,6 +160,8 @@ export default function RoleStep({
   const [level, setLevel] = useState(0);
   const [showEn, setShowEn] = useState(false);
   const [micDenied, setMicDenied] = useState(!!skipPolicy.micDenied);
+  // 이 대사에서 마이크가 두 번 실패해 자기확인으로 넘어갔으면(micDenied) 그때부터 넘어가기 무제한 — 안내 문구와 맞춘다
+  const policy: SkipPolicy = { ...skipPolicy, micDenied: skipPolicy.micDenied || micDenied, keyless: skipPolicy.keyless ?? path === 'self' };
   const [disputeOpen, setDisputeOpen] = useState(false);
   const [disputed, setDisputed] = useState(false);
   const [lipReveal, setLipReveal] = useState(false);

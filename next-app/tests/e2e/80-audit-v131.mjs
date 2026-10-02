@@ -63,9 +63,16 @@ const TODAY_PLACED = { cefr: 'A2', gse: 30, ts: 1759200000000 };
   await page.waitForSelector('.fg-cta', { timeout: 15000 });
   await page.click('.fg-cta');
   await page.waitForSelector('.dr-log', { timeout: 15000 });
-  for (let g = 0; g < 40 && !(await page.locator('.dr-end').count()); g++) {
+  // M2 역할극: 태오 대사는 영어 2초 플래시(.rs-flash.on — 누를 것이 없다) 뒤 녹음·자기확인(.rs-self-ok)·넘어가기(.rs-skip, 화당 3회)가 뜬다.
+  // 플래시를 기다려야 해서 반복 횟수(예전 40회×80ms)가 아니라 시간으로 끝까지 진행한다.
+  const t0 = Date.now();
+  while (Date.now() - t0 < 90000 && !(await page.locator('.dr-end').count())) {
     if (await page.locator('.dr-act .dr-opt').count()) await page.locator('.dr-act .dr-opt').first().click();
-    else if (await page.locator('.dr-skip').count()) await page.click('.dr-skip');
+    else if (await page.locator('.dr-act .rs-next').count()) await page.click('.dr-act .rs-next');
+    else if (await page.locator('.dr-act .rs-self-ok').count()) await page.click('.dr-act .rs-self-ok');
+    // 헤드리스 Chromium은 Web Speech 경로지만 받아쓰기가 열리지 않는다 — 자동 시작 실패(idle) 뒤 🎙를 한 번 더 누르면 자기확인으로 간다
+    else if (await page.locator('.dr-act[data-phase=idle] .rs-mic, .dr-act[data-phase=gate] .rs-mic').count()) await page.click('.dr-act .rs-mic');
+    else if (await page.locator('.dr-skip:not([disabled])').count()) await page.click('.dr-skip:not([disabled])');
     if (await page.locator('.dr-next').count()) await page.click('.dr-next');
     await page.waitForTimeout(80);
   }
@@ -87,7 +94,8 @@ const SR_STUB = () => {
     }
     start() {
       setTimeout(() => {
-        const target = (document.querySelector('.dr-target .dr-en')?.textContent || '').replace(/^🔊\s*/, '');
+        // M2 역할극: 목표 영어는 녹음 직전 2초 플래시(.rs-flash.on)로만 보인다 — 관찰해 둔 마지막 플래시 문장을 그대로 말한다
+        const target = window.__lastFlash || '';
         this.onresult?.({ results: [[{ transcript: target }]] });
         this.onend?.();
       }, 60);
@@ -98,6 +106,10 @@ const SR_STUB = () => {
   // 최신 Chromium은 접두사 없는 SpeechRecognition도 있다 — 둘 다 바꿔 끼운다
   window.webkitSpeechRecognition = SR;
   window.SpeechRecognition = SR;
+  new MutationObserver(() => {
+    const f = document.querySelector('.rs-flash.on');
+    if (f && f.textContent.trim() && f.textContent.trim() !== '…') window.__lastFlash = f.textContent.trim();
+  }).observe(document, { subtree: true, childList: true, characterData: true });
 };
 {
   const { ctx, page } = await ctxPage({ va_placed: TODAY_PLACED, va_drama_mute: true, va_drama_auto: false });
@@ -106,15 +118,26 @@ const SR_STUB = () => {
   await page.waitForSelector('.fg-cta', { timeout: 15000 });
   await page.click('.fg-cta');
   await page.waitForSelector('.dr-log', { timeout: 15000 });
-  for (let g = 0; g < 40 && !(await page.locator('.dr-mic').count()); g++) {
+  // M2 이후 따라 말하기(SpeakStep)는 역할극(RoleStep)이 됐다 — 키가 없으면 Web Speech 경로로 듣기→플래시 뒤 '자동으로' 녹음한다
+  // (예전처럼 🎙를 먼저 누르지 않는다). 섀도잉(마이크 없음 → 자기확인)은 ✓로 넘기고 태오 대사 결과 카드까지 간다.
+  const t3 = Date.now();
+  while (Date.now() - t3 < 60000 && !(await page.locator('.dr-act[data-mode=role] .rs-result').count())) {
     if (await page.locator('.dr-act .dr-opt').count()) await page.locator('.dr-act .dr-opt').first().click();
+    else if (await page.locator('.dr-act[data-mode=shadow] .rs-self-ok').count()) await page.click('.dr-act .rs-self-ok');
+    else if (await page.locator('.dr-act[data-mode=shadow] .rs-next').count()) await page.click('.dr-act .rs-next');
     if (await page.locator('.dr-next').count()) await page.click('.dr-next');
     await page.waitForTimeout(80);
   }
-  check('키 없어도 따라 말하기에 🎙가 있다(브라우저 받아쓰기)', (await page.locator('.dr-mic').count()) === 1);
-  await page.click('.dr-mic');
+  check('키 없어도 태오 대사는 브라우저 받아쓰기로 채점(경로 webspeech)', (await page.getAttribute('.dr-act[data-mode=role]', 'data-path').catch(() => '')) === 'webspeech');
   await page.waitForSelector('text=내가 한 말', { timeout: 5000 });
-  check('받아쓴 말과 일치도 피드백', await page.evaluate(() => document.body.innerText.includes('거의 똑같이')));
+  check('받아쓴 말과 일치도 피드백', await page.evaluate(() => {
+    const r = document.querySelector('.dr-act[data-mode=role] .rs-result');
+    const score = Number(r?.querySelector('.rs-score b')?.textContent.replace(/\D/g, '') || 0);
+    return score >= 90 && !r.querySelector('.rs-w.bad') && !!r.querySelector('.rs-msg')?.textContent.trim();
+  }));
+  // 역할극 결과는 '다음 ▶'으로 대사를 마칠 때 기록된다
+  await page.click('.dr-act[data-mode=role] .rs-next');
+  await page.waitForTimeout(300);
   check('말한 문장 수에 센다', await page.evaluate(() => (JSON.parse(localStorage.getItem('va_spoken') || '{}').count || 0) >= 1));
   await ctx.close();
 }
@@ -128,8 +151,11 @@ const SR_STUB = () => {
   await page.waitForSelector('.fg-cta', { timeout: 15000 });
   await page.click('.fg-cta');
   await page.waitForSelector('.dr-log', { timeout: 15000 });
-  for (let g = 0; g < 40 && !(await page.locator('button:has-text("소리 내어 말했어요")').count()); g++) {
+  // 섀도잉(M2)은 상대 대사를 다 들은 뒤에 자기확인 버튼이 뜬다 — 반복 횟수가 아니라 시간으로 기다린다
+  for (const t4 = Date.now(); Date.now() - t4 < 30000 && !(await page.locator('button:has-text("소리 내어 말했어요")').count()); ) {
     if (await page.locator('.dr-act .dr-opt').count()) await page.locator('.dr-act .dr-opt').first().click();
+    // 마이크 자동 시작이 실패하면(헤드리스) 🎙 한 번 더 → 그래도 안 되면 자기확인(역할극 설계)
+    else if (await page.locator('.dr-act[data-phase=idle] .rs-mic').count()) await page.click('.dr-act .rs-mic');
     if (await page.locator('.dr-next').count()) await page.click('.dr-next');
     await page.waitForTimeout(80);
   }
