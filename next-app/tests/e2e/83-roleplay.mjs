@@ -196,6 +196,8 @@ async function drive(page, onRole, { budgetMs = 240000, wrong = false } = {}) {
   // 리뷰 A2: 역할극(말하기)은 이해도(듣기)와 분리 — 이해도는 고르기 1 + 뜻 1(둘 다 정답)뿐
   check('역할극은 이해도에 합산하지 않는다(고르기 1 + 뜻 1 = 100%)', /이해도 100%/.test(endText), endText.match(/이해도 \d+%/)?.[0]);
   check('엔딩에 발화 요약(재소환 포함 5 · 통과 4)', /발화 5 · 통과 4/.test(endText));
+  // 변경점 점검: 엔딩 불꽃 줄은 홈과 같은 규칙 — 발화 5 < 목표(첫 14일 10)면 '켜졌어요'가 아니라 남은 문장 수
+  check('엔딩 불꽃 = 홈 규칙(목표 전이면 🕯️ 남은 문장)', !endText.includes('불꽃이 켜졌어요') && /🕯️ 발화 \d+\/\d+ — \d+문장만 더/.test(endText), endText.match(/(🔥|🕯️)[^\n]*/)?.[0]);
   const st = await page.evaluate(() => ({
     log: JSON.parse(localStorage.getItem('va_attempt_log') || '[]'),
     disputes: JSON.parse(localStorage.getItem('va_dispute_log') || '[]'),

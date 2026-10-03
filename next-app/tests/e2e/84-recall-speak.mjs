@@ -194,5 +194,26 @@ async function waitRecall(page, n) {
   await ctx.close();
 }
 
+/* 변경점 점검: 그날 첫 방문 — 홈 카드가 정산 전 기본값(10)이 아니라 실제 목표(시작 15일차+ → 20)를 보인다 */
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await ctx.newPage();
+  await page.addInitScript(() => {
+    const d = (n) => { const x = new Date(Date.now() - n * 86400000); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+    localStorage.setItem('va_onboarded', 'true');
+    localStorage.setItem('va_placed', JSON.stringify({ cefr: 'A2', gse: 30, ts: Date.now() }));
+    localStorage.setItem('va_days', JSON.stringify([d(20), d(1)]));
+    localStorage.setItem('va_drama', JSON.stringify({ done: { 1: d(1) }, score: { 1: 80 } }));
+    // 키가 있어야 15일차부터 20 — 키 없는 학습자는 스스로 확인만 가능해 목표가 10으로 고정이다(설계)
+    localStorage.setItem('va_groq_key', JSON.stringify('gsk_test_key'));
+  });
+  await page.route('**/app/api/tts*', (r) => r.fulfill({ status: 404, body: '{}' }));
+  await page.goto(`${BASE}/app`);
+  await page.waitForSelector('.dr-card', { timeout: 15000 });
+  const ok = await page.waitForFunction(() => /발화\s*\d+\s*\/\s*20/.test(document.querySelector('.dr-card')?.textContent || ''), null, { timeout: 8000 }).then(() => true).catch(() => false);
+  check('그날 첫 방문에도 홈 카드 목표 = 실제 목표(20)', ok, await page.evaluate(() => (document.querySelector('.dr-card')?.textContent || '').match(/발화\s*\d+\s*\/\s*\d+/)?.[0]));
+  await ctx.close();
+}
+
 await browser.close();
 finish('84-recall-speak');

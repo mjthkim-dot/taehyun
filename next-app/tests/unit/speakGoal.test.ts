@@ -244,6 +244,8 @@ describe("homeLite — dramaPlan 'speak'·'ladder', 발화 줄", () => {
     expect(dramaPlan().kind).toBe('replay');
   });
   test("키 없이 원고를 다 보면 'ladder' 0.9 → 1.0 → 1.2(이해도 60% 이상만 오른다), 3단 통과 = 귀 뚫림", () => {
+    // 시청을 0일째에 고정 — 실제 시계로 기록하면 실제 오늘이 START+2와 같은 날(2026-10-03) '오늘 본 것'이 되어 실패했다
+    at(0);
     for (const e of eps) completeEpisode(e, 80, 3);
     at(2);
     const p = dramaPlan();
@@ -263,6 +265,7 @@ describe("homeLite — dramaPlan 'speak'·'ladder', 발화 줄", () => {
     expect(ladderState(no)).toMatchObject({ step: 0, done: false }); // 다음 날은 처음부터
   });
   test("발화 줄 — 점 4개(키 없는 8일차+는 '다시 듣기'), 반불꽃", () => {
+    at(0); // 날짜에 따라 결과가 바뀌지 않게(위 사다리 테스트와 같은 이유)
     completeEpisode(eps[0], 90, 3);
     let l = speakLine();
     expect(l.dots.map((d) => d.label)).toEqual(['에피소드', '리텔', '회상', '회화']);

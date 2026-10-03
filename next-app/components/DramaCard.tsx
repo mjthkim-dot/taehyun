@@ -16,7 +16,7 @@
  * M4 하루 조절: 카드를 길게 누르거나 '⋯'(키보드)로 DayModeSheet([오늘은 5분만] [조용히 모드]) — 시트는 dynamic()이라
  * 홈 첫 청크에 dayGovernor가 실리지 않는다. 배너는 homeLite.bannerFor(dayLite()) 하나만(복귀 첫날 자동이 최우선).
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { Mode } from './NavBar';
 import { primeAudio } from './SpeakButton';
@@ -75,6 +75,12 @@ export default function DramaCard({ onNavigate }: { onNavigate: (m: Mode) => voi
   const { plan } = st;
   // M4 하루 모드 시트 — 길게 누르기(터치) 또는 '⋯' 버튼(키보드). 길게 누른 뒤의 click은 버튼에 닿지 않게 삼킨다
   const [sheet, setSheet] = useState(false);
+  // 그날 첫 방문 — 불꽃(StreakFlame)이 발화 목표를 정산하면 새 목표로 다시 계산
+  useEffect(() => {
+    const f = () => setSt(compute());
+    window.addEventListener('va:goal', f);
+    return () => window.removeEventListener('va:goal', f);
+  }, []);
   const press = useRef<{ t: ReturnType<typeof setTimeout> | null; fired: boolean }>({ t: null, fired: false });
   const cancelPress = () => {
     if (press.current.t) clearTimeout(press.current.t);

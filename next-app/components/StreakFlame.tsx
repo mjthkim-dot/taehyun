@@ -65,6 +65,8 @@ export default function StreakFlame({ refreshKey = 0 }: { refreshKey?: number })
   useEffect(() => {
     try {
       speakGoal(); // 하루가 바뀌었으면 연속일·가산 정산(첫 14일 10 → 20 …) — 아래 flameState가 새 목표를 읽게
+      // 홈 드라마 카드는 정산 전에 이미 그려졌다 — 새 목표로 다시 그리게 알린다(첫 방문 '0/10'인데 실제 목표 20이던 문제)
+      window.dispatchEvent(new Event('va:goal'));
     } catch {
       /* 저장소 오류는 불꽃 표시를 막지 않는다 */
     }

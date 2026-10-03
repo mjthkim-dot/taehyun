@@ -43,6 +43,7 @@ import { BACK_EVENT, calcStreak, gradeWeakItem, groqKey, load, slowRate, store }
 import { browserSttAvailable } from '../lib/browserStt';
 import { advanceLadder, DRAMA_REQ_KEY, markDramaPracticeToday, setDramaPlaying, type DramaRequest, type LadderPlan } from '../lib/homeLite';
 import { speakGoal } from '../lib/speakGoal';
+import { flameState } from '../lib/streak';
 import { whisperAvailable } from '../lib/stt';
 import { isOn } from '../lib/flags';
 import { todayKey } from '../lib/dates';
@@ -227,6 +228,22 @@ function initialSpeed(): number {
 /** 같은 말풍선을 두 번 누르면 — 지금 속도보다 한 단계 더 느리게(최저 0.55) */
 const slowerOf = (speed: number) => Math.max(0.55, Math.min(slowRate(), speed - 0.25)) * SPEED_BASE;
 
+
+/**
+ * 엔딩의 불꽃 한 줄 — 홈 불꽃과 같은 규칙(lib/streak.flameState). 집중 모드는 발화 목표에 닿아야 켜진다:
+ * 예전엔 연속일만 보고 늘 '켜졌어요'라고 해서, 홈의 '15문장만 더'와 엇갈렸다.
+ */
+function FlameLine({ streak }: { streak: number }) {
+  const f = flameState();
+  if (f.level === 'lit') return <p className="dr-flame">🔥 오늘 불꽃이 켜졌어요 · 연속 {streak}일</p>;
+  if (!f.focus) return null;
+  const left = Math.max(1, Math.ceil(f.goal - f.spoken));
+  return (
+    <p className="dr-flame">
+      🕯️ 발화 {Math.floor(f.spoken)}/{f.goal} — {left}문장만 더 말하면 오늘 불꽃이 켜져요
+    </p>
+  );
+}
 
 /** 플레이어가 도는 장면 — 원고 장면 + 첫머리 복습(recall) + 엔딩 직전 재소환(recallInline, M2) */
 type PScene = Scene | ({ type: 'recall' } & RecallItem) | { type: 'recallInline'; idx: number; who: string; en: string; kr: string };
@@ -1335,7 +1352,7 @@ function Ending({
             )}
           </div>
         )}
-        {!retried && streak > 0 && <p className="dr-flame">🔥 오늘 불꽃이 켜졌어요 · 연속 {streak}일</p>}
+        {!retried && <FlameLine streak={streak} />}
         {!retried && growth && (
           <p className="dr-msg">
             🎯 듣기 {growth.next} 입증 {growth.n}/{PASSES_NEEDED} — 드라마의 {growth.next} 문항을 맞히면 쌓여요
@@ -1631,7 +1648,7 @@ export default function DramaScreen({ onNavigate }: { onNavigate?: (m: Mode) => 
             {reviewRes.total}개 중 {reviewRes.ok}개 기억했어요
           </h2>
           <p className="muted">맞힌 표현은 더 긴 간격으로, 헷갈린 표현은 내일 다시 물어볼게요.</p>
-          {streak > 0 && <p className="dr-flame">🔥 오늘 불꽃이 켜졌어요 · 연속 {streak}일</p>}
+          <FlameLine streak={streak} />
           <button type="button" className="btn primary dr-go" onClick={() => setView('hub')}>
             에피소드 목록으로
           </button>
