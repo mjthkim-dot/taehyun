@@ -1,5 +1,8 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /**
  * 영상(video) 탭 — voice-assistant/index.html 의 renderVideo() 포팅.
  * v1 범위: YouTube 영상 임베드 + IFrame API로 재생 위치 추적 + 자막 자동 수집
@@ -239,7 +242,7 @@ export default function VideoScreen() {
                   onClick={() => seekTo(seg)}
                   style={{
                     background: i === activeIdx ? 'var(--primary)' : 'var(--surface)',
-                    color: i === activeIdx ? '#fff' : 'var(--text)',
+                    color: i === activeIdx ? 'var(--on-primary)' : 'var(--text)',
                     border: '1px solid var(--border)',
                     borderRadius: 'var(--radius-sm)',
                     padding: '9px 12px',
@@ -252,7 +255,7 @@ export default function VideoScreen() {
                     <span style={{ flex: 1 }}>{seg.text}</span>
                     <button
                       className="tr-btn"
-                      style={{ flexShrink: 0, color: i === activeIdx ? '#fff' : undefined }}
+                      style={{ flexShrink: 0, color: i === activeIdx ? 'var(--on-primary)' : undefined }}
                       onClick={(e) => {
                         e.stopPropagation();
                         translateSeg(i, seg.text);

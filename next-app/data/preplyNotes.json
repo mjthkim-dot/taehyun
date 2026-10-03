@@ -1,0 +1,136 @@
+{
+  "source": "notion:영어 진옥 (36ebfa76-5996-8066-abdd-eb2ef6aa13f8)",
+  "snapshotAt": "2026-08-13",
+  "notes": [
+    {
+      "id": "preply-1",
+      "round": 1,
+      "date": "2026-05-28",
+      "title": "날짜 표현 · 발음 기초 · 현재 시제",
+      "grammar": [
+        "평서문: I/You/We/They + 동사원형 · She/He/It + 동사+s/es",
+        "부정문: don't / doesn't + 동사원형 (doesn't 뒤엔 s 제거)",
+        "의문문: Do/Does + 주어 + 동사원형? · 의문사 + Do/Does + 주어 + 동사?"
+      ],
+      "sentences": [
+        { "en": "Thursday, May 28, 2026.", "kr": "2026년 5월 28일 목요일. (요일 먼저, 날짜는 서수로)" },
+        { "en": "I grow while learning English and achieve my dreams.", "kr": "나는 영어를 배우며 성장하고 꿈을 이룬다. (학습 다짐문)" },
+        { "en": "She doesn't eat breakfast.", "kr": "그녀는 아침을 먹지 않는다." },
+        { "en": "What do you do on weekends?", "kr": "주말에 무엇을 하세요?" }
+      ],
+      "pron": ["복식호흡으로 깊은 소리 내기", "A: 아 소리 충분히 (apple, at, and)"],
+      "homework": ["긍정/부정/의문문 섞어 30문장 + 한글 버전 + 녹음 제출"],
+      "weakPoints": ["듣기는 되나 쓰기 약함", "감·눈치 해석 습관"]
+    },
+    {
+      "id": "preply-2",
+      "round": 2,
+      "date": "2026-06-03",
+      "title": "관사(a/an/the) · to부정사 · 과거 시제 도입",
+      "grammar": [
+        "a/an: 모음 발음 앞 an (an electronic shaver), 자음 앞 a · the: 특정 대상만",
+        "to + 동사원형 = ~하기 위해서",
+        "과거 부정문: didn't + 동사원형 · 의문문: Did + 주어 + 동사원형?"
+      ],
+      "sentences": [
+        { "en": "I went to Hi-Mart to buy an electronic shaver.", "kr": "전기면도기를 사러 하이마트에 갔다. (아버지 생일 선물)" },
+        { "en": "I didn't eat breakfast today.", "kr": "오늘 아침을 먹지 않았다." },
+        { "en": "I aim to improve my English.", "kr": "내 영어를 향상시키는 것을 목표로 한다." }
+      ],
+      "pron": [],
+      "homework": ["의문사 포함 한글/영어 30문장 녹음", "매일 쉐도잉 30분"],
+      "weakPoints": ["이해도 자가평가 60%"]
+    },
+    {
+      "id": "preply-3",
+      "round": 3,
+      "date": "2026-06-05",
+      "title": "과거⇄현재 전환 · 전치사 · look forward to",
+      "grammar": [
+        "과거⇄현재 전환 반복 훈련 (Does vs Did 구분)",
+        "look forward to + 명사/동명사(-ing) — to가 전치사라 -ing 필요",
+        "전치사는 통째로 외워 다회 노출 (on the weekend, on Sunday)"
+      ],
+      "sentences": [
+        { "en": "I am looking forward to meeting my friends.", "kr": "친구들을 만나는 것이 기대돼요." },
+        { "en": "I'm grateful for having nice weather.", "kr": "날씨가 좋아서 감사해요." },
+        { "en": "I voted early.", "kr": "사전투표를 했어요." }
+      ],
+      "pron": ["알파벳 A~I 사운드", "I: '에/이' 중간 소리 (is)"],
+      "homework": ["look forward to 문장 10개 작성·녹음"],
+      "weakPoints": ["Does vs Did 혼동", "의문사 뒤 디테일(장소·전치사) 보강 필요"]
+    },
+    {
+      "id": "preply-4",
+      "round": 4,
+      "date": "2026-06-10",
+      "title": "카페 주문 회화 · 리스닝 · 발음(A~J)",
+      "grammar": ["look forward to 복습", "카페 주문 표현 구조"],
+      "sentences": [
+        { "en": "Can I get one cappuccino?", "kr": "카푸치노 한 잔 주시겠어요?" },
+        { "en": "Medium, please. Hot, please.", "kr": "미디엄으로요. 뜨거운 걸로요." },
+        { "en": "Just milk, no sugar.", "kr": "우유만 넣고 설탕은 빼주세요." },
+        { "en": "I'm looking forward to sleeping in on Saturday morning.", "kr": "토요일 아침에 늦잠 자는 게 기대돼요. (sleep in = 푹 자다)" }
+      ],
+      "pron": ["F: 앞니 보이며 바람 강하게", "G: 혀 뒷부분을 입천장에", "study에 r 소리 섞이지 않게"],
+      "homework": ["looking forward to 11~20번 숙달", "카페 대화문 한→영 변환"],
+      "weakPoints": ["카페 듣기 이해도 70%"]
+    },
+    {
+      "id": "preply-5",
+      "round": 5,
+      "date": "2026-06-17",
+      "title": "미래 시제(be going to / gonna) · 카페 대화 심화",
+      "grammar": [
+        "평서문: I'm going to ~ (구어는 gonna) · 부정문: I'm not gonna ~",
+        "의문문: Are you gonna eat? · 의문사 + are you gonna ~?",
+        "현재완료 예고: It's been a while. How have you been?"
+      ],
+      "sentences": [
+        { "en": "I'm going to practice English every day.", "kr": "매일 영어를 연습할 거예요." },
+        { "en": "What are you gonna do this weekend?", "kr": "이번 주말에 뭐 할 거예요?" },
+        { "en": "It's been a while. How have you been?", "kr": "오랜만이에요. 어떻게 지내셨어요?" },
+        { "en": "I go to the gym for cardio.", "kr": "유산소 운동을 하러 헬스장에 가요. (cardio = 유산소)" }
+      ],
+      "pron": ["발음 체계 정리(A~J 누적)", "의문문 끝 올림 억양"],
+      "homework": ["미래 시제 30문장(영/한) 작성·녹음", "카페 대화 연습 녹음"],
+      "weakPoints": ["미래 시제 즉각 발화 속도 느림"]
+    },
+    {
+      "id": "preply-6",
+      "round": 6,
+      "date": "2026-07-13",
+      "title": "영어 인터뷰 준비 코칭 ①",
+      "grammar": ["인터뷰 구조: 아이스브레이킹 → 자기소개 → PT → Q&A"],
+      "sentences": [
+        { "en": "Let me briefly introduce myself.", "kr": "제 소개를 간단히 하겠습니다." },
+        { "en": "I work as an account manager at MegazoneCloud.", "kr": "메가존클라우드에서 어카운트 매니저로 일하고 있습니다." }
+      ],
+      "pron": ["크고 또렷하게 — 자신감 있는 발화 톤"],
+      "homework": ["자기소개 스크립트 작성"],
+      "weakPoints": ["자기소개 유창성"]
+    },
+    {
+      "id": "preply-7",
+      "round": 7,
+      "date": "2026-07-20",
+      "title": "영어 인터뷰 준비 코칭 ② — 아이스브레이킹 전략",
+      "grammar": [
+        "리크루터 1차 콜: 간단한 자기소개(현 직장·포지션) → 연봉 구조 협의",
+        "완벽한 영어보다 당당한 태도와 전문성이 더 중요하게 평가됨"
+      ],
+      "sentences": [
+        { "en": "English is not my first language.", "kr": "영어가 제 모국어는 아닙니다. (솔직하되 당당하게)" },
+        { "en": "Could you speak a little bit slowly, please?", "kr": "조금만 천천히 말씀해 주시겠어요? (쉽고 명확한 표현이 실전에 유리)" },
+        { "en": "I'm very interested in this company.", "kr": "이 회사에 관심이 많습니다." }
+      ],
+      "pron": ["다소곳한 어조는 자신감 부족으로 오해될 수 있음 — 크고 명확하게"],
+      "homework": [
+        "자기소개 녹음본 준비 후 선생님께 전송",
+        "새 지원 회사 버전 자기소개 스크립트 숙지",
+        "AI와 영어 음성 대화 연습 반복"
+      ],
+      "weakPoints": ["자기소개 매끄러움(준비 부족)", "발화 자신감"]
+    }
+  ]
+}

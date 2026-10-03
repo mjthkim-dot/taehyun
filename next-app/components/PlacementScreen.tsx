@@ -1,11 +1,23 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /**
  * CEFR 배치고사 — voice-assistant/index.html 의 renderPlacement()/gradePlacement() 포팅.
  * 18문항(A1~C2 각 3문항) 객관식으로 레벨을 추정하고 프로필/스킬 시작점을 설정한다.
  */
+import { isFocusMode } from '../lib/focus';
+import { requestDramaAutoplay } from '../lib/homeLite';
+import { primeAudio } from './SpeakButton';
+import type { Mode } from './NavBar';
+import { syncCefr } from '../lib/cefrGrowth';
 import { useState } from 'react';
-import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/lessons';
+import dynamic from 'next/dynamic';
+
+// M10 말하기 기준선 — 결과 화면에서만 필요하니 문항 화면 청크에 넣지 않는다(녹음·STT·저장소를 끌고 온다)
+const BaselineStep = dynamic(() => import('./BaselineStep'), { ssr: false });
+import { CEFR_GSE, CEFR_ORDER, type Cefr } from '../lib/cefr';
 import { getProfile, getSkillStats, saveProfile, scaffoldFor, SKILLS, store } from '../lib/state';
 
 const PLACEMENT_Q: { lv: Cefr; q: string; o: string[]; a: number }[] = [
@@ -44,7 +56,8 @@ interface Result {
   correct: number;
 }
 
-export default function PlacementScreen({ onDone }: { onDone?: () => void }) {
+export default function PlacementScreen({ onDone, onNavigate }: { onDone?: () => void; onNavigate?: (m: Mode) => void }) {
+  const focus = isFocusMode();
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [result, setResult] = useState<Result | null>(null);
 
@@ -78,6 +91,7 @@ export default function PlacementScreen({ onDone }: { onDone?: () => void }) {
     });
     store('va_skill_stats', stats);
     store('va_placed', { cefr: passed, gse, ts: Date.now() });
+    syncCefr(); // 배치 결과가 4기능의 출발점(사전값)이 된다
 
     setResult({ cefr: passed, gse, correct: totalCorrect });
   }
@@ -88,21 +102,45 @@ export default function PlacementScreen({ onDone }: { onDone?: () => void }) {
         <div className="study-card" style={{ textAlign: 'center', border: '1px solid var(--primary)', padding: 22 }}>
           <div className="muted" style={{ fontSize: '0.8rem' }}>당신의 추정 레벨</div>
           <div style={{ fontSize: '2.6rem', fontWeight: 900, color: 'var(--primary-light)', margin: '4px 0' }}>{result.cefr}</div>
-          <div className="muted" style={{ fontSize: '0.82rem' }}>
-            GSE {result.gse} · {CEFR_LABEL[result.cefr]}
-          </div>
+          {/* GSE 숫자는 뺐다 — 레벨 카드의 GSE(입증 진척 기반)와 계산이 달라 화면마다 숫자가 달랐다 */}
+          <div className="muted" style={{ fontSize: '0.82rem' }}>{CEFR_LABEL[result.cefr]}</div>
           <div style={{ fontSize: '0.78rem', marginTop: 8 }}>
             정답 {result.correct} / {PLACEMENT_Q.length}
           </div>
         </div>
-        <div className="study-card" style={{ fontSize: '0.82rem', lineHeight: 1.7 }}>
-          <b>다음 단계 추천</b>
-          <br />
-          📖 레슨 로드맵에서 <b style={{ color: 'var(--primary-light)' }}>{result.cefr}</b> 유닛부터 시작
-          <br />
-          🎧 청해 · 📖 독해 · ✍️ 작문도 {result.cefr} 레벨로 자동 설정됨
-        </div>
-        <button className="start-drill-btn" onClick={onDone}>📖 내 레벨 로드맵 보기 →</button>
+        {/* M10 — 마지막 한 단계: 자유 발화로 말하기 레벨 보정(건너뛰기 가능) */}
+        <BaselineStep level={result.cefr} />
+        {focus ? (
+          // 집중 모드 — 숨긴 기능(레슨 로드맵·청해·독해)을 안내하지 않는다. 다음 할 일은 하나.
+          <div className="study-card" style={{ fontSize: '0.86rem', lineHeight: 1.7 }}>
+            <b>다음 단계</b>
+            <br />
+            이제 <b>드라마 1화(5분)</b>만 보면 첫날 학습이 끝나요.
+          </div>
+        ) : (
+          <div className="study-card" style={{ fontSize: '0.82rem', lineHeight: 1.7 }}>
+            <b>다음 단계 추천</b>
+            <br />
+            📖 레슨 로드맵에서 <b style={{ color: 'var(--primary-light)' }}>{result.cefr}</b> 유닛부터 시작
+            <br />
+            🎧 청해 · 📖 독해 · ✍️ 작문도 {result.cefr} 레벨로 자동 설정됨
+          </div>
+        )}
+        <button
+          className="start-drill-btn"
+          onClick={() => {
+            // 집중 모드: 홈을 한 번 더 거치지 않고 바로 1화 재생(탭 안이라 오디오도 언락된다)
+            if (focus && onNavigate) {
+              primeAudio();
+              requestDramaAutoplay();
+              onNavigate('drama');
+              return;
+            }
+            onDone?.();
+          }}
+        >
+          {focus ? '바로 1화 보기 →' : '📖 내 레벨 로드맵 보기 →'}
+        </button>
         <button
           className="btn"
           style={{ width: '100%', marginTop: 8 }}
@@ -130,27 +168,34 @@ export default function PlacementScreen({ onDone }: { onDone?: () => void }) {
 
       {PLACEMENT_Q.map((item, i) => (
         <div className="study-card" key={i}>
-          <div style={{ fontSize: '0.86rem', fontWeight: 700, marginBottom: 9 }}>
-            <span style={{ color: 'var(--primary-light)' }}>Q{i + 1}.</span> {item.q}
+          <div id={`pl-q-${i}`} style={{ fontSize: '0.86rem', fontWeight: 700, marginBottom: 9 }}>
+            <span style={{ color: 'var(--primary)' }}>Q{i + 1}.</span> {item.q}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+          {/* 보기 = 라디오 그룹(스크린리더가 '선택됨'을 읽는다), 누르기 쉬운 48px 높이·10px 간격 */}
+          <div role="radiogroup" aria-labelledby={`pl-q-${i}`} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {item.o.map((opt, j) => {
               const on = answers[i] === j;
               return (
                 <button
                   key={j}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
                   onClick={() => pick(i, j)}
                   style={{
                     textAlign: 'left',
-                    padding: '9px 11px',
-                    borderRadius: 8,
-                    fontSize: '0.82rem',
+                    minHeight: 48,
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    fontSize: '0.86rem',
                     cursor: 'pointer',
-                    border: `1px solid ${on ? 'var(--primary)' : 'var(--border)'}`,
+                    border: `${on ? 2 : 1}px solid ${on ? 'var(--primary)' : 'var(--border)'}`,
                     background: on ? 'var(--primary)' : 'var(--surface2)',
-                    color: on ? '#fff' : 'var(--text)',
+                    color: on ? 'var(--on-primary)' : 'var(--text)',
+                    fontWeight: on ? 800 : 500,
                   }}
                 >
+                  {on ? '✓ ' : ''}
                   {opt}
                 </button>
               );

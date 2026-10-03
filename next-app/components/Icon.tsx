@@ -5,7 +5,7 @@
  * 이모지 대신 쓴다. stroke=currentColor 라 글자색을 따라가 라이트/다크·활성 상태에
  * 자동으로 맞춰지고, 플랫폼마다 다른 이모지 렌더링 편차도 없앤다.
  */
-export type IconName = 'home' | 'lesson' | 'drill' | 'talk' | 'more';
+export type IconName = 'home' | 'lesson' | 'words' | 'drill' | 'talk' | 'more';
 
 const PATHS: Record<IconName, React.ReactNode> = {
   home: (
@@ -19,6 +19,13 @@ const PATHS: Record<IconName, React.ReactNode> = {
     <>
       <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v15H5.5A1.5 1.5 0 0 0 4 20.5Z" />
       <path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v15h5.5a1.5 1.5 0 0 1 1.5 1.5Z" />
+    </>
+  ),
+  words: (
+    <>
+      <rect x="4" y="6" width="12" height="14" rx="2.2" />
+      <path d="M8 4h9.5A2.5 2.5 0 0 1 20 6.5V16" />
+      <path d="M7.5 11h5M7.5 14.5h3.5" />
     </>
   ),
   drill: (

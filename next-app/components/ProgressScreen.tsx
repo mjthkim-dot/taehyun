@@ -1,12 +1,18 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /**
  * 진도(progress) 화면 — voice-assistant/index.html 의 renderProgress() /
  * cafDashboardHtml() / weeklyReportHtml() 포팅. 미션 관련 통계는
  * MISSIONS 데이터가 아직 이전되지 않아 이번 단계에서는 제외했다.
  */
+import DramaProgress from './DramaProgress';
+import DailyQuests from './DailyQuests';
 import { useEffect, useState } from 'react';
-import { LESSONS, lessonLabel, gseToCefr } from '../lib/lessons';
+import { lessonLabel, gseToCefr } from '../lib/cefr';
+import { useLessons } from '../lib/lessonData';
 import { MASTER_CURRICULUM } from '../lib/curriculum';
 import {
   getProfile,
@@ -17,11 +23,20 @@ import {
   weeklyCounts,
   scaffoldFor,
   CEFR_GSE,
-  DAILY_GOAL,
+  dailyGoal,
   load,
   SKILLS,
 } from '../lib/state';
 import { CountUp, RadarChart, GaugeRing } from './Charts';
+import TrainingDashboard from './TrainingDashboard';
+import WeeklyReport from './WeeklyReport';
+import type { Mode } from './NavBar';
+import { isFocusMode } from '../lib/focus';
+import { dramaDueCount, dramaWatchedCount, requestDrama } from '../lib/homeLite';
+import { STRAND_TARGET, strandLine } from '../lib/dayGovernor';
+import dynamic from 'next/dynamic';
+import SoundAxisCard from './progress/SoundAxisLazy'; // M9 소리 축 TOP3(dynamic)
+const SpeakingSection = dynamic(() => import('./progress/SpeakingSection'), { ssr: false }); // M10 말하기 섹션
 
 interface CafSession {
   date: number;
@@ -29,12 +44,92 @@ interface CafSession {
   caf: { complexity: number; accuracy: number; fluency: number };
 }
 
-export default function ProgressScreen() {
+export default function ProgressScreen({ onNavigate, onSelectLesson }: { onNavigate?: (m: Mode) => void; onSelectLesson?: (id: number) => void } = {}) {
   const [ready, setReady] = useState(false);
+  /**
+   * 주간 리포트는 한 프레임 늦게 채운다. 이 화면에서 가장 무거운 서브트리라
+   * (측정: 중급 폰 근사에서 첫 커밋 ~1초) 함께 그리면 화면 전체가 그만큼 늦게
+   * 뜬다. 통계 카드·진도 막대를 먼저 보여주고, 리포트는 바로 다음 프레임에
+   * 이어 그린다 — 전체 작업량은 같지만 사용자는 화면을 두 배 빨리 본다.
+   */
+  const [showReport, setShowReport] = useState(false);
+  // 집중 모드엔 드릴·미션·코스가 없다 — 그 기록(전부 0)은 접어 두고 드라마 중심으로 보여 준다
+  const [focus] = useState(() => isFocusMode());
+  const [showAll, setShowAll] = useState(false);
 
-  useEffect(() => setReady(true), []);
+  useEffect(() => {
+    setReady(true);
+    const raf = requestAnimationFrame(() => setShowReport(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
   if (!ready) return null;
 
+  return (
+    <div className="study-screen">
+      {/* 오늘의 퀘스트·XP — 홈에서 옮겨 왔다(홈은 레슨 하나에 집중) */}
+      <DramaProgress />
+      {/* M4 Four Strands 한 줄 — 입력은 상호작용이 있던 재생만 센다(권장 40/35/15/10) */}
+      {(() => {
+        const sl = strandLine(7);
+        return sl ? (
+          <p className="dg-strand muted" aria-label={`${sl.text} — 권장 입력 ${STRAND_TARGET.input} 산출 ${STRAND_TARGET.output} 유창성 ${STRAND_TARGET.fluency} 형식 ${STRAND_TARGET.form}%`}>
+            ⚖️ {sl.text} <span className="dg-strand-target">(권장 {STRAND_TARGET.input}/{STRAND_TARGET.output}/{STRAND_TARGET.fluency}/{STRAND_TARGET.form})</span>
+          </p>
+        ) : null;
+      })()}
+      <SpeakingSection />
+      <DailyQuests />
+      <SoundAxisCard />
+      {focus && !showAll ? (
+        <>
+          <div className="stat-grid">
+            <div className="stat-card">
+              <div className="num">
+                <CountUp value={calcStreak()} />
+              </div>
+              <div className="lbl">연속 학습일 🔥</div>
+            </div>
+            <div className="stat-card">
+              <div className="num">
+                <CountUp value={dramaWatchedCount()} />
+              </div>
+              <div className="lbl">본 에피소드</div>
+            </div>
+            {/* 떠올릴 표현 — 누르면 바로 표현 복습(예전엔 숫자만 있고 풀 곳이 없었다) */}
+            <button
+              type="button"
+              className="stat-card stat-btn"
+              onClick={() => {
+                requestDrama({ kind: 'review' });
+                onNavigate?.('drama');
+              }}
+              aria-label={`떠올릴 표현 ${dramaDueCount()}개 — 눌러서 복습`}
+            >
+              <div className="num">
+                <CountUp value={dramaDueCount()} />
+              </div>
+              <div className="lbl">떠올릴 표현 · 복습 ›</div>
+            </button>
+          </div>
+          <button type="button" className="btn ghost more-mode" onClick={() => setShowAll(true)}>
+            전체 학습 기록 보기(드릴·회화·코스)
+          </button>
+        </>
+      ) : (
+        <FullProgress onNavigate={onNavigate} onSelectLesson={onSelectLesson} showReport={showReport} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * 전체 기록 — 레슨 데이터(199KB)가 필요하다. 집중 모드는 이걸 접어 두므로 펼칠 때만 받는다
+ * (오프라인에서도 집중 모드 진도가 열리게, 감사 v1.31 견고성 #2).
+ */
+function FullProgress({ onNavigate, onSelectLesson, showReport }: { onNavigate?: (m: Mode) => void; onSelectLesson?: (id: number) => void; showReport: boolean }) {
+  const lessons = useLessons();
+  if (!lessons) return <div className="screen-loading" aria-hidden="true" />;
+  const { LESSONS } = lessons;
   const stats = getLessonStats();
   const totalAttempts = Object.values(stats).reduce((s, v) => s + v.attempts, 0);
   const totalCorrect = Object.values(stats).reduce((s, v) => s + v.correct, 0);
@@ -46,11 +141,24 @@ export default function ProgressScreen() {
   const band = CEFR_GSE[profile.cefr] || CEFR_GSE.A2;
   const week = weeklyCounts();
   const weekTotal = week.reduce((s, d) => s + d.count, 0);
-  const weekMax = Math.max(DAILY_GOAL, ...week.map((d) => d.count));
+  // 목표선은 사용자가 고른 하루 목표(온보딩)를 쓴다 — 상수 20이 아니라
+  const goal = dailyGoal();
+  const weekMax = Math.max(goal, ...week.map((d) => d.count));
   const activeDays = week.filter((d) => d.count > 0).length;
 
-  return (
-    <div className="study-screen">
+
+    return (
+      <>
+      {/* 훈련 대시보드 — "늘고 있나"가 이 화면의 첫 질문이므로 맨 위.
+          시도 로그 기반의 정확도·입 트임 추이와 약점·실전 사용 */}
+      <TrainingDashboard onNavigate={onNavigate ?? (() => {})} />
+
+      {showReport ? (
+        <WeeklyReport onNavigate={onNavigate} onSelectLesson={onSelectLesson} />
+      ) : (
+        <div className="screen-loading" aria-hidden="true" />
+      )}
+
       <div className="stat-grid">
         <div className="stat-card">
           <div className="num"><CountUp value={calcStreak()} /></div>
@@ -151,12 +259,12 @@ export default function ProgressScreen() {
       <div className="caf-wrap">
         <h3>📅 주간 리포트</h3>
         <div className="caf-sub">
-          최근 7일 동안 <b style={{ color: 'var(--text)' }}>{weekTotal}문장</b> 연습 · {activeDays}일 활동 · 목표선 {DAILY_GOAL}/일
+          최근 7일 동안 학습 활동 <b style={{ color: 'var(--text)' }}>{weekTotal}회</b> · {activeDays}일 활동 · 목표선 {goal}/일
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 100, marginTop: 8, borderBottom: '1px solid var(--border)', paddingBottom: 2 }}>
           {week.map((d, i) => {
             const h = Math.round((d.count / weekMax) * 70) + 2;
-            const reached = d.count >= DAILY_GOAL;
+            const reached = d.count >= goal;
             const color = reached ? 'var(--green)' : d.today ? 'var(--primary-light)' : 'var(--primary)';
             return (
               <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
@@ -225,8 +333,8 @@ export default function ProgressScreen() {
           </div>
         );
       })}
-    </div>
-  );
+      </>
+    );
 }
 
 function CafBar({ name, val, color }: { name: string; val: number; color: string }) {

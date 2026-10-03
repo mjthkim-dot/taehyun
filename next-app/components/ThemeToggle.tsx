@@ -10,10 +10,11 @@ import { useEffect, useState } from 'react';
 
 type Theme = 'light' | 'dark';
 
-const THEME_COLOR: Record<Theme, string> = { light: '#ff5a36', dark: '#15110e' };
+const THEME_COLOR: Record<Theme, string> = { light: '#fafaf8', dark: '#0a0c0e' };
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>('light');
+  // 기본은 Dark Studio — layout.tsx의 인라인 스크립트와 초기값을 맞춘다.
+  const [theme, setTheme] = useState<Theme>('dark');
 
   // 마운트 시 인라인 스크립트가 설정해 둔 실제 테마를 읽어 버튼 아이콘을 맞춘다.
   useEffect(() => {

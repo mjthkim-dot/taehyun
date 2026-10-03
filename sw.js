@@ -5,7 +5,7 @@
  * - 외부 CDN(모델/Groq 등)은 가로채지 않고 네트워크로 통과시킨다.
  * CACHE 버전을 올리면 이전 캐시는 activate 시 정리된다.
  */
-const CACHE = 'preply-coach-v4.72';
+const CACHE = 'preply-coach-v4.73';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
@@ -18,7 +18,9 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+      // 자기 캐시(preply-coach-*)만 정리한다 — 같은 도메인의 새 앱(/app, workbox 캐시)까지
+      // 지우면 그 앱이 오프라인에서 열리지 않게 된다.
+      Promise.all(keys.filter((k) => k.startsWith('preply-coach-') && k !== CACHE).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });
@@ -30,6 +32,9 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   // 외부 출처(CDN/Groq/HuggingFace 등)는 그대로 네트워크로.
   if (url.origin !== self.location.origin) return;
+  // 새 앱(/app)은 자기 서비스 워커가 따로 있다 — 가로채지 않는다
+  // (예전엔 첫 /app 방문 HTML을 '/' 키로 덮어써 옛 앱 오프라인 셸이 새 앱으로 바뀌었다).
+  if (url.pathname === '/app' || url.pathname.startsWith('/app/')) return;
 
   // 페이지 이동(HTML): 네트워크 우선, 오프라인이면 캐시 폴백.
   if (req.mode === 'navigate') {

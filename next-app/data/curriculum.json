@@ -1,70 +1,303 @@
 [
   {
-    "level": "A1", "name": "입문", "cefr": "CEFR A1", "status": "done",
+    "level": "A1",
+    "name": "입문",
+    "cefr": "CEFR A1",
+    "status": "done",
     "goal": "기초 표현으로 자기소개, 인사, 숫자, 날짜를 말할 수 있다.",
     "units": [
-      { "lessonId": 201, "title": "인사 & 자기소개", "sub": "Hello / Nice to meet you / My name is..." },
-      { "lessonId": 202, "title": "숫자 & 날짜", "sub": "1-100 / Monday-Sunday / What time is it?" },
-      { "lessonId": 203, "title": "관사 & 명사", "sub": "a book / an apple / the cat / my, your" },
-      { "lessonId": 204, "title": "be 동사 기초", "sub": "I am / You are / She is — 기초 문장" },
-      { "lessonId": 205, "title": "가족 & 묘사", "sub": "My family / tall, short / He looks like..." }
+      {
+        "lessonId": 201,
+        "title": "인사 & 자기소개",
+        "sub": "Hello / Nice to meet you / My name is..."
+      },
+      {
+        "lessonId": 202,
+        "title": "숫자 & 날짜",
+        "sub": "1-100 / Monday-Sunday / What time is it?"
+      },
+      {
+        "lessonId": 203,
+        "title": "관사 & 명사",
+        "sub": "a book / an apple / the cat / my, your"
+      },
+      {
+        "lessonId": 204,
+        "title": "be 동사 기초",
+        "sub": "I am / You are / She is — 기초 문장"
+      },
+      {
+        "lessonId": 206,
+        "title": "전치사 ① 시간 & 장소",
+        "sub": "at 7 / on Monday / in July · in·on·at 장소"
+      },
+      {
+        "lessonId": 205,
+        "title": "가족 & 묘사",
+        "sub": "My family / tall, short / He looks like..."
+      }
     ]
   },
   {
-    "level": "A2", "name": "초급", "cefr": "CEFR A2", "status": "current",
+    "level": "A2",
+    "name": "초급",
+    "cefr": "CEFR A2",
+    "status": "current",
     "goal": "일상 주제로 짧은 대화를 나누고, 과거·현재·미래 시제를 기본적으로 사용할 수 있다.",
     "units": [
-      { "id": "a2-1", "title": "현재 시제 & 발음", "sub": "I eat / She eats / Do you...?", "lessonId": 1 },
-      { "id": "a2-2", "title": "과거 시제 & 관사", "sub": "I went / Did you...? / a · an · the", "lessonId": 2 },
-      { "id": "a2-3", "title": "Looking Forward To", "sub": "looking forward to + -ing / 기대 표현", "lessonId": 3 },
-      { "id": "a2-4", "title": "카페 & 일상 회화", "sub": "Can I get...? / How have you been?", "lessonId": 4 },
-      { "id": "a2-5", "title": "현재 진행형 & 미래", "sub": "am/is/are + -ing / be going to / will", "lessonId": 101 },
-      { "id": "a2-6", "title": "빈도 부사", "sub": "always · usually · often / How often?", "lessonId": 102 },
-      { "id": "a2-7", "title": "식당 회화", "sub": "I'd like... / Could I get...? / The bill", "lessonId": 103 }
+      {
+        "id": "a2-1",
+        "title": "현재 시제 & 발음",
+        "sub": "I eat / She eats / Do you...?",
+        "lessonId": 1
+      },
+      {
+        "lessonId": 106,
+        "title": "발음 ① 강세 & 리듬",
+        "sub": "내용어 강세 / PREsent·preSENT / 억양 ↗↘"
+      },
+      {
+        "lessonId": 105,
+        "title": "의문문 & 부가의문문",
+        "sub": "What do you...? / did + 원형 / ..., isn't it?"
+      },
+      {
+        "id": "a2-2",
+        "title": "과거 시제 & 관사",
+        "sub": "I went / Did you...? / a · an · the",
+        "lessonId": 2
+      },
+      {
+        "lessonId": 104,
+        "title": "there is/are & 수량",
+        "sub": "There is/are / many·much / a few·some·any"
+      },
+      {
+        "id": "a2-3",
+        "title": "Looking Forward To",
+        "sub": "looking forward to + -ing / 기대 표현",
+        "lessonId": 3
+      },
+      {
+        "id": "a2-4",
+        "title": "카페 & 일상 회화",
+        "sub": "Can I get...? / How have you been?",
+        "lessonId": 4
+      },
+      {
+        "id": "a2-5",
+        "title": "현재 진행형 & 미래",
+        "sub": "am/is/are + -ing / be going to / will",
+        "lessonId": 101
+      },
+      {
+        "id": "a2-6",
+        "title": "빈도 부사",
+        "sub": "always · usually · often / How often?",
+        "lessonId": 102
+      },
+      {
+        "id": "a2-7",
+        "title": "식당 회화",
+        "sub": "I'd like... / Could I get...? / The bill",
+        "lessonId": 103
+      }
     ]
   },
   {
-    "level": "B1", "name": "중급", "cefr": "CEFR B1", "status": "future",
+    "level": "B1",
+    "name": "중급",
+    "cefr": "CEFR B1",
+    "status": "future",
     "goal": "여행, 경험, 의견을 현재 완료 & 조동사로 자신 있게 표현할 수 있다.",
     "units": [
-      { "lessonId": 301, "title": "현재 완료", "sub": "I have been to / Have you ever...?" },
-      { "lessonId": 302, "title": "비교급 & 최상급", "sub": "bigger / the biggest / as...as" },
-      { "lessonId": 303, "title": "조동사", "sub": "can, could, should, must, might" },
-      { "lessonId": 304, "title": "여행 & 길 찾기", "sub": "Where is...? / Turn left / Take the subway" },
-      { "lessonId": 305, "title": "경험 & 의견 말하기", "sub": "I think / In my opinion / I agree because..." }
+      {
+        "lessonId": 301,
+        "title": "현재 완료",
+        "sub": "I have been to / Have you ever...?"
+      },
+      {
+        "lessonId": 302,
+        "title": "비교급 & 최상급",
+        "sub": "bigger / the biggest / as...as"
+      },
+      {
+        "lessonId": 303,
+        "title": "조동사",
+        "sub": "can, could, should, must, might"
+      },
+      {
+        "lessonId": 306,
+        "title": "관계대명사 & 관계부사",
+        "sub": "who / which / that / where · 목적격 생략"
+      },
+      {
+        "lessonId": 307,
+        "title": "구동사 기초",
+        "sub": "pick up / turn it on / put off / come up with"
+      },
+      {
+        "lessonId": 308,
+        "title": "관사 심화",
+        "sub": "a designer / the report / by bus·무관사"
+      },
+      {
+        "lessonId": 309,
+        "title": "발음 ② 연음 & 축약",
+        "sub": "pick it up / gonna / -s·-ed 세 가지 소리"
+      },
+      {
+        "lessonId": 304,
+        "title": "여행 & 길 찾기",
+        "sub": "Where is...? / Turn left / Take the subway"
+      },
+      {
+        "lessonId": 305,
+        "title": "경험 & 의견 말하기",
+        "sub": "I think / In my opinion / I agree because..."
+      }
     ]
   },
   {
-    "level": "B2", "name": "중상급", "cefr": "CEFR B2", "status": "future",
+    "level": "B2",
+    "name": "중상급",
+    "cefr": "CEFR B2",
+    "status": "future",
     "goal": "가정법, 수동태, 간접화법을 사용하고 추상적 주제를 논의할 수 있다.",
     "units": [
-      { "lessonId": 401, "title": "가정법", "sub": "If I were you... / If I had known..." },
-      { "lessonId": 402, "title": "수동태", "sub": "It was made by... / This is being done" },
-      { "lessonId": 403, "title": "간접화법", "sub": "She said that / He told me to..." },
-      { "lessonId": 404, "title": "관용어 & 어휘 확장", "sub": "piece of cake / Under the weather" },
-      { "lessonId": 405, "title": "토론 & 의견 표현", "sub": "On the other hand / I strongly believe..." }
+      {
+        "lessonId": 406,
+        "title": "시제 심화",
+        "sub": "과거진행 / had + p.p. / have been -ing"
+      },
+      {
+        "lessonId": 401,
+        "title": "가정법",
+        "sub": "If I were you... / If I had known..."
+      },
+      {
+        "lessonId": 402,
+        "title": "수동태",
+        "sub": "It was made by... / This is being done"
+      },
+      {
+        "lessonId": 403,
+        "title": "간접화법",
+        "sub": "She said that / He told me to..."
+      },
+      {
+        "lessonId": 407,
+        "title": "전치사 ② 의존 전치사",
+        "sub": "interested in / depend on / discuss (about X)"
+      },
+      {
+        "lessonId": 408,
+        "title": "접속사 & 절 연결",
+        "sub": "because / although / so that / unless"
+      },
+      {
+        "lessonId": 409,
+        "title": "비교 심화",
+        "sub": "much faster / twice as ... as / the 비교급"
+      },
+      {
+        "lessonId": 404,
+        "title": "관용어 & 어휘 확장",
+        "sub": "piece of cake / Under the weather"
+      },
+      {
+        "lessonId": 405,
+        "title": "토론 & 의견 표현",
+        "sub": "On the other hand / I strongly believe..."
+      }
     ]
   },
   {
-    "level": "C1", "name": "고급", "cefr": "CEFR C1", "status": "future",
+    "level": "C1",
+    "name": "고급",
+    "cefr": "CEFR C1",
+    "status": "future",
     "goal": "복잡한 문법과 고급 어휘로 유창하게 발표하고 업무·학술 맥락에서 소통할 수 있다.",
     "units": [
-      { "lessonId": 501, "title": "동명사 & 부정사 뉘앙스", "sub": "stop to vs stop -ing / regret saying" },
-      { "lessonId": 502, "title": "고급 어휘 & 연어", "sub": "collocations / strong adjectives" },
-      { "lessonId": 503, "title": "발표 & 프레젠테이션", "sub": "Today I'd like to... / In conclusion" },
-      { "lessonId": 504, "title": "뉘앙스 & 화용론", "sub": "Hedging / Softening / To be honest" },
-      { "lessonId": 505, "title": "복합 담화 & 응집성", "sub": "Furthermore / Nevertheless / Cohesion" }
+      {
+        "lessonId": 501,
+        "title": "동명사 & 부정사 뉘앙스",
+        "sub": "stop to vs stop -ing / regret saying"
+      },
+      {
+        "lessonId": 506,
+        "title": "분사구문 & 명사절",
+        "sub": "Having reviewed... / What I mean is / whether"
+      },
+      {
+        "lessonId": 507,
+        "title": "도치 & 강조 구문",
+        "sub": "Not only did we... / It was ... that / do 강조"
+      },
+      {
+        "lessonId": 502,
+        "title": "고급 어휘 & 연어",
+        "sub": "collocations / strong adjectives"
+      },
+      {
+        "lessonId": 503,
+        "title": "발표 & 프레젠테이션",
+        "sub": "Today I'd like to... / In conclusion"
+      },
+      {
+        "lessonId": 504,
+        "title": "뉘앙스 & 화용론",
+        "sub": "Hedging / Softening / To be honest"
+      },
+      {
+        "lessonId": 505,
+        "title": "복합 담화 & 응집성",
+        "sub": "Furthermore / Nevertheless / Cohesion"
+      }
     ]
   },
   {
-    "level": "C2", "name": "원어민 수준", "cefr": "CEFR C2", "status": "future",
+    "level": "C2",
+    "name": "원어민 수준",
+    "cefr": "CEFR C2",
+    "status": "future",
     "goal": "원어민과 동등한 수준으로 모든 상황에서 자연스럽고 정확하게 소통할 수 있다.",
     "units": [
-      { "lessonId": 601, "title": "원어민 관용 표현", "sub": "I'm on the fence / Give it a shot" },
-      { "lessonId": 602, "title": "미묘한 어조 & 어감", "sub": "Formal vs Casual / Understatement" },
-      { "lessonId": 603, "title": "전문 분야 어휘", "sub": "Business / Technology / Medical terms" },
-      { "lessonId": 604, "title": "유머 & 은유", "sub": "Metaphors / Similes / Wordplay" },
-      { "lessonId": 605, "title": "문화 & 스몰토크", "sub": "Small talk / Brit vs American / Slang" }
+      {
+        "lessonId": 601,
+        "title": "원어민 관용 표현",
+        "sub": "I'm on the fence / Give it a shot"
+      },
+      {
+        "lessonId": 602,
+        "title": "미묘한 어조 & 어감",
+        "sub": "Formal vs Casual / Understatement"
+      },
+      {
+        "lessonId": 603,
+        "title": "전문 분야 어휘",
+        "sub": "Business / Technology / Medical terms"
+      },
+      {
+        "lessonId": 604,
+        "title": "유머 & 은유",
+        "sub": "Metaphors / Similes / Wordplay"
+      },
+      {
+        "lessonId": 605,
+        "title": "문화 & 스몰토크",
+        "sub": "Small talk / Brit vs American / Slang"
+      },
+      {
+        "lessonId": 606,
+        "title": "격식 문서체 & 레지스터",
+        "sub": "명사화 / postpone·establish / Yours sincerely"
+      },
+      {
+        "lessonId": 607,
+        "title": "완곡·헤징 & 협상 화법",
+        "sub": "suggests·tend to / I see your point, although..."
+      }
     ]
   }
 ]

@@ -1,5 +1,8 @@
 'use client';
 
+// 화면 전용 스타일 — 이 화면을 처음 열 때 함께 받는다(홈 첫 로딩의 렌더 차단 CSS에서 분리)
+import '../app/screens.css';
+
 /**
  * 암기 카드 — voice-assistant/index.html 의 flashState/renderFlashcards() 포팅.
  * 능동적 회상(active recall) + SRS 자가채점(다시/어려움/알맞음/쉬움)으로 복습 간격을 갱신한다.
@@ -8,6 +11,7 @@ import { useEffect, useState } from 'react';
 import {
   dueWeak,
   load,
+  weakItems,
   gradeWeakItem,
   markPracticedToday,
   SRS_MAX_BOX,
@@ -15,7 +19,8 @@ import {
   type WeakItem,
   type FlashGrade,
 } from '../lib/state';
-import { groqComplete, GroqError } from '../lib/groq';
+import { GroqError } from '../lib/groq';
+import { AI_FAIL_KO, groqKoJson, hasHangul } from '../lib/aiGuard';
 import { speakText } from './SpeakButton';
 
 type Scope = 'due' | 'all';
@@ -47,7 +52,7 @@ export default function FlashcardsScreen({ onExit }: { onExit: () => void }) {
   const [exampleLoading, setExampleLoading] = useState(false);
 
   function start(scope: Scope) {
-    const cards = (scope === 'all' ? load<WeakItem[]>('va_weak', []) : dueWeak()).filter((c) => c.en);
+    const cards = (scope === 'all' ? weakItems() : dueWeak()).filter((c) => c.en);
     setSession({ cards: shuffled(cards), idx: 0, flipped: false, again: [], total: cards.length, graded: 0, spoke: false });
     setExample(null);
   }
@@ -90,19 +95,26 @@ export default function FlashcardsScreen({ onExit }: { onExit: () => void }) {
   async function showExample(card: WeakItem) {
     setExampleLoading(true);
     try {
-      const sys = `You help a Korean learner memorize an English expression. Output ONLY JSON.`;
-      const user = `Expression: "${card.en}" (Korean meaning: "${card.kr || ''}").
-Return JSON: {"example":"one short natural English example sentence using it","exampleKr":"its Korean translation","tip":"a short Korean memory tip or association to remember it"}`;
-      const raw = await groqComplete([{ role: 'system', content: sys }, { role: 'user', content: user }], {
-        json: true,
-        maxTokens: 320,
-        temperature: 0.6,
-      });
-      const d = JSON.parse(raw);
-      setExample(JSON.stringify(d));
+      // 암기팁·번역은 학습자가 읽는 한국어 — 영어로 오면 groqKoJson이 한 번 다시 묻는다
+      const sys = `너는 한국인 학습자의 영어 표현 암기를 돕는 코치다. exampleKr과 tip은 반드시 한국어로 쓴다. Output ONLY JSON.`;
+      const user = `표현: "${card.en}" (한국어 뜻: "${card.kr || ''}").
+JSON으로 답하라: {"example":"이 표현을 쓴 짧고 자연스러운 영어 예문 1개","exampleKr":"그 예문의 한국어 번역","tip":"기억에 남게 도와줄 한국어 암기팁 한 줄"}`;
+      const d = await groqKoJson<{ example: string; exampleKr?: string; tip?: string }>(
+        [{ role: 'system', content: sys }, { role: 'user', content: user }],
+        { maxTokens: 320, temperature: 0.6 },
+        (data) => {
+          const o = data as { example?: unknown; exampleKr?: unknown; tip?: unknown } | null;
+          if (!o || typeof o.example !== 'string' || !o.example.trim()) return null;
+          // 팁·번역이 있는데 한국어가 아니면 응답을 버린다(드릴 코칭과 같은 사고 방지)
+          if (o.tip && !hasHangul(o.tip)) return null;
+          if (o.exampleKr && !hasHangul(o.exampleKr)) return null;
+          return { example: o.example.trim(), exampleKr: String(o.exampleKr || '').trim(), tip: String(o.tip || '').trim() };
+        }
+      );
+      setExample(JSON.stringify(d ?? { error: AI_FAIL_KO }));
     } catch (e) {
       setExample(
-        JSON.stringify({ error: e instanceof GroqError ? e.message : '예문 생성 실패: ' + String(e) })
+        JSON.stringify({ error: e instanceof GroqError ? e.message : AI_FAIL_KO })
       );
     } finally {
       setExampleLoading(false);
@@ -111,7 +123,7 @@ Return JSON: {"example":"one short natural English example sentence using it","e
 
   if (!session) {
     const due = dueWeak().length;
-    const total = load<WeakItem[]>('va_weak', []).filter((c) => c.en).length;
+    const total = weakItems().filter((c) => c.en).length;
     return (
       <div className="study-screen">
         <div className="study-card">
@@ -275,7 +287,8 @@ Return JSON: {"example":"one short natural English example sentence using it","e
               )}
               {exampleData?.error && <p style={{ fontSize: '0.78rem', color: 'var(--red)' }}>{exampleData.error}</p>}
             </div>
-            {!example && !exampleLoading && (
+            {/* 실패했을 때도 버튼을 남긴다 — 예전에는 에러 후 재시도 길이 없는 막다른 상태였다 */}
+            {(!example || exampleData?.error) && !exampleLoading && (
               <button className="btn" style={{ width: '100%', marginTop: 8 }} onClick={() => showExample(card)}>
                 💡 예문 · 암기팁 보기
               </button>
