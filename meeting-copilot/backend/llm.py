@@ -236,8 +236,10 @@ _thinkcfg_bad: set[str] = set()
 #   thinkingLevel:"minimal"을 받는다(1.23s·thoughts 0). gemini-flash-latest는 그 반대로
 #   thinkingLevel을 400으로 거부하고 thinkingBudget:128이 가장 빠르다(2.78s).
 #   아무것도 안 주면 생각이 무제한이라 7.8초~52초까지 튄다(실전 지연의 주범).
+#   실측(2026-10): gemini-3.8-flash가 minimal을 400으로 거부하기 시작했다 —
+#   budget 0·128·level low 모두 받고 첫 토큰 1.3~1.6초로 비슷하다.
 _THINK_TRY = [{"thinkingLevel": "minimal"}, {"thinkingBudget": 128},
-              {"thinkingBudget": 0}, None]
+              {"thinkingBudget": 0}, {"thinkingLevel": "low"}, None]
 _think_cfg: dict[str, dict | None] = {}
 # 고정 버전이 폐기되면(구글은 실제로 gemini-2.5-flash를 404로 내렸다) 별칭으로 자동
 # 전환한다 — 미팅 도중 전 기능이 멈추는 것보다 조금 느린 편이 낫다.
@@ -269,6 +271,35 @@ def _gemini_payload(messages, json_mode, temperature, max_tokens, mdl=""):
     return payload
 
 
+def http_body(e: urllib.error.HTTPError) -> str:
+    """오류 본문 — 한 번만 읽을 수 있어 예외 객체에 붙여 둔다(협상·기록·진단이 같이 쓴다)."""
+    if not hasattr(e, "_mc_body"):
+        try:
+            e._mc_body = e.read().decode("utf-8", "ignore")[:2000]
+        except Exception:  # noqa: BLE001
+            e._mc_body = ""
+    return e._mc_body
+
+
+def http_reason(e: urllib.error.HTTPError) -> str:
+    """사람이 읽을 사유 — 400은 키 무효·지역·파라미터 등 원인이 제각각이라 코드만으론 못 고친다."""
+    body = http_body(e)
+    try:
+        msg = json.loads(body)["error"]["message"]
+    except Exception:  # noqa: BLE001
+        msg = body
+    low = (msg or "").lower()
+    if "api key not valid" in low or "api_key_invalid" in body:
+        return "키가 올바르지 않음 — aistudio.google.com/apikey에서 새 키 복사"
+    if "expired" in low:
+        return "키 만료 — aistudio.google.com/apikey에서 새 키 발급"
+    if "location" in low and "not supported" in low:
+        return "이 지역에서 사용 불가"
+    if "billing" in low:
+        return "결제 설정 필요(AI Studio → Billing)"
+    return " ".join((msg or "").split())[:90]
+
+
 def _gemini_open(url_for, mdl, build):
     """build(mdl) → payload. thinkingConfig가 400이면 다음 후보로 내려가며 협상한다.
 
@@ -285,7 +316,8 @@ def _gemini_open(url_for, mdl, build):
                 mdl = _FALLBACK_MODEL[mdl]
                 continue
             cur = _think_cfg.get(mdl, _THINK_TRY[0])
-            if e.code != 400 or cur is None:
+            # 생각 설정 탓인 400만 협상한다 — 키 무효도 400이라 섞으면 사유가 가려진다
+            if e.code != 400 or cur is None or "think" not in http_body(e).lower():
                 raise
             try:
                 nxt = _THINK_TRY[_THINK_TRY.index(cur) + 1]
@@ -543,11 +575,7 @@ def _gw_attempts(ticket, name: str, fast: bool, fn):
             n5xx += 1
             continue
         except urllib.error.HTTPError as e:
-            body = ""
-            try:
-                body = e.read().decode("utf-8", "ignore")[:500]
-            except Exception:  # noqa: BLE001
-                pass
+            body = http_body(e)[:500]
             ra = _retry_after_of(e)
             gateway.record(ticket, e.code, body, ra, n429 + n5xx, t0)
             if e.code == 429:
@@ -802,8 +830,9 @@ def probe() -> list[dict]:
             _bad_until.pop(name, None)
             results.append({"name": name, "state": "ok", "detail": model_name() if provider() == name else ""})
         except urllib.error.HTTPError as e:
-            _mark_bad(name, f"HTTP {e.code}")
-            results.append({"name": name, "state": "차단/오류", "detail": f"HTTP {e.code}"})
+            why = f"HTTP {e.code}" + (f" {http_reason(e)}" if http_reason(e) else "")
+            _mark_bad(name, why)
+            results.append({"name": name, "state": "차단/오류", "detail": why})
         except Exception as e:  # noqa: BLE001
             _mark_bad(name, str(e)[:80])
             results.append({"name": name, "state": "연결 실패", "detail": str(e)[:80]})

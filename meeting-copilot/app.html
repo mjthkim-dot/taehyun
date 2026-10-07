@@ -3423,7 +3423,11 @@ async function bootData(){
     llmAlive = !(ls.length && !ls.some(p=>p.state==='ok'));
     if(!llmAlive){
       llmWhy = ls.map(p=>`${p.name}: ${p.detail||p.state}`).join(' · ');
-      $('#status-txt').innerHTML = `⚠️ 번역·제안 LLM 연결 불가 (${esc(llmWhy)}) — <b>cloud.cerebras.ai</b>에서 무료 키를 받아 넣어주세요`;
+      // 키가 있는데 실패한 공급자가 있으면 그 키부터 고치게 안내(새 키를 더 받으라는 말은 오해를 부른다)
+      const g = ls.find(p=>p.name==='gemini' && p.state!=='미설정');
+      $('#status-txt').innerHTML = `⚠️ 번역·제안 LLM 연결 불가 (${esc(llmWhy)}) — ` + (g
+        ? `Gemini 키를 확인하세요: <b>aistudio.google.com/apikey</b>에서 키를 다시 복사해 <code>export GEMINI_API_KEY=…</code> 후 재시작`
+        : `<b>aistudio.google.com/apikey</b>(Gemini) 또는 <b>cloud.cerebras.ai</b>에서 무료 키를 받아 넣어주세요`);
     }
     if(h.rag){ ragStat = h.rag; $('#status-rag').textContent = `📚 ${h.rag.total}`; }
   }catch{}

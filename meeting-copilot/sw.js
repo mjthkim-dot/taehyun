@@ -1,5 +1,5 @@
 // 앱 셸만 캐싱한다. 미팅 대화·번역은 절대 캐싱하지 않는다(민감 정보).
-const SHELL = 'mc-shell-v45';  // v6.6: 답변 은행(초안·검수)·예상 후속 선준비·따라 읽기·면접 복기
+const SHELL = 'mc-shell-v46';  // v6.6.1: Gemini 400 사유 표시·생각 설정 협상 보강
 const ASSETS = ['/app.html', '/app.webmanifest', '/pcm-worklet.js'];
 
 self.addEventListener('install', e => {
